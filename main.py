@@ -346,7 +346,7 @@ def test_x26x(test_dataset,name='x264'):
                 continue
             l = len(data)
                 
-            psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q)
+            psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q,*test_dataset._frame_size)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
@@ -390,7 +390,7 @@ def adjust_learning_rate(optimizer, epoch):
     
 ####### Load dataset
 train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(512,512))
 
 # optionaly try x264,x265
 test_x26x(test_dataset,'x264')
