@@ -336,7 +336,7 @@ def test_x26x(test_dataset,name='x264'):
     msssim_module = AverageMeter()
     ds_size = len(test_dataset)
     
-    for Q in [15,19,23,27]:
+    for Q in [27]:
         data = []
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
@@ -390,7 +390,7 @@ def adjust_learning_rate(optimizer, epoch):
     
 ####### Load dataset
 train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(512,512))
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
 test_x26x(test_dataset,'x264')
