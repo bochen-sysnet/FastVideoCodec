@@ -242,6 +242,9 @@ def train(epoch, model, train_dataset, optimizer):
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
+            
+        # clear input
+        data = []
     
 def test(epoch, model, test_dataset):
     pass
