@@ -331,13 +331,13 @@ def test(epoch, model, test_dataset):
         
 def test_x26x(test_dataset,name='x264'):
     print('Benchmarking:',name)
-    ba_loss_module = AverageMeter()
-    psnr_module = AverageMeter()
-    msssim_module = AverageMeter()
     ds_size = len(test_dataset)
     
-    for Q in [27]:
+    for Q in [15,19,23,27]:
         data = []
+        ba_loss_module = AverageMeter()
+        psnr_module = AverageMeter()
+        msssim_module = AverageMeter()
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             frame,eof = test_dataset[data_idx]
