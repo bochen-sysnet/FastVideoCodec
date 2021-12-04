@@ -275,7 +275,7 @@ def test(epoch, model, test_dataset):
     msssim_module = AverageMeter()
     all_loss_module = AverageMeter()
     batch_size = 7
-    ds_size = len(train_dataset)
+    ds_size = len(test_dataset)
     
     model.eval()
     
