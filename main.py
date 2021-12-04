@@ -28,12 +28,12 @@ class VideoDataset(Dataset):
         self._frame_size = frame_size
         self._total_frames = 0 # Storing file names in object 
         
-        self._num_files = len(self.__file_names)
         
         self.reset()
         
     def reset(self):
         self.get_file_names()
+        self._num_files = len(self.__file_names)
         self._curr_counter = 0
         self._frame_counter = -1 # Count the number of frames used per file
         self._file_counter = -1 # Count the number of files used
