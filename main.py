@@ -51,6 +51,7 @@ class VideoDataset(Dataset):
         # Get the next dataset if frame number is more than table count
         if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
             self.current_file = self.__file_names.pop() # get one filename
+            print("[log] Reading frames from", self.current_file) 
             cap = cv2.VideoCapture(self.current_file)
             # Check if camera opened successfully
             if (cap.isOpened()== False):
@@ -68,6 +69,8 @@ class VideoDataset(Dataset):
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
             self._frame_counter = 0
+            
+            print("[log] Reading completed from", self.current_file) 
         else:
             self._frame_counter+=1
         self._num_frames+=1
