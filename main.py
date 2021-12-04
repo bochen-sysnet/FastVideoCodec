@@ -77,7 +77,7 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     checkpoint = torch.load(RESUME_CODEC_PATH)
     BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
-    load_state_dict_all(model_codec, checkpoint['state_dict'])
+    load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
 else:
