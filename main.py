@@ -21,8 +21,6 @@ from tqdm import tqdm
 from models import get_codec_model,parallel_compression,update_training
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
-
-
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=(256,256)):
         self._dataset_dir = os.path.join(root_dir)
@@ -61,6 +59,7 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
+                print(ret, img.shape, self._frame_size, type(img))
                 img = img.resize(self._frame_size)
                 print(ret, img.shape)
                 self._clip.append(transforms.ToTensor()(img))
