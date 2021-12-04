@@ -60,14 +60,13 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
-                print(np.sum(img))
+                print(self._frame_counter,np.sum(img))
                 img = Image.fromarray(img)
                 img = img.resize(self._frame_size)
                 #img.save('test.jpg')
                 self._clip.append(transforms.ToTensor()(img))
-            if self._frame_counter == -1:
-                self._file_counter +=1
-                self._dataset_nums.append(len(self._clip))
+            self._file_counter +=1
+            self._dataset_nums.append(len(self._clip))
             self._frame_counter = 0
         else:
             self._frame_counter+=1
