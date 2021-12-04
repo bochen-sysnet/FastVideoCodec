@@ -21,71 +21,7 @@ from tqdm import tqdm
 from models import get_codec_model,parallel_compression
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
-# OPTION
-BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
-CODEC_NAME = 'SPVC'
-RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_best.pth'
-LEARNING_RATE = 0.0001
-WEIGHT_DECAY = 5e-4
-BEGIN_EPOCH = 1
-END_EPOCH = 10
 
-####### Check backup directory, create if necessary
-# ---------------------------------------------------------------
-if not os.path.exists(BACKUP_DIR):
-    os.makedirs(BACKUP_DIR)
-    
-####### Load dataset
-train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
-
-####### Create model
-seed = int(time.time())
-#seed = int(0)
-torch.manual_seed(seed)
-use_cuda = True
-if use_cuda:
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
-    torch.cuda.manual_seed(seed)
-
-# codec model .
-model = get_codec_model(CODEC_NAME)
-pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-
-####### Create optimizer
-# ---------------------------------------------------------------
-parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
-aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-# initialize best score
-best_score = 0 
-best_codec_score = [0,1]
-score = [0,1]
-
-####### Load yowo model
-# ---------------------------------------------------------------
-# try to load codec model 
-if CODEC_NAME in ['x265', 'x264', 'RAW']:
-    # nothing to load
-    print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SCVC']:
-    # load what exists
-    print("Load whatever exists for",CODEC_NAME)
-    pretrained_model_path = "/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth"
-    checkpoint = torch.load(pretrained_model_path)
-    load_state_dict_whatever(model_codec, checkpoint['state_dict'])
-    del checkpoint
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
-else:
-    print("Cannot load model codec", CODEC_NAME)
-print("===================================================================")
 
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=(256,256)):
@@ -184,6 +120,72 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+# OPTION
+BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
+CODEC_NAME = 'SPVC'
+RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_best.pth'
+LEARNING_RATE = 0.0001
+WEIGHT_DECAY = 5e-4
+BEGIN_EPOCH = 1
+END_EPOCH = 10
+
+####### Check backup directory, create if necessary
+# ---------------------------------------------------------------
+if not os.path.exists(BACKUP_DIR):
+    os.makedirs(BACKUP_DIR)
+    
+####### Load dataset
+train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
+
+####### Create model
+seed = int(time.time())
+#seed = int(0)
+torch.manual_seed(seed)
+use_cuda = True
+if use_cuda:
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
+    torch.cuda.manual_seed(seed)
+
+# codec model .
+model = get_codec_model(CODEC_NAME)
+pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
+
+####### Create optimizer
+# ---------------------------------------------------------------
+parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
+aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
+optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+# initialize best score
+best_score = 0 
+best_codec_score = [0,1]
+score = [0,1]
+
+####### Load yowo model
+# ---------------------------------------------------------------
+# try to load codec model 
+if CODEC_NAME in ['x265', 'x264', 'RAW']:
+    # nothing to load
+    print("No need to load for ", CODEC_NAME)
+elif CODEC_NAME in ['SCVC']:
+    # load what exists
+    print("Load whatever exists for",CODEC_NAME)
+    pretrained_model_path = "/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth"
+    checkpoint = torch.load(pretrained_model_path)
+    load_state_dict_whatever(model_codec, checkpoint['state_dict'])
+    del checkpoint
+elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH)
+    BEGIN_EPOCH = checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score']
+    load_state_dict_all(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'])
+    del checkpoint
+else:
+    print("Cannot load model codec", CODEC_NAME)
+print("===================================================================")
         
 def train(epoch, model, train_dataset, optimizer):
     aux_loss_module = AverageMeter()
