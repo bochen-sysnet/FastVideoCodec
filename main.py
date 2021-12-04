@@ -64,7 +64,8 @@ class VideoDataset(Dataset):
                 # skip black frames
                 if np.sum(img) == 0:continue
                 img = Image.fromarray(img)
-                img = img.resize(self._frame_size) if self._frame_size is not None
+                if self._frame_size is not None:
+                    img = img.resize(self._frame_size) 
                 self._clip.append(transforms.ToTensor()(img))
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
