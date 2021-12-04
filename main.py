@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from models import get_codec_model,parallel_compression
+from models import get_codec_model,parallel_compression,update_training
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 
