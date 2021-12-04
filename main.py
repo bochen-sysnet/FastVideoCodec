@@ -81,7 +81,7 @@ class VideoDataset(Dataset):
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
             # test with only 5 files
-            if len(self.__file_names)==1:break 
+            if len(self.__file_names)==2:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
