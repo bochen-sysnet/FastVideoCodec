@@ -28,16 +28,17 @@ class VideoDataset(Dataset):
         
         self.get_file_names() # Storing file names in object 
         
-        self._image = None 
         self._num_files = len(self.__file_names)
+        
+        self.reset()
+        
+    def reset(self):
         self._curr_counter = 0
         self._total_frames = 0
         self._sample_list = []
         self._frame_counter = -1 # Count the number of frames used per file
         self._file_counter = -1 # Count the number of files used
         self._dataset_nums = [] # Number of frames to be considered from each file (records+files)
-        self._dataset_itr = None # tfRecord iterator
-        self.num_sample = self._total_frames
         self._clip = [] # hold video frames
         self._frame_size = frame_size
         
@@ -370,6 +371,8 @@ def test_x26x(test_dataset,name='x264'):
             
         # clear input
         data = []
+        
+    test_dataset.reset()
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
@@ -393,6 +396,10 @@ def adjust_learning_rate(optimizer, epoch):
 train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
+# optionaly try x264,x265
+test_x26x(test_dataset,'x264')
+test_x26x(test_dataset,'x265')
+
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
     r = adjust_learning_rate(optimizer, epoch)
@@ -402,9 +409,8 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     #train(epoch, model, train_dataset, optimizer)
     
     print('testing at epoch %d' % (epoch))
-    #score = test(epoch, model, test_dataset)
+    score = test(epoch, model, test_dataset)
     
-    test_x26x(test_dataset)
 
     #state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
     #save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
