@@ -31,7 +31,6 @@ class VideoDataset(Dataset):
         self._image = None 
         self._num_files = len(self.__file_names)
         self._curr_counter = 0
-        self._num_frames = 0
         self._total_frames = 0
         self._sample_list = []
         self._frame_counter = -1 # Count the number of frames used per file
@@ -74,7 +73,6 @@ class VideoDataset(Dataset):
             print("[log] Reading completed from", self.current_file) 
         else:
             self._frame_counter+=1
-        self._num_frames+=1
         return self._clip[self._frame_counter],self._frame_counter==self._dataset_nums[self._file_counter]-1
         
     def get_file_names(self):
@@ -344,6 +342,7 @@ def test_x26x(test_dataset,name='x264'):
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
+        print(data_idx,eof,ds_size)
         data.append(frame)
         if not eof:
             continue
