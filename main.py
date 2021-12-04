@@ -81,7 +81,7 @@ class VideoDataset(Dataset):
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
             # test with only 5 files
-            if len(self.__file_names)==1:break 
+            if len(self.__file_names)==2:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -242,6 +242,26 @@ def train(epoch, model, train_dataset, optimizer):
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
+            
+        # show result
+        train_iter.set_description(
+            f"{data_idx:6}. "
+            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+
+        # save result every 1000 batches
+        if batch_idx % 10000 == 0: # From time to time, reset averagemeters to see improvements
+            loss_module.reset_meters()
+            img_loss_module.reset()
+            aux_loss_module.reset()
+            be_loss_module.reset()
+            all_loss_module.reset()
+            psnr_module.reset()
+            msssim_module.reset()    
             
         # clear input
         data = []
