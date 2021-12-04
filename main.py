@@ -254,7 +254,7 @@ def train(epoch, model, train_dataset, optimizer):
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
         # save result every 1000 batches
-        if batch_idx % 10000 == 0: # From time to time, reset averagemeters to see improvements
+        if data_idx % 10000 == 0 and data_idx>0: # From time to time, reset averagemeters to see improvements
             loss_module.reset_meters()
             img_loss_module.reset()
             aux_loss_module.reset()
