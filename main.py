@@ -25,6 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir)
+        self._frame_size = frame_size
         
         self.get_file_names() # Storing file names in object 
         
@@ -40,7 +41,6 @@ class VideoDataset(Dataset):
         self._file_counter = -1 # Count the number of files used
         self._dataset_nums = [] # Number of frames to be considered from each file (records+files)
         self._clip = [] # hold video frames
-        self._frame_size = frame_size
         
     @property
     def data(self):
