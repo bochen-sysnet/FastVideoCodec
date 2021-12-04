@@ -60,10 +60,10 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
+                print(np.sum(img))
                 img = Image.fromarray(img)
                 img = img.resize(self._frame_size)
-                img.save('test.jpg')
-                exit(0)
+                #img.save('test.jpg')
                 self._clip.append(transforms.ToTensor()(img))
             if self._frame_counter == -1:
                 self._file_counter +=1
@@ -82,7 +82,7 @@ class VideoDataset(Dataset):
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
             # test with only 5 files
-            if len(self.__file_names)==2:break 
+            if len(self.__file_names)==1:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
