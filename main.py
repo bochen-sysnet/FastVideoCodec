@@ -107,6 +107,7 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
+                if np.sum(img) == 0:continue
                 self._total_frames+=1
             # When everything done, release the video capture object
             cap.release()
