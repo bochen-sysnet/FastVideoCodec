@@ -62,7 +62,7 @@ class VideoDataset(Dataset):
                 if ret != True:break
                 # skip black frames
                 if np.sum(img) == 0:continue
-                print(self._frame_counter,self._file_counter,np.sum(img))
+                print(self._frame_counter,self._file_counter,np.sum(img),self.current_file)
                 img = Image.fromarray(img)
                 img = img.resize(self._frame_size)
                 if len(self._clip)==50:
@@ -85,7 +85,7 @@ class VideoDataset(Dataset):
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
             # test with only 5 files
-            if len(self.__file_names)==2:break 
+            if len(self.__file_names)==1:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
