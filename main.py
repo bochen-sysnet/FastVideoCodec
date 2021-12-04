@@ -49,7 +49,7 @@ class VideoDataset(Dataset):
         
     def __getitem__(self, idx):
         # Get the next dataset if frame number is more than table count
-        if self._frame_counter == -1 or not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
+        if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
             self.current_file = self.__file_names.pop() # get one filename
             cap = cv2.VideoCapture(self.current_file)
             # Check if camera opened successfully
@@ -60,7 +60,7 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
-                print(self._frame_counter,np.sum(img))
+                print(self._frame_counter,self._file_counter,np.sum(img))
                 img = Image.fromarray(img)
                 img = img.resize(self._frame_size)
                 #img.save('test.jpg')
