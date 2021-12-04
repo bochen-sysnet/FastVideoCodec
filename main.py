@@ -17,6 +17,7 @@ from torch.cuda.amp import autocast as autocast
 import cv2
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
 from models import get_codec_model,parallel_compression,update_training
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
@@ -59,9 +60,10 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
-                print(ret, img.shape, self._frame_size, type(img))
+                img = Image.fromarray(img)
                 img = img.resize(self._frame_size)
-                print(ret, img.shape)
+                img.save('test.jpg')
+                exit(0)
                 self._clip.append(transforms.ToTensor()(img))
             if self._frame_counter == -1:
                 self._file_counter +=1
