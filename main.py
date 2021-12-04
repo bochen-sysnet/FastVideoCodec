@@ -63,7 +63,7 @@ class VideoDataset(Dataset):
                 # skip black frames
                 if np.sum(img) == 0:continue
                 print(self._frame_counter,self._file_counter,np.sum(img))
-                img = Image.fromarray(img)
+                img = Image.fromarray(img*255)
                 img = img.resize(self._frame_size)
                 img.save('test.jpg')
                 exit(0)
