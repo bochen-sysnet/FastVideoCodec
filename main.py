@@ -287,7 +287,7 @@ def test(epoch, model, test_dataset):
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
         data.append(frame)
-        if len(data) < GoP and not eof
+        if len(data) < GoP and not eof:
             continue
         data = torch.stack(data, dim=0).cuda()
         l = data.size(0)
