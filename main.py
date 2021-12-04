@@ -15,6 +15,7 @@ from torch.utils.data import Dataset
 from torch.cuda.amp import autocast as autocast
 
 import cv2
+import numpy as np
 from tqdm import tqdm
 
 from models import get_codec_model,parallel_compression
