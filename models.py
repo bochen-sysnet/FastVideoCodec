@@ -91,7 +91,7 @@ def update_training(model, epoch):
         
 def compress_whole_video(name, raw_clip):
     imgByteArr = io.BytesIO()
-    width,height = 224,224
+    width,height = 256,256
     fps = 25
     Q = 27#15,19,23,27
     GOP = 13
