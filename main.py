@@ -67,7 +67,7 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['SCVC']:
     # load what exists
-    print("Load whatever exists forCODEC_NAME)
+    print("Load whatever exists for",CODEC_NAME)
     pretrained_model_path = "/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model_codec, checkpoint['state_dict'])
