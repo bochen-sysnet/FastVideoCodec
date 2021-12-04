@@ -23,6 +23,7 @@ from compressai.models import CompressionModel
 from entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors
 from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
+from PIL import Image
 
 def get_codec_model(name):
     if name in ['MLVC','RLVC','DVC','RAW']:
