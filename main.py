@@ -253,6 +253,8 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr_new
     return lr_new
+    
+train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
