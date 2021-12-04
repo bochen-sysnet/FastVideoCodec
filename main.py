@@ -341,6 +341,7 @@ def test_x26x(test_dataset,name='x264'):
     data = []
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
+        print('try',data_idx)
         frame,eof = test_dataset[data_idx]
         print(data_idx,eof,ds_size)
         data.append(frame)
