@@ -288,6 +288,7 @@ def test(epoch, model, test_dataset):
         for j in range(GoP):
             frame,eof = test_dataset[data_idx]
             data.append(frame)
+            data_idx += 1
             if eof:break
         data = torch.stack(data, dim=0).cuda()
         l = data.size(0)
