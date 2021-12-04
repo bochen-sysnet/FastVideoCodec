@@ -89,72 +89,60 @@ def update_training(model, epoch):
     
     model.epoch = epoch
         
-def compress_video_group(model, frame_idx, cache, startNewClip):
-    if startNewClip:
-        imgByteArr = io.BytesIO()
-        width,height = 224,224
-        fps = 25
-        Q = 27#15,19,23,27
-        GOP = 13
-        output_filename = 'tmp/videostreams/output.mp4'
-        if model.name == 'x265':
-            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
-        elif model.name == 'x264':
-            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
-        else:
-            print('Codec not supported')
-            exit(1)
-        # bgr24, rgb24, rgb?
-        #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
-        process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-        raw_clip = cache['clip']
-        for img in raw_clip:
-            process.stdin.write(np.array(img).tobytes())
-        # Close and flush stdin
-        process.stdin.close()
-        # Wait for sub-process to finish
-        process.wait()
-        # Terminate the sub-process
-        process.terminate()
-        # check video size
-        video_size = os.path.getsize(output_filename)*8
-        # Use OpenCV to read video
-        clip = []
-        cap = cv2.VideoCapture(output_filename)
-        # Check if camera opened successfully
-        if (cap.isOpened()== False):
-            print("Error opening video stream or file")
-        # Read until video is completed
-        while(cap.isOpened()):
-            # Capture frame-by-frame
-            ret, img = cap.read()
-            if ret != True:break
-            clip.append(transforms.ToTensor()(img).cuda())
-        # When everything done, release the video capture object
-        cap.release()
-        assert len(clip) == len(raw_clip), 'Clip size mismatch'
-        # create cache
-        cache['bpp_est'] = {}
-        cache['img_loss'] = {}
-        cache['bpp_act'] = {}
-        cache['psnr'] = {}
-        cache['msssim'] = {}
-        cache['aux'] = {}
-        cache['end_of_batch'] = {}
-        bpp = video_size*1.0/len(clip)/(height*width)
-        for i in range(frame_idx-1,len(clip)):
-            Y1_raw = transforms.ToTensor()(raw_clip[i]).cuda().unsqueeze(0)
-            Y1_com = clip[i].unsqueeze(0)
-            cache['img_loss'][i] = torch.FloatTensor([0]).squeeze(0).cuda(0)
-            cache['bpp_est'][i] = torch.FloatTensor([0]).cuda(0)
-            cache['psnr'][i] = PSNR(Y1_raw, Y1_com)
-            cache['msssim'][i] = MSSSIM(Y1_raw, Y1_com)
-            cache['bpp_act'][i] = torch.FloatTensor([bpp])
-            cache['aux'][i] = torch.FloatTensor([0]).cuda(0)
-            cache['end_of_batch'][i] = (i%4==0 or i==(len(clip)-1))
-        cache['clip'] = clip
-    cache['max_seen'] = frame_idx-1
-    return True
+def compress_whole_video(name, clip):
+    imgByteArr = io.BytesIO()
+    width,height = 224,224
+    fps = 25
+    Q = 27#15,19,23,27
+    GOP = 13
+    output_filename = 'tmp/videostreams/output.mp4'
+    if name == 'x265':
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
+    elif name == 'x264':
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
+    else:
+        print('Codec not supported')
+        exit(1)
+    # bgr24, rgb24, rgb?
+    #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    raw_clip = cache['clip']
+    for img in raw_clip:
+        process.stdin.write(np.array(img).tobytes())
+    # Close and flush stdin
+    process.stdin.close()
+    # Wait for sub-process to finish
+    process.wait()
+    # Terminate the sub-process
+    process.terminate()
+    # check video size
+    video_size = os.path.getsize(output_filename)*8
+    # Use OpenCV to read video
+    clip = []
+    cap = cv2.VideoCapture(output_filename)
+    # Check if camera opened successfully
+    if (cap.isOpened()== False):
+        print("Error opening video stream or file")
+    # Read until video is completed
+    while(cap.isOpened()):
+        # Capture frame-by-frame
+        ret, img = cap.read()
+        if ret != True:break
+        clip.append(transforms.ToTensor()(img).cuda())
+    # When everything done, release the video capture object
+    cap.release()
+    assert len(clip) == len(raw_clip), 'Clip size mismatch'
+    # create cache
+    psnr_list = [];msssim_list = [];bpp_act_list = []
+    bpp = video_size*1.0/len(clip)/(height*width)
+    for i in range(len(clip)):
+        Y1_raw = transforms.ToTensor()(raw_clip[i]).cuda().unsqueeze(0)
+        Y1_com = clip[i].unsqueeze(0)
+        psnr_list += [PSNR(Y1_raw, Y1_com)]
+        msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+        bpp_act_list += torch.FloatTensor([bpp])
+        
+    return psnr_list,msssim_list,bpp_act_list
         
 # depending on training or testing
 # the compression time should be recorded accordinglly

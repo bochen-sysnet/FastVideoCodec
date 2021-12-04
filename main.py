@@ -19,7 +19,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-from models import get_codec_model,parallel_compression,update_training
+from models import get_codec_model,parallel_compression,update_training,compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 class VideoDataset(Dataset):
@@ -66,7 +66,7 @@ class VideoDataset(Dataset):
                 img = Image.fromarray(img)
                 if self._frame_size is not None:
                     img = img.resize(self._frame_size) 
-                self._clip.append(transforms.ToTensor()(img))
+                self._clip.append(img)
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
             self._frame_counter = 0
@@ -212,7 +212,7 @@ def train(epoch, model, train_dataset, optimizer):
     for data_idx,_ in enumerate(train_iter):
         for j in range(batch_size):
             frame,eof = train_dataset[data_idx]
-            data.append(frame)
+            data.append(transforms.ToTensor()(frame))
             if eof:break
         data = torch.stack(data, dim=0).cuda()
         l = data.size(0)-1
@@ -274,7 +274,6 @@ def test(epoch, model, test_dataset):
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     all_loss_module = AverageMeter()
-    batch_size = 7
     ds_size = len(test_dataset)
     
     model.eval()
@@ -286,7 +285,7 @@ def test(epoch, model, test_dataset):
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
-        data.append(frame)
+        data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
             continue
         data = torch.stack(data, dim=0).cuda()
@@ -333,6 +332,43 @@ def test(epoch, model, test_dataset):
             
         # clear input
         data = []
+        
+def test_x26x(test_dataset,name='x264'):
+    ba_loss_module = AverageMeter()
+    psnr_module = AverageMeter()
+    msssim_module = AverageMeter()
+    ds_size = len(test_dataset)
+    
+    data = []
+    test_iter = tqdm(range(ds_size))
+    for data_idx,_ in enumerate(test_iter):
+        if not eof:
+            continue
+        l = len(data)
+            
+        psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data)
+        
+        # aggregate loss
+        ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+        
+        # record loss
+        aux_loss_module.update(aux_loss.cpu().data.item(), l)
+        img_loss_module.update(img_loss.cpu().data.item(), l)
+        ba_loss_module.update(ba_loss.cpu().data.item(), l)
+        psnr_module.update(psnr.cpu().data.item(),l)
+        msssim_module.update(msssim.cpu().data.item(), l)
+        
+        # show result
+        test_iter.set_description(
+            f"{data_idx:6}. "
+            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+            
+        # clear input
+        data = []
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
@@ -365,12 +401,10 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     #train(epoch, model, train_dataset, optimizer)
     
     print('testing at epoch %d' % (epoch))
-    score = test(epoch, model, test_dataset)
+    #score = test(epoch, model, test_dataset)
+    
+    test_x26x(test_dataset)
 
-    state = {
-        'epoch': epoch,
-        'state_dict': model_codec.state_dict(),
-        'score': score
-        }
-    save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
+    #state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+    #save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
     print('Weights are saved to backup directory: %s' % (BACKUP_DIR))
