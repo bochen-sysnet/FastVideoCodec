@@ -105,7 +105,7 @@ def compress_whole_video(name, raw_clip):
         exit(1)
     # bgr24, rgb24, rgb?
     #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
-    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     for img in raw_clip:
         process.stdin.write(np.array(img).tobytes())
     # Close and flush stdin
