@@ -34,6 +34,9 @@ END_EPOCH = 10
 # ---------------------------------------------------------------
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
+    
+####### Load dataset
+train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
 
 ####### Create model
 seed = int(time.time())
@@ -48,7 +51,6 @@ if use_cuda:
 model = get_codec_model(CODEC_NAME)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-
 
 ####### Create optimizer
 # ---------------------------------------------------------------
@@ -138,7 +140,7 @@ class VideoDataset(Dataset):
         for fn in os.listdir(self._dataset_dir):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
-                self.__file_names.append(self._dataset_dir + '/' + i)
+                self.__file_names.append(self._dataset_dir + '/' + fn)
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -253,8 +255,6 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr_new
     return lr_new
-    
-train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
