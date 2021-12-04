@@ -311,12 +311,12 @@ def test(epoch, model, test_dataset):
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        loss = model.loss(img_loss,be_loss,aux_loss)
+        loss = model.loss(img_loss,ba_loss,aux_loss)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
         img_loss_module.update(img_loss.cpu().data.item(), l)
-        be_loss_module.update(be_loss.cpu().data.item(), l)
+        ba_loss_module.update(ba_loss.cpu().data.item(), l)
         psnr_module.update(psnr.cpu().data.item(),l)
         msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
