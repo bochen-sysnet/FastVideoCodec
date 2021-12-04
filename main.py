@@ -23,7 +23,7 @@ from models import get_codec_model,parallel_compression,update_training
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 class VideoDataset(Dataset):
-    def __init__(self, root_dir, frame_size=(256,256)):
+    def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir)
         
         self.get_file_names() # Storing file names in object 
@@ -64,7 +64,7 @@ class VideoDataset(Dataset):
                 # skip black frames
                 if np.sum(img) == 0:continue
                 img = Image.fromarray(img)
-                img = img.resize(self._frame_size)
+                img = img.resize(self._frame_size) if self._frame_size is not None
                 self._clip.append(transforms.ToTensor()(img))
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
@@ -84,7 +84,7 @@ class VideoDataset(Dataset):
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
             # test with only 5 files
-            if len(self.__file_names)==2:break 
+            if len(self.__file_names)==1:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -142,9 +142,6 @@ END_EPOCH = 10
 # ---------------------------------------------------------------
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
-    
-####### Load dataset
-train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
 
 ####### Create model
 seed = int(time.time())
@@ -220,7 +217,7 @@ def train(epoch, model, train_dataset, optimizer):
         l = data.size(0)-1
         
         # run model
-        img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data)
+        _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
@@ -270,7 +267,68 @@ def train(epoch, model, train_dataset, optimizer):
         data = []
     
 def test(epoch, model, test_dataset):
-    pass
+    aux_loss_module = AverageMeter()
+    img_loss_module = AverageMeter()
+    ba_loss_module = AverageMeter()
+    psnr_module = AverageMeter()
+    msssim_module = AverageMeter()
+    all_loss_module = AverageMeter()
+    batch_size = 7
+    ds_size = len(train_dataset)
+    
+    model.eval()
+    
+    fP,bP = 6,6
+    GoP = fP+bP+1
+    
+    data = []
+    test_iter = tqdm(range(ds_size))
+    for data_idx,_ in enumerate(test_iter):
+        for j in range(GoP):
+            frame,eof = test_dataset[data_idx]
+            data.append(frame)
+            if eof:break
+        data = torch.stack(data, dim=0).cuda()
+        l = data.size(0)
+        
+        # compress GoP
+        if l>fP+1:
+            com_imgs,img_loss_list1,_,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,data[:fP+1][::-1],True)
+            data[fP:fP+1] = com_imgs[0:1]
+            _,img_loss_list2,_,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
+            img_loss_list = img_loss_list1[::-1] + img_loss_list2
+            aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
+            psnr_list = psnr_list1[::-1] + psnr_list2
+            msssim_list = msssim_list1[::-1] + msssim_list2
+            bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+        else:
+            img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,data[::-1])
+            
+        # aggregate loss
+        ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+        img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+        loss = model.loss(img_loss,be_loss,aux_loss)
+        
+        # record loss
+        aux_loss_module.update(aux_loss.cpu().data.item(), l)
+        img_loss_module.update(img_loss.cpu().data.item(), l)
+        be_loss_module.update(be_loss.cpu().data.item(), l)
+        psnr_module.update(psnr.cpu().data.item(),l)
+        msssim_module.update(msssim.cpu().data.item(), l)
+        all_loss_module.update(loss.cpu().data.item(), l)
+        
+        # show result
+        test_iter.set_description(
+            f"{data_idx:6}. "
+            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
@@ -288,6 +346,11 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr_new
     return lr_new
+    
+    
+####### Load dataset
+train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
+test_dataset = VideoDataset('../dataset/UVG')
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
@@ -295,10 +358,10 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train(epoch, model, train_dataset, optimizer)
+    #train(epoch, model, train_dataset, optimizer)
     
-    #print('testing at epoch %d' % (epoch))
-    #score = test(epoch, model, test_dataset)
+    print('testing at epoch %d' % (epoch))
+    score = test(epoch, model, test_dataset)
 
     state = {
         'epoch': epoch,

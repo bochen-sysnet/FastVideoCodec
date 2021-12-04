@@ -230,22 +230,23 @@ def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
     #print(i,float(bpp_est),float(bpp_act),float(psnr))
     # we can record PSNR wrt the distance to I-frame to show error propagation)
         
-def parallel_compression(model, data):
+def parallel_compression(model, data, compressI=False):
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []
     
-    x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=model.name)
-    img_loss_list += [img_loss.cuda()]
-    aux_loss_list += [aux_loss.cuda()]
-    bpp_est_list += [bpp_est.cuda()]
-    bpp_act_list += [bpp_act.cuda()]
-    psnr_list += [psnr.cuda()]
-    msssim_list += [msssim.cuda()]
-    data[0:1] = x_hat
+    if compressI:
+        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=model.name)
+        img_loss_list += [img_loss.cuda()]
+        aux_loss_list += [aux_loss.cuda()]
+        bpp_est_list += [bpp_est.cuda()]
+        bpp_act_list += [bpp_act.cuda()]
+        psnr_list += [psnr.cuda()]
+        msssim_list += [msssim.cuda()]
+        data[0:1] = x_hat
     
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data)
+        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
         for pos in range(data.size(0)-1):
             img_loss_list += [img_loss[pos]]
             aux_loss_list += [aux_loss[pos]]
@@ -254,7 +255,7 @@ def parallel_compression(model, data):
             psnr_list += [psnr[pos]]
             msssim_list += [msssim[pos]]
     
-    return img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+    return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
 def write_image(x, prefix):
     for j in range(x.size(0)):
