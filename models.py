@@ -130,7 +130,7 @@ def compress_whole_video(name, raw_clip):
         clip.append(transforms.ToTensor()(img).cuda())
     # When everything done, release the video capture object
     cap.release()
-    assert len(clip) == len(raw_clip), 'Clip size mismatch'
+    assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
     # create cache
     psnr_list = [];msssim_list = [];bpp_act_list = []
     bpp = video_size*1.0/len(clip)/(height*width)
