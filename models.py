@@ -18,10 +18,9 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Function
 from torchvision import transforms
-sys.path.append('..')
 from compressai.layers import GDN,ResidualBlock,AttentionBlock
 from compressai.models import CompressionModel
-from codec.entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors
+from entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors
 from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from datasets.clip import *
