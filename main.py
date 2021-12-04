@@ -65,7 +65,7 @@ class VideoDataset(Dataset):
                 print(self._frame_counter,self._file_counter,np.sum(img))
                 img = Image.fromarray(img)
                 img = img.resize(self._frame_size)
-                if len(self._clip)==10:
+                if len(self._clip)==50:
                     img.save('test.jpg')
                     exit(0)
                 self._clip.append(transforms.ToTensor()(img))
