@@ -330,6 +330,9 @@ def test(epoch, model, test_dataset):
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+            
+        # clear input
+        data = []
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
