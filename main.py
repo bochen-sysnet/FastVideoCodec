@@ -255,7 +255,7 @@ def adjust_learning_rate(optimizer, epoch):
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
-    r = adjust_learning_rate(optimizer, epoch, cfg)
+    r = adjust_learning_rate(optimizer, epoch)
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
