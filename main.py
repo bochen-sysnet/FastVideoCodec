@@ -61,7 +61,7 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
-                print(ret, img)
+                print(ret, img.shape)
                 self._clip.append(transforms.ToTensor()(img.resize(self._frame_size)))
             if self._frame_counter == -1:
                 self._file_counter +=1
