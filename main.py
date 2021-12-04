@@ -406,7 +406,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
-    
+    break
 
     #state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
     #save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
