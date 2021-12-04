@@ -240,11 +240,13 @@ def parallel_compression(model, data):
     bpp_act_list += [bpp_act.cuda()]
     psnr_list += [psnr.cuda()]
     msssim_list += [msssim.cuda()]
+    data[0:1] = x_hat
     
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data[1:])
+        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data)
+        print(data.size(),x_hat.size())
         for pos in range(data.size(0)-1):
             img_loss_list += [img_loss[pos]]
             aux_loss_list += [aux_loss[pos]]
