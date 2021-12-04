@@ -72,11 +72,14 @@ class VideoDataset(Dataset):
         return self._clip[self._frame_counter],self._frame_counter==self._dataset_nums[self._file_counter]-1
         
     def get_file_names(self):
+        print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
         for fn in os.listdir(self._dataset_dir):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+            # test with only 5 files
+            if len(self.__file_names)==5:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
