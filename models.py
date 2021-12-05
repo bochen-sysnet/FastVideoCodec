@@ -25,17 +25,17 @@ from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
 
-def get_codec_model(name):
+def get_codec_model(name,noMeasure=True):
     if name in ['RLVC','DVC','RAW']:
-        model_codec = IterPredVideoCodecs(name)
+        model_codec = IterPredVideoCodecs(name,noMeasure)
     elif name in ['DCVC','DCVC_v2']:
-        model_codec = DCVC(name)
+        model_codec = DCVC(name,noMeasure)
     elif 'SPVC' in name:
-        model_codec = SPVC(name)
+        model_codec = SPVC(name,noMeasure)
     elif name in ['SCVC']:
-        model_codec = SCVC(name)
+        model_codec = SCVC(name,noMeasure)
     elif name in ['AE3D']:
-        model_codec = AE3D(name)
+        model_codec = AE3D(name,noMeasure)
     elif name in ['x264','x265']:
         model_codec = StandardVideoCodecs(name)
     else:

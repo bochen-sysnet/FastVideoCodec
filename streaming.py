@@ -19,7 +19,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-from models import get_codec_model,parallel_compression,update_training,compress_whole_video
+from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 class VideoDataset(Dataset):
@@ -155,7 +155,7 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 
 # codec model .
-model = get_codec_model(CODEC_NAME)
+model = get_codec_model(CODEC_NAME,noMeasure=False)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -314,3 +314,4 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # Train and test model
 streaming(model, test_dataset)
+enc,dec = showTimer(model)
