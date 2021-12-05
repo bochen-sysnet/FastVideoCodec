@@ -243,7 +243,8 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
     data = []
     batch_idx = 0
     for data_idx,_ in enumerate(train_iter):
-        if data_idx <= 10759:
+        if data_idx < 10759:
+            continue
         frame,eof = train_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < batch_size and not eof:
