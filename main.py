@@ -79,7 +79,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -124,7 +123,7 @@ class FrameDataset(Dataset):
         print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
                 
     def __len__(self):
-        return 7#len(self.__septuplet_names)*7
+        return len(self.__septuplet_names)*7
         
     def reset(self):
         return
