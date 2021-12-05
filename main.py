@@ -79,7 +79,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -216,8 +215,8 @@ elif CODEC_NAME in ['SCVC']:
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score'][1:4]
+    BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
+    #best_codec_score = checkpoint['score']
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
@@ -299,7 +298,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
 
         
         # ---------EVALUATE---------
-        if batch_idx % 1 == 0 and batch_idx > 0:
+        if batch_idx % 5000 == 0 and batch_idx > 0:
             best_codec_score = test(epoch, model, test_dataset, best_codec_score)
         # --------------------------
             
@@ -327,7 +326,7 @@ def test(epoch, model, test_dataset, best_codec_score=None):
     
     data = []
     test_iter = tqdm(range(ds_size))
-    print('Testing')
+    print('')
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
