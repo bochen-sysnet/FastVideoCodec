@@ -457,4 +457,4 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score)
+    best_codec_score = train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score)
