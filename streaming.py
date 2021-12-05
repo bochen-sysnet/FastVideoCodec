@@ -132,8 +132,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
 
 # OPTION
 BACKUP_DIR = 'backup'
-CODEC_NAME = 'SPVC'
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
+CODEC_NAME = 'SPVC-P'
+RESUME_CODEC_PATH = f'backup/SPVC/SPVC-1024P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
