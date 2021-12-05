@@ -21,6 +21,7 @@ from PIL import Image
 
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
+from models import PSNR,MSSSIM
 
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
@@ -221,12 +222,16 @@ def streaming(model, test_dataset):
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
                 mv_string,res_string,bpp_act_list1 = model.compress(x_raw)
-                print(len(mv_string[0]))
-                _,psnr_list1,msssim_list1 = model.decompress(x_raw, mv_string,res_string)
+                x_hat = model.decompress(x_raw[:1], mv_string,res_string)
+                psnr_list1 = PSNR(x_raw[1:], x_hat, use_list=True)
+                msssim_list1 = MSSSIM(x_raw[1:], x_hat, use_list=True)
                 # compress forward
                 x_raw = data[fP:]
                 mv_string,res_string,bpp_act_list2 = model.compress(x_raw)
-                _,psnr_list2,msssim_list2 = model.decompress(x_raw, mv_string,res_string)
+                x_hat = model.decompress(x_raw[:1], mv_string,res_string)
+                psnr_list2 = PSNR(x_raw[1:], x_hat, use_list=True)
+                msssim_list2 = MSSSIM(x_raw[1:], x_hat, use_list=True)
+                # concate
                 psnr_list = psnr_list1[::-1] + [40] + psnr_list2
                 msssim_list = msssim_list1[::-1] + [1] + msssim_list2
                 bpp_act_list = bpp_act_list1[::-1] + [1] + bpp_act_list2
@@ -234,7 +239,9 @@ def streaming(model, test_dataset):
                 # compress backward
                 x_raw = torch.flip(data,[0])
                 mv_string,res_string,bpp_act_list = model.compress(x_raw)
-                _,psnr_list,msssim_list = model.decompress(x_raw, mv_string,res_string)
+                x_hat = model.decompress(x_raw[:1], mv_string,res_string)
+                psnr_list = PSNR(x_raw[1:], x_hat, use_list=True)
+                msssim_list = MSSSIM(x_raw[1:], x_hat, use_list=True)
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)

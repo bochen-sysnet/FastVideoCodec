@@ -1413,11 +1413,12 @@ class SPVC(nn.Module):
         
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
+        bpp_act = [bpp for bpp in bpp_act]
         
-        return mv_string,res_string,list(bpp_act)
+        return mv_string,res_string,bpp_act
         
-    def decompress(self, x, mv_string,res_string,):
-        bs, c, h, w = x[1:].size()
+    def decompress(self, x_ref, mv_string,res_string,):
+        bs = len(mv_string[0])
         latent_size = torch.Size([16,16])
         # BATCH motion decode
         mv_hat,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
@@ -1451,7 +1452,7 @@ class SPVC(nn.Module):
             for tar in layer: # id of frames in this layer
                 if tar>bs:continue
                 parent = parents[tar]
-                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+                ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
                 diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
             if ref:
                 ref = torch.cat(ref,dim=0)
@@ -1476,11 +1477,7 @@ class SPVC(nn.Module):
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         self.meters['D-REC'].update(time.perf_counter() - t_0)
         
-        # metrics
-        psnr = PSNR(x[1:], com_frames, use_list=True)
-        msssim = MSSSIM(x[1:], com_frames, use_list=True)
-        
-        return com_frames,psnr,msssim
+        return com_frames
         
     def forward(self, x):
         x = x.cuda(0)
