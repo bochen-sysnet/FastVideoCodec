@@ -1458,7 +1458,7 @@ class SPVC(nn.Module):
                 MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
-                    print(tar,x.size())
+                    print(tar,x.size(),len(mv_string))
                     MC_frame_list[tar-1] = MC_frame[i:i+1]
                     warped_frame_list[tar-1] = warped_frame[i:i+1]
         MC_frames = torch.cat(MC_frame_list,dim=0)
