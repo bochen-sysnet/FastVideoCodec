@@ -79,8 +79,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-            # test with only 5 files
-            if len(self.__file_names)==1:break 
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -107,6 +105,38 @@ class VideoDataset(Dataset):
             # When everything done, release the video capture object
             cap.release()
         print("[log] Total frames: ", self._total_frames)
+        
+class FrameDataset(Dataset):
+    def __init__(self, root_dir, frame_size=None):
+        self._dataset_dir = os.path.join(root_dir,'vimeo_septuplet','sequences')
+        self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_trainlist.txt')
+        self._frame_size = frame_size
+        self._total_frames = 0 # Storing file names in object
+        self.get_septuplet_names()
+        
+    def get_sep_names(self):
+        print("[log] Looking for septuplets in", self._dataset_dir) 
+        self.__septuplet_names = []
+        with open(self._train_list_dir,r) as f:
+            for line in f:
+                line = line.strip()
+                self.__septuplet_names += [self._dataset_dir + '/' + line]
+        print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
+                
+    def __len__(self):
+        return len(self.__septuplet_names)*7
+        
+    def reset(self):
+        return
+        
+    def __getitem__(self, idx):
+        frame_idx,tuplet_idx = idx%7+1,idx//7
+        base_dir = self.__septuplet_names[tuplet_idx]
+        img_dir = base_dir+'/'+f'im{frame_idx}.png'
+        img = Image.open(img_dir).convert('RGB')
+        if self._frame_size is not None:
+            img = img.resize(self._frame_size) 
+        return img,frame_idx==7
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -393,7 +423,7 @@ def adjust_learning_rate(optimizer, epoch):
     return lr_new
     
 ####### Load dataset
-train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
+train_dataset = FrameDataset('../dataset/vimeo')
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
@@ -406,7 +436,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    #train(epoch, model, train_dataset, optimizer)
+    train(epoch, model, train_dataset, optimizer)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
