@@ -133,6 +133,7 @@ class FrameDataset(Dataset):
         frame_idx,tuplet_idx = idx%7+1,idx//7
         base_dir = self.__septuplet_names[tuplet_idx]
         img_dir = base_dir+'/'+f'im{frame_idx}.png'
+        print(img_dir)
         img = Image.open(img_dir).convert('RGB')
         if self._frame_size is not None:
             img = img.resize(self._frame_size) 
