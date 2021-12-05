@@ -1189,9 +1189,9 @@ class SPVC(nn.Module):
         # obtain reference frames from a graph
         x_tar = x[1:]
         if self.name == 'SPVC-L':
-            g = generate_graph('default')
+            g,_,_ = generate_graph('default')
         else:
-            g = generate_graph('3layers')
+            g,_,_ = generate_graph('3layers')
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
