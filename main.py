@@ -133,7 +133,6 @@ class FrameDataset(Dataset):
         frame_idx,tuplet_idx = idx%7+1,idx//7
         base_dir = self.__septuplet_names[tuplet_idx]
         img_dir = base_dir+'/'+f'im{frame_idx}.png'
-        print(img_dir)
         img = Image.open(img_dir).convert('RGB')
         if self._frame_size is not None:
             img = img.resize(self._frame_size) 
@@ -159,9 +158,10 @@ class AverageMeter(object):
 
 # OPTION
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
-CODEC_NAME = 'RLVC'
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_best.pth' # ready
-RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_ckpt.pth' # ready
+CODEC_NAME = 'SPVC'
+RESUME_CODEC_PATH = f'/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_{CODEC_NAME}_best.pth'
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth' # ready
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_best.pth' # ready
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DVC_best.pth' # in-progress
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DCVC_best.pth' # aborted
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_AE3D_best.pth' # in-progress
