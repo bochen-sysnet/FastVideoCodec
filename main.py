@@ -79,6 +79,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -123,7 +124,7 @@ class FrameDataset(Dataset):
         print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
                 
     def __len__(self):
-        return len(self.__septuplet_names)*7
+        return 7#len(self.__septuplet_names)*7
         
     def reset(self):
         return
@@ -154,6 +155,13 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+def save_checkpoint(state, is_best, directory, CODEC_NAME):
+    import shutil
+    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
+    if is_best:
+        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
+                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
 
 # OPTION
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
@@ -218,7 +226,7 @@ else:
     exit(1)
 print("===================================================================")
         
-def train(epoch, model, train_dataset, optimizer):
+def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -234,7 +242,9 @@ def train(epoch, model, train_dataset, optimizer):
     
     train_iter = tqdm(range(ds_size))
     data = []
+    batch_idx = 0
     for data_idx,_ in enumerate(train_iter):
+        # ----------TRAIN-----------
         frame,eof = train_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < batch_size and not eof:
@@ -279,20 +289,29 @@ def train(epoch, model, train_dataset, optimizer):
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
-        # save result every 1000 batches
-        if data_idx % 10000 == 0 and data_idx>0: # From time to time, reset averagemeters to see improvements
+        # clear result every 1000 batches
+        if batch_idx % 10000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             loss_module.reset_meters()
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
             all_loss_module.reset()
             psnr_module.reset()
-            msssim_module.reset()    
+            msssim_module.reset()   
+
+        
+        # ---------EVALUATE---------
+        if batch_idx % 10000 == 0 and batch_idx > 0:
+            best_codec_score = test(model, test_dataset, best_codec_score)
+        # --------------------------
             
         # clear input
         data = []
+        batch_idx += 1
+        
+    return test(model, test_dataset, best_codec_score)
     
-def test(epoch, model, test_dataset):
+def test(model, test_dataset, best_codec_score=None):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -313,37 +332,39 @@ def test(epoch, model, test_dataset):
         data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
             continue
-        data = torch.stack(data, dim=0).cuda()
-        l = data.size(0)
-        
-        # compress GoP
-        if l>fP+1:
-            com_imgs,img_loss_list1,_,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
-            data[fP:fP+1] = com_imgs[0:1]
-            _,img_loss_list2,_,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
-            img_loss_list = img_loss_list1[::-1] + img_loss_list2
-            aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
-            psnr_list = psnr_list1[::-1] + psnr_list2
-            msssim_list = msssim_list1[::-1] + msssim_list2
-            bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
-        else:
-            _,img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
             
-        # aggregate loss
-        ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-        img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        loss = model.loss(img_loss,ba_loss,aux_loss)
-        
-        # record loss
-        aux_loss_module.update(aux_loss.cpu().data.item(), l)
-        img_loss_module.update(img_loss.cpu().data.item(), l)
-        ba_loss_module.update(ba_loss.cpu().data.item(), l)
-        psnr_module.update(psnr.cpu().data.item(),l)
-        msssim_module.update(msssim.cpu().data.item(), l)
-        all_loss_module.update(loss.cpu().data.item(), l)
+        with torch.no_grad():
+            data = torch.stack(data, dim=0).cuda()
+            l = data.size(0)
+            
+            # compress GoP
+            if l>fP+1:
+                com_imgs,img_loss_list1,_,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
+                data[fP:fP+1] = com_imgs[0:1]
+                _,img_loss_list2,_,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
+                img_loss_list = img_loss_list1[::-1] + img_loss_list2
+                aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
+                psnr_list = psnr_list1[::-1] + psnr_list2
+                msssim_list = msssim_list1[::-1] + msssim_list2
+                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+            else:
+                _,img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+                
+            # aggregate loss
+            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+            img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            loss = model.loss(img_loss,ba_loss,aux_loss)
+            
+            # record loss
+            aux_loss_module.update(aux_loss.cpu().data.item(), l)
+            img_loss_module.update(img_loss.cpu().data.item(), l)
+            ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+            all_loss_module.update(loss.cpu().data.item(), l)
         
         # show result
         test_iter.set_description(
@@ -357,8 +378,20 @@ def test(epoch, model, test_dataset):
             
         # clear input
         data = []
+        
     test_dataset.reset()
-    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
+    
+    # evaluate
+    score = [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
+    is_best = isinstance(best_codec_score,list) and (score[0] <= best_codec_score[0]) and (score[1] >= best_codec_score[1])
+    if is_best:
+        print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
+        best_codec_score = score
+    state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+    save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME)
+    print('Weights are saved to backup directory: %s' % (BACKUP_DIR))
+    
+    return best_codec_score
         
 def test_x26x(test_dataset,name='x264'):
     print('Benchmarking:',name)
@@ -400,13 +433,6 @@ def test_x26x(test_dataset,name='x264'):
             data = []
             
         test_dataset.reset()
-
-def save_checkpoint(state, is_best, directory, CODEC_NAME):
-    import shutil
-    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
-    if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
-                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -432,16 +458,4 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train(epoch, model, train_dataset, optimizer)
-    
-    print('testing at epoch %d' % (epoch))
-    score = test(epoch, model, test_dataset)
-
-    is_best = (score[0] <= best_codec_score[0]) and (score[1] >= best_codec_score[1])
-    if is_best:
-        print("New best score is achieved: ", score)
-        print("Previous score was: ", best_codec_score)
-        best_codec_score = score
-    state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-    save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME)
-    print('Weights are saved to backup directory: %s' % (BACKUP_DIR))
+    train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score)
