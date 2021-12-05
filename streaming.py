@@ -195,12 +195,9 @@ else:
 print("===================================================================")
     
 def streaming(model, test_dataset):
-    aux_loss_module = AverageMeter()
-    img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
-    all_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
     model.eval()
@@ -223,41 +220,36 @@ def streaming(model, test_dataset):
             # compress GoP
             if l>fP+1:
                 # compress backward
-                com_imgs,img_loss_list1,_,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
-                data[fP:fP+1] = com_imgs[0:1]
+                x_raw = torch.flip(data[:fP+1],[0])
+                mv_string,mv_size,res_string,res_size,bpp_act_list1 = model.compress(x_raw)
+                _,psnr_list1,msssim_list1 = model.decompress(x_raw, mv_string,mv_size,res_string,res_size)
                 # compress forward
-                _,img_loss_list2,_,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
-                img_loss_list = img_loss_list1[::-1] + img_loss_list2
-                aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
-                psnr_list = psnr_list1[::-1] + psnr_list2
-                msssim_list = msssim_list1[::-1] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+                x_raw = data[fP:]
+                mv_string,mv_size,res_string,res_size,bpp_act_list1 = model.compress(x_raw)
+                _,psnr_list2,msssim_list2 = model.decompress(x_raw, mv_string,mv_size,res_string,res_size)
+                psnr_list = psnr_list1[::-1] + [40] + psnr_list2
+                msssim_list = msssim_list1[::-1] + [1] + msssim_list2
+                bpp_act_list = bpp_act_list1[::-1] + [1] + bpp_act_list2
             else:
-                _,img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+                # compress backward
+                x_raw = torch.flip(data,[0])
+                mv_string,mv_size,res_string,res_size,bpp_act_list = model.compress(x_raw)
+                _,psnr_list,msssim_list = model.decompress(x_raw, mv_string,mv_size,res_string,res_size)
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-            img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            loss = model.loss(img_loss,ba_loss,aux_loss)
             
             # record loss
-            aux_loss_module.update(aux_loss.cpu().data.item(), l)
-            img_loss_module.update(img_loss.cpu().data.item(), l)
             ba_loss_module.update(ba_loss.cpu().data.item(), l)
             psnr_module.update(psnr.cpu().data.item(),l)
             msssim_module.update(msssim.cpu().data.item(), l)
-            all_loss_module.update(loss.cpu().data.item(), l)
         
         # show result
         test_iter.set_description(
             f"{data_idx:6}. "
-            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
             f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
             

@@ -1411,9 +1411,12 @@ class SPVC(nn.Module):
         self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eERES'].update(self.res_codec.AC_t)
         
-        return mv_string,mv_size,res_string,res_size
+        # actual bits
+        bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         
-    def decompress(self, x, mv_string,mv_size,res_string,res_size,bs=6):
+        return mv_string,mv_size,res_string,res_size,bpp_act
+        
+    def decompress(self, x, mv_string,mv_size,res_string,res_size):
         bs, c, h, w = x[1:].size()
         # BATCH motion decode
         mv_hat,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
@@ -1472,7 +1475,11 @@ class SPVC(nn.Module):
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         self.meters['D-REC'].update(time.perf_counter() - t_0)
         
-        return com_frames
+        # metrics
+        psnr = PSNR(x[1:], com_frames, use_list=True)
+        msssim = MSSSIM(x[1:], com_frames, use_list=True)
+        
+        return com_frames,psnr,msssim
         
     def forward(self, x):
         x = x.cuda(0)
