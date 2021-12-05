@@ -250,6 +250,7 @@ def train(epoch, model, train_dataset, optimizer):
         
         # run model
         _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        print(img_loss)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
