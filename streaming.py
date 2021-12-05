@@ -221,6 +221,7 @@ def streaming(model, test_dataset):
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
                 mv_string,res_string,bpp_act_list1 = model.compress(x_raw)
+                print(mv_string[0].size())
                 _,psnr_list1,msssim_list1 = model.decompress(x_raw, mv_string,res_string)
                 # compress forward
                 x_raw = data[fP:]

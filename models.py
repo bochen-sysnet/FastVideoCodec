@@ -1418,7 +1418,7 @@ class SPVC(nn.Module):
         
     def decompress(self, x, mv_string,res_string,):
         bs, c, h, w = x[1:].size()
-        latent_size = torch.size([16,16])
+        latent_size = torch.Size([16,16])
         # BATCH motion decode
         mv_hat,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
