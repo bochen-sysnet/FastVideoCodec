@@ -79,7 +79,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -125,7 +124,7 @@ class FrameDataset(Dataset):
         print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
                 
     def __len__(self):
-        return len(self.__septuplet_names)*7
+        return 7#len(self.__septuplet_names)*7
         
     def reset(self):
         return
@@ -161,12 +160,6 @@ class AverageMeter(object):
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
 CODEC_NAME = 'SPVC'
 RESUME_CODEC_PATH = f'/home/monet/research/FastVideoCodec/backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth' # ready
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_best.pth' # ready
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DVC_best.pth' # in-progress
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DCVC_best.pth' # aborted
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_AE3D_best.pth' # in-progress
-#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SCVC_best.pth' # todo
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -198,8 +191,7 @@ aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantil
 optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
 best_score = 0 
-best_codec_score = [0,1]
-score = [0,1]
+best_codec_score = [1,0,0]
 
 ####### Load yowo model
 # ---------------------------------------------------------------
@@ -217,8 +209,8 @@ elif CODEC_NAME in ['SCVC']:
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
+    BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score'][1:4]
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
@@ -406,6 +398,7 @@ def test_x26x(test_dataset,name='x264'):
             data = []
             
         test_dataset.reset()
+    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
@@ -442,8 +435,12 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
-    break
 
-    #state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-    #save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
+    is_best = (score[0] <= best_codec_score[0]) and (score[1] >= best_codec_score[1])
+    if is_best:
+        print("New best score is achieved: ", score)
+        print("Previous score was: ", best_codec_score)
+        best_codec_score = score
+    state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+    save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME)
     print('Weights are saved to backup directory: %s' % (BACKUP_DIR))
