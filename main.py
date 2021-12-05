@@ -61,7 +61,7 @@ class VideoDataset(Dataset):
                 if ret != True:break
                 # skip black frames
                 if np.sum(img) == 0:continue
-                img = Image.fromarray(img).convert('RGB')
+                img = Image.fromarray(img)
                 if self._frame_size is not None:
                     img = img.resize(self._frame_size) 
                 self._clip.append(img)
@@ -300,18 +300,18 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
         
         # ---------EVALUATE---------
         if batch_idx % 5000 == 0 and batch_idx > 0:
-            best_codec_score = test(model, test_dataset, best_codec_score)
+            best_codec_score = test(epoch, model, test_dataset, best_codec_score)
         # --------------------------
             
         # clear input
         data = []
         batch_idx += 1
       
-    best_codec_score = test(model, test_dataset, best_codec_score)
+    best_codec_score = test(epoch, model, test_dataset, best_codec_score)
         
     return best_codec_score
     
-def test(model, test_dataset, best_codec_score=None):
+def test(epoch, model, test_dataset, best_codec_score=None):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
