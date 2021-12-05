@@ -1466,7 +1466,7 @@ class SPVC(nn.Module):
         self.meters['D-MC'].update(t_comp)
         
         # BATCH:compress residual
-        res_hat,_, _ = self.res_codec.decompress(res_tensors, latentSize=res_size)
+        res_hat,_, _ = self.res_codec.decompress(res_string, latentSize=res_size)
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
         
