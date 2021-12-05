@@ -243,9 +243,9 @@ def streaming(model, test_dataset):
                 psnr_list = PSNR(x_raw[1:], x_hat, use_list=True)
                 msssim_list = MSSSIM(x_raw[1:], x_hat, use_list=True)
                 # concate
-                psnr_list = [torch.Tensor(40).squeeze(0)] + psnr_list[::-1]
-                msssim_list = [torch.Tensor(1).squeeze(0)] + msssim_list[::-1]
-                bpp_act_list = [torch.Tensor(1).squeeze(0)] + bpp_act_list[::-1]
+                psnr_list =  psnr_list[::-1] + [torch.Tensor(40).squeeze(0)]
+                msssim_list = msssim_list[::-1] + [torch.Tensor(1).squeeze(0)]
+                bpp_act_list = bpp_act_list[::-1] + [torch.Tensor(1).squeeze(0)]
                 
                 
             # aggregate loss
