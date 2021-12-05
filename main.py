@@ -243,13 +243,14 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
     data = []
     batch_idx = 0
     for data_idx,_ in enumerate(train_iter):
-        # ----------TRAIN-----------
+        if data_idx <= 10759:
         frame,eof = train_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < batch_size and not eof:
             continue
         data = torch.stack(data, dim=0).cuda()
         l = data.size(0)-1
+        print(l,batch_idx)
         
         # run model
         _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
