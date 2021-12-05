@@ -444,7 +444,7 @@ def adjust_learning_rate(optimizer, epoch):
     return lr_new
     
 ####### Load dataset
-train_dataset = FrameDataset('../dataset/vimeo', frame_size=(256,256))
+train_dataset = FrameDataset('../dataset/vimeo')
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
