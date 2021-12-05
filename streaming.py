@@ -232,9 +232,9 @@ def streaming(model, test_dataset):
                 psnr_list2 = PSNR(x_raw[1:], x_hat, use_list=True)
                 msssim_list2 = MSSSIM(x_raw[1:], x_hat, use_list=True)
                 # concate
-                psnr_list = psnr_list1[::-1] + [torch.Tensor(40)] + psnr_list2
-                msssim_list = msssim_list1[::-1] + [torch.Tensor(1)] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + [torch.Tensor(1)] + bpp_act_list2
+                psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()] + psnr_list2
+                msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + msssim_list2
+                bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + bpp_act_list2
             else:
                 # compress backward
                 x_raw = torch.flip(data,[0])
@@ -249,7 +249,6 @@ def streaming(model, test_dataset):
                 
                 
             # aggregate loss
-            print(bpp_act_list)
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
