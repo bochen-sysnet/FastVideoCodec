@@ -79,6 +79,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -165,7 +166,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -298,7 +299,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
 
         
         # ---------EVALUATE---------
-        if batch_idx % 5000 == 0 and batch_idx > 0:
+        if batch_idx % 1 == 0 and batch_idx > 0:
             best_codec_score = test(epoch, model, test_dataset, best_codec_score)
         # --------------------------
             
@@ -326,6 +327,7 @@ def test(epoch, model, test_dataset, best_codec_score=None):
     
     data = []
     test_iter = tqdm(range(ds_size))
+    print('Testing')
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
@@ -388,7 +390,7 @@ def test(epoch, model, test_dataset, best_codec_score=None):
         best_codec_score = score
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
     save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME)
-    print('Weights are saved to backup directory: %s' % (BACKUP_DIR))
+    print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',score)
     
     return best_codec_score
         

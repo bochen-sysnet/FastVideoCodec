@@ -862,7 +862,165 @@ class Coder2D(nn.Module):
         # include two average meter to measure time
         
     def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False):
-        pass
+        # update only once during testing
+        if not self.updated and not self.training:
+            self.entropy_bottleneck.update(force=True)
+            self.updated = True
+            
+        # record network time and arithmetic coding time
+        self.net_t = 0
+        self.AC_t = 0
+        
+        t_0 = time.perf_counter()
+            
+        # latent states
+        if self.conv_type == 'rec':
+            state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
+            
+        # compress
+        if self.downsample:
+            x = self.gdn1(self.enc_conv1(x))
+            x = self.gdn2(self.enc_conv2(x))
+            
+            if self.conv_type == 'rec':
+                x, state_enc = self.enc_lstm(x, state_enc)
+            elif self.conv_type == 'attn':
+                # use attention
+                B,C,H,W = x.size()
+                x = self.s_attn_a(x)
+                x = self.t_attn_a(x)
+                
+            x = self.gdn3(self.enc_conv3(x))
+            latent = self.enc_conv4(x) # latent optical flow
+        else:
+            latent = x
+        
+        self.net_t += time.perf_counter() - t_0
+            
+        # quantization + entropy coding
+        if self.entropy_type == 'base':
+            # encoding
+            t_0 = time.perf_counter()
+            latent_string = self.entropy_bottleneck.compress(latent)
+            self.entropy_bottleneck.enet_t = 0
+            self.entropy_bottleneck.eAC_t = time.perf_counter() - t_0
+            # decoding
+            if decodeLatent:
+                t_0 = time.perf_counter()
+                latent_hat = self.entropy_bottleneck.decompress(latent_string, latent.size()[-2:])
+                self.entropy_bottleneck.dnet_t = 0
+                self.entropy_bottleneck.dAC_t = time.perf_counter() - t_0
+            latentSize = latent.size()[-2:]
+        elif self.entropy_type == 'mshp':
+            latent_string, latentSize = self.entropy_bottleneck.compress_slow(latent)
+            if decodeLatent:
+                latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize)
+        elif self.entropy_type == 'joint':
+            latent_string,latentSize = self.entropy_bottleneck.compress_slow(latent, prior)
+            if decodeLatent:
+                latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
+        else:
+            self.entropy_bottleneck.set_RPM(RPM_flag)
+            latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden)
+            latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden)
+            self.entropy_bottleneck.set_prior(latent_hat)
+            latentSize = latent.size()[-2:]
+            
+        self.net_t += self.entropy_bottleneck.enet_t
+        self.AC_t += self.entropy_bottleneck.eAC_t
+        if decodeLatent or self.entropy_type == 'rpm':
+            self.net_t += self.entropy_bottleneck.dnet_t
+            self.AC_t += self.entropy_bottleneck.dAC_t
+            
+        if decodeLatent:
+            t_0 = time.perf_counter()
+            # decompress
+            if self.downsample:
+                x = self.igdn1(self.dec_conv1(latent_hat))
+                x = self.igdn2(self.dec_conv2(x))
+                
+                if self.conv_type == 'rec':
+                    x, state_dec = self.enc_lstm(x, state_dec)
+                elif self.conv_type == 'attn':
+                    # use attention
+                    B,C,H,W = x.size()
+                    x = self.s_attn_s(x)
+                    x = self.t_attn_s(x)
+                    
+                x = self.igdn3(self.dec_conv3(x))
+                hat = self.dec_conv4(x)
+            else:
+                hat = latent_hat
+            self.net_t += time.perf_counter() - t_0
+            
+        if self.conv_type == 'rec':
+            rae_hidden = torch.cat((state_enc, state_dec),dim=1)
+            if rae_hidden is not None:
+                rae_hidden = rae_hidden.detach()
+                
+        # actual bits
+        bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
+        
+        if decodeLatent:
+            return hat,latent_string, rae_hidden, rpm_hidden, bits_act, latentSize
+        else:
+            return latent_string, rae_hidden, rpm_hidden, bits_act, latentSize
+        
+    def decompress(self, latent_string, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, latentSize=None):
+        # update only once during testing
+        if not self.updated and not self.training:
+            self.entropy_bottleneck.update(force=True)
+            self.updated = True
+            
+        self.net_t = 0
+        self.AC_t = 0
+            
+        # latent states
+        if self.conv_type == 'rec':
+            state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
+            
+        if self.entropy_type == 'base':
+            t_0 = time.perf_counter()
+            latent_hat = self.entropy_bottleneck.decompress(latent_string, latentSize)
+            self.entropy_bottleneck.dnet_t = 0
+            self.entropy_bottleneck.dAC_t = time.perf_counter() - t_0
+        elif self.entropy_type == 'mshp':
+            latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize)
+        elif self.entropy_type == 'joint':
+            latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
+        else:
+            self.entropy_bottleneck.set_RPM(RPM_flag)
+            latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, rpm_hidden)
+            self.entropy_bottleneck.set_prior(latent_hat)
+        self.net_t += self.entropy_bottleneck.dnet_t
+        self.AC_t += self.entropy_bottleneck.dAC_t
+        
+        t_0 = time.perf_counter()
+        # decompress
+        if self.downsample:
+            x = self.igdn1(self.dec_conv1(latent_hat))
+            x = self.igdn2(self.dec_conv2(x))
+            
+            if self.conv_type == 'rec':
+                x, state_dec = self.enc_lstm(x, state_dec)
+            elif self.conv_type == 'attn':
+                # use attention
+                B,C,H,W = x.size()
+                x = self.s_attn_s(x)
+                x = self.t_attn_s(x)
+                
+            x = self.igdn3(self.dec_conv3(x))
+            hat = self.dec_conv4(x)
+        else:
+            hat = latent_hat
+        self.net_t += time.perf_counter() - t_0
+        
+        if self.conv_type == 'rec':
+            rae_hidden = torch.cat((state_enc, state_dec),dim=1)
+            if rae_hidden is not None:
+                rae_hidden = rae_hidden.detach()
+            
+        return hat, rae_hidden, rpm_hidden
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None):
         # update only once during testing
@@ -943,7 +1101,7 @@ class Coder2D(nn.Module):
             else:
                 latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden)
                 latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden)
-            self.entropy_bottleneck.set_prior(latent)
+            self.entropy_bottleneck.set_prior(latent_hat)
             
         # add in the time in entropy bottleneck
         if not self.noMeasure:
@@ -1184,6 +1342,12 @@ class SPVC(nn.Module):
         self.mv_codec.cuda(0)
         self.MC_network.cuda(1)
         self.res_codec.cuda(1)
+        
+    def compress(self, x):
+        pass
+        
+    def decompress(self, strings, shapes):
+        pass
         
     def forward(self, x):
         x = x.cuda(0)
