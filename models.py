@@ -1474,7 +1474,7 @@ class SPVC(nn.Module):
         
         # reconstruction
         t_0 = time.perf_counter()
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
+        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).cuda(0)
         self.meters['D-REC'].update(time.perf_counter() - t_0)
         
         return com_frames
