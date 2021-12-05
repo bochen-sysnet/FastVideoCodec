@@ -243,15 +243,12 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
     data = []
     batch_idx = 0
     for data_idx,_ in enumerate(train_iter):
-        if data_idx < 10759:
-            continue
         frame,eof = train_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < batch_size and not eof:
             continue
         data = torch.stack(data, dim=0).cuda()
         l = data.size(0)-1
-        print(l,batch_idx)
         
         # run model
         _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
@@ -291,7 +288,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
         # clear result every 1000 batches
-        if batch_idx % 10000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 100 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             loss_module.reset_meters()
             img_loss_module.reset()
             aux_loss_module.reset()
@@ -302,7 +299,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
 
         
         # ---------EVALUATE---------
-        if batch_idx % 10000 == 0 and batch_idx > 0:
+        if batch_idx % 1000 == 0 and batch_idx > 0:
             best_codec_score = test(model, test_dataset, best_codec_score)
         # --------------------------
             
