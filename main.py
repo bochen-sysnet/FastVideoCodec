@@ -159,9 +159,9 @@ class AverageMeter(object):
 
 # OPTION
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
-CODEC_NAME = 'SPVC-L'
-#RESUME_CODEC_PATH = f'/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_{CODEC_NAME}_best.pth'
-RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_ckpt.pth' # ready
+CODEC_NAME = 'SPVC'
+RESUME_CODEC_PATH = f'/home/monet/research/YOWO/backup/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth'
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_ckpt.pth' # ready
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_best.pth' # ready
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DVC_best.pth' # in-progress
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DCVC_best.pth' # aborted
@@ -409,10 +409,10 @@ def test_x26x(test_dataset,name='x264'):
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
-    torch.save(state, '%s/%s_checkpoint.pth' % (directory, CODEC_NAME))
+    torch.save(state, '{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
     if is_best:
-        shutil.copyfile('%s/%s_checkpoint.pth' % (directory, CODEC_NAME),
-                        '%s/%s_best.pth' % (directory, CODEC_NAME))
+        shutil.copyfile('{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
+                        '{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -431,6 +431,8 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 # optionaly try x264,x265
 #test_x26x(test_dataset,'x264')
 #test_x26x(test_dataset,'x265')
+state = {'epoch': 1, 'state_dict': model.state_dict(), 'score': best_codec_score}
+save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
