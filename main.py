@@ -91,7 +91,6 @@ class VideoDataset(Dataset):
         # Count total frames 
         self._total_frames = 0
         for file_name in self.__file_names:
-            print(file_name)
             cap = cv2.VideoCapture(file_name)
             # Check if camera opened successfully
             if (cap.isOpened()== False):
@@ -105,7 +104,7 @@ class VideoDataset(Dataset):
                 self._total_frames+=1
             # When everything done, release the video capture object
             cap.release()
-        print("[log] Total frames: ", self._total_frames)
+        #print("[log] Total frames: ", self._total_frames)
         
 class FrameDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
@@ -359,6 +358,7 @@ def test(epoch, model, test_dataset):
             
         # clear input
         data = []
+    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
         
 def test_x26x(test_dataset,name='x264'):
     print('Benchmarking:',name)
@@ -400,7 +400,6 @@ def test_x26x(test_dataset,name='x264'):
             data = []
             
         test_dataset.reset()
-    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
