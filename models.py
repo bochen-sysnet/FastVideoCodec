@@ -1414,12 +1414,13 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         
-        return mv_string,mv_size,res_string,res_size,bpp_act
+        return mv_string,res_string,list(bpp_act)
         
-    def decompress(self, x, mv_string,mv_size,res_string,res_size):
+    def decompress(self, x, mv_string,res_string,):
         bs, c, h, w = x[1:].size()
+        latent_size = torch.size([16,16])
         # BATCH motion decode
-        mv_hat,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
+        mv_hat,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         
@@ -1466,7 +1467,7 @@ class SPVC(nn.Module):
         self.meters['D-MC'].update(t_comp)
         
         # BATCH:compress residual
-        res_hat,_, _ = self.res_codec.decompress(res_string, latentSize=res_size)
+        res_hat,_, _ = self.res_codec.decompress(res_string, latentSize=latent_size)
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
         

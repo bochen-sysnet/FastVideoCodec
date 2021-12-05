@@ -216,26 +216,24 @@ def streaming(model, test_dataset):
         with torch.no_grad():
             data = torch.stack(data, dim=0).cuda()
             l = data.size(0)
-            
             # compress GoP
             if l>fP+1:
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
-                mv_string,mv_size,res_string,res_size,bpp_act_list1 = model.compress(x_raw)
-                _,psnr_list1,msssim_list1 = model.decompress(x_raw, mv_string,mv_size,res_string,res_size)
-                print(mv_size,res_size)
+                mv_string,res_string,bpp_act_list1 = model.compress(x_raw)
+                _,psnr_list1,msssim_list1 = model.decompress(x_raw, mv_string,res_string)
                 # compress forward
                 x_raw = data[fP:]
-                mv_string,mv_size,res_string,res_size,bpp_act_list2 = model.compress(x_raw)
-                _,psnr_list2,msssim_list2 = model.decompress(x_raw, mv_string,mv_size,res_string,res_size)
+                mv_string,res_string,bpp_act_list2 = model.compress(x_raw)
+                _,psnr_list2,msssim_list2 = model.decompress(x_raw, mv_string,res_string)
                 psnr_list = psnr_list1[::-1] + [40] + psnr_list2
                 msssim_list = msssim_list1[::-1] + [1] + msssim_list2
-                bpp_act_list = torch.flip(bpp_act_list1,[0]) + [1] + bpp_act_list2
+                bpp_act_list = bpp_act_list1[::-1] + [1] + bpp_act_list2
             else:
                 # compress backward
                 x_raw = torch.flip(data,[0])
-                mv_string,mv_size,res_string,res_size,bpp_act_list = model.compress(x_raw)
-                _,psnr_list,msssim_list = model.decompress(x_raw, mv_string,mv_size,res_string,res_size)
+                mv_string,res_string,bpp_act_list = model.compress(x_raw)
+                _,psnr_list,msssim_list = model.decompress(x_raw, mv_string,res_string)
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
