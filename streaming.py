@@ -222,8 +222,10 @@ def streaming(model, test_dataset):
             
             # compress GoP
             if l>fP+1:
+                # compress backward
                 com_imgs,img_loss_list1,_,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
                 data[fP:fP+1] = com_imgs[0:1]
+                # compress forward
                 _,img_loss_list2,_,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
                 img_loss_list = img_loss_list1[::-1] + img_loss_list2
                 aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2

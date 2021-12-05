@@ -1344,10 +1344,135 @@ class SPVC(nn.Module):
         self.res_codec.cuda(1)
         
     def compress(self, x):
-        pass
+        x = x.cuda(0)
+        bs, c, h, w = x[1:].size()
         
-    def decompress(self, strings, shapes):
-        pass
+        # BATCH:compute optical flow
+        t_0 = time.perf_counter()
+        # obtain reference frames from a graph
+        x_tar = x[1:]
+        if self.name == 'SPVC-L':
+            g,layers,parents = generate_graph('default')
+        else:
+            # I frame is the only first layer
+            if bs <=2:
+                g,layers,parents = generate_graph('2layers')
+            elif bs <=6:
+                g,layers,parents = generate_graph('3layers')
+            elif bs <=14:
+                g,layers,parents = generate_graph('4layers')
+            else:
+                print('Batch size not supported yet:',bs)
+        ref_index = [-1 for _ in x_tar]
+        for start in g:
+            if start>bs:continue
+            for k in g[start]:
+                if k>bs:continue
+                ref_index[k-1] = start
+        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
+        self.meters['E-FL'].update(time.perf_counter() - t_0)
+            
+        # BATCH motion compression
+        mv_hat,mv_string,_,_,mv_act,mv_size = self.mv_codec.compress(mv_tensors,decodeLatent=True)
+        self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
+        self.meters['eEMV'].update(self.mv_codec.AC_t)
+        
+        # SEQ:motion compensation
+        t_0 = time.perf_counter()
+        MC_frame_list = [None for _ in x_tar]
+        warped_frame_list = [None for _ in x_tar]
+        # for layers in graph
+        # get elements of this layers
+        # get parents of all elements above
+        for layer in layers:
+            ref = [] # reference frame
+            diff = [] # motion
+            for tar in layer: # id of frames in this layer
+                if tar>bs:continue
+                parent = parents[tar]
+                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
+            if ref:
+                ref = torch.cat(ref,dim=0)
+                diff = torch.cat(diff,dim=0)
+                MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
+                for i,tar in enumerate(layer):
+                    if tar>bs:continue
+                    MC_frame_list[tar-1] = MC_frame[i:i+1]
+                    warped_frame_list[tar-1] = warped_frame[i:i+1]
+        MC_frames = torch.cat(MC_frame_list,dim=0)
+        warped_frames = torch.cat(warped_frame_list,dim=0)
+        t_comp = time.perf_counter() - t_0
+        self.meters['E-MC'].update(t_comp)
+        
+        # BATCH:compress residual
+        res_tensors = x_tar.to(MC_frames.device) - MC_frames
+        res_string,_,_,res_act,res_size = self.res_codec.compress(res_tensors,decodeLatent=False)
+        self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
+        self.meters['eERES'].update(self.res_codec.AC_t)
+        
+        return mv_string,mv_size,res_string,res_size
+        
+    def decompress(self, x, mv_string,mv_size,res_string,res_size,bs=6):
+        bs, c, h, w = x[1:].size()
+        # BATCH motion decode
+        mv_hat,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
+        self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
+        self.meters['eDMV'].update(self.mv_codec.AC_t)
+        
+        # graph
+        if self.name == 'SPVC-L':
+            g,layers,parents = generate_graph('default')
+        else:
+            # I frame is the only first layer
+            if bs <=2:
+                g,layers,parents = generate_graph('2layers')
+            elif bs <=6:
+                g,layers,parents = generate_graph('3layers')
+            elif bs <=14:
+                g,layers,parents = generate_graph('4layers')
+            else:
+                print('Batch size not supported yet.')
+        
+        # SEQ:motion compensation
+        t_0 = time.perf_counter()
+        MC_frame_list = [None for _ in mv_string]
+        warped_frame_list = [None for _ in mv_string]
+        # for layers in graph
+        # get elements of this layers
+        # get parents of all elements above
+        for layer in layers:
+            ref = [] # reference frame
+            diff = [] # motion
+            for tar in layer: # id of frames in this layer
+                if tar>bs:continue
+                parent = parents[tar]
+                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
+            if ref:
+                ref = torch.cat(ref,dim=0)
+                diff = torch.cat(diff,dim=0)
+                MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
+                for i,tar in enumerate(layer):
+                    if tar>bs:continue
+                    MC_frame_list[tar-1] = MC_frame[i:i+1]
+                    warped_frame_list[tar-1] = warped_frame[i:i+1]
+        MC_frames = torch.cat(MC_frame_list,dim=0)
+        warped_frames = torch.cat(warped_frame_list,dim=0)
+        t_comp = time.perf_counter() - t_0
+        self.meters['D-MC'].update(t_comp)
+        
+        # BATCH:compress residual
+        res_hat,_, _ = self.res_codec.decompress(res_tensors, latentSize=res_size)
+        self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
+        self.meters['eDRES'].update(self.res_codec.AC_t)
+        
+        # reconstruction
+        t_0 = time.perf_counter()
+        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
+        self.meters['D-REC'].update(time.perf_counter() - t_0)
+        
+        return com_frames
         
     def forward(self, x):
         x = x.cuda(0)
