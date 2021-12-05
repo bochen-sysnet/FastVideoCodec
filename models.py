@@ -1439,8 +1439,8 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frame_list = [None for _ in mv_string]
-        warped_frame_list = [None for _ in mv_string]
+        MC_frame_list = [None for _ in range(bs)]
+        warped_frame_list = [None for _ in range(bs)]
         # for layers in graph
         # get elements of this layers
         # get parents of all elements above
@@ -1458,7 +1458,6 @@ class SPVC(nn.Module):
                 MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
-                    print(tar,x.size(),len(mv_string))
                     MC_frame_list[tar-1] = MC_frame[i:i+1]
                     warped_frame_list[tar-1] = warped_frame[i:i+1]
         MC_frames = torch.cat(MC_frame_list,dim=0)
