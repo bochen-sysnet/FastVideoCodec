@@ -409,10 +409,10 @@ def test_x26x(test_dataset,name='x264'):
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME):
     import shutil
-    torch.save(state, '{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
+    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
     if is_best:
-        shutil.copyfile('{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
-                        '{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
+        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
+                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
