@@ -1414,7 +1414,6 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         bpp_act = [bpp for bpp in bpp_act]
-        print(bpp_act)
         
         return mv_string,res_string,bpp_act
         
