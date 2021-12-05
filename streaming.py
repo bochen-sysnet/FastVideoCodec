@@ -218,6 +218,7 @@ def streaming(model, test_dataset):
             data = torch.stack(data, dim=0).cuda()
             l = data.size(0)
             # compress GoP
+            # need to have sequential and batch streaming
             if l>fP+1:
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
@@ -246,7 +247,6 @@ def streaming(model, test_dataset):
                 psnr_list =  psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()]
                 msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
                 bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
-                
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
