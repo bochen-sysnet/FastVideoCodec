@@ -437,7 +437,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train(epoch, model, train_dataset, optimizer)
+    #train(epoch, model, train_dataset, optimizer)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
