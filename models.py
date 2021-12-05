@@ -26,7 +26,7 @@ import pytorch_msssim
 from PIL import Image
 
 def get_codec_model(name):
-    if name in ['MLVC','RLVC','DVC','RAW']:
+    if name in ['RLVC','DVC','RAW']:
         model_codec = IterPredVideoCodecs(name)
     elif name in ['DCVC','DCVC_v2']:
         model_codec = DCVC(name)
@@ -58,21 +58,23 @@ def init_training_params(model):
     model.r = 1024 # PSNR:[256,512,1024,2048] MSSSIM:[8,16,32,64]
     model.I_level = 27 # [37,32,27,22] poor->good quality
     
-    model.fmt_enc_str = "FL:{0:.4f}\tMV:{1:.4f}\tMC:{2:.4f}\tRES:{3:.4f}"
-    model.fmt_dec_str = "MV:{0:.4f}\tMC:{1:.4f}\tRES:{2:.4f}\tREC:{3:.4f}"
-    model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'E-MC':AverageMeter(),'E-RES':AverageMeter(),
-                    'D-MV':AverageMeter(),'D-MC':AverageMeter(),'D-RES':AverageMeter(),'D-REC':AverageMeter()}
-          
-    # bpp,psnr,msssim, at 13 positions
-    #model.bpp = [AverageMeter() for _ in range(13)]
-    #model.psnr = [AverageMeter() for _ in range(13)]
-    #model.msssim = [AverageMeter() for _ in range(13)]
+    model.fmt_enc_str = "FL:{0:.4f}\tMV:{1:.4f}({6:.4f})\tMC:{2:.4f}\tRES:{3:.4f}({7:.4f})\tNET:{4:.4f}\tALL:{5:.4f}"
+    model.fmt_dec_str = "MV:{0:.4f}({6:.4f})\tMC:{1:.4f}\tRES:{2:.4f}({7:.4f})\tREC:{3:.4f}\tNET:{4:.4f}\tALL:{5:.4f}"
+    model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
+                    'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),'E-NET':AverageMeter(),
+                    'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
+                    'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-REC':AverageMeter(),'D-NET':AverageMeter()}
     
 def showTimer(model):
-    if model.name in ['SPVC','SPVC-R','RLVC','DVC']:
-        print('------------',model.name,'------------')
-        print(model.fmt_enc_str.format(model.meters['E-FL'].avg,model.meters['E-MV'].avg,model.meters['E-MC'].avg,model.meters['E-RES'].avg))
-        print(model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,model.meters["D-RES"].avg,model.meters["D-REC"].avg))
+    enc = sum([val.avg if 'E-' in key else 0 for key,val in model.meters.items()])
+    dec = sum([val.avg if 'D-' in key else 0 for key,val in model.meters.items()])
+    print(model.fmt_enc_str.format(model.meters['E-FL'].avg,model.meters['E-MV'].avg,
+        model.meters['E-MC'].avg,model.meters['E-RES'].avg,model.meters['E-NET'].avg,
+        enc,model.meters['eEMV'].avg,model.meters['eERES'].avg))
+    print(model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,
+        model.meters["D-RES"].avg,model.meters["D-REC"].avg,model.meters["D-NET"].avg,
+        dec,model.meters['eDMV'].avg,model.meters['eDRES'].avg))
+    return enc,dec
     
 def update_training(model, epoch):
     # warmup with all gamma set to 1
@@ -232,14 +234,28 @@ def parallel_compression(model, data, compressI=False):
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
-        for pos in range(data.size(0)-1):
-            img_loss_list += [img_loss[pos]]
-            aux_loss_list += [aux_loss[pos]]
-            bpp_est_list += [bpp_est[pos]]
-            bpp_act_list += [bpp_act[pos]]
-            psnr_list += [psnr[pos]]
-            msssim_list += [msssim[pos]]
+        if 'SPVC' in model.name or 'AE3D' in model.name:
+            _, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
+            for pos in range(data.size(0)-1):
+                img_loss_list += [img_loss[pos]]
+                aux_loss_list += [aux_loss[pos]]
+                bpp_est_list += [bpp_est[pos]]
+                bpp_act_list += [bpp_act[pos]]
+                psnr_list += [psnr[pos]]
+                msssim_list += [msssim[pos]]
+        elif model.name in ['DVC','RLVC','DCVC']:
+            B,_,H,W = data.size()
+            hidden = model.init_hidden(H,W)
+            x_hat = data[0:1]
+            for i in range(1,B):
+                x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim = model(x_hat, data[i:i+1], hidden, i>1)
+                x_hat = x_hat.detach()
+                img_loss_list += [img_loss]
+                aux_loss_list += [aux_loss]
+                bpp_est_list += [bpp_est]
+                bpp_act_list += [bpp_act]
+                psnr_list += [psnr]
+                msssim_list += [msssim]
     
     return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
@@ -965,6 +981,7 @@ class Coder2D(nn.Module):
         
         # Time measurement: end
         if not self.noMeasure:
+            self.enc_t += time.perf_counter() - t_0
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
@@ -979,8 +996,8 @@ class Coder2D(nn.Module):
             
     def compress_sequence(self,x):
         bs,c,h,w = x.size()
-        x_est = torch.FloatTensor([0]).squeeze(0).cuda()
-        x_act = torch.FloatTensor([0]).squeeze(0).cuda()
+        x_est = []
+        x_act = []
         x_aux = torch.FloatTensor([0]).squeeze(0).cuda()
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
@@ -995,10 +1012,10 @@ class Coder2D(nn.Module):
             x_hat_list.append(x_hat_i.squeeze(0))
             
             # calculate bpp (estimated) if it is training else it will be set to 0
-            x_est += x_est_i.cuda()
+            x_est += [x_est_i.cuda()]
             
             # calculate bpp (actual)
-            x_act += x_act_i.cuda()
+            x_act += [x_act_i.cuda()]
             
             # aux
             x_aux += x_aux_i.cuda()
@@ -1007,7 +1024,7 @@ class Coder2D(nn.Module):
             dec_t += self.dec_t
         x_hat = torch.stack(x_hat_list, dim=0)
         self.enc_t,self.dec_t = enc_t,dec_t
-        return x_hat,x_act,x_est,x_aux
+        return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux
 
 class MCNet(nn.Module):
     def __init__(self):
@@ -1113,12 +1130,28 @@ def generate_graph(graph_type='default'):
         g = {}
         for k in range(6):
             g[k] = [k+1]
+        layers = [[i+1] for i in range(14)] # elements in layers
+        parents = {i+1:i for i in range(14)}
+    elif graph_type == '2layers':
+        g = {0:[1,2]}
+        layers = [[1,2]] # elements in layers
+        parents = {1:0,2:0}
     elif graph_type == '3layers':
         g = {0:[1,4],1:[2,3],4:[5,6]}
+        layers = [[1,4],[2,3,5,6]] # elements in layers
+        parents = {1:0,4:0,2:1,3:1,5:4,6:4}
+    elif graph_type == '4layers':
+        # 0
+        # 1       8
+        # 2   5   9     12
+        # 3 4 6 7 10 11 13 14
+        g = {0:[1,8],1:[2,5],8:[9,12],2:[3,4],5:[6,7],9:[10,11],12:[13,14]}
+        layers = [[1,8],[2,5,9,12],[3,4,6,7,10,11,13,14]] # elements in layers
+        parents = {1:0,8:0,2:1,5:1,9:8,12:8,3:2,4:2,6:5,7:5,10:9,11:9,13:12,14:12}
     else:
         print('Undefined graph type:',graph_type)
         exit(1)
-    return g
+    return g,layers,parents
         
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True):
@@ -1156,9 +1189,17 @@ class SPVC(nn.Module):
         # obtain reference frames from a graph
         x_tar = x[1:]
         if self.name == 'SPVC-L':
-            g = generate_graph('default')
+            g,layers,parents = generate_graph('default')
         else:
-            g = generate_graph('3layers')
+            # I frame is the only first layer
+            if bs <=2:
+                g,layers,parents = generate_graph('2layers')
+            elif bs <=6:
+                g,layers,parents = generate_graph('3layers')
+            elif bs <=14:
+                g,layers,parents = generate_graph('4layers')
+            else:
+                print('Batch size not supported yet:',bs)
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
@@ -1182,19 +1223,19 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         MC_frame_list = [None for _ in x_tar]
         warped_frame_list = [None for _ in x_tar]
-        for start in g:
-            if start>bs:continue
-            if start == 0:
-                Y0_com = x[:1]
-            else:
-                Y0_com = MC_frame_list[start-1]
-            for k in g[start]:
-                # k = 1...6
-                if k>bs:continue
-                mv = mv_hat[k-1:k].cuda(1)
-                MC_frame,warped_frame = motion_compensation(self.MC_network,Y0_com,mv)
-                MC_frame_list[k-1] = MC_frame
-                warped_frame_list[k-1] = warped_frame
+        for layer in layers:
+            ref = [] # reference frame
+            diff = [] # motion
+            for tar in layer: # id of frames in this layer
+                parent = parents[tar]
+                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
+            ref = torch.cat(ref,dim=0)
+            diff = torch.cat(diff,dim=0)
+            MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
+            for i,tar in enumerate(layer):
+                MC_frame_list[tar-1] = MC_frame[i:i+1]
+                warped_frame_list[tar-1] = warped_frame[i:i+1]
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         t_comp = time.perf_counter() - t_0
@@ -1223,7 +1264,7 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/(2 * bs)
+        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/(2)
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
@@ -1370,11 +1411,12 @@ class SCVC(nn.Module):
         #print('Context dec:',t_ctx_dec)
         
         # estimated bits
-        bpp_est = (mv_est + y_est.to(mv_est.device))/(h * w * bs)
+        bpp_est = (mv_est + y_est.to(mv_est.device))/(h * w)
         # actual bits
-        bpp_act = (mv_act + y_act.to(mv_act.device))/(h * w * bs)
+        bpp_act = (mv_act + y_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux + y_aux.to(mv_aux.device))/2
+        aux_loss = (mv_aux + y_aux.to(mv_aux.device))/(2)
+        aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x[1:], x_hat.to(x.device), use_list=True)
         msssim = MSSSIM(x[1:], x_hat.to(x.device), use_list=True)
@@ -1464,7 +1506,6 @@ class AE3D(nn.Module):
         self.latent_codec.cuda(0)
         
     def forward(self, x, RPM_flag=False, use_psnr=True):
-            
         x = x[1:]
             
         if not self.noMeasure:
@@ -1485,11 +1526,9 @@ class AE3D(nn.Module):
         # entropy
         # compress each frame sequentially
         latent = latent.squeeze(0).permute(1,0,2,3).contiguous()
-        latent_hat,bpp_act,bpp_est,aux_loss = self.latent_codec.compress_sequence(latent)
+        latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
         latent_hat = latent_hat.permute(1,0,2,3).unsqueeze(0).contiguous()
-        bpp_act = bpp_act.repeat(bs)
-        bpp_est = bpp_est.repeat(bs)
-        aux_loss = aux_loss.repeat(bs)
+        aux_loss = aux_loss.repeat(t)
         
         # decoder
         t_0 = time.perf_counter()
@@ -1503,16 +1542,22 @@ class AE3D(nn.Module):
         x = x.permute(0,2,1,3,4).contiguous().squeeze(0)
         x_hat = x_hat.permute(0,2,1,3,4).contiguous().squeeze(0)
         
+        # estimated bits
+        bpp_est = latent_est/(h * w)
+        
+        # actual bits
+        bpp_act = latent_act/(h * w)
+        
         # calculate metrics/loss
         psnr = PSNR(x, x_hat.to(x.device), use_list=True)
         msssim = MSSSIM(x, x_hat.to(x.device), use_list=True)
         
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, use_psnr)
-        img_loss = img_loss.repeat(bs)
+        img_loss = img_loss.repeat(t)
         
         if not self.noMeasure:
-            print(np.sum(self.enc_t)/bs,np.sum(self.dec_t)/bs,self.enc_t,self.dec_t)
+            print(np.sum(self.enc_t)/t,np.sum(self.dec_t)/t,self.enc_t,self.dec_t)
         
         return x_hat.cuda(0), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
@@ -1573,9 +1618,9 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def test_batch_proc(name = 'SPVC'):
-    print('test',name)
-    batch_size = 7
+def test_batch_proc(name = 'SPVC',batch_size = 7):
+    print('------------',name,'------------')
+    
     h = w = 224
     channels = 64
     x = torch.randn(batch_size,3,h,w).cuda()
@@ -1594,7 +1639,7 @@ def test_batch_proc(name = 'SPVC'):
     parameters = set(p for n, p in model.named_parameters())
     optimizer = optim.Adam(parameters, lr=1e-4)
     timer = AverageMeter()
-    train_iter = tqdm(range(0,2))
+    train_iter = tqdm(range(0,5))
     model.eval()
     for i,_ in enumerate(train_iter):
         optimizer.zero_grad()
@@ -1617,10 +1662,11 @@ def test_batch_proc(name = 'SPVC'):
             f"bits_act: {float(bpp_act[0]):.2f}. "
             f"aux_loss: {float(aux_loss[0]):.2f}. "
             f"duration: {timer.avg:.3f}. ")
-    showTimer(model)
+    enc,dec = showTimer(model)
+    return enc,dec
             
 def test_seq_proc(name='RLVC'):
-    print('test',name)
+    print('------------',name,'------------')
     batch_size = 1
     h = w = 224
     x = torch.rand(batch_size,3,h,w).cuda()
@@ -1662,7 +1708,8 @@ def test_seq_proc(name='RLVC'):
             f"aux_loss: {float(aux_loss):.2f}. "
             f"psnr: {float(p):.2f}. "
             f"duration: {timer.avg:.3f}. ")
-    showTimer(model)
+    enc,dec = showTimer(model)
+    return enc,dec
             
 # integrate all codec models
 # measure the speed of all codecs
@@ -1676,10 +1723,17 @@ def test_seq_proc(name='RLVC'):
 # update CNN alternatively?
     
 if __name__ == '__main__':
-    test_batch_proc('SPVC')
+    #test_seq_proc('DVC')
+    rlvc_e,_ = test_seq_proc('RLVC')
+    result = []
+    for B in range(2,16):
+        spvc_e,_ = test_batch_proc('SPVC', B)
+        tpt = rlvc_e*(B-1)/spvc_e
+        result += [tpt]
+    print(result)
+    #test_batch_proc('SPVC-L')
+    #test_batch_proc('SPVC-R')
     #test_batch_proc('AE3D')
     #test_batch_proc('SCVC')
     #test_seq_proc('DCVC')
     #test_seq_proc('DCVC_v2')
-    #test_seq_proc('DVC')
-    #test_seq_proc('RLVC')

@@ -128,8 +128,13 @@ class AverageMeter(object):
 
 # OPTION
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
-CODEC_NAME = 'SPVC'
-RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_best.pth'
+CODEC_NAME = 'RLVC'
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_best.pth' # ready
+RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_ckpt.pth' # ready
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DVC_best.pth' # in-progress
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DCVC_best.pth' # aborted
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_AE3D_best.pth' # in-progress
+#RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SCVC_best.pth' # todo
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -387,14 +392,13 @@ def adjust_learning_rate(optimizer, epoch):
         param_group['lr'] = lr_new
     return lr_new
     
-    
 ####### Load dataset
 train_dataset = VideoDataset('../dataset/vimeo', frame_size=(256,256))
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
-test_x26x(test_dataset,'x264')
-test_x26x(test_dataset,'x265')
+#test_x26x(test_dataset,'x264')
+#test_x26x(test_dataset,'x265')
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
