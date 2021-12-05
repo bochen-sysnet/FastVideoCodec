@@ -451,9 +451,6 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_x26x(test_dataset,'x264')
 #test_x26x(test_dataset,'x265')
 
-test(0,model, test_dataset)
-exit(0)
-
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
     r = adjust_learning_rate(optimizer, epoch)
