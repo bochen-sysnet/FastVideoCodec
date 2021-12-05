@@ -336,7 +336,7 @@ class MeanScaleHyperPriors(CompressionModel):
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
         x_hat = self.gaussian_conditional.decompress(string[0], indexes, means=mu)
-        self.AC_t += time.perf_counter() - t_0
+        self.dAC_t += time.perf_counter() - t_0
         self.dec_t = self.dnet_t + self.dAC_t
         return x_hat
         
