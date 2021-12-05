@@ -61,7 +61,7 @@ class VideoDataset(Dataset):
                 if ret != True:break
                 # skip black frames
                 if np.sum(img) == 0:continue
-                img = Image.fromarray(img)
+                img = Image.fromarray(img).convert('RGB')
                 if self._frame_size is not None:
                     img = img.resize(self._frame_size) 
                 self._clip.append(img)
@@ -79,6 +79,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -450,6 +451,9 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 # optionaly try x264,x265
 #test_x26x(test_dataset,'x264')
 #test_x26x(test_dataset,'x265')
+
+test(model, test_dataset)
+exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
