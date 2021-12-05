@@ -249,6 +249,7 @@ def streaming(model, test_dataset):
                 
                 
             # aggregate loss
+            print(bpp_act_list)
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
