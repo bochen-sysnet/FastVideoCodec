@@ -114,7 +114,7 @@ class FrameDataset(Dataset):
         self._total_frames = 0 # Storing file names in object
         self.get_septuplet_names()
         
-    def get_sep_names(self):
+    def get_septuplet_names(self):
         print("[log] Looking for septuplets in", self._dataset_dir) 
         self.__septuplet_names = []
         with open(self._train_list_dir,r) as f:
