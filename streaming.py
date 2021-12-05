@@ -312,5 +312,4 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_x26x(test_dataset,'x265')
 
 # Train and test model
-print('training at epoch %d, r=%.2f' % (epoch,r))
 streaming(model, test_dataset)
