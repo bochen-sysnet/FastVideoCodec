@@ -159,7 +159,7 @@ class AverageMeter(object):
 
 # OPTION
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
-CODEC_NAME = 'SPVC'
+CODEC_NAME = 'RLVC'
 RESUME_CODEC_PATH = f'/home/monet/research/YOWO/backup/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth'
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_ckpt.pth' # ready
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_best.pth' # ready
@@ -431,8 +431,6 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 # optionaly try x264,x265
 #test_x26x(test_dataset,'x264')
 #test_x26x(test_dataset,'x265')
-state = {'epoch': 1, 'state_dict': model.state_dict(), 'score': best_codec_score}
-save_checkpoint(state, True, BACKUP_DIR, CODEC_NAME)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
