@@ -313,7 +313,7 @@ def test_x26x(test_dataset,name='x264'):
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
-test_x26x(test_dataset,'x264')
+#test_x26x(test_dataset,'x264')
 #test_x26x(test_dataset,'x265')
 
 # Train and test model
