@@ -861,6 +861,9 @@ class Coder2D(nn.Module):
         self.noMeasure = noMeasure
         # include two average meter to measure time
         
+    def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False):
+        pass
+        
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None):
         # update only once during testing
         if not self.updated and not self.training:

@@ -280,8 +280,10 @@ def test_x26x(test_dataset,name='x264'):
             if not eof:
                 continue
             l = len(data)
-                
+            t_0 = time.perf_counter()
             psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q,*test_dataset._frame_size)
+            dur = time.perf_counter() - t_0
+            print(dur/l)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
@@ -309,7 +311,7 @@ def test_x26x(test_dataset,name='x264'):
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
-#test_x26x(test_dataset,'x264')
+test_x26x(test_dataset,'x264')
 #test_x26x(test_dataset,'x265')
 
 # Train and test model
