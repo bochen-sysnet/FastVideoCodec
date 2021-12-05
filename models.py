@@ -1189,17 +1189,9 @@ class SPVC(nn.Module):
         # obtain reference frames from a graph
         x_tar = x[1:]
         if self.name == 'SPVC-L':
-            g,layers,parents = generate_graph('default')
+            g = generate_graph('default')
         else:
-            # I frame is the only first layer
-            if bs <=2:
-                g,layers,parents = generate_graph('2layers')
-            elif bs <=6:
-                g,layers,parents = generate_graph('3layers')
-            elif bs <=14:
-                g,layers,parents = generate_graph('4layers')
-            else:
-                print('Batch size not supported yet:',bs)
+            g = generate_graph('3layers')
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
@@ -1223,25 +1215,19 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         MC_frame_list = [None for _ in x_tar]
         warped_frame_list = [None for _ in x_tar]
-        # for layers in graph
-        # get elements of this layers
-        # get parents of all elements above
-        for layer in layers:
-            ref = [] # reference frame
-            diff = [] # motion
-            for tar in layer: # id of frames in this layer
-                if tar>bs:continue
-                parent = parents[tar]
-                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
-            if ref:
-                ref = torch.cat(ref,dim=0)
-                diff = torch.cat(diff,dim=0)
-                MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
-                for i,tar in enumerate(layer):
-                    if tar>bs:continue
-                    MC_frame_list[tar-1] = MC_frame[i:i+1]
-                    warped_frame_list[tar-1] = warped_frame[i:i+1]
+        for start in g:
+            if start>bs:continue
+            if start == 0:
+                Y0_com = x[:1]
+            else:
+                Y0_com = MC_frame_list[start-1]
+            for k in g[start]:
+                # k = 1...6
+                if k>bs:continue
+                mv = mv_hat[k-1:k].cuda(1)
+                MC_frame,warped_frame = motion_compensation(self.MC_network,Y0_com,mv)
+                MC_frame_list[k-1] = MC_frame
+                warped_frame_list[k-1] = warped_frame
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         t_comp = time.perf_counter() - t_0
@@ -1270,7 +1256,7 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/(2)
+        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/(2 * bs)
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
