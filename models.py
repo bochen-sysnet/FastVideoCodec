@@ -337,7 +337,6 @@ class IterPredVideoCodecs(nn.Module):
     def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag, use_psnr=True):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
-        print(Y1_raw.device)
         batch_size, _, Height, Width = Y1_raw.shape
         if self.name == 'RAW':
             bpp_est = bpp_act = metrics = torch.FloatTensor([0]).cuda(0)
@@ -384,9 +383,9 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['D-REC'].update(time.perf_counter() - t_0)
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est + res_est.cuda(0))/(Height * Width * batch_size)
+        bpp_est = (mv_est.cuda() + res_est.cuda(0))/(Height * Width * batch_size)
         # actual bits
-        bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
+        bpp_act = (mv_act.cuda() + res_act.cuda())/(Height * Width * batch_size)
         # auxilary loss
         aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
         # calculate metrics/loss
