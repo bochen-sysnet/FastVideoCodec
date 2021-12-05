@@ -335,10 +335,9 @@ def test(epoch, model, test_dataset):
             msssim_list = msssim_list1[::-1] + msssim_list2
             bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
         else:
-            _,img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+            _,img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]).cuda(),True)
             
         # aggregate loss
-        print(bpp_act_list)
         ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
         aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
