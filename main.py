@@ -358,6 +358,7 @@ def test(epoch, model, test_dataset):
             
         # clear input
         data = []
+    test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
         
 def test_x26x(test_dataset,name='x264'):
