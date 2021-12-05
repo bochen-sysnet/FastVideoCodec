@@ -242,16 +242,15 @@ def train(epoch, model, train_dataset, optimizer):
     train_iter = tqdm(range(ds_size))
     data = []
     for data_idx,_ in enumerate(train_iter):
-        for j in range(batch_size):
-            frame,eof = train_dataset[data_idx]
-            data.append(transforms.ToTensor()(frame))
-            if eof:break
+        frame,eof = train_dataset[data_idx]
+        data.append(transforms.ToTensor()(frame))
+        if len(data) < batch_size and not eof:
+            continue
         data = torch.stack(data, dim=0).cuda()
         l = data.size(0)-1
         
         # run model
         _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
-        print(img_loss_list)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
