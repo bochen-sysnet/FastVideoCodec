@@ -288,8 +288,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
         # clear result every 1000 batches
-        if batch_idx % 100 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
-            loss_module.reset_meters()
+        if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
@@ -299,15 +298,17 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
 
         
         # ---------EVALUATE---------
-        if batch_idx % 1000 == 0 and batch_idx > 0:
+        if batch_idx % 5000 == 0 and batch_idx > 0:
             best_codec_score = test(model, test_dataset, best_codec_score)
         # --------------------------
             
         # clear input
         data = []
         batch_idx += 1
+      
+    best_codec_score = test(model, test_dataset, best_codec_score)
         
-    return test(model, test_dataset, best_codec_score)
+    return best_codec_score
     
 def test(model, test_dataset, best_codec_score=None):
     aux_loss_module = AverageMeter()
