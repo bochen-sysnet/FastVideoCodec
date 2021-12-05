@@ -161,7 +161,7 @@ class AverageMeter(object):
 BACKUP_DIR = '/home/monet/research/FastVideoCodec/backup'
 CODEC_NAME = 'SPVC'
 #RESUME_CODEC_PATH = f'/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_{CODEC_NAME}_best.pth'
-RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth' # ready
+RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC-P_ckpt.pth' # ready
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_RLVC_best.pth' # ready
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DVC_best.pth' # in-progress
 #RESUME_CODEC_PATH = '/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_DCVC_best.pth' # aborted
