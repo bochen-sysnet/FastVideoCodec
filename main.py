@@ -117,7 +117,7 @@ class FrameDataset(Dataset):
     def get_septuplet_names(self):
         print("[log] Looking for septuplets in", self._dataset_dir) 
         self.__septuplet_names = []
-        with open(self._train_list_dir,r) as f:
+        with open(self._train_list_dir,'r') as f:
             for line in f:
                 line = line.strip()
                 self.__septuplet_names += [self._dataset_dir + '/' + line]
