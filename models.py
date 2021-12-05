@@ -358,6 +358,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
+            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
         loc = get_grid_locations(batch_size, Height, Width).type(Y0_com.type())
@@ -376,6 +378,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
+            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
         t_0 = time.perf_counter()
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
@@ -813,9 +817,7 @@ class Coder2D(nn.Module):
         elif keyword in ['attn']:
             # for batch model
             self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=True)
-            #self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=False)
             self.conv_type = 'attn'
-            #self.conv_type = 'non-rec'
             self.entropy_type = 'mshp'
         elif keyword in ['mshp']:
             # for image codec, single frame
@@ -1218,6 +1220,8 @@ class SPVC(nn.Module):
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
+            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
@@ -1258,6 +1262,8 @@ class SPVC(nn.Module):
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
+            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
         t_0 = time.perf_counter()
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
