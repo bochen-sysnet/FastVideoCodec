@@ -337,6 +337,7 @@ class IterPredVideoCodecs(nn.Module):
     def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag, use_psnr=True):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
+        print(Y1_raw.device)
         batch_size, _, Height, Width = Y1_raw.shape
         if self.name == 'RAW':
             bpp_est = bpp_act = metrics = torch.FloatTensor([0]).cuda(0)
