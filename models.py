@@ -27,15 +27,15 @@ from PIL import Image
 
 def get_codec_model(name,noMeasure=True):
     if name in ['RLVC','DVC','RAW']:
-        model_codec = IterPredVideoCodecs(name,noMeasure)
+        model_codec = IterPredVideoCodecs(name,noMeasure=noMeasure)
     elif name in ['DCVC','DCVC_v2']:
-        model_codec = DCVC(name,noMeasure)
+        model_codec = DCVC(name,noMeasure=noMeasure)
     elif 'SPVC' in name:
-        model_codec = SPVC(name,noMeasure)
+        model_codec = SPVC(name,noMeasure=noMeasure)
     elif name in ['SCVC']:
-        model_codec = SCVC(name,noMeasure)
+        model_codec = SCVC(name,noMeasure=noMeasure)
     elif name in ['AE3D']:
-        model_codec = AE3D(name,noMeasure)
+        model_codec = AE3D(name,noMeasure=noMeasure)
     elif name in ['x264','x265']:
         model_codec = StandardVideoCodecs(name)
     else:
