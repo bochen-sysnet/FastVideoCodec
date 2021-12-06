@@ -147,7 +147,8 @@ def test_x26x(test_dataset, name='x264'):
         output_filename = 'tmp/videostreams/output.mp4'
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rtsp -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug -rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-        for img in raw_clip:
+        for idx,img in enumerate(raw_clip):
+            print('write:',idx)
             process.stdin.write(np.array(img).tobytes())
         # Close and flush stdin
         process.stdin.close()
@@ -183,6 +184,7 @@ def test_x26x(test_dataset, name='x264'):
             
             # add to clip
             com_queue += [frame]
+            print('Read:',len(com_queue))
             
     from collections import deque
     
@@ -210,6 +212,7 @@ def test_x26x(test_dataset, name='x264'):
                 raw = transforms.ToTensor()(data[i]).cuda()
                 psnr_list += [PSNR(raw, com)]
                 msssim_list += [MSSSIM(raw, com)]
+                print('Evaluate:',psnr_list[-1])
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
