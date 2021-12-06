@@ -589,11 +589,8 @@ class DCVC(nn.Module):
             print(np.sum(self.enc_t),np.sum(self.dec_t),self.enc_t,self.dec_t)
         return x_hat.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
-    def loss(self, pix_loss, bpp_loss, aux_loss, app_loss=None):
-        if app_loss is None:
-            return self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
-        else:
-            return self.r_app*app_loss + self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
+    def loss(self, pix_loss, bpp_loss):
+        return self.r_img*pix_loss + self.r_bpp*bpp_loss
         
     def init_hidden(self, h, w):
         rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
