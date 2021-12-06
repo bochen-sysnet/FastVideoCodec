@@ -127,7 +127,7 @@ class FrameDataset(Dataset):
         
     def __getitem__(self, idx):
         data = []
-        for img_idx in range(7):
+        for img_idx in range(1,8):
             base_dir = self.__septuplet_names[idx]
             img_dir = base_dir+'/'+f'im{img_idx}.png'
             img = Image.open(img_dir).convert('RGB')
