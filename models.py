@@ -402,11 +402,8 @@ class IterPredVideoCodecs(nn.Module):
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         return Y1_com.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
-    def loss(self, pix_loss, bpp_loss, aux_loss, app_loss=None):
-        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
-        if self.name in ['MLVC','RAW']:
-            if app_loss is not None:
-                loss += self.r_app*app_loss
+    def loss(self, pix_loss, bpp_loss):
+        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss
         return loss
     
     def init_hidden(self, h, w):
