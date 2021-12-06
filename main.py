@@ -460,7 +460,7 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
 #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
-RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt'
+RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
