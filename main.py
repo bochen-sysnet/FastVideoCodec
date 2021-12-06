@@ -531,7 +531,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    #train_codec(epoch, model, train_dataset, optimizer)
+    train_codec(epoch, model, train_dataset, optimizer)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
