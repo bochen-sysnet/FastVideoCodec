@@ -375,7 +375,8 @@ def test(epoch, model, test_dataset, best_codec_score=None):
             f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+            f"I: {float(max(psnr_list)):.2f}")
             
         # clear input
         data = []
@@ -439,8 +440,9 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    steps = [s for s in cfg.SOLVER.STEPS if s<0] if epoch<0 else [s for s in cfg.SOLVER.STEPS if s>=0]
-    r = (cfg.SOLVER.LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
+    STEPS = []
+    steps = [s for s in STEPS if s<0] if epoch<0 else [s for s in STEPS if s>=0]
+    r = (LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
     return r
