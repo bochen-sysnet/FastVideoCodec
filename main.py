@@ -439,11 +439,11 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = []
-    lr_new = LEARNING_RATE * (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
+    steps = [s for s in cfg.SOLVER.STEPS if s<0] if epoch<0 else [s for s in cfg.SOLVER.STEPS if s>=0]
+    r = (cfg.SOLVER.LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
     for param_group in optimizer.param_groups:
-        param_group['lr'] = lr_new
-    return lr_new
+        param_group['lr'] *= r
+    return r
     
 ####### Load dataset
 train_dataset = FrameDataset('../dataset/vimeo')
