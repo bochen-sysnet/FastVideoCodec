@@ -229,7 +229,7 @@ else:
     exit(1)
 print("===================================================================")
         
-def train(epoch, model, train_dataset, optimizer, test_dataset, train_dataset):
+def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
