@@ -1073,8 +1073,7 @@ class Coder2D(nn.Module):
         elif self.entropy_type == 'mshp':
             if self.noMeasure:
                 latent_hat, likelihoods = self.entropy_bottleneck(latent, training=self.training)
-                if not self.training:
-                    latent_string = self.entropy_bottleneck.compress(latent)
+                latent_string = self.entropy_bottleneck.compress(latent)
             else:
                 latent_string, shape = self.entropy_bottleneck.compress_slow(latent)
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape)
@@ -1109,10 +1108,7 @@ class Coder2D(nn.Module):
             bits_est = torch.zeros(latent_hat.size(0)).to(x.device)
         
         # calculate bpp (actual)
-        if not self.training:
-            bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
-        else:
-            bits_act = bits_est
+        bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
 
         # Time measurement: start
         if not self.noMeasure:
