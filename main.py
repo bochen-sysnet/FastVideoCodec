@@ -108,7 +108,7 @@ class VideoDataset(Dataset):
 class FrameDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir,'vimeo_septuplet','sequences')
-        self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_testlist.txt')
+        self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_trainlist.txt')
         self._frame_size = frame_size
         self._total_frames = 0 # Storing file names in object
         self.get_septuplet_names()
