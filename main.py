@@ -123,10 +123,7 @@ class FrameDataset(Dataset):
         print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
                 
     def __len__(self):
-        return len(self.__septuplet_names)*7
-        
-    def reset(self):
-        return
+        return len(self.__septuplet_names)
         
     def __getitem__(self, idx):
         data = []
