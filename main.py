@@ -239,7 +239,7 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
             msssim_module.reset()   
            
         # eval
-        if batch_idx % 5000 == 0:
+        if batch_idx % 5000 == 0 and batch_idx > 0:
             best_codec_score = test(epoch, model, test_dataset, best_codec_score)
             
     best_codec_score = test(epoch, model, test_dataset, best_codec_score)
