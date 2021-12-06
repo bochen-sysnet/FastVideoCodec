@@ -145,8 +145,19 @@ def test_x26x(test_dataset, name='x264'):
         Q = 27#15,19,23,27
         GOP = 13
         output_filename = 'tmp/videostreams/output.mp4'
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rtsp -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug -rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
-        process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+        #cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rtsp -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug -rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
+        command = ['/usr/bin/ffmpeg',
+           '-y',
+           '-i', '-',
+           '-an',
+           '-c:v', 'mpeg4',
+           '-r', '50',
+           '-f', 'rtsp',
+           '-rtsp_transport',
+           'tcp','rtsp://127.0.0.1:5555/live.sdp']
+
+        process = sp.Popen(command, stdin=subprocess.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
+        #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         for idx,img in enumerate(raw_clip):
             print('write:',idx)
             process.stdin.write(np.array(img).tobytes())
@@ -247,7 +258,9 @@ exit(0)
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC-P'
-RESUME_CODEC_PATH = f'backup/SPVC/SPVC-1024P_best.pth'
+loss_type = 'P'
+compression_level = 2
+RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'#f'backup/SPVC/SPVC-1024P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -268,7 +281,7 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 
 # codec model .
-model = get_codec_model(CODEC_NAME,noMeasure=False)
+model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 

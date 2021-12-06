@@ -25,17 +25,15 @@ from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
 
-def get_codec_model(name,noMeasure=True):
+def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True):
     if name in ['RLVC','DVC','RAW']:
-        model_codec = IterPredVideoCodecs(name,noMeasure=noMeasure)
-    elif name in ['DCVC','DCVC_v2']:
-        model_codec = DCVC(name,noMeasure=noMeasure)
+        model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure)
     elif 'SPVC' in name:
-        model_codec = SPVC(name,noMeasure=noMeasure)
+        model_codec = SPVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure)
     elif name in ['SCVC']:
-        model_codec = SCVC(name,noMeasure=noMeasure)
+        model_codec = SCVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure)
     elif name in ['AE3D']:
-        model_codec = AE3D(name,noMeasure=noMeasure)
+        model_codec = AE3D(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure)
     elif name in ['x264','x265']:
         model_codec = StandardVideoCodecs(name)
     else:
@@ -44,7 +42,7 @@ def get_codec_model(name,noMeasure=True):
     return model_codec
 
 def compress_video(model, frame_idx, cache, startNewClip):
-    if model.name in ['MLVC','RLVC','DVC','DCVC','DCVC_v2']:
+    if model.name in ['MLVC','RLVC','DVC']:
         compress_video_sequential(model, frame_idx, cache, startNewClip)
     elif model.name in ['x265','x264']:
         compress_video_group(model, frame_idx, cache, startNewClip)
@@ -55,8 +53,12 @@ def init_training_params(model):
     model.r_img, model.r_bpp, model.r_flow, model.r_aux = 1,1,1,1
     model.r_app, model.r_rec, model.r_warp, model.r_mc = 1,1,1,1
     
-    model.r = 1024 # PSNR:[256,512,1024,2048] MSSSIM:[8,16,32,64]
-    model.I_level = 27 # [37,32,27,22] poor->good quality
+    psnr_list = [256,512,1024,2048]
+    msssim_list = [8,16,32,64]
+    I_lvl_list = [37,32,27,22]
+    model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
+    model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
+    print('MSE/MSSSIM multiplier:',model.r,'. BPG level:',model.I_level)
     
     model.fmt_enc_str = "FL:{0:.4f}\tMV:{1:.4f}({6:.4f})\tMC:{2:.4f}\tRES:{3:.4f}({7:.4f})\tNET:{4:.4f}\tALL:{5:.4f}"
     model.fmt_dec_str = "MV:{0:.4f}({6:.4f})\tMC:{1:.4f}\tRES:{2:.4f}({7:.4f})\tREC:{3:.4f}\tNET:{4:.4f}\tALL:{5:.4f}"
@@ -313,7 +315,7 @@ def index2GOP(i, clip_len, fP = 6, bP = 6):
 # Need to measure time and implement decompression for demo
 # cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
 class IterPredVideoCodecs(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2):
         super(IterPredVideoCodecs, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
@@ -321,6 +323,9 @@ class IterPredVideoCodecs(nn.Module):
         self.mv_codec = Coder2D(self.name, in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
         self.res_codec = Coder2D(self.name, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
         self.channels = channels
+        self.loss_type=loss_type
+        self.compression_level=compression_level
+        self.use_psnr = loss_type=='P'
         init_training_params(self)
         self.epoch = -1
         self.noMeasure = noMeasure
@@ -334,7 +339,7 @@ class IterPredVideoCodecs(nn.Module):
         self.MC_network.cuda(1)
         self.res_codec.cuda(1)
 
-    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag, use_psnr=True):
+    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
         batch_size, _, Height, Width = Y1_raw.shape
@@ -370,8 +375,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), self.r, use_psnr)
-        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, use_psnr)
+        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), self.r, True)
+        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, True)
         # compress residual
         res_tensor = Y1_raw.cuda(1) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
@@ -395,7 +400,7 @@ class IterPredVideoCodecs(nn.Module):
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
         msssim = MSSSIM(Y1_raw, Y1_com.to(Y1_raw.device))
-        rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, use_psnr)
+        rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
         img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
         img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
         # hidden states
@@ -413,186 +418,6 @@ class IterPredVideoCodecs(nn.Module):
         rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
-# DCVC?
-# adding MC network doesnt help much
-class DCVC(nn.Module):
-    def __init__(self, name, channels=64, channels2=96, noMeasure=True):
-        super(DCVC, self).__init__()
-        device = torch.device('cuda')
-        self.ctx_encoder = nn.Sequential(nn.Conv2d(channels+3, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels2, kernel_size=5, stride=2, padding=2)
-                                        )
-        self.ctx_decoder1 = nn.Sequential(nn.ConvTranspose2d(channels2, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        GDN(channels, inverse=True),
-                                        nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        GDN(channels, inverse=True),
-                                        ResidualBlock(channels,channels),
-                                        nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        GDN(channels, inverse=True),
-                                        ResidualBlock(channels,channels),
-                                        nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        )
-        self.ctx_decoder2 = nn.Sequential(nn.Conv2d(channels*2, channels, kernel_size=3, stride=1, padding=1),
-                                        ResidualBlock(channels,channels),
-                                        ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, 3, kernel_size=3, stride=1, padding=1)
-                                        )
-        if name == 'DCVC_v2':
-            self.MC_network = MCNet()
-        self.feature_extract = nn.Sequential(nn.Conv2d(3, channels, kernel_size=3, stride=1, padding=1),
-                                        ResidualBlock(channels,channels)
-                                        )
-        self.ctx_refine = nn.Sequential(ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1)
-                                        )
-        self.tmp_prior_encoder = nn.Sequential(nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels2, kernel_size=5, stride=2, padding=2)
-                                        )
-        self.optical_flow = OpticalFlowNet()
-        self.mv_codec = Coder2D(name, in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
-        self.latent_codec = Coder2D('joint', channels=channels2, noMeasure=noMeasure, downsample=False)
-        init_training_params(self)
-        self.name = name
-        self.channels = channels
-        self.split()
-        self.updated = False
-        self.noMeasure = noMeasure
-
-    def split(self):
-        self.optical_flow.cuda(0)
-        self.mv_codec.cuda(0)
-        if self.name == 'DCVC_v2':
-            self.MC_network.cuda(1)
-        self.feature_extract.cuda(1)
-        self.ctx_refine.cuda(1)
-        self.tmp_prior_encoder.cuda(1)
-        self.ctx_encoder.cuda(1)
-        self.latent_codec.cuda(1)
-        self.ctx_decoder1.cuda(1)
-        self.ctx_decoder2.cuda(1)
-    
-    def forward(self, x_hat_prev, x, hidden_states, RPM_flag, use_psnr=True):
-        if not self.noMeasure:
-            self.enc_t = [];self.dec_t = []
-            
-        # I-frame compression
-        if x_hat_prev is None:
-            x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(x,self.I_level)
-            return x_hat, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-        # size
-        bs,c,h,w = x.size()
-        
-        # hidden states
-        rae_mv_hidden, rpm_mv_hidden = hidden_states
-                
-        # motion estimation
-        t_0 = time.perf_counter()
-        mv, l0, l1, l2, l3, l4 = self.optical_flow(x, x_hat_prev)
-        t_flow = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.enc_t += [t_flow]
-        
-        # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
-        if not self.noMeasure:
-            self.enc_t += [self.mv_codec.enc_t]
-            self.dec_t += [self.mv_codec.dec_t]
-        
-        # warping
-        t_0 = time.perf_counter()
-        loc = get_grid_locations(bs, h, w).cuda(1)
-        if self.name == 'DCVC':
-            # feature extraction
-            x_feat = self.feature_extract(x_hat_prev.cuda(1))
-            
-            # motion compensation
-            x_feat_warp = F.grid_sample(x_feat, loc + mv_hat.permute(0,2,3,1).cuda(1), align_corners=True) # the difference
-            x_tilde = F.grid_sample(x_hat_prev.cuda(1), loc + mv_hat.permute(0,2,3,1).cuda(1), align_corners=True)
-            warp_loss = calc_loss(x, x_tilde.to(x.device), self.r, use_psnr)
-        else:
-            # motion compensation
-            x_warp = F.grid_sample(x_hat_prev.cuda(1), loc + mv_hat.permute(0,2,3,1).cuda(1), align_corners=True) # the difference
-            warp_loss = calc_loss(x, x_warp.to(x.device), self.r, use_psnr)
-            x_mc = self.MC_network(torch.cat((mv_hat.cuda(1), x_hat_prev.cuda(1), x_warp), axis=1).cuda(1))
-            mc_loss = calc_loss(x, x_mc.to(x.device), self.r, use_psnr)
-            
-            # feature extraction
-            x_feat_warp = self.feature_extract(x_mc)
-        t_warp = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.enc_t += [t_warp]
-            self.dec_t += [t_warp]
-        
-        # context refinement
-        t_0 = time.perf_counter()
-        context = self.ctx_refine(x_feat_warp)
-        t_refine = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.enc_t += [t_refine]
-            self.dec_t += [t_refine]
-        
-        # temporal prior
-        t_0 = time.perf_counter()
-        prior = self.tmp_prior_encoder(context)
-        t_prior = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.enc_t += [t_prior]
-            self.dec_t += [t_prior]
-        
-        # contextual encoder
-        y = self.ctx_encoder(torch.cat((x, context.to(x.device)), axis=1).cuda(1))
-        
-        # entropy model
-        y_hat,_,_,y_act,y_est,y_aux = self.latent_codec(y, prior=prior)
-        
-        # contextual decoder
-        t_0 = time.perf_counter()
-        x_hat = self.ctx_decoder1(y_hat)
-        x_hat = self.ctx_decoder2(torch.cat((x_hat, context.to(x_hat.device)), axis=1)).to(x.device)
-        if not self.noMeasure:
-            self.dec_t += [time.perf_counter() - t_0]
-        
-        # estimated bits
-        bpp_est = (mv_est + y_est.cuda(0))/(h * w * bs)
-        # actual bits
-        bpp_act = (mv_act + y_act.cuda(0))/(h * w * bs)
-        #print(float(mv_est/(h * w * bs)), float(mv_act/(h * w * bs)), float(y_est/(h * w * bs)), float(y_act/(h * w * bs)))
-        # auxilary loss
-        aux_loss = (mv_aux + y_aux.cuda(0))
-        # calculate metrics/loss
-        psnr = PSNR(x, x_hat.cuda(0))
-        msssim = MSSSIM(x, x_hat.cuda(0))
-        rec_loss = calc_loss(x, x_hat.cuda(0), self.r, use_psnr)
-        if self.name == 'DCVC':
-            img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss)
-        else:
-            img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
-        img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
-        # hidden states
-        hidden_states = (rae_mv_hidden.detach(), rpm_mv_hidden)
-        if not self.noMeasure:
-            print(np.sum(self.enc_t),np.sum(self.dec_t),self.enc_t,self.dec_t)
-        return x_hat.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-        
-    def loss(self, pix_loss, bpp_loss, aux_loss):
-        return self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
-        
-    def init_hidden(self, h, w):
-        rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
-        rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
-        return (rae_mv_hidden, rpm_mv_hidden)
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
@@ -1311,12 +1136,12 @@ def generate_graph(graph_type='default'):
     return g,layers,parents
         
 class SPVC(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2):
         super(SPVC, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
         self.MC_network = MCNet()
-        if self.name in ['SPVC','SPVC-M','SPVC-L']:
+        if self.name in ['SPVC','SPVC-L']:
             # use attention in encoder and entropy model
             self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
             self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
@@ -1325,11 +1150,13 @@ class SPVC(nn.Module):
             self.mv_codec = Coder2D('rpm', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
             self.res_codec = Coder2D('rpm', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
         self.channels = channels
+        self.loss_type=loss_type
+        self.compression_level=compression_level
+        self.use_psnr = loss_type=='P'
         init_training_params(self)
         # split on multi-gpus
         self.split()
         self.noMeasure = noMeasure
-        self.use_psnr = False if self.name == 'SPVC-M' else True
 
     def split(self):
         self.optical_flow.cuda(0)
@@ -1411,7 +1238,7 @@ class SPVC(nn.Module):
         
         return mv_string,res_string,bpp_act
         
-    def decompress(self, x_ref, mv_string,res_string,):
+    def decompress(self, x_ref, mv_string,res_string):
         bs = len(mv_string[0])
         latent_size = torch.Size([16,16])
         # BATCH motion decode
@@ -1504,7 +1331,7 @@ class SPVC(nn.Module):
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         
         # BATCH:compress optical flow
-        if self.name in ['SPVC','SPVC-M','SPVC-L']:
+        if self.name in ['SPVC','SPVC-L']:
             mv_hat,_,_,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensors)
         elif self.name == 'SPVC-R':
             mv_hat,mv_act,mv_est,mv_aux = self.mv_codec.compress_sequence(mv_tensors)
@@ -1572,8 +1399,8 @@ class SPVC(nn.Module):
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
         msssim = MSSSIM(x_tar, com_frames, use_list=True)
-        mc_loss = calc_loss(x_tar, MC_frames, self.r, self.use_psnr)
-        warp_loss = calc_loss(x_tar, warped_frames, self.r, self.use_psnr)
+        mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
+        warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
         flow_loss = (l0+l1+l2+l3+l4).cuda(0)/5*1024
         img_loss = (self.r_rec*rec_loss + \
@@ -1593,7 +1420,7 @@ class SPVC(nn.Module):
          
 # conditional coding
 class SCVC(nn.Module):
-    def __init__(self, name, channels=64, channels2=96, noMeasure=True):
+    def __init__(self, name, channels=64, channels2=96, noMeasure=True, loss_type='P', compression_level=2):
         super(SCVC, self).__init__()
         self.name = name 
         device = torch.device('cuda')
@@ -1638,6 +1465,9 @@ class SCVC(nn.Module):
                                         )
         self.latent_codec = Coder2D('joint-attn', channels=channels2, noMeasure=noMeasure, downsample=False)
         self.channels = channels
+        self.loss_type=loss_type
+        self.compression_level=compression_level
+        self.use_psnr = loss_type=='P'
         init_training_params(self)
         # split on multi-gpus
         self.split()
@@ -1654,7 +1484,7 @@ class SCVC(nn.Module):
         self.ctx_decoder1.cuda(1)
         self.ctx_decoder2.cuda(1)
         
-    def forward(self, x, use_psnr=True):
+    def forward(self, x):
         # x=[B,C,H,W]: input sequence of frames
         bs, c, h, w = x[1:].size()
         
@@ -1721,9 +1551,9 @@ class SCVC(nn.Module):
         # calculate metrics/loss
         psnr = PSNR(x[1:], x_hat.to(x.device), use_list=True)
         msssim = MSSSIM(x[1:], x_hat.to(x.device), use_list=True)
-        mc_loss = calc_loss(x[1:], MC_frames, self.r, use_psnr)
-        warp_loss = calc_loss(x[1:], warped_frames, self.r, use_psnr)
-        rec_loss = calc_loss(x[1:], com_frames, self.r, use_psnr)
+        mc_loss = calc_loss(x[1:], MC_frames, self.r, True)
+        warp_loss = calc_loss(x[1:], warped_frames, self.r, True)
+        rec_loss = calc_loss(x[1:], com_frames, self.r, self.use_psnr)
         flow_loss = (l0+l1+l2+l3+l4).cuda(0)/5*1024
         img_loss = self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
@@ -1743,7 +1573,7 @@ class SCVC(nn.Module):
         return None
         
 class AE3D(nn.Module):
-    def __init__(self, name, noMeasure=True):
+    def __init__(self, name, noMeasure=True, loss_type='P', compression_level=2):
         super(AE3D, self).__init__()
         self.name = name 
         device = torch.device('cuda')
@@ -1790,6 +1620,9 @@ class AE3D(nn.Module):
             nn.BatchNorm3d(3),
         )
         self.channels = 128
+        self.loss_type=loss_type
+        self.compression_level=compression_level
+        self.use_psnr = loss_type=='P'
         init_training_params(self)
         self.r = 1024 # PSNR:[256,512,1024,2048] MSSSIM:[8,16,32,64]
         # split on multi-gpus
@@ -1806,7 +1639,7 @@ class AE3D(nn.Module):
         self.deconv3.cuda(1)
         self.latent_codec.cuda(0)
         
-    def forward(self, x, RPM_flag=False, use_psnr=True):
+    def forward(self, x, RPM_flag=False):
         x = x[1:]
             
         if not self.noMeasure:
@@ -1854,7 +1687,7 @@ class AE3D(nn.Module):
         msssim = MSSSIM(x, x_hat.to(x.device), use_list=True)
         
         # calculate img loss
-        img_loss = calc_loss(x, x_hat.to(x.device), self.r, use_psnr)
+        img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
         img_loss = img_loss.repeat(t)
         
         if not self.noMeasure:
@@ -1971,10 +1804,7 @@ def test_seq_proc(name='RLVC'):
     batch_size = 1
     h = w = 224
     x = torch.rand(batch_size,3,h,w).cuda()
-    if name == 'DCVC' or name == 'DCVC_v2':
-        model = DCVC(name,noMeasure=False)
-    else:
-        model = IterPredVideoCodecs(name,noMeasure=False)
+    model = IterPredVideoCodecs(name,noMeasure=False)
     import torch.optim as optim
     from tqdm import tqdm
     parameters = set(p for n, p in model.named_parameters())
@@ -2036,5 +1866,3 @@ if __name__ == '__main__':
     #test_batch_proc('SPVC-R')
     #test_batch_proc('AE3D')
     #test_batch_proc('SCVC')
-    #test_seq_proc('DCVC')
-    #test_seq_proc('DCVC_v2')

@@ -155,13 +155,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-def save_checkpoint(state, is_best, directory, CODEC_NAME):
-    import shutil
-    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
-    if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
-                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
         
 def train(epoch, model, train_dataset, optimizer):
     aux_loss_module = AverageMeter()
@@ -454,11 +447,20 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
     t1 = time.time()
     logging('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
 
+def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type='P', compression_level=2):
+    import shutil
+    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
+    if is_best:
+        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
+                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
+                        
 #benchmarking()
 
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
+loss_type = 'P'
+compression_level = 2 # 0,1,2,3
 #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
 RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
@@ -481,7 +483,7 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 
 # codec model .
-model = get_codec_model(CODEC_NAME)
+model = get_codec_model(CODEC_NAME, loss_type=loss_type, compression_level=compression_level)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -552,5 +554,5 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-    save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME)
+    save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',score)
