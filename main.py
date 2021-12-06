@@ -129,13 +129,17 @@ class FrameDataset(Dataset):
         return
         
     def __getitem__(self, idx):
-        frame_idx,tuplet_idx = idx%7+1,idx//7
-        base_dir = self.__septuplet_names[tuplet_idx]
-        img_dir = base_dir+'/'+f'im{frame_idx}.png'
-        img = Image.open(img_dir).convert('RGB')
-        if self._frame_size is not None:
-            img = img.resize(self._frame_size) 
-        return img,frame_idx==7
+        data = []
+        for img_idx in range(7):
+            base_dir = self.__septuplet_names[idx]
+            img_dir = base_dir+'/'+f'im{img_idx}.png'
+            img = Image.open(img_dir).convert('RGB')
+            if self._frame_size is not None:
+                img = img.resize(self._frame_size) 
+            data.append(transforms.ToTensor()(img))
+        data = torch.stack(data, dim=0)
+        return data
+                
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -225,7 +229,7 @@ else:
     exit(1)
 print("===================================================================")
         
-def train(epoch, model, train_dataset, optimizer):
+def train(epoch, model, train_dataset, optimizer, test_dataset, train_dataset):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -239,15 +243,14 @@ def train(epoch, model, train_dataset, optimizer):
     model.train()
     update_training(model,epoch)
     
-    train_iter = tqdm(range(ds_size))
-    data = []
-    batch_idx = 0
-    for data_idx,_ in enumerate(train_iter):
-        frame,eof = train_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
-        if len(data) < batch_size and not eof:
-            continue
-        data = torch.stack(data, dim=0).cuda()
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, 
+                                               num_workers=8, drop_last=True, pin_memory=True)
+    
+    train_iter = tqdm(train_loader)
+    for batch_idx,data in enumerate(train_iter):
+        print(data.size())
+        exit(0)
+        data = data[0].cuda()
         l = data.size(0)-1
         
         # run model
@@ -279,7 +282,7 @@ def train(epoch, model, train_dataset, optimizer):
             
         # show result
         train_iter.set_description(
-            f"{data_idx:6}. "
+            f"{batch_idx:6}. "
             f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
             f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
             f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
@@ -296,10 +299,13 @@ def train(epoch, model, train_dataset, optimizer):
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()   
+           
+        # eval
+        if batch_idx % 5000 == 0:
+            best_codec_score = test(epoch, model, test_dataset, best_codec_score)
             
-        # clear input
-        data = []
-        batch_idx += 1
+    best_codec_score = test(epoch, model, test_dataset, best_codec_score)
+    return best_codec_score
     
 def test(epoch, model, test_dataset, best_codec_score=None):
     aux_loss_module = AverageMeter()
@@ -451,6 +457,4 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train(epoch, model, train_dataset, optimizer)
-    
-    best_codec_score = test(epoch, model, test_dataset, best_codec_score)
+    best_codec_score = train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score)
