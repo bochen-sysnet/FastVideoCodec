@@ -391,7 +391,7 @@ class IterPredVideoCodecs(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda() + res_act.cuda())/(Height * Width * batch_size)
         # auxilary loss
-        aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
+        aux_loss = (mv_aux + res_aux.to(mv_aux.device))
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
         msssim = MSSSIM(Y1_raw, Y1_com.to(Y1_raw.device))
@@ -573,7 +573,7 @@ class DCVC(nn.Module):
         bpp_act = (mv_act + y_act.cuda(0))/(h * w * bs)
         #print(float(mv_est/(h * w * bs)), float(mv_act/(h * w * bs)), float(y_est/(h * w * bs)), float(y_act/(h * w * bs)))
         # auxilary loss
-        aux_loss = (mv_aux + y_aux.cuda(0))/2
+        aux_loss = (mv_aux + y_aux.cuda(0))
         # calculate metrics/loss
         psnr = PSNR(x, x_hat.cuda(0))
         msssim = MSSSIM(x, x_hat.cuda(0))
@@ -1148,7 +1148,7 @@ class Coder2D(nn.Module):
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
-        aux_loss = self.entropy_bottleneck.loss()/self.channels
+        aux_loss = self.entropy_bottleneck.loss()
         
         if self.conv_type == 'rec':
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
@@ -1573,7 +1573,7 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/(2)
+        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
@@ -1724,7 +1724,7 @@ class SCVC(nn.Module):
         # actual bits
         bpp_act = (mv_act + y_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux + y_aux.to(mv_aux.device))/(2)
+        aux_loss = (mv_aux + y_aux.to(mv_aux.device))
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x[1:], x_hat.to(x.device), use_list=True)
