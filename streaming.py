@@ -145,10 +145,7 @@ def test_x26x(test_dataset, name='x264'):
         Q = 27#15,19,23,27
         GOP = 13
         output_filename = 'tmp/videostreams/output.mp4'
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 '
-            f'-f rtsp -r {fps} -i pipe: -vcodec libx264 '
-            f'-pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '
-            f'-rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rtsp -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug -rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         for img in raw_clip:
             process.stdin.write(np.array(img).tobytes())
