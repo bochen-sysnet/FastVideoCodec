@@ -219,6 +219,8 @@ def streaming(model, test_dataset):
             l = data.size(0)
             # compress GoP
             # need to have sequential and batch streaming
+            # video will come at different rates 30-60fps
+            # network will have different bandwidth
             if l>fP+1:
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
