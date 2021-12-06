@@ -519,7 +519,7 @@ TRAIN_FILE = "../dataset/ucf24/trainlist.txt"
 TRAIN_CROP_SIZE = 224
 NUM_FRAMES = 16
 SAMPLING_RATE = 1
-train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset=dataset,
+train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
                        shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
                        transform=transforms.Compose([transforms.ToTensor()]), 
                        train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
