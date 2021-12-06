@@ -326,8 +326,8 @@ def test(epoch, model, test_dataset, best_codec_score=None):
     GoP = fP+bP+1
     
     data = []
-    test_iter = tqdm(range(ds_size))
     print('')
+    test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
