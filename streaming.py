@@ -156,7 +156,7 @@ def test_x26x(test_dataset, name='x264'):
            '-rtsp_transport',
            'tcp','rtsp://127.0.0.1:5555/live.sdp']
 
-        process = sp.Popen(command, stdin=subprocess.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
+        process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         for idx,img in enumerate(raw_clip):
             print('write:',idx)
