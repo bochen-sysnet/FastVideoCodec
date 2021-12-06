@@ -192,7 +192,6 @@ def test_x26x(test_dataset, name='x264'):
         msssim_module = AverageMeter()
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
-            print(ds_size,test_dataset[data_idx])
             frame,eof = test_dataset[data_idx]
             data.append(frame)
             if not eof:
@@ -237,7 +236,7 @@ def test_x26x(test_dataset, name='x264'):
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # try x265,x264 streaming with Gstreamer
-test_x26x('x264')
+test_x26x(test_dataset, 'x264')
 exit(0)
         
 # OPTION
