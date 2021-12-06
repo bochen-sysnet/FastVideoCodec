@@ -132,6 +132,19 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
         shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
                         f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
 
+def test_x26x(name='x264'):
+    print('Benchmarking:',name)
+    out_send = cv2.VideoWriter(\
+        'appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! rtph264pay ! udpsink host=127.0.0.1 port=8888',\
+        cv2.CAP_GSTREAMER,0, 20, (1024,512), True)
+    for f in range(100):
+        imarray = np.random.rand(100,100,3) * 255
+    
+
+# try x265,x264 streaming with Gstreamer
+test_x26x('x264')
+exit(0)
+        
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC-P'
@@ -221,6 +234,7 @@ def streaming(model, test_dataset):
             # need to have sequential and batch streaming
             # video will come at different rates 30-60fps
             # network will have different bandwidth
+            # unlimited rate?
             if l>fP+1:
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
@@ -272,55 +286,8 @@ def streaming(model, test_dataset):
         
     test_dataset.reset()
         
-def test_x26x(test_dataset,name='x264'):
-    print('Benchmarking:',name)
-    ds_size = len(test_dataset)
-    
-    for Q in [15,19,23,27]:
-        data = []
-        ba_loss_module = AverageMeter()
-        psnr_module = AverageMeter()
-        msssim_module = AverageMeter()
-        test_iter = tqdm(range(ds_size))
-        for data_idx,_ in enumerate(test_iter):
-            frame,eof = test_dataset[data_idx]
-            data.append(frame)
-            if not eof:
-                continue
-            l = len(data)
-            t_0 = time.perf_counter()
-            psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q,*test_dataset._frame_size)
-            dur = time.perf_counter() - t_0
-            print(dur/l)
-            
-            # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            
-            # record loss
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
-            psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
-            
-            # show result
-            test_iter.set_description(
-                f"{data_idx:6}. "
-                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
-                
-            # clear input
-            data = []
-            
-        test_dataset.reset()
-        
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-
-# optionaly try x264,x265
-#test_x26x(test_dataset,'x264')
-#test_x26x(test_dataset,'x265')
 
 # Train and test model
 streaming(model, test_dataset)

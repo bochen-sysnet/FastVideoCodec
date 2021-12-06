@@ -239,7 +239,7 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
             msssim_module.reset()   
            
         # eval
-        if batch_idx % 5000 == 0 and batch_idx > 0:
+        if batch_idx % 5000 == 0:
             best_codec_score = test(epoch, model, test_dataset, best_codec_score)
             
     best_codec_score = test(epoch, model, test_dataset, best_codec_score)
@@ -291,7 +291,7 @@ def test(epoch, model, test_dataset, best_codec_score=None):
             img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            loss = model.loss(img_loss,ba_loss,aux_loss)
+            loss = model.loss(img_loss,ba_loss)
             
             # record loss
             aux_loss_module.update(aux_loss.cpu().data.item(), l)
