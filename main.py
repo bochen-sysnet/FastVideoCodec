@@ -461,7 +461,7 @@ else:
 print("===================================================================")
     
 ####### Load dataset
-train_dataset = FrameDataset('../dataset/vimeo', frame_size=(256,256))
+train_dataset = FrameDataset('../dataset/vimeo')
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):

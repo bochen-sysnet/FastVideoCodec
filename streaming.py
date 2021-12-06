@@ -161,7 +161,7 @@ def test_x26x(test_dataset, name='x264'):
         print('Start receiving')
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
-            '-i', 'rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov',#'rtsp://127.0.0.1:5555/live.sdp?tcp?',
+            '-i', 'rtsp://127.0.0.1:5555/live.sdp?tcp?',
             '-f', 'image2pipe',    # Use image2pipe demuxer
             '-pix_fmt', 'bgr24',   # Set BGR pixel format
             '-vcodec', 'rawvideo', # Get rawvideo output format.
