@@ -216,7 +216,7 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
     BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score'][1:4]
+    best_codec_score = checkpoint['score']
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
@@ -439,7 +439,7 @@ def adjust_learning_rate(optimizer, epoch):
     
 ####### Load dataset
 train_dataset = FrameDataset('../dataset/vimeo')
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(224,224))
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # optionaly try x264,x265
 #test_x26x(test_dataset,'x264')
