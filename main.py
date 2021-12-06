@@ -384,7 +384,7 @@ def benchmarking():
     test_x26x(test_dataset,'x265')
     exit(0)
 
-benchmarking()
+#benchmarking()
 
 # OPTION
 BACKUP_DIR = 'backup'
