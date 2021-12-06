@@ -134,12 +134,105 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
 
 def test_x26x(name='x264'):
     print('Benchmarking:',name)
-    out_send = cv2.VideoWriter(\
-        'appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! rtph264pay ! udpsink host=127.0.0.1 port=8888',\
-        cv2.CAP_GSTREAMER,0, 20, (1024,512), True)
-    for f in range(100):
-        imarray = np.random.rand(100,100,3) * 255
+    ds_size = len(test_dataset)
+    import threading
+    import subprocess as sp
+    import shlex
     
+    def stream_data(raw_clip,width=256,height=256):
+        print('Start streaming')
+        fps = 25
+        Q = 27#15,19,23,27
+        GOP = 13
+        output_filename = 'tmp/videostreams/output.mp4'
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 '
+            f'-f rtsp -r {fps} -i pipe: -vcodec libx264 '
+            f'-pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '
+            f'-rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
+        process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+        for img in raw_clip:
+            process.stdin.write(np.array(img).tobytes())
+        # Close and flush stdin
+        process.stdin.close()
+        # Wait for sub-process to finish
+        process.wait()
+        # Terminate the sub-process
+        process.terminate()
+        
+    def read_data(com_queue,width=256,height=256):
+        print('Start receiving')
+        command = ['/usr/bin/ffmpeg',
+            '-rtsp_flags', 'listen',
+            '-i', 'rtsp://127.0.0.1:5555/live.sdp?tcp?',
+            '-f', 'image2pipe',    # Use image2pipe demuxer
+            '-pix_fmt', 'bgr24',   # Set BGR pixel format
+            '-vcodec', 'rawvideo', # Get rawvideo output format.
+            '-']
+            
+        # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
+        p1 = sp.Popen(command, stdout=sp.PIPE)
+        
+        while True:
+            # read width*height*3 bytes from stdout (1 frame)
+            raw_frame = p1.stdout.read(width*height*3)
+
+            if len(raw_frame) != (width*height*3):
+                print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
+                break
+
+            # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
+            frame = np.fromstring(raw_frame, np.uint8)
+            frame = frame.reshape((height, width, 3))
+            
+            # add to clip
+            com_queue += [frame]
+            
+    from collections import deque
+    
+    for Q in [15,19,23,27]:
+        data = []
+        psnr_module = AverageMeter()
+        msssim_module = AverageMeter()
+        test_iter = tqdm(range(ds_size))
+        for data_idx,_ in enumerate(test_iter):
+            frame,eof = test_dataset[data_idx]
+            data.append(frame)
+            if not eof:
+                continue
+            l = len(data)
+            
+            com_queue = deque()
+            threading.Thread(target=stream_data, args=(data,)).start() 
+            threading.Thread(target=read_data, args=(com_queue,)).start()
+            
+            psnr_list = []
+            msssim_list = []
+            for i in range(l):
+                frame = com_queue.popleft()
+                com = transforms.ToTensor()(frame).cuda()
+                raw = transforms.ToTensor()(data[i]).cuda()
+                psnr_list += [PSNR(raw, com)]
+                msssim_list += [MSSSIM(raw, com)]
+                
+            # aggregate loss
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            
+            # record loss
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+            
+            # show result
+            test_iter.set_description(
+                f"{data_idx:6}. "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+                
+            # clear input
+            data = []
+            exit(0)
+            
+        test_dataset.reset()
 
 # try x265,x264 streaming with Gstreamer
 test_x26x('x264')
