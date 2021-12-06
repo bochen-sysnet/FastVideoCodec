@@ -132,7 +132,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
         shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
                         f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
 
-def test_x26x(name='x264'):
+def test_x26x(test_dataset, name='x264'):
     print('Benchmarking:',name)
     ds_size = len(test_dataset)
     import threading
@@ -233,6 +233,10 @@ def test_x26x(name='x264'):
             exit(0)
             
         test_dataset.reset()
+        
+        
+####### Load dataset
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # try x265,x264 streaming with Gstreamer
 test_x26x('x264')
@@ -378,9 +382,6 @@ def streaming(model, test_dataset):
         data = []
         
     test_dataset.reset()
-        
-####### Load dataset
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # Train and test model
 streaming(model, test_dataset)
