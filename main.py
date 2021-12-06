@@ -168,7 +168,6 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
-    ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     all_loss_module = AverageMeter()
@@ -189,11 +188,10 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
         l = data.size(0)-1
         
         # run model
-        _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,data,True)
+        _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-        ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
         aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -204,7 +202,6 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
         img_loss_module.update(img_loss.cpu().data.item(), l)
         be_loss_module.update(be_loss.cpu().data.item(), l)
-        ba_loss_module.update(ba_loss.cpu().data.item(), l)
         psnr_module.update(psnr.cpu().data.item(),l)
         msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
@@ -230,7 +227,6 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
-            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
             f"I: {float(psnr_list[0]):.2f}")
 
         # clear result every 1000 batches
@@ -238,7 +234,6 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
-            ba_loss_module.reset()
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()   
