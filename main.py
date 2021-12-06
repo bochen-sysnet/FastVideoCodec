@@ -164,6 +164,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
                         f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
         
 def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, best_codec_score):
+    print('training at epoch %d' % (epoch))
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -245,6 +246,7 @@ def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, b
     return best_codec_score
     
 def test(epoch, model, test_dataset, best_codec_score=None):
+    print('testing at epoch %d' % (epoch))
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -468,5 +470,4 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     #r = adjust_learning_rate(aux_optimizer, epoch)
     
     # Train and test model
-    print('training at epoch %d, r=%.2f' % (epoch,r))
     best_codec_score = train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, best_codec_score)
