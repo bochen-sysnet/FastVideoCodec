@@ -270,7 +270,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
         # backward
         scaler.scale(loss).backward()
         # update model after compress each video
-        if eof:
+        if batch_idx%10 == 0 and batch_idx > 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
