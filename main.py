@@ -440,6 +440,16 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+            
+        # save result every 1000 batches
+        if batch_idx % 2000 == 0: # From time to time, reset averagemeters to see improvements
+            print('')
+            img_loss_module.reset()
+            aux_loss_module.reset()
+            be_loss_module.reset()
+            all_loss_module.reset()
+            psnr_module.reset()
+            msssim_module.reset()
 
     t1 = time.time()
     logging('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
@@ -449,7 +459,8 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
+#RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
+RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
