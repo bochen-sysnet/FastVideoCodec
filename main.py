@@ -245,8 +245,6 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        print(data.size())
-        exit(0)
         data = data[0].cuda()
         l = data.size(0)-1
         
@@ -319,7 +317,6 @@ def test(epoch, model, test_dataset, best_codec_score=None):
     GoP = fP+bP+1
     
     data = []
-    print('')
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
