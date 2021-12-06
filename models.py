@@ -1142,7 +1142,7 @@ class Coder2D(nn.Module):
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
-        aux_loss = self.entropy_bottleneck.loss()#/self.channels
+        aux_loss = self.entropy_bottleneck.loss()/self.channels
         
         if self.conv_type == 'rec':
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
