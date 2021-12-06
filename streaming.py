@@ -199,6 +199,7 @@ def test_x26x(test_dataset, name='x264'):
             if not eof:
                 continue
             l = len(data)
+            print('Total num:',l)
             
             com_queue = deque()
             threading.Thread(target=stream_data, args=(data,)).start() 
@@ -207,6 +208,7 @@ def test_x26x(test_dataset, name='x264'):
             psnr_list = []
             msssim_list = []
             for i in range(l):
+                while not com_queue:time.sleep(0.1)
                 frame = com_queue.popleft()
                 com = transforms.ToTensor()(frame).cuda()
                 raw = transforms.ToTensor()(data[i]).cuda()
