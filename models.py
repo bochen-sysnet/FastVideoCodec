@@ -402,8 +402,8 @@ class IterPredVideoCodecs(nn.Module):
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         return Y1_com.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
-    def loss(self, pix_loss, bpp_loss):
-        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss
+    def loss(self, pix_loss, bpp_loss, aux_loss):
+        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
         return loss
     
     def init_hidden(self, h, w):
@@ -586,8 +586,8 @@ class DCVC(nn.Module):
             print(np.sum(self.enc_t),np.sum(self.dec_t),self.enc_t,self.dec_t)
         return x_hat.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
-    def loss(self, pix_loss, bpp_loss):
-        return self.r_img*pix_loss + self.r_bpp*bpp_loss
+    def loss(self, pix_loss, bpp_loss, aux_loss):
+        return self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
         
     def init_hidden(self, h, w):
         rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
@@ -1584,8 +1584,8 @@ class SPVC(nn.Module):
         
         return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
-    def loss(self, pix_loss, bpp_loss):
-        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0)
+    def loss(self, pix_loss, bpp_loss, aux_loss):
+        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
         return loss
         
     def init_hidden(self, h, w):
