@@ -163,7 +163,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
         shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
                         f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
         
-def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score):
+def train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, best_codec_score):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -171,6 +171,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
     msssim_module = AverageMeter()
     all_loss_module = AverageMeter()
     scaler = torch.cuda.amp.GradScaler(enabled=True)
+    aux_scaler = torch.cuda.amp.GradScaler(enabled=True)
     batch_size = 7
     ds_size = len(train_dataset)
     
@@ -194,7 +195,7 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        loss = model.loss(img_loss,be_loss,aux_loss)
+        loss = model.loss(img_loss,be_loss)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
@@ -206,11 +207,15 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
         
         # backward
         scaler.scale(loss).backward()
+        aux_scaler.scale(aux_loss).backward()
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
+            aux_scaler.step(aux_optimizer)
+            aux_scaler.update()
+            aux_optimizer.zero_grad()
             
         # show result
         train_iter.set_description(
@@ -416,9 +421,13 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 
 ####### Create optimizer
 # ---------------------------------------------------------------
-parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
-aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+#parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
+#aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
+#optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+parameters = set(p for n, p in model.named_parameters() if not n.endswith(".quantiles"))
+aux_parameters = set(p for n, p in model.named_parameters() if n.endswith(".quantiles"))
+optimizer = optim.Adam(parameters, lr=LEARNING_RATE)
+aux_optimizer = optim.Adam(aux_parameters, lr=LEARNING_RATE*10)
 # initialize best score
 best_score = 0 
 best_codec_score = [1,0,0]
@@ -455,8 +464,9 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
-    r = adjust_learning_rate(optimizer, epoch)
+    #r = adjust_learning_rate(optimizer, epoch)
+    #r = adjust_learning_rate(aux_optimizer, epoch)
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    best_codec_score = train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score)
+    best_codec_score = train(epoch, model, train_dataset, optimizer, aux_optimizer, test_dataset, best_codec_score)

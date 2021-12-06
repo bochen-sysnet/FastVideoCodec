@@ -1148,7 +1148,7 @@ class Coder2D(nn.Module):
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
-        aux_loss = self.entropy_bottleneck.loss()/self.channels
+        aux_loss = self.entropy_bottleneck.loss()
         
         if self.conv_type == 'rec':
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
@@ -1573,7 +1573,7 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/2
+        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
@@ -1590,10 +1590,8 @@ class SPVC(nn.Module):
         
         return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
-    def loss(self, pix_loss, bpp_loss, aux_loss, app_loss=None):
-        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
-        if app_loss is not None:
-            loss += self.r_app*app_loss.cuda(0)
+    def loss(self, pix_loss, bpp_loss):
+        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0)
         return loss
         
     def init_hidden(self, h, w):
