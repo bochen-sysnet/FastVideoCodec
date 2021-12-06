@@ -108,7 +108,7 @@ class VideoDataset(Dataset):
 class FrameDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir,'vimeo_septuplet','sequences')
-        self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_trainlist.txt')
+        self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_testlist.txt')
         self._frame_size = frame_size
         self._total_frames = 0 # Storing file names in object
         self.get_septuplet_names()
@@ -165,7 +165,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -216,7 +216,7 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
     BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
-    #best_codec_score = checkpoint['score']
+    best_codec_score = checkpoint['score'][1:4]
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
@@ -225,7 +225,7 @@ else:
     exit(1)
 print("===================================================================")
         
-def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score):
+def train(epoch, model, train_dataset, optimizer):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -296,20 +296,10 @@ def train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()   
-
-        
-        # ---------EVALUATE---------
-        if batch_idx % 5000 == 0 and batch_idx > 0:
-            best_codec_score = test(epoch, model, test_dataset, best_codec_score)
-        # --------------------------
             
         # clear input
         data = []
         batch_idx += 1
-      
-    best_codec_score = test(epoch, model, test_dataset, best_codec_score)
-        
-    return best_codec_score
     
 def test(epoch, model, test_dataset, best_codec_score=None):
     aux_loss_module = AverageMeter()
@@ -449,7 +439,7 @@ def adjust_learning_rate(optimizer, epoch):
     
 ####### Load dataset
 train_dataset = FrameDataset('../dataset/vimeo')
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(224,224))
 
 # optionaly try x264,x265
 #test_x26x(test_dataset,'x264')
@@ -461,4 +451,6 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     # Train and test model
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    best_codec_score = train(epoch, model, train_dataset, optimizer, test_dataset, best_codec_score)
+    #train(epoch, model, train_dataset, optimizer)
+    
+    best_codec_score = test(epoch, model, test_dataset, best_codec_score)
