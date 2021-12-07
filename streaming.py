@@ -212,7 +212,7 @@ def test_x26x(test_dataset, name='x264'):
                 com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
                 raw1 = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
                 raw2 = transforms.ToTensor()(data[i+1]).cuda().unsqueeze(0)
-                print(I,PSNR(raw1, com),PSNR(raw2, com))
+                print(i,PSNR(raw1, com),PSNR(raw2, com))
                 #psnr_list += [PSNR(raw, com)]
                 #msssim_list += [MSSSIM(raw, com)]
                 
