@@ -199,7 +199,7 @@ def test_x26x(test_dataset, name='x264'):
         p_server = create_server()
         
         # create a rtsp track
-        p_server = create_client(Q)
+        p_client = create_client(Q)
         
         # Start a thread that streams data
         threading.Thread(target=client, args=(data,p_client,)).start() 
