@@ -154,6 +154,25 @@ def test_x26x(test_dataset, name='x264'):
            '-f', 'rtsp',
            '-rtsp_transport',
            'tcp','rtsp://127.0.0.1:8888/live.sdp']
+           
+        command = ['ffmpeg',
+           '-loglevel', 'error',
+           '-y',
+           # Input
+           '-f', 'rawvideo',
+           '-vcodec', 'rawvideo',
+           '-pix_fmt', 'bgr24',
+           '-s', str(width) + 'x' + str(height),
+           '-r', str(fps),
+           # Output
+           '-i', '-',
+           '-an',
+           '-vcodec', 'h264',
+           '-r', str(fps),
+           '-b:v', str(bitrate) + 'M',
+           '-pix_fmt', 'bgr24',
+           output_filename
+           ]
 
         process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
