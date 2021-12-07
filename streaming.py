@@ -169,7 +169,6 @@ def test_x26x(test_dataset, name='x264'):
            '-an',
            '-vcodec', 'h264',
            '-r', str(fps),
-           '-b:v', str(bitrate) + 'M',
            '-pix_fmt', 'bgr24',
            output_filename
            ]
