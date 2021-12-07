@@ -174,7 +174,7 @@ def test_x26x(test_dataset, name='x264'):
            '-r', '50',
            '-f', 'rtsp',
            '-rtsp_transport', 'tcp',
-           'rtsp://localhost:8554/mystream']
+           'rtsp://localhost:8554/live']
 
         process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
