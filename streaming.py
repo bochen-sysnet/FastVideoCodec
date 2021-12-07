@@ -140,7 +140,6 @@ def test_x26x(test_dataset, name='x264'):
     import shlex
     
     def stream_data(raw_clip,width=256,height=256):
-        print('Start streaming')
         fps = 25
         Q = 27#15,19,23,27
         GOP = 13
@@ -158,6 +157,7 @@ def test_x26x(test_dataset, name='x264'):
 
         process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+        print('Start streaming')
         for idx,img in enumerate(raw_clip):
             print('write:',idx)
             process.stdin.write(np.array(img).tobytes())
@@ -169,7 +169,6 @@ def test_x26x(test_dataset, name='x264'):
         process.terminate()
         
     def read_data(com_queue,width=256,height=256):
-        print('Start receiving')
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
             '-i', 'rtsp://127.0.0.1:5555/live.sdp?tcp?',
@@ -180,6 +179,7 @@ def test_x26x(test_dataset, name='x264'):
             
         # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
         p1 = sp.Popen(command, stdout=sp.PIPE)
+        print('Start receiving')
         
         while True:
             # read width*height*3 bytes from stdout (1 frame)
