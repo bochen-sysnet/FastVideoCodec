@@ -211,8 +211,8 @@ def test_x26x(test_dataset, name='x264'):
                 frame = com_queue.popleft()
                 com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
                 raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-                #psnr_list += [PSNR(raw, com)]
-                #msssim_list += [MSSSIM(raw, com)]
+                psnr_list += [PSNR(raw, com)]
+                msssim_list += [MSSSIM(raw, com)]
                 print(i,psnr_list[-1])
                 
             # aggregate loss
