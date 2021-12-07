@@ -149,11 +149,11 @@ def test_x26x(test_dataset, name='x264'):
            '-y',
            '-i', '-',
            '-an',
-           '-c:v', 'libx264',
+           '-c:v', 'mpeg4',
            '-r', '50',
            '-f', 'rtsp',
            '-rtsp_transport',
-           'tcp','rtsp://127.0.0.1:5555/live.sdp']
+           'tcp','rtsp://127.0.0.1:8888/live.sdp']
 
         process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
@@ -171,7 +171,7 @@ def test_x26x(test_dataset, name='x264'):
     def read_data(com_queue,width=256,height=256):
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
-            '-i', 'rtsp://127.0.0.1:5555/live.sdp?tcp?',
+            '-i', 'rtsp://127.0.0.1:8888/live.sdp?tcp?',
             '-f', 'image2pipe',    # Use image2pipe demuxer
             '-pix_fmt', 'bgr24',   # Set BGR pixel format
             '-vcodec', 'rawvideo', # Get rawvideo output format.
