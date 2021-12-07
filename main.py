@@ -169,7 +169,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer):
+def train(epoch, model, train_dataset, optimizer, best_codec_score):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -240,6 +240,17 @@ def train(epoch, model, train_dataset, optimizer):
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()   
+            
+        if batch_idx % 5000 == 0:
+            print('testing at batch_idx %d' % (batch_idx))
+            score = test(epoch, model, test_dataset)
+            
+            is_best = isinstance(best_codec_score,list) and (score[0] <= best_codec_score[0]) and (score[1] >= best_codec_score[1])
+            if is_best:
+                print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
+                best_codec_score = score
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+            save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
     
 def test(epoch, model, test_dataset):
     aux_loss_module = AverageMeter()
@@ -553,7 +564,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train_codec(epoch, model, train_dataset, optimizer, best_codec_score)
+    train(epoch, model, train_dataset, optimizer, best_codec_score)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
