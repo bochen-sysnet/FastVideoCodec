@@ -148,11 +148,8 @@ def test_x26x(test_dataset, name='x264'):
                 f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
                 f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-        # warmup
-        #process.stdin.write(np.zeros((width,height,3)).tobytes())
         for idx,img in enumerate(raw_clip):
             img = np.array(img)
-            print(img.shape)
             process.stdin.write(img.tobytes())
         # Close and flush stdin
         process.stdin.close()
@@ -214,7 +211,8 @@ def test_x26x(test_dataset, name='x264'):
                 frame = com_queue.popleft()
                 com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
                 raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-                print(i,PSNR(raw, com))
+                raw2 = transforms.ToTensor()(data[i+1]).cuda().unsqueeze(0)
+                print(i,PSNR(raw, com),PSNR(raw2, com))
                 #psnr_list += [PSNR(raw, com)]
                 #msssim_list += [MSSSIM(raw, com)]
                 #print(i,psnr_list[-1])
