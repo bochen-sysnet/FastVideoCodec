@@ -189,9 +189,13 @@ def test_x26x(test_dataset, name='x264'):
         
         i = 0
         
+        t_warmup = None
+        
         while True:
             # read width*height*3 bytes from stdout (1 frame)
             raw_frame = p1.stdout.read(width*height*3)
+            if t_warmup is None:
+                t_warmup = time.perf_counter() - t_0
 
             if len(raw_frame) != (width*height*3):
                 #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
@@ -210,7 +214,7 @@ def test_x26x(test_dataset, name='x264'):
             i += 1
         total_time = time.perf_counter() - t_0
         fps = i/total_time
-        print(total_time,fps)
+        print(t_warmup,total_time,fps)
         return psnr_list,msssim_list
             
     from collections import deque
