@@ -543,7 +543,6 @@ else:
 print("===================================================================")
     
 ####### Load dataset
-# train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
 import sys
 sys.path.append('../YOWO')
 from datasets import list_dataset
@@ -552,10 +551,11 @@ TRAIN_FILE = "../dataset/ucf24/trainlist.txt"
 TRAIN_CROP_SIZE = 224
 NUM_FRAMES = 16
 SAMPLING_RATE = 1
-train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
-                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
-                       transform=transforms.Compose([transforms.ToTensor()]), 
-                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
+#train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
+#                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
+#                       transform=transforms.Compose([transforms.ToTensor()]), 
+#                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
+train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
