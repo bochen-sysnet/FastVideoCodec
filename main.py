@@ -244,6 +244,7 @@ def test(epoch, model, test_dataset):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
+    be_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     all_loss_module = AverageMeter()
@@ -268,19 +269,21 @@ def test(epoch, model, test_dataset):
             
             # compress GoP
             if l>fP+1:
-                com_imgs,img_loss_list1,_,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
+                com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
                 data[fP:fP+1] = com_imgs[0:1]
-                _,img_loss_list2,_,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
+                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
                 img_loss_list = img_loss_list1[::-1] + img_loss_list2
                 aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
                 psnr_list = psnr_list1[::-1] + psnr_list2
                 msssim_list = msssim_list1[::-1] + msssim_list2
                 bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+                bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
             else:
-                _,img_loss_list,_,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
             aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
             img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -291,6 +294,7 @@ def test(epoch, model, test_dataset):
             aux_loss_module.update(aux_loss.cpu().data.item(), l)
             img_loss_module.update(img_loss.cpu().data.item(), l)
             ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            be_loss_module.update(ba_loss.cpu().data.item(), l)
             psnr_module.update(psnr.cpu().data.item(),l)
             msssim_module.update(msssim.cpu().data.item(), l)
             all_loss_module.update(loss.cpu().data.item(), l)
@@ -300,6 +304,7 @@ def test(epoch, model, test_dataset):
             f"{data_idx:6}. "
             f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
             f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
             f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
@@ -540,7 +545,7 @@ train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, datas
                        shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
                        transform=transforms.Compose([transforms.ToTensor()]), 
                        train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(224,224))
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
 score = test(0, model, test_dataset)
