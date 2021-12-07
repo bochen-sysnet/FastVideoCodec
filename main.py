@@ -91,7 +91,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -551,11 +550,11 @@ TRAIN_FILE = "../dataset/ucf24/trainlist.txt"
 TRAIN_CROP_SIZE = 224
 NUM_FRAMES = 16
 SAMPLING_RATE = 1
-#train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
-#                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
-#                       transform=transforms.Compose([transforms.ToTensor()]), 
-#                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
-train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
+train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
+                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
+                       transform=transforms.Compose([transforms.ToTensor()]), 
+                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
+#train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
@@ -564,8 +563,8 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    #train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
-    train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
+    train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
+    #train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
