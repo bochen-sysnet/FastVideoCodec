@@ -168,7 +168,7 @@ def test_x26x(test_dataset, name='x264'):
             '-']
             
         # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
-        p1 = sp.Popen(command, stdout=sp.PIPE, stderr=sp.STDOUT)
+        p1 = sp.Popen(command, stdout=sp.PIPE)
         
         # Start a thread that streams data
         threading.Thread(target=stream_data, args=(data,)).start() 
