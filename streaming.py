@@ -214,7 +214,7 @@ def test_x26x(test_dataset, name='x264'):
             
             com_queue = deque()
             threading.Thread(target=stream_data, args=(data,)).start() 
-            threading.Thread(target=read_data, args=(com_queue,)).start()
+            #threading.Thread(target=read_data, args=(com_queue,)).start()
             
             psnr_list = []
             msssim_list = []
