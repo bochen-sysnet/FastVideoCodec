@@ -451,7 +451,7 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
             
         # save result every 1000 batches
         if batch_idx % 2000 == 0: # From time to time, reset averagemeters to see improvements
-            print('')
+            print('?')
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
