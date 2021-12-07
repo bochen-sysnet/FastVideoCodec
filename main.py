@@ -391,7 +391,7 @@ def benchmarking():
     test_x26x(test_dataset,'x265')
     exit(0)
     
-def train_codec(epoch, model_codec, train_dataset, optimizer, best_codec_score):
+def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
     t0 = time.time()
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
@@ -551,11 +551,11 @@ TRAIN_FILE = "../dataset/ucf24/trainlist.txt"
 TRAIN_CROP_SIZE = 224
 NUM_FRAMES = 16
 SAMPLING_RATE = 1
-train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
-                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
-                       transform=transforms.Compose([transforms.ToTensor()]), 
-                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
-#train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
+#train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
+#                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
+#                       transform=transforms.Compose([transforms.ToTensor()]), 
+#                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
+train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
@@ -564,7 +564,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    #train_codec(epoch, model, train_dataset, optimizer, best_codec_score)
+    #train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
     train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
