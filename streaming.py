@@ -180,7 +180,7 @@ def test_x26x(test_dataset, name='x264'):
             '-']
             
         command = ['/usr/bin/ffmpeg',
-            '-i', 'rtsp://127.0.0.1:8554/live?tcp?',
+            '-i', 'rtsp://127.0.0.1:8554/live',
             '-f', 'image2pipe',    # Use image2pipe demuxer
             '-pix_fmt', 'bgr24',   # Set BGR pixel format
             '-vcodec', 'rawvideo', # Get rawvideo output format.
