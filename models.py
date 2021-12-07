@@ -847,6 +847,8 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck.update(force=True)
             self.updated = True
             
+        self.realCom = True # not self.training
+            
         if not self.noMeasure:
             self.enc_t = self.dec_t = 0
         
@@ -884,7 +886,7 @@ class Coder2D(nn.Module):
         if self.entropy_type == 'base':
             if self.noMeasure:
                 latent_hat, likelihoods = self.entropy_bottleneck(latent, training=self.training)
-                if not self.training:
+                if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
                 # encoding
@@ -898,7 +900,7 @@ class Coder2D(nn.Module):
         elif self.entropy_type == 'mshp':
             if self.noMeasure:
                 latent_hat, likelihoods = self.entropy_bottleneck(latent, training=self.training)
-                if not self.training:
+                if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
                 latent_string, shape = self.entropy_bottleneck.compress_slow(latent)
@@ -906,7 +908,7 @@ class Coder2D(nn.Module):
         elif self.entropy_type == 'joint':
             if self.noMeasure:
                 latent_hat, likelihoods = self.entropy_bottleneck(latent, prior, training=self.training)
-                if not self.training:
+                if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
                 latent_string,shape = self.entropy_bottleneck.compress_slow(latent, prior)
@@ -915,7 +917,7 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck.set_RPM(RPM_flag)
             if self.noMeasure:
                 latent_hat, likelihoods, rpm_hidden = self.entropy_bottleneck(latent, rpm_hidden, training=self.training)
-                if not self.training:
+                if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
                 latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden)
@@ -934,7 +936,7 @@ class Coder2D(nn.Module):
             bits_est = torch.zeros(latent_hat.size(0)).to(x.device)
         
         # calculate bpp (actual)
-        if not self.training:
+        if self.realCom:
             bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
         else:
             bits_act = bits_est
