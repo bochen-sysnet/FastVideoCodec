@@ -842,12 +842,11 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None):
+        self.realCom = True # not self.training
         # update only once during testing
-        if not self.updated and not self.training:
+        if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
             self.updated = True
-            
-        self.realCom = True # not self.training
             
         if not self.noMeasure:
             self.enc_t = self.dec_t = 0
