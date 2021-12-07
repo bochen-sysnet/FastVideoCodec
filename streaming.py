@@ -149,9 +149,10 @@ def test_x26x(test_dataset, name='x264'):
                 f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         # warmup
-        process.stdin.write(np.zeros((width,height,3)).tobytes())
+        #process.stdin.write(np.zeros((width,height,3)).tobytes())
         for idx,img in enumerate(raw_clip):
             img = np.array(img)
+            print(img.shape)
             process.stdin.write(img.tobytes())
         # Close and flush stdin
         process.stdin.close()
