@@ -22,6 +22,18 @@ from PIL import Image
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
+# OPTION
+BACKUP_DIR = 'backup'
+CODEC_NAME = 'SPVC'
+loss_type = 'P'
+compression_level = 2 # 0,1,2,3
+#RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
+RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
+LEARNING_RATE = 0.0001
+WEIGHT_DECAY = 5e-4
+BEGIN_EPOCH = 1
+END_EPOCH = 10
+
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir)
@@ -446,9 +458,12 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+            save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
+            print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',score)
 
     t1 = time.time()
-    logging('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
+    print('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type='P', compression_level=2):
     import shutil
@@ -458,18 +473,6 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type='P', compre
                         f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
                         
 #benchmarking()
-
-# OPTION
-BACKUP_DIR = 'backup'
-CODEC_NAME = 'SPVC'
-loss_type = 'P'
-compression_level = 2 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth'
-#RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
-LEARNING_RATE = 0.0001
-WEIGHT_DECAY = 5e-4
-BEGIN_EPOCH = 1
-END_EPOCH = 10
 
 ####### Check backup directory, create if necessary
 # ---------------------------------------------------------------
