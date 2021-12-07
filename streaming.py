@@ -149,7 +149,7 @@ def test_x26x(test_dataset, name='x264'):
            '-y',
            '-i', '-',
            '-an',
-           '-c:v', 'mpeg4',
+           '-c:v', 'libx264',
            '-r', '50',
            '-f', 'rtsp',
            '-rtsp_transport',
