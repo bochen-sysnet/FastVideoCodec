@@ -145,8 +145,8 @@ def test_x26x(test_dataset, name='x264'):
         GOP = 13
         output_filename = 'tmp/videostreams/output.mp4'
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '
-                '-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '
-                '-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
+                f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '
+                f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         print('Start streaming')
         for idx,img in enumerate(raw_clip):
