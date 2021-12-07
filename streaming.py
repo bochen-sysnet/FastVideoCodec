@@ -176,7 +176,7 @@ def test_x26x(test_dataset, name='x264'):
            '-rtsp_transport', 'tcp',
            'rtsp://localhost:8554/live']
 
-        process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
+        process = sp.Popen(command, stdin=sp.PIPE) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         print('Start streaming')
         for idx,img in enumerate(raw_clip):
