@@ -148,7 +148,6 @@ def test_x26x(test_dataset, name='x264'):
                 f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
                 f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-        print('Start streaming')
         for idx,img in enumerate(raw_clip):
             img = np.array(img)
             process.stdin.write(img.tobytes())
@@ -170,7 +169,6 @@ def test_x26x(test_dataset, name='x264'):
             
         # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
         p1 = sp.Popen(command, stdout=sp.PIPE)
-        print('Start receiving')
         
         while True:
             # read width*height*3 bytes from stdout (1 frame)
@@ -186,7 +184,6 @@ def test_x26x(test_dataset, name='x264'):
             
             # add to clip
             com_queue += [frame]
-            print('Read:',len(com_queue))
             
     from collections import deque
     
@@ -212,11 +209,10 @@ def test_x26x(test_dataset, name='x264'):
             for i in range(l):
                 while not com_queue:time.sleep(0.1)
                 frame = com_queue.popleft()
-                com = transforms.ToTensor()(frame).cuda()
-                raw = transforms.ToTensor()(data[i]).cuda()
+                com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
+                raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
                 psnr_list += [PSNR(raw, com)]
                 msssim_list += [MSSSIM(raw, com)]
-                print('Evaluate:',psnr_list[-1])
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
