@@ -165,7 +165,7 @@ def test_x26x(test_dataset, name='x264'):
                '-rtsp_transport', 'tcp',
                '-segment_times', '5',
                '-f', 'rtsp',
-               'rtsp://127.0.0.1:8888/live.sdp']
+               'rtsp://127.0.0.1:8554/live.sdp']
         command = ['/usr/bin/ffmpeg',
            '-y',
            '-i', '-',
@@ -174,7 +174,7 @@ def test_x26x(test_dataset, name='x264'):
            '-r', '50',
            '-f', 'rtsp',
            '-rtsp_transport', 'tcp',
-           'rtsp://127.0.0.1:8888/live.sdp']
+           'rtsp://127.0.0.1:8554/live.sdp']
 
         process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
