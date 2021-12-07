@@ -158,7 +158,7 @@ def test_x26x(test_dataset, name='x264'):
         # Terminate the sub-process
         process.terminate()
         
-    def read_data(com_queue,width=256,height=256):
+    def video_streaming(data,width=256,height=256):
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
             '-i', 'rtsp://127.0.0.1:8555/live?tcp?',
@@ -169,6 +169,14 @@ def test_x26x(test_dataset, name='x264'):
             
         # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
         p1 = sp.Popen(command, stdout=sp.PIPE)
+        
+        # Start a thread that streams data
+        threading.Thread(target=stream_data, args=(data,)).start() 
+        
+        psnr_list = []
+        msssim_list = []
+        
+        i = 0
         
         while True:
             # read width*height*3 bytes from stdout (1 frame)
@@ -182,8 +190,14 @@ def test_x26x(test_dataset, name='x264'):
             frame = np.fromstring(raw_frame, np.uint8)
             frame = frame.reshape((height, width, 3))
             
-            # add to clip
-            com_queue += [frame]
+            # process metrics
+            com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
+            raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
+            psnr_list += [PSNR(raw, com)]
+            msssim_list += [MSSSIM(raw, com)]
+            print(i,psnr_list[-1])
+            i += 1
+        return psnr_list,msssim_list
             
     from collections import deque
     
@@ -200,20 +214,7 @@ def test_x26x(test_dataset, name='x264'):
             l = len(data)
             print('Total num:',l)
             
-            com_queue = deque()
-            threading.Thread(target=read_data, args=(com_queue,)).start()
-            threading.Thread(target=stream_data, args=(data,)).start() 
-            
-            psnr_list = []
-            msssim_list = []
-            for i in range(l):
-                while not com_queue:time.sleep(0.1)
-                frame = com_queue.popleft()
-                com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
-                raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-                psnr_list += [PSNR(raw, com)]
-                msssim_list += [MSSSIM(raw, com)]
-                print(i,psnr_list[-1])
+            psnr_list, msssim_list = video_streaming(data)
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
