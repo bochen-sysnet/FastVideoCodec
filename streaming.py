@@ -146,6 +146,15 @@ def test_x26x(test_dataset, name='x264'):
         output_filename = 'tmp/videostreams/output.mp4'
         #cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rtsp -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug -rtsp_transport tcp rtsp://127.0.0.1:5555/live.sdp'
         
+        command = ['/usr/bin/ffmpeg',
+           '-y',
+           '-i', '-',
+           '-an',
+           '-c:v', 'libx264',
+           '-r', '50',
+           '-f', 'rtsp',
+           '-rtsp_transport', 'tcp',
+           'rtsp://localhost:8554/live']
            
         command = ['ffmpeg',
                '-re',
@@ -158,32 +167,10 @@ def test_x26x(test_dataset, name='x264'):
                '-r', str(fps),  # output fps
                '-g', '50',
                '-c:v', 'libx264',
-               '-b:v', '2M',
-               '-bufsize', '64M',
-               '-maxrate', "4M",
                '-preset', 'veryfast',
                '-rtsp_transport', 'tcp',
-               '-segment_times', '5',
                '-f', 'rtsp',
-               'rtsp://127.0.0.1:8554/live.sdp']
-        command = ['/usr/bin/ffmpeg',
-           '-y',
-           '-i', '-',
-           '-an',
-           '-c:v', 'libx264',
-           '-r', '50',
-           '-f', 'rtsp',
-           '-rtsp_transport', 'tcp',
-           'rtsp://localhost:8554/live']
-        command = ['ffmpeg',
-           '-y',
-           '-i', '-',
-           '-an',
-           '-c:v', 'mpeg4',
-           '-r', '50',
-           '-f', 'rtsp',
-           '-rtsp_transport',
-           'tcp','rtsp://192.168.1.xxxx:5555/live.sdp']
+               'rtsp://127.0.0.1:8554/live']
 
         process = sp.Popen(command, stdin=sp.PIPE)
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
