@@ -139,7 +139,7 @@ def test_x26x(test_dataset, name='x264'):
     import subprocess as sp
     import shlex
     
-    def create_client(Q,width=256,height=256)
+    def create_client(Q,width=256,height=256):
         fps = 25
         GOP = 13
         output_filename = 'tmp/videostreams/output.mp4'
