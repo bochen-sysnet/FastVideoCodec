@@ -529,7 +529,6 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     del checkpoint
 else:
     print("Cannot load model codec", CODEC_NAME)
-    exit(1)
 print("===================================================================")
     
 ####### Load dataset
