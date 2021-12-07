@@ -374,7 +374,7 @@ def benchmarking():
     test_x26x(test_dataset,'x265')
     exit(0)
     
-def train_codec(epoch, model_codec, train_dataset, optimizer):
+def train_codec(epoch, model_codec, train_dataset, optimizer, best_codec_score):
     t0 = time.time()
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
@@ -458,9 +458,9 @@ def train_codec(epoch, model_codec, train_dataset, optimizer):
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
             save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
-            print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',score)
+            print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',best_codec_score)
 
     t1 = time.time()
     print('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
@@ -499,7 +499,6 @@ parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quanti
 aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
 optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
-best_score = 0 
 best_codec_score = [1,0,0]
 
 ####### Load yowo model
@@ -550,7 +549,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train_codec(epoch, model, train_dataset, optimizer)
+    train_codec(epoch, model, train_dataset, optimizer, best_codec_score)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
