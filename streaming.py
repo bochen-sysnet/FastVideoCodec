@@ -146,11 +146,11 @@ def test_x26x(test_dataset, name='x264'):
         if name == 'x265':
             cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
+                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         elif name == 'x264':
             cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
+                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         else:
             print('Codec not supported')
             exit(1)
@@ -169,12 +169,14 @@ def test_x26x(test_dataset, name='x264'):
         # Terminate the sub-process
         process.terminate()
         
-    # how to direct rtsp traffic?
-    def server(data,Q,width=256,height=256):
-        # create a rtsp track
-        process = create_client(Q)
-        
+    def create_server():
         # serve as a rtsp server
+        command = ['/usr/bin/ffmpeg',
+            '-i', 'rtsp://127.0.0.1:8554/live',
+            '-f', 'image2pipe',    # Use image2pipe demuxer
+            '-pix_fmt', 'bgr24',   # Set BGR pixel format
+            '-vcodec', 'rawvideo', # Get rawvideo output format.
+            '-']
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
             '-i', 'rtsp://127.0.0.1:8555/live?tcp?',
@@ -183,21 +185,24 @@ def test_x26x(test_dataset, name='x264'):
             '-vcodec', 'rawvideo', # Get rawvideo output format.
             '-']
             
-        command = ['/usr/bin/ffmpeg',
-            '-i', 'rtsp://127.0.0.1:8554/live',
-            '-f', 'image2pipe',    # Use image2pipe demuxer
-            '-pix_fmt', 'bgr24',   # Set BGR pixel format
-            '-vcodec', 'rawvideo', # Get rawvideo output format.
-            '-']
-            
         # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
-        p1 = sp.Popen(command, stdout=sp.PIPE)
+        p_server = sp.Popen(command, stdout=sp.PIPE)
         
+        return p_server
+        
+    # how to direct rtsp traffic?
+    def server(data,Q,width=256,height=256):
         # Beginning time of streaming
         t_0 = time.perf_counter()
         
+        # create a rtsp server or listener
+        p_server = create_server()
+        
+        # create a rtsp track
+        p_server = create_client(Q)
+        
         # Start a thread that streams data
-        threading.Thread(target=client, args=(data,process,)).start() 
+        threading.Thread(target=client, args=(data,p_client,)).start() 
         
         psnr_list = []
         msssim_list = []
@@ -209,7 +214,7 @@ def test_x26x(test_dataset, name='x264'):
         stream_iter = tqdm(range(len(data)))
         while True:
             # read width*height*3 bytes from stdout (1 frame)
-            raw_frame = p1.stdout.read(width*height*3)
+            raw_frame = p_server.stdout.read(width*height*3)
             if t_warmup is None:
                 t_warmup = time.perf_counter() - t_0
                 print('Warm-up:',t_warmup)
