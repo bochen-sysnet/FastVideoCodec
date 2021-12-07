@@ -451,7 +451,7 @@ def train_codec(epoch, model_codec, train_dataset, optimizer, best_codec_score):
             
         # save result every 1000 batches
         if batch_idx % 2000 == 0: # From time to time, reset averagemeters to see improvements
-            print('?')
+            print('')
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
@@ -459,8 +459,7 @@ def train_codec(epoch, model_codec, train_dataset, optimizer, best_codec_score):
             psnr_module.reset()
             msssim_module.reset()
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-            save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
-            print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',best_codec_score)
+            save_checkpoint(state, False, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
 
     t1 = time.time()
     print('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
