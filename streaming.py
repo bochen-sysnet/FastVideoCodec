@@ -139,9 +139,8 @@ def test_x26x(test_dataset, name='x264'):
     import subprocess as sp
     import shlex
     
-    def sender(raw_clip,Q,width=256,height=256):
+    def create_client(Q,width=256,height=256)
         fps = 25
-        Q = 27#15,19,23,27
         GOP = 13
         output_filename = 'tmp/videostreams/output.mp4'
         if name == 'x265':
@@ -156,6 +155,9 @@ def test_x26x(test_dataset, name='x264'):
             print('Codec not supported')
             exit(1)
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+        return process
+        
+    def client(raw_clip,process):
         for idx,img in enumerate(raw_clip):
             img = np.array(img)
             process.stdin.write(img.tobytes())
@@ -168,8 +170,10 @@ def test_x26x(test_dataset, name='x264'):
         process.terminate()
         
     # how to direct rtsp traffic?
-    def receiver(data,Q,width=256,height=256):
-        # read from another rtsp stream at the server?
+    def server(data,Q,width=256,height=256):
+        # create a rtsp track
+        process = create_client(Q)
+        
         # serve as a rtsp server
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
@@ -193,7 +197,7 @@ def test_x26x(test_dataset, name='x264'):
         t_0 = time.perf_counter()
         
         # Start a thread that streams data
-        threading.Thread(target=sender, args=(data,Q,)).start() 
+        threading.Thread(target=client, args=(data,process,)).start() 
         
         psnr_list = []
         msssim_list = []
@@ -252,7 +256,7 @@ def test_x26x(test_dataset, name='x264'):
                 continue
             l = len(data)
             
-            psnr_list, msssim_list = receiver(data,Q)
+            psnr_list, msssim_list = server(data,Q)
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
