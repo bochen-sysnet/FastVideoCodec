@@ -211,11 +211,9 @@ def test_x26x(test_dataset, name='x264'):
                 frame = com_queue.popleft()
                 com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
                 raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-                raw2 = transforms.ToTensor()(data[i+1]).cuda().unsqueeze(0)
-                print(i,PSNR(raw, com),PSNR(raw2, com))
                 #psnr_list += [PSNR(raw, com)]
                 #msssim_list += [MSSSIM(raw, com)]
-                #print(i,psnr_list[-1])
+                print(i,psnr_list[-1])
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
