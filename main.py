@@ -91,6 +91,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -545,10 +546,10 @@ train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, datas
                        shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
                        transform=transforms.Compose([transforms.ToTensor()]), 
                        train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-#test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+#test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
-score = test(0, model, test_dataset)
+score = test(0, model, test_dataset2)
 exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
