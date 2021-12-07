@@ -147,11 +147,11 @@ def test_x26x(test_dataset, name='x264'):
         if name == 'x265':
             cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
+                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
         elif name == 'x264':
             cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
+                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
         else:
             print('Codec not supported')
             exit(1)
@@ -170,9 +170,17 @@ def test_x26x(test_dataset, name='x264'):
     # how to direct rtsp traffic?
     def receiver(data,Q,width=256,height=256):
         # read from another rtsp stream at the server?
+        # serve as a rtsp server
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
             '-i', 'rtsp://127.0.0.1:8555/live?tcp?',
+            '-f', 'image2pipe',    # Use image2pipe demuxer
+            '-pix_fmt', 'bgr24',   # Set BGR pixel format
+            '-vcodec', 'rawvideo', # Get rawvideo output format.
+            '-']
+            
+        command = ['/usr/bin/ffmpeg',
+            '-i', 'rtsp://127.0.0.1:8554/live?tcp?',
             '-f', 'image2pipe',    # Use image2pipe demuxer
             '-pix_fmt', 'bgr24',   # Set BGR pixel format
             '-vcodec', 'rawvideo', # Get rawvideo output format.
