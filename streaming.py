@@ -155,7 +155,7 @@ def test_x26x(test_dataset, name='x264'):
            '-rtsp_transport',
            'tcp','rtsp://127.0.0.1:8888/live.sdp']
            
-        command = ['ffmpeg',
+        command = ['/usr/bin/ffmpeg',
            '-loglevel', 'error',
            '-y',
            # Input
@@ -170,7 +170,7 @@ def test_x26x(test_dataset, name='x264'):
            '-vcodec', 'h264',
            '-r', str(fps),
            '-pix_fmt', 'bgr24',
-           output_filename
+           'rtsp://127.0.0.1:8888/live.sdp'
            ]
 
         process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT) 
