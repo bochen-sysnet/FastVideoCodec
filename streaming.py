@@ -139,7 +139,7 @@ def test_x26x(test_dataset, name='x264'):
     import subprocess as sp
     import shlex
     
-    def stream_data(raw_clip,width=256,height=256):
+    def sender(raw_clip,Q,width=256,height=256):
         fps = 25
         Q = 27#15,19,23,27
         GOP = 13
@@ -149,7 +149,7 @@ def test_x26x(test_dataset, name='x264'):
                     f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
                     f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         elif name == 'x264':
-            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
+            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
                     f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         else:
@@ -167,7 +167,9 @@ def test_x26x(test_dataset, name='x264'):
         # Terminate the sub-process
         process.terminate()
         
-    def video_streaming(data,width=256,height=256):
+    # how to direct rtsp traffic?
+    def receiver(data,Q,width=256,height=256):
+        # read from another rtsp stream at the server?
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
             '-i', 'rtsp://127.0.0.1:8555/live?tcp?',
@@ -183,7 +185,7 @@ def test_x26x(test_dataset, name='x264'):
         t_0 = time.perf_counter()
         
         # Start a thread that streams data
-        threading.Thread(target=stream_data, args=(data,)).start() 
+        threading.Thread(target=sender, args=(data,Q,)).start() 
         
         psnr_list = []
         msssim_list = []
@@ -241,9 +243,8 @@ def test_x26x(test_dataset, name='x264'):
             if not eof:
                 continue
             l = len(data)
-            print('Total num:',l)
             
-            psnr_list, msssim_list = video_streaming(data)
+            psnr_list, msssim_list = receiver(data,Q)
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -365,6 +366,7 @@ def streaming(model, test_dataset):
             # video will come at different rates 30-60fps
             # network will have different bandwidth
             # unlimited rate?
+            # pipe + netcat for communication?
             if l>fP+1:
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
