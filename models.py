@@ -936,7 +936,6 @@ class Coder2D(nn.Module):
         # calculate bpp (actual)
         if not self.training:
             bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
-            print(bits_est,bits_act)
         else:
             bits_act = bits_est
 
@@ -1394,6 +1393,8 @@ class SPVC(nn.Module):
         bpp_est = (mv_est.cuda(0) + res_est.cuda(0))/(h * w)
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
+        print('mv',mv_est,mv_act)
+        print('res',res_est,res_act)
         # auxilary loss
         aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))
         aux_loss = aux_loss.repeat(bs)
