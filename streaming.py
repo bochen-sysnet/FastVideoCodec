@@ -175,7 +175,7 @@ def test_x26x(test_dataset, name='x264'):
             raw_frame = p1.stdout.read(width*height*3)
 
             if len(raw_frame) != (width*height*3):
-                #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
+                print('Error reading frame:',len(raw_frame))  # Break the loop in case of an error (too few bytes were read).
                 break
 
             # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
