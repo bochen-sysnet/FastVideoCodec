@@ -84,7 +84,7 @@ def update_training(model, epoch):
     # optimize bpp and app loss only
     
     # setup training weights
-    if epoch <= 0:
+    if epoch <= 1:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,1,1,1
     else:
@@ -842,7 +842,7 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None):
-        self.realCom = True # not self.training
+        self.realCom = not self.training
         # update only once during testing
         if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
