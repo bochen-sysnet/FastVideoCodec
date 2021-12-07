@@ -191,11 +191,13 @@ def test_x26x(test_dataset, name='x264'):
         
         t_warmup = None
         
+        stream_iter = tqdm(range(len(data)))
         while True:
             # read width*height*3 bytes from stdout (1 frame)
             raw_frame = p1.stdout.read(width*height*3)
             if t_warmup is None:
                 t_warmup = time.perf_counter() - t_0
+                print('Warm-up:',t_warmup)
 
             if len(raw_frame) != (width*height*3):
                 #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
@@ -210,11 +212,19 @@ def test_x26x(test_dataset, name='x264'):
             raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
             psnr_list += [PSNR(raw, com)]
             msssim_list += [MSSSIM(raw, com)]
-            print(i,psnr_list[-1])
             i += 1
-        total_time = time.perf_counter() - t_0
-        fps = i/total_time
-        print(t_warmup,total_time,fps)
+            
+            # Count time
+            total_time = time.perf_counter() - t_0
+            fps = i/total_time
+        
+            # show result
+            stream_iter.set_description(
+                f"{i:3}. "
+                f"FPS: {fps:.2f}. "
+                f"PSNR: {float(psnr_list[-1]):.2f}. "
+                f"MSSSIM: {float(msssim_list[-1]):.4f}. "
+                f"Total: {total_time:.3f}. ")
         return psnr_list,msssim_list
             
     from collections import deque
