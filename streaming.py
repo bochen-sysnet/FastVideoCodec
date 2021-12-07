@@ -156,7 +156,7 @@ def test_x26x(test_dataset, name='x264'):
            '-rtsp_transport', 'tcp',
            'rtsp://localhost:8554/live']
            
-        command = ['ffmpeg',
+        command = ['/usr/bin/ffmpeg',
                '-re',
                '-s', str(width) + 'x' + str(height),
                '-r', str(fps),  # rtsp fps (from input server)
