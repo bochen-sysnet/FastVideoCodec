@@ -140,7 +140,7 @@ def test_x26x(test_dataset, name='x264'):
     import shlex
     
     def stream_data(raw_clip,width=256,height=256):
-        fps = 120
+        fps = 10
         Q = 27#15,19,23,27
         GOP = 13
         output_filename = 'tmp/videostreams/output.mp4'
