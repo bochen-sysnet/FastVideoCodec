@@ -543,9 +543,6 @@ train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, datas
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
-score = test(0, model, test_dataset)
-exit(0)
-
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
     r = adjust_learning_rate(optimizer, epoch)
