@@ -176,8 +176,9 @@ def test_x26x(test_dataset, name='x264'):
         #process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         print('Start streaming')
         for idx,img in enumerate(raw_clip):
-            print('write:',idx)
-            process.stdin.write(np.array(img).tobytes())
+            img = np.array(img)
+            print('write:',idx,img.shape)
+            process.stdin.write(img.tobytes())
         # Close and flush stdin
         process.stdin.close()
         # Wait for sub-process to finish
