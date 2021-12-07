@@ -176,6 +176,9 @@ def train(epoch, model, train_dataset, optimizer):
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
         data = data[0].cuda()
+        # flip occasionally
+        if batch_idx%2==0:
+            data = torch.flip(data,[0])
         l = data.size(0)-1
         
         # run model
