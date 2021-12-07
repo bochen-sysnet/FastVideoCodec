@@ -149,7 +149,7 @@ def test_x26x(test_dataset, name='x264'):
                     f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
                     f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         elif name == 'x264':
-            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
+            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
                     f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         else:
@@ -159,7 +159,7 @@ def test_x26x(test_dataset, name='x264'):
         for idx,img in enumerate(raw_clip):
             img = np.array(img)
             process.stdin.write(img.tobytes())
-            time.sleep(1/60.)
+            #time.sleep(1/60.)
         # Close and flush stdin
         process.stdin.close()
         # Wait for sub-process to finish
