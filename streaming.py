@@ -146,7 +146,7 @@ def test_x26x(test_dataset, name='x264'):
         output_filename = 'tmp/videostreams/output.mp4'
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                 f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
-                f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/live'
+                f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
         print('Start streaming')
         for idx,img in enumerate(raw_clip):
@@ -162,7 +162,7 @@ def test_x26x(test_dataset, name='x264'):
     def read_data(com_queue,width=256,height=256):
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
-            '-i', 'rtsp://127.0.0.1:8554/live?tcp?',
+            '-i', 'rtsp://127.0.0.1:8555/live?tcp?',
             '-f', 'image2pipe',    # Use image2pipe demuxer
             '-pix_fmt', 'bgr24',   # Set BGR pixel format
             '-vcodec', 'rawvideo', # Get rawvideo output format.
@@ -204,8 +204,8 @@ def test_x26x(test_dataset, name='x264'):
             print('Total num:',l)
             
             com_queue = deque()
-            threading.Thread(target=stream_data, args=(data,)).start() 
             threading.Thread(target=read_data, args=(com_queue,)).start()
+            threading.Thread(target=stream_data, args=(data,)).start() 
             
             psnr_list = []
             msssim_list = []
