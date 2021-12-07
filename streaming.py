@@ -175,7 +175,7 @@ def test_x26x(test_dataset, name='x264'):
             raw_frame = p1.stdout.read(width*height*3)
 
             if len(raw_frame) != (width*height*3):
-                print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
+                #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
                 break
 
             # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
@@ -213,6 +213,7 @@ def test_x26x(test_dataset, name='x264'):
                 raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
                 psnr_list += [PSNR(raw, com)]
                 msssim_list += [MSSSIM(raw, com)]
+                print(i,psnr_list[-1])
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
