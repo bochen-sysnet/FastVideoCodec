@@ -151,6 +151,8 @@ def test_x26x(test_dataset, name='x264'):
         for idx,img in enumerate(raw_clip):
             img = np.array(img)
             process.stdin.write(img.tobytes())
+            print('written',idx)
+            if idx==12:break
         # Close and flush stdin
         process.stdin.close()
         # Wait for sub-process to finish
