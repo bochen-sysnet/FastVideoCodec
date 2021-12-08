@@ -355,7 +355,6 @@ else:
 print("===================================================================")
     
 def streaming(model, test_dataset):
-    ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     ds_size = len(test_dataset)
@@ -370,63 +369,84 @@ def streaming(model, test_dataset):
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
-        if len(data) < GoP and not eof:
-            continue
+        if not eof: continue
             
-        with torch.no_grad():
-            data = torch.stack(data, dim=0).cuda()
-            l = data.size(0)
-            # compress GoP
-            # need to have sequential and batch streaming
-            # video will come at different rates 30-60fps
-            # network will have different bandwidth
-            # unlimited rate?
-            # pipe + netcat for communication?
-            if l>fP+1:
-                # compress I
-                # compress backward
-                x_raw = torch.flip(data[:fP+1],[0])
-                mv_string,res_string,bpp_act_list1 = model.compress(x_raw)
-                x_hat = model.decompress(x_raw[:1], mv_string,res_string)
-                psnr_list1 = PSNR(x_raw[1:], x_hat, use_list=True)
-                msssim_list1 = MSSSIM(x_raw[1:], x_hat, use_list=True)
-                # compress forward
-                x_raw = data[fP:]
-                mv_string,res_string,bpp_act_list2 = model.compress(x_raw)
-                x_hat = model.decompress(x_raw[:1], mv_string,res_string)
-                psnr_list2 = PSNR(x_raw[1:], x_hat, use_list=True)
-                msssim_list2 = MSSSIM(x_raw[1:], x_hat, use_list=True)
-                # concate
-                psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()] + psnr_list2
-                msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + bpp_act_list2
-            else:
-                # compress I
-                # compress backward
-                x_raw = torch.flip(data,[0])
-                mv_string,res_string,bpp_act_list = model.compress(x_raw)
-                x_hat = model.decompress(x_raw[:1], mv_string,res_string)
-                psnr_list = PSNR(x_raw[1:], x_hat, use_list=True)
-                msssim_list = MSSSIM(x_raw[1:], x_hat, use_list=True)
-                # concate
-                psnr_list =  psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()]
-                msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
-                bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
+        data = torch.stack(data, dim=0).cuda()
+        L = data.size(0)
+        # compress GoP
+        # need to have sequential and batch streaming
+        # video will come at different rates 30-60fps
+        # network will have different bandwidth
+        # unlimited rate?
+        # pipe + netcat for communication?
+        from collections import deque
+        q = deque()
+        for begin in range(0,L,GoP):
+            with torch.no_grad():
+                x_GoP = data[begin:begin+GoP]
+                if x_GoP.size(0)>fP+1:
+                    # compress I
+                    # compress backward
+                    x_b = torch.flip(x_GoP[:fP+1],[0])
+                    mv_string1,res_string1,_ = model.compress(x_GoP)
+                    # compress forward
+                    x_f = data[fP:]
+                    mv_string2,res_string2,_ = model.compress(x_f)
+                    com_data = (x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2)
+                else:
+                    # compress I
+                    # compress backward
+                    x_b = torch.flip(data,[0])
+                    mv_string,res_string,bpp_act_list = model.compress(x_b)
+                    com_data = (x_GoP[:1],mv_string,res_string)
+            q += [com_data]
+            
+        while q:
+            com_data = q.popleft()
+            psnr_list = []
+            msssim_list = []
+            i = 0
+            stream_iter = tqdm(range(L))
+            with torch.no_grad():
+                if len(com_data)==5:
+                    # decompress I
+                    x_ref,mv_string1,res_string1,mv_string2,res_string2 = com_data
+                    # decompress backward
+                    x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+                    # decompress forward
+                    x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+                    # concate
+                    x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
+                else:
+                    # decompress I
+                    x_ref,mv_string,res_string = com_data
+                    # decompress backward
+                    x_b_hat = model.decompress(x_ref,mv_string,res_string)
+                    # concate
+                    x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
+                for com in x_hat:
+                    com = com.cuda().unsqueeze(0)
+                    raw = data[i].cuda().unsqueeze(0)
+                    psnr_list += [PSNR(raw, com)]
+                    msssim_list += [MSSSIM(raw, com)]
+                    i += 1
+                    # show result
+                    stream_iter.set_description(
+                        f"{i:3}. "
+                        f"PSNR: {float(psnr_list[-1]):.2f}. "
+                        f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
                 
             # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
             
             # record loss
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
             psnr_module.update(psnr.cpu().data.item(),l)
             msssim_module.update(msssim.cpu().data.item(), l)
         
         # show result
         test_iter.set_description(
             f"{data_idx:6}. "
-            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
             
