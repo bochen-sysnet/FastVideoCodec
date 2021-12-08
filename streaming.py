@@ -192,9 +192,11 @@ def test_x26x(test_dataset, name='x264'):
         
         # create a rtsp server or listener
         p_server = create_server()
+        print('server created')
         
         # create a rtsp track
         p_client = create_client(Q)
+        print('client created')
         
         # Start a thread that streams data
         threading.Thread(target=client, args=(data,p_client,)).start() 
