@@ -1142,6 +1142,7 @@ class SPVC(nn.Module):
         self.name = name 
         self.optical_flow = OpticalFlowNet()
         self.MC_network = MCNet()
+        print(self.name)
         if self.name in ['SPVC','SPVC-L']:
             # use attention in encoder and entropy model
             self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
