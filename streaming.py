@@ -149,7 +149,7 @@ def test_x26x(test_dataset, name='x264'):
         elif name == 'x264':
             cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8555/live'
+                    f'-rtsp_transport tcp -f rtsp rtsp://10.250.31.226:8555/live'
         else:
             print('Codec not supported')
             exit(1)
@@ -170,12 +170,8 @@ def test_x26x(test_dataset, name='x264'):
         
     def create_server():
         # serve as a rtsp server
-        command = ['/usr/bin/ffmpeg',
-            '-i', 'rtsp://127.0.0.1:8554/live',
-            '-f', 'image2pipe',    # Use image2pipe demuxer
-            '-pix_fmt', 'bgr24',   # Set BGR pixel format
-            '-vcodec', 'rawvideo', # Get rawvideo output format.
-            '-']
+        # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
+        # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
         command = ['/usr/bin/ffmpeg',
             '-rtsp_flags', 'listen',
             '-i', 'rtsp://127.0.0.1:8555/live?tcp?',
