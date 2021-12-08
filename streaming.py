@@ -281,6 +281,17 @@ def test_x26x(test_dataset, name='x264'):
             
         test_dataset.reset()
         
+# test
+
+cmd = f'nc -l 8888'
+process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stderr=sp.STDOUT)
+while True:
+    text = process.stdout.read(10)
+    if len(text) != (10):
+        print('Error reading frame!!!')
+        break
+    print(text)
+exit(0)
         
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
