@@ -286,8 +286,7 @@ def test_x26x(test_dataset, name='x264'):
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # try x265,x264 streaming with Gstreamer
-test_x26x(test_dataset, 'x264')
-exit(0)
+#test_x26x(test_dataset, 'x264')
         
 # OPTION
 BACKUP_DIR = 'backup'
@@ -383,6 +382,7 @@ def streaming(model, test_dataset):
             # unlimited rate?
             # pipe + netcat for communication?
             if l>fP+1:
+                # compress I
                 # compress backward
                 x_raw = torch.flip(data[:fP+1],[0])
                 mv_string,res_string,bpp_act_list1 = model.compress(x_raw)
@@ -400,6 +400,7 @@ def streaming(model, test_dataset):
                 msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + msssim_list2
                 bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + bpp_act_list2
             else:
+                # compress I
                 # compress backward
                 x_raw = torch.flip(data,[0])
                 mv_string,res_string,bpp_act_list = model.compress(x_raw)
