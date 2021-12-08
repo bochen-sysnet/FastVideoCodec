@@ -466,7 +466,7 @@ def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
             f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
             
         # save result every 1000 batches
-        if batch_idx % 2000 == 0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 10000 == 0: # From time to time, reset averagemeters to see improvements
             print('')
             img_loss_module.reset()
             aux_loss_module.reset()
@@ -474,8 +474,6 @@ def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
             all_loss_module.reset()
             psnr_module.reset()
             msssim_module.reset()
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-            save_checkpoint(state, False, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
 
     t1 = time.time()
     print('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
