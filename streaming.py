@@ -281,18 +281,6 @@ def test_x26x(test_dataset, name='x264'):
             
         test_dataset.reset()
         
-# test
-
-cmd = f'nc -l 8888'
-process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-while True:
-    text = process.stdout.read(10)
-    if len(text) != (10):
-        print('Error reading frame!!!')
-        break
-    print(text,len(text))
-exit(0)
-        
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
@@ -390,6 +378,18 @@ def streaming(model, test_dataset):
         # unlimited rate?
         # pipe + netcat for communication?
         def client(data,q):
+            # start a process to pipe data to netcat
+            cmd = f'nc local 8888'
+            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+            for i in range(10):
+                process.stdin.write(f"{i:10}")
+            # Close and flush stdin
+            process.stdin.close()
+            # Wait for sub-process to finish
+            process.wait()
+            # Terminate the sub-process
+            process.terminate()
+            return
             L = data.size(0)
             for begin in range(0,L,GoP):
                 with torch.no_grad():
@@ -412,6 +412,9 @@ def streaming(model, test_dataset):
                 q.put(com_data)
         
         def server(data):
+            # create a pipe for listening from netcat
+            cmd = f'nc -l 8888'
+            process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
             from queue import Queue
             q = Queue()
             # Start a thread that streams data
@@ -422,6 +425,14 @@ def streaming(model, test_dataset):
             i = 0
             L = data.size(0)
             stream_iter = tqdm(range(L))
+            # start listening
+            while True:
+                text = process.stdout.read(10)
+                if len(text) != (10):
+                    print('Error reading frame!!!')
+                    break
+                print(text,len(text))
+            exit(0)
             while i < L:
                 com_data = q.get()
                 with torch.no_grad():
