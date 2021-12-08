@@ -412,6 +412,7 @@ def streaming(model, test_dataset):
             L = data.size(0)
             stream_iter = tqdm(range(L))
             while i < L:
+                assert(q)
                 com_data = q.popleft()
                 with torch.no_grad():
                     if len(com_data)==5:
