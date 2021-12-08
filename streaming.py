@@ -142,7 +142,6 @@ def test_x26x(test_dataset, name='x264'):
     def create_client(Q,width=256,height=256):
         fps = 25
         GOP = 13
-        output_filename = 'tmp/videostreams/output.mp4'
         if name == 'x265':
             cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
                     f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
