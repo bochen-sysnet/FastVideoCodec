@@ -380,7 +380,7 @@ def streaming(model, test_dataset):
         # pipe + netcat for communication?
         def client(data,q):
             L = data.size(0)
-            for begin in range(0,L,GoP=13):
+            for begin in range(0,L,GoP):
                 with torch.no_grad():
                     x_GoP = data[begin:begin+GoP]
                     if x_GoP.size(0)>fP+1:
