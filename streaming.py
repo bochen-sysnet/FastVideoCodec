@@ -372,69 +372,76 @@ def streaming(model, test_dataset):
         if not eof: continue
             
         data = torch.stack(data, dim=0).cuda()
-        L = data.size(0)
         # compress GoP
         # need to have sequential and batch streaming
         # video will come at different rates 30-60fps
         # network will have different bandwidth
         # unlimited rate?
         # pipe + netcat for communication?
-        from collections import deque
-        q = deque()
-        for begin in range(0,L,GoP):
-            with torch.no_grad():
-                x_GoP = data[begin:begin+GoP]
-                if x_GoP.size(0)>fP+1:
-                    # compress I
-                    # compress backward
-                    x_b = torch.flip(x_GoP[:fP+1],[0])
-                    mv_string1,res_string1,_ = model.compress(x_GoP)
-                    # compress forward
-                    x_f = data[fP:]
-                    mv_string2,res_string2,_ = model.compress(x_f)
-                    com_data = (x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2)
-                else:
-                    # compress I
-                    # compress backward
-                    x_b = torch.flip(data,[0])
-                    mv_string,res_string,bpp_act_list = model.compress(x_b)
-                    com_data = (x_GoP[:1],mv_string,res_string)
-            q += [com_data]
-            
-        while q:
-            com_data = q.popleft()
+        def client(data,q):
+            L = data.size(0)
+            for begin in range(0,L,GoP=13):
+                with torch.no_grad():
+                    x_GoP = data[begin:begin+GoP]
+                    if x_GoP.size(0)>fP+1:
+                        # compress I
+                        # compress backward
+                        x_b = torch.flip(x_GoP[:fP+1],[0])
+                        mv_string1,res_string1,_ = model.compress(x_GoP)
+                        # compress forward
+                        x_f = data[fP:]
+                        mv_string2,res_string2,_ = model.compress(x_f)
+                        com_data = (x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2)
+                    else:
+                        # compress I
+                        # compress backward
+                        x_b = torch.flip(data,[0])
+                        mv_string,res_string,bpp_act_list = model.compress(x_b)
+                        com_data = (x_GoP[:1],mv_string,res_string)
+                q += [com_data]
+        
+        def server(data):
+            from collections import deque
+            q = deque()
+            # Start a thread that streams data
+            threading.Thread(target=client, args=(data,q,)).start() 
+            # initialize
             psnr_list = []
             msssim_list = []
             i = 0
+            L = data.size(0)
             stream_iter = tqdm(range(L))
-            with torch.no_grad():
-                if len(com_data)==5:
-                    # decompress I
-                    x_ref,mv_string1,res_string1,mv_string2,res_string2 = com_data
-                    # decompress backward
-                    x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
-                    # decompress forward
-                    x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
-                    # concate
-                    x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
-                else:
-                    # decompress I
-                    x_ref,mv_string,res_string = com_data
-                    # decompress backward
-                    x_b_hat = model.decompress(x_ref,mv_string,res_string)
-                    # concate
-                    x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
-                for com in x_hat:
-                    com = com.cuda().unsqueeze(0)
-                    raw = data[i].cuda().unsqueeze(0)
-                    psnr_list += [PSNR(raw, com)]
-                    msssim_list += [MSSSIM(raw, com)]
-                    i += 1
-                    # show result
-                    stream_iter.set_description(
-                        f"{i:3}. "
-                        f"PSNR: {float(psnr_list[-1]):.2f}. "
-                        f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
+            while i < L:
+                com_data = q.popleft()
+                with torch.no_grad():
+                    if len(com_data)==5:
+                        # decompress I
+                        x_ref,mv_string1,res_string1,mv_string2,res_string2 = com_data
+                        # decompress backward
+                        x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+                        # decompress forward
+                        x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+                        # concate
+                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
+                    else:
+                        # decompress I
+                        x_ref,mv_string,res_string = com_data
+                        # decompress backward
+                        x_b_hat = model.decompress(x_ref,mv_string,res_string)
+                        # concate
+                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
+                    for com in x_hat:
+                        com = com.cuda().unsqueeze(0)
+                        raw = data[i].cuda().unsqueeze(0)
+                        psnr_list += [PSNR(raw, com)]
+                        msssim_list += [MSSSIM(raw, com)]
+                        i += 1
+                        # show result
+                        stream_iter.set_description(
+                            f"{i:3}. "
+                            f"PSNR: {float(psnr_list[-1]):.2f}. "
+                            f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
+                return psnr_list,msssim_list
                 
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
