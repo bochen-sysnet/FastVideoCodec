@@ -284,7 +284,7 @@ def test_x26x(test_dataset, name='x264'):
 # test
 
 cmd = f'nc -l 8888'
-process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stderr=sp.STDOUT)
+process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
 while True:
     text = process.stdout.read(10)
     if len(text) != (10):
