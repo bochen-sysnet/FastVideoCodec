@@ -386,8 +386,10 @@ def streaming(model, test_dataset):
                 process.stdin.write(s.encode('utf-8'))
             # Close and flush stdin
             process.stdin.close()
+            print('close stdin')
             # Wait for sub-process to finish
             process.wait()
+            print('wait end')
             # Terminate the sub-process
             process.terminate()
             print('close nc')
