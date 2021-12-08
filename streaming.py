@@ -18,6 +18,9 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
+import threading
+import subprocess as sp
+import shlex
 
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
@@ -135,9 +138,6 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME):
 def test_x26x(test_dataset, name='x264'):
     print('Benchmarking:',name)
     ds_size = len(test_dataset)
-    import threading
-    import subprocess as sp
-    import shlex
     
     def create_client(Q,width=256,height=256):
         fps = 25
