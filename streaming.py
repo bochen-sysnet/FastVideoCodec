@@ -382,7 +382,8 @@ def streaming(model, test_dataset):
             cmd = f'nc local 8888'
             process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
             for i in range(10):
-                process.stdin.write(f"{i:10}")
+                s = s
+                process.stdin.write(s.encode('utf-8'))
             # Close and flush stdin
             process.stdin.close()
             # Wait for sub-process to finish
