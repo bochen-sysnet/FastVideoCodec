@@ -1142,12 +1142,11 @@ class SPVC(nn.Module):
         self.name = name 
         self.optical_flow = OpticalFlowNet()
         self.MC_network = MCNet()
-        print(self.name)
-        if self.name in ['SPVC','SPVC-L']:
+        if '-R' not in self.name:
             # use attention in encoder and entropy model
             self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
             self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
-        elif self.name == 'SPVC-R':
+        else:
             # use rpm for encoder and entropy
             self.mv_codec = Coder2D('rpm', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
             self.res_codec = Coder2D('rpm', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
@@ -1333,9 +1332,9 @@ class SPVC(nn.Module):
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         
         # BATCH:compress optical flow
-        if self.name in ['SPVC','SPVC-L']:
+        if '-R' not in self.name:
             mv_hat,_,_,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensors)
-        elif self.name == 'SPVC-R':
+        else:
             mv_hat,mv_act,mv_est,mv_aux = self.mv_codec.compress_sequence(mv_tensors)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
@@ -1375,9 +1374,9 @@ class SPVC(nn.Module):
         
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        if self.name in ['SPVC','SPVC-M','SPVC-L']:
+        if '-R' not in self.name:
             res_hat,_, _,res_act,res_est,res_aux = self.res_codec(res_tensors)
-        elif self.name == 'SPVC-R':
+        else:
             res_hat,res_act,res_est,res_aux = self.res_codec.compress_sequence(res_tensors)
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
