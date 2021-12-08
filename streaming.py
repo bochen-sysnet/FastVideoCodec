@@ -431,7 +431,6 @@ def streaming(model, test_dataset):
                         # concate
                         x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
                     for com in x_hat:
-                        print(com.size())
                         com = com.cuda().unsqueeze(0)
                         raw = data[i].cuda().unsqueeze(0)
                         psnr_list += [PSNR(raw, com)]
@@ -442,15 +441,17 @@ def streaming(model, test_dataset):
                             f"{i:3}. "
                             f"PSNR: {float(psnr_list[-1]):.2f}. "
                             f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
-                return psnr_list,msssim_list
+            return psnr_list,msssim_list
                 
-            # aggregate loss
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+        psnr_list,msssim_list = server(data)
             
-            # record loss
-            psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
+        # aggregate loss
+        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+        
+        # record loss
+        psnr_module.update(psnr.cpu().data.item(),l)
+        msssim_module.update(msssim.cpu().data.item(), l)
         
         # show result
         test_iter.set_description(
