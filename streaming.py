@@ -398,11 +398,11 @@ def streaming(model, test_dataset):
                         x_b = torch.flip(data,[0])
                         mv_string,res_string,bpp_act_list = model.compress(x_b)
                         com_data = (x_GoP[:1],mv_string,res_string)
-                q += [com_data]
+                q.put(com_data)
         
         def server(data):
-            from collections import deque
-            q = deque()
+            from queue import Queue
+            q = Queue()
             # Start a thread that streams data
             threading.Thread(target=client, args=(data,q,)).start() 
             # initialize
@@ -412,8 +412,7 @@ def streaming(model, test_dataset):
             L = data.size(0)
             stream_iter = tqdm(range(L))
             while i < L:
-                assert(q)
-                com_data = q.popleft()
+                com_data = q.get()
                 with torch.no_grad():
                     if len(com_data)==5:
                         # decompress I
@@ -432,6 +431,7 @@ def streaming(model, test_dataset):
                         # concate
                         x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
                     for com in x_hat:
+                        print(com.size())
                         com = com.cuda().unsqueeze(0)
                         raw = data[i].cuda().unsqueeze(0)
                         psnr_list += [PSNR(raw, com)]
