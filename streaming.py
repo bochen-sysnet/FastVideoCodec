@@ -380,7 +380,7 @@ def streaming(model, test_dataset):
         def client(data,q):
             # start a process to pipe data to netcat
             cmd = f'nc localhost 8888'
-            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
             for i in range(10):
                 s = f"{i:9}\n"
                 process.stdin.write(s.encode('utf-8'))
