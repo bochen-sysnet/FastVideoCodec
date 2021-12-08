@@ -290,7 +290,7 @@ while True:
     if len(text) != (10):
         print('Error reading frame!!!')
         break
-    print(text)
+    print(text,len(text))
 exit(0)
         
 ####### Load dataset
