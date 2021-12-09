@@ -21,6 +21,7 @@ from PIL import Image
 import threading
 import subprocess as sp
 import shlex
+import struct
 
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
@@ -410,33 +411,18 @@ def streaming_parallel(model, test_dataset):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if not eof: continue
-            
         data = torch.stack(data, dim=0).cuda()
-        # compress GoP
-        # need to have sequential and batch streaming
-        # video will come at different rates 30-60fps
-        # network will have different bandwidth
-        # unlimited rate?
-        # pipe + netcat for communication?
-        def client(data,q):
+        L = data.size(0)
+        def client(data):
             # start a process to pipe data to netcat
             cmd = f'nc localhost 8888'
             process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-            for i in range(10):
-                s = f"{i:10}"
-                process.stdin.write(s.encode('utf-8'))
-            # Close and flush stdin
-            process.stdin.close()
-            print('close stdin')
-            # Wait for sub-process to finish
-            process.wait()
-            print('wait end')
-            # Terminate the sub-process
-            process.terminate()
-            print('close nc')
-            return
-            L = data.size(0)
             for begin in range(0,L,GoP):
+                # check number of elements to send
+                bytes_send = struct.pack('L',begin)
+                process.stdin.write(bytes_send)
+                print('Send:',begin)
+                continue
                 with torch.no_grad():
                     x_GoP = data[begin:begin+GoP]
                     if x_GoP.size(0)>fP+1:
@@ -454,43 +440,33 @@ def streaming_parallel(model, test_dataset):
                         x_b = torch.flip(data,[0])
                         mv_string,res_string,bpp_act_list = model.compress(x_b)
                         com_data = (x_GoP[:1],mv_string,res_string)
-                q.put(com_data)
+            # Close and flush stdin
+            process.stdin.close()
+            print('close stdin')
+            # Wait for sub-process to finish
+            process.wait()
+            print('wait end')
+            # Terminate the sub-process
+            process.terminate()
+            print('close nc')
         
         def server(data):
             # create a pipe for listening from netcat
             cmd = f'nc -l 8888'
             process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-            from queue import Queue
-            q = Queue()
             # Start a thread that streams data
-            threading.Thread(target=client, args=(data,q,)).start() 
+            threading.Thread(target=client, args=(data,)).start() 
             # initialize
             psnr_list = []
             msssim_list = []
             i = 0
-            L = data.size(0)
             stream_iter = tqdm(range(L))
             # start listening
-            for i in range(10):
-                text = process.stdout.read(10)
-                print(text,len(text))
-            # Close and flush stdin
-            process.stdout.close()
-            # Wait for sub-process to finish
-            process.wait()
-            # Terminate the sub-process
-            process.terminate()
-            print('close server')
-            exit(0)
-            while True:
-                text = process.stdout.read(10)
-                if len(text) != (10):
-                    print('Error reading frame!!!')
-                    break
-                print(text,len(text))
-            exit(0)
-            while i < L:
-                com_data = q.get()
+            for begin in range(0,L,GoP):
+                bytes_recv = process.stdout.read(8)
+                num_of_elem = struct.unpack('L',bytes_recv)
+                print('recv:',num_of_elem)
+                continue
                 with torch.no_grad():
                     if len(com_data)==5:
                         # decompress I
@@ -519,6 +495,13 @@ def streaming_parallel(model, test_dataset):
                             f"{i:3}. "
                             f"PSNR: {float(psnr_list[-1]):.2f}. "
                             f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
+            # Close and flush stdin
+            process.stdout.close()
+            # Wait for sub-process to finish
+            process.wait()
+            # Terminate the sub-process
+            process.terminate()
+            print('close server')
             return psnr_list,msssim_list
                 
         psnr_list,msssim_list = server(data)
