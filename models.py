@@ -1084,7 +1084,7 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1196,7 +1196,6 @@ class IterPredVideoCodecs(nn.Module):
         rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
-        
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2):
         super(SPVC, self).__init__()
