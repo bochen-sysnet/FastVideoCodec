@@ -1160,7 +1160,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,x_ref,mv_hat)
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,x_ref,mv_hat.cuda(1) if self.use_gpu else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
