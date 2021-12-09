@@ -596,7 +596,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # concat 
                     psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)] + psnr_list2
                     msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)] + msssim_list2
-                    bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)] + bpp_act_list2
+                    bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0)] + bpp_act_list2
                 else:
                     # compress I
                     # compress forward
@@ -615,7 +615,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # concat 
                     psnr_list = psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
                     msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
-                    bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
+                    bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0)]
                     
             # aggregate loss
             print(bpp_act_list)
