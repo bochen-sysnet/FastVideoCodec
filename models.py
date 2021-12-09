@@ -84,7 +84,7 @@ def update_training(model, epoch, batch_idx=None):
     # optimize bpp and app loss only
     
     # setup training weights
-    if epoch <= 1 or (batch_idx is not None and batch_idx<10000):
+    if epoch <= 3 or (batch_idx is not None and batch_idx<10000):
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,1,1,1
     else:

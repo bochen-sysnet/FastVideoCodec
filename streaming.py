@@ -338,7 +338,7 @@ BACKUP_DIR = 'backup'
 CODEC_NAME = 'RLVC'
 loss_type = 'P'
 compression_level = 2
-RESUME_CODEC_PATH = f'backup/RLVC/RLVC-1024P_best.pth'
+RESUME_CODEC_PATH = f'backup/RLVC/RLVC-2P_best.pth'
 #RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
@@ -419,6 +419,7 @@ def streaming_parallel(model, test_dataset):
             cmd = f'nc localhost 8888'
             process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
             for begin in range(0,L,GoP):
+                # put a timer here
                 with torch.no_grad():
                     x_GoP = data[begin:begin+GoP]
                     if x_GoP.size(0)>fP+1:
@@ -552,6 +553,7 @@ def streaming_parallel(model, test_dataset):
     test_dataset.reset()
     
 def streaming_sequential(model, test_dataset):
+    ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     ds_size = len(test_dataset)
@@ -566,6 +568,65 @@ def streaming_sequential(model, test_dataset):
         if not eof: continue
             
         data = torch.stack(data, dim=0).cuda()
+        L = data.size(0)
+        # put a timer for backward frames
+        # a different timer for forward frames
+        psnr_list = []
+        msssim_list = []
+        for begin in range(0,L,GoP):
+            with torch.no_grad():
+                x_GoP = data[begin:begin+GoP]
+                if x_GoP.size(0)>fP+1:
+                    # compress I
+                    # compress backward
+                    x_b = torch.flip(x_GoP[:fP+1],[0])
+                    B,_,H,W = x_b.size()
+                    hidden = model.init_hidden(H,W)
+                    x_ref = data[0:1]
+                    for i in range(1,B):
+                        mv_string,res_string,bpp_act,hidden,mv_size,res_size = model.compress(x_ref, data[i:i+1], hidden, i>1)
+                        com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        raw = data[i:i+1].cuda().unsqueeze(0)
+                        psnr_list += [PSNR(raw, com)]
+                        msssim_list += [MSSSIM(raw, com)]
+                        x_ref = com.detach()
+                    
+                    # compress forward
+                    x_f = data[fP:]
+                else:
+                    # compress I
+                    # compress backward
+                    x_b = torch.flip(data,[0])
+                    
+                    
+            # compress GoP
+            if l>fP+1:
+                com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
+                data[fP:fP+1] = com_imgs[0:1]
+                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
+                psnr_list = psnr_list1[::-1] + psnr_list2
+                msssim_list = msssim_list1[::-1] + msssim_list2
+                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+            else:
+                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+                
+            # aggregate loss
+            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            
+            # record loss
+            ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+        
+        # show result
+        test_iter.set_description(
+            f"{data_idx:6}. "
+            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+            f"I: {float(max(psnr_list)):.2f}")
         
         # clear input
         data = []
