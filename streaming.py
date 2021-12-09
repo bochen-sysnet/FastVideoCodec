@@ -127,15 +127,59 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+                        
+def static_simulation_x26x(test_dataset,name='x264'):
+    print('Benchmarking:',name)
+    ds_size = len(test_dataset)
+    
+    for Q in [15,19,23,27]:
+        data = []
+        ba_loss_module = AverageMeter()
+        psnr_module = AverageMeter()
+        msssim_module = AverageMeter()
+        test_iter = tqdm(range(ds_size))
+        for data_idx,_ in enumerate(test_iter):
+            frame,eof = test_dataset[data_idx]
+            data.append(frame)
+            if not eof:
+                continue
+            l = len(data)
+                
+            psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q,*test_dataset._frame_size)
+            
+            # aggregate loss
+            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            
+            # record loss
+            ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+            
+            # show result
+            test_iter.set_description(
+                f"{data_idx:6}. "
+                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+                
+            # clear input
+            data = []
+            
+        test_dataset.reset()
+    
+def static_bench():
+    # optionaly try x264,x265
+    test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+    static_simulation_x26x(test_dataset,'x264')
+    static_simulation_x26x(test_dataset,'x265')
+    test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+    static_simulation_x26x(test_dataset,'x264')
+    static_simulation_x26x(test_dataset,'x265')
+    exit(0)
 
-def save_checkpoint(state, is_best, directory, CODEC_NAME):
-    import shutil
-    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth')
-    if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_ckpt.pth',
-                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-1024P_best.pth')
-
-def test_x26x(test_dataset, name='x264'):
+def dynamic_simulation_x26x(test_dataset, name='x264'):
     print('Benchmarking:',name)
     ds_size = len(test_dataset)
     
@@ -285,7 +329,7 @@ def test_x26x(test_dataset, name='x264'):
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 
 # try x265,x264 streaming with Gstreamer
-#test_x26x(test_dataset, 'x264')
+#dynamic_simulation_x26x(test_dataset, 'x264')
         
 # OPTION
 BACKUP_DIR = 'backup'
@@ -353,16 +397,13 @@ else:
     exit(1)
 print("===================================================================")
     
-def streaming(model, test_dataset):
+def streaming_parallel(model, test_dataset):
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     ds_size = len(test_dataset)
-    
     model.eval()
-    
     fP,bP = 6,6
     GoP = fP+bP+1
-    
     data = []
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
@@ -489,7 +530,33 @@ def streaming(model, test_dataset):
         data = []
         
     test_dataset.reset()
+    
+def streaming_sequential(model, test_dataset):
+    psnr_module = AverageMeter()
+    msssim_module = AverageMeter()
+    ds_size = len(test_dataset)
+    model.eval()
+    fP,bP = 6,6
+    GoP = fP+bP+1
+    data = []
+    test_iter = tqdm(range(ds_size))
+    for data_idx,_ in enumerate(test_iter):
+        frame,eof = test_dataset[data_idx]
+        data.append(transforms.ToTensor()(frame))
+        if not eof: continue
+            
+        data = torch.stack(data, dim=0).cuda()
+        
+        # clear input
+        data = []
+        
+    test_dataset.reset()
+# todo: a protocol to send strings of compressed frames
+# complete the compression/decompress function for DVC and RLVC
+# complete a streaming sequential function
+# run this script in docker
+# then test throughput(fps) and rate-distortion on different devices
 
 # Train and test model
-streaming(model, test_dataset)
+streaming_parallel(model, test_dataset)
 enc,dec = showTimer(model)

@@ -22,6 +22,8 @@ from PIL import Image
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
+from datasets import VideoDataset, FrameDataset
+
 # OPTION
 BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
@@ -33,122 +35,6 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-
-class VideoDataset(Dataset):
-    def __init__(self, root_dir, frame_size=None):
-        self._dataset_dir = os.path.join(root_dir)
-        self._frame_size = frame_size
-        self._total_frames = 0 # Storing file names in object 
-        
-        self.get_file_names()
-        self._num_files = len(self.__file_names)
-        
-        self.reset()
-        
-    def reset(self):
-        self._curr_counter = 0
-        self._frame_counter = -1 # Count the number of frames used per file
-        self._file_counter = -1 # Count the number of files used
-        self._dataset_nums = [] # Number of frames to be considered from each file (records+files)
-        self._clip = [] # hold video frames
-        self._cur_file_names = list(self.__file_names)
-        
-    @property
-    def data(self):
-        self._curr_counter+=1
-        return self.__getitem__(self._curr_counter)
-        
-    def __getitem__(self, idx):
-        # Get the next dataset if frame number is more than table count
-        if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
-            self.current_file = self._cur_file_names.pop() # get one filename
-            cap = cv2.VideoCapture(self.current_file)
-            # Check if camera opened successfully
-            if (cap.isOpened()== False):
-                print("Error opening video stream or file")
-            # Read until video is completed
-            while(cap.isOpened()):
-                # Capture frame-by-frame
-                ret, img = cap.read()
-                if ret != True:break
-                # skip black frames
-                if np.sum(img) == 0:continue
-                img = Image.fromarray(img)
-                if self._frame_size is not None:
-                    img = img.resize(self._frame_size) 
-                self._clip.append(img)
-            self._file_counter +=1
-            self._dataset_nums.append(len(self._clip))
-            self._frame_counter = 0
-        else:
-            self._frame_counter+=1
-        return self._clip[self._frame_counter],self._frame_counter==self._dataset_nums[self._file_counter]-1
-        
-    def get_file_names(self):
-        print("[log] Looking for files in", self._dataset_dir)  
-        self.__file_names = []
-        for fn in os.listdir(self._dataset_dir):
-            fn = fn.strip("'")
-            if fn.split('.')[-1] == 'mp4':
-                self.__file_names.append(self._dataset_dir + '/' + fn)
-        print("[log] Number of files found {}".format(len(self.__file_names)))  
-        
-    def __len__(self):
-        if not self._total_frames:
-            self.count_frames()
-        return self._total_frames
-        
-    def count_frames(self):
-        # Count total frames 
-        self._total_frames = 0
-        for file_name in self.__file_names:
-            cap = cv2.VideoCapture(file_name)
-            # Check if camera opened successfully
-            if (cap.isOpened()== False):
-                print("Error opening video stream or file")
-            # Read until video is completed
-            while(cap.isOpened()):
-                # Capture frame-by-frame
-                ret, img = cap.read()
-                if ret != True:break
-                if np.sum(img) == 0:continue
-                self._total_frames+=1
-            # When everything done, release the video capture object
-            cap.release()
-        #print("[log] Total frames: ", self._total_frames)
-        
-class FrameDataset(Dataset):
-    def __init__(self, root_dir, frame_size=None):
-        self._dataset_dir = os.path.join(root_dir,'vimeo_septuplet','sequences')
-        self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_trainlist.txt')
-        self._frame_size = frame_size
-        self._total_frames = 0 # Storing file names in object
-        self.get_septuplet_names()
-        
-    def get_septuplet_names(self):
-        print("[log] Looking for septuplets in", self._dataset_dir) 
-        self.__septuplet_names = []
-        with open(self._train_list_dir,'r') as f:
-            for line in f:
-                line = line.strip()
-                self.__septuplet_names += [self._dataset_dir + '/' + line]
-        print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
-                
-    def __len__(self):
-        return len(self.__septuplet_names)
-        
-    def __getitem__(self, idx):
-        data = []
-        for img_idx in range(1,8):
-            base_dir = self.__septuplet_names[idx]
-            img_dir = base_dir+'/'+f'im{img_idx}.png'
-            img = Image.open(img_dir).convert('RGB')
-            if self._frame_size is not None:
-                img = img.resize(self._frame_size) 
-            data.append(transforms.ToTensor()(img))
-        data = torch.stack(data, dim=0)
-        return data
-                
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -328,47 +214,6 @@ def test(epoch, model, test_dataset):
         
     test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
-        
-def test_x26x(test_dataset,name='x264'):
-    print('Benchmarking:',name)
-    ds_size = len(test_dataset)
-    
-    for Q in [15,19,23,27]:
-        data = []
-        ba_loss_module = AverageMeter()
-        psnr_module = AverageMeter()
-        msssim_module = AverageMeter()
-        test_iter = tqdm(range(ds_size))
-        for data_idx,_ in enumerate(test_iter):
-            frame,eof = test_dataset[data_idx]
-            data.append(frame)
-            if not eof:
-                continue
-            l = len(data)
-                
-            psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q,*test_dataset._frame_size)
-            
-            # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            
-            # record loss
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
-            psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
-            
-            # show result
-            test_iter.set_description(
-                f"{data_idx:6}. "
-                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
-                
-            # clear input
-            data = []
-            
-        test_dataset.reset()
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -380,16 +225,6 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
     return r
-    
-def benchmarking():
-    # optionaly try x264,x265
-    test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
-    test_x26x(test_dataset,'x264')
-    test_x26x(test_dataset,'x265')
-    test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-    test_x26x(test_dataset,'x264')
-    test_x26x(test_dataset,'x265')
-    exit(0)
     
 def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
     t0 = time.time()
