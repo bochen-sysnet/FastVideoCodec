@@ -250,6 +250,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 best_codec_score = score
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
             save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
+            model.train()
     
 def test(epoch, model, test_dataset):
     aux_loss_module = AverageMeter()
