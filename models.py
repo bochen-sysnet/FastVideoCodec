@@ -782,10 +782,6 @@ class Coder2D(nn.Module):
         self.net_t = 0
         self.AC_t = 0
             
-        # latent states
-        if self.conv_type == 'rec':
-            state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
-            
         if self.entropy_type == 'base':
             t_0 = time.perf_counter()
             latent_hat = self.entropy_bottleneck.decompress(latent_string, latentSize)
@@ -801,6 +797,10 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck.set_prior(latent_hat)
         self.net_t += self.entropy_bottleneck.dnet_t
         self.AC_t += self.entropy_bottleneck.dAC_t
+            
+        # latent states
+        if self.conv_type == 'rec':
+            state_enc, state_dec = torch.split(rae_hidden.to(latent_hat.device),self.channels*2,dim=1)
         
         t_0 = time.perf_counter()
         # decompress
