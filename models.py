@@ -1032,7 +1032,7 @@ def generate_graph(graph_type='default'):
 # Need to measure time and implement decompression for demo
 # cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
 class IterPredVideoCodecs(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2,use_gpu=True):
         super(IterPredVideoCodecs, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
@@ -1047,8 +1047,9 @@ class IterPredVideoCodecs(nn.Module):
         self.epoch = -1
         self.noMeasure = noMeasure
         
-        # split on multi-gpus
-        self.split()
+        self.use_gpu = use_gpu
+        if self.use_gpu:
+            self.split()
 
     def split(self):
         self.optical_flow.cuda(0)
@@ -1084,7 +1085,7 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1))
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1092,7 +1093,7 @@ class IterPredVideoCodecs(nn.Module):
         warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), self.r, True)
         mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, True)
         # compress residual
-        res_tensor = Y1_raw.cuda(1) - Y1_MC
+        res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
@@ -1106,9 +1107,9 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['D-REC'].update(time.perf_counter() - t_0)
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est.cuda() + res_est.cuda(0))/(Height * Width * batch_size)
+        bpp_est = (mv_est + res_est.to(mv_est.device))/(Height * Width * batch_size)
         # actual bits
-        bpp_act = (mv_act.cuda() + res_act.cuda())/(Height * Width * batch_size)
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
         aux_loss = (mv_aux + res_aux.to(mv_aux.device))
         # calculate metrics/loss
@@ -1119,10 +1120,9 @@ class IterPredVideoCodecs(nn.Module):
         img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-        return Y1_com.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
+        return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
     def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
-        Y1_raw = Y1_raw.cuda(0)
         bs, c, h, w = Y1_raw[1:].size()
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
@@ -1136,16 +1136,16 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
         # compress residual
-        res_tensor = Y1_raw.cuda(1) - Y1_MC
+        res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size = self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False)
         self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eERES'].update(self.res_codec.AC_t)
         # actual bits
-        bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         
@@ -1164,7 +1164,7 @@ class IterPredVideoCodecs(nn.Module):
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
-        res_tensor = Y1_raw.cuda(1) - Y1_MC
+        res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size)
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
@@ -1182,14 +1182,19 @@ class IterPredVideoCodecs(nn.Module):
         return loss
     
     def init_hidden(self, h, w):
-        rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
-        rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
-        rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
-        rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
+        rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
+        rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
+        rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
+        rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
+        if self.use_gpu:
+            rae_mv_hidden = rae_mv_hidden.cuda()
+            rae_res_hidden = rae_res_hidden.cuda()
+            rpm_mv_hidden = rpm_mv_hidden.cuda()
+            rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
 class SPVC(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2, use_gpu=True):
         super(SPVC, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
@@ -1207,8 +1212,9 @@ class SPVC(nn.Module):
         self.compression_level=compression_level
         self.use_psnr = loss_type=='P'
         init_training_params(self)
-        # split on multi-gpus
-        self.split()
+        self.use_gpu = use_gpu
+        if self.use_gpu:
+            self.split()
         self.noMeasure = noMeasure
 
     def split(self):
@@ -1218,7 +1224,6 @@ class SPVC(nn.Module):
         self.res_codec.cuda(1)
         
     def compress(self, x):
-        x = x.cuda(0)
         bs, c, h, w = x[1:].size()
         
         # BATCH:compute optical flow
@@ -1265,7 +1270,7 @@ class SPVC(nn.Module):
                 if tar>bs:continue
                 parent = parents[tar]
                 ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1) if self.use_gpu else mv_hat[tar-1:tar]] # motion needed for this id
             if ref:
                 ref = torch.cat(ref,dim=0)
                 diff = torch.cat(diff,dim=0)
@@ -1286,7 +1291,7 @@ class SPVC(nn.Module):
         self.meters['eERES'].update(self.res_codec.AC_t)
         
         # actual bits
-        bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         bpp_act = [bpp for bpp in bpp_act]
         
         return mv_string,res_string,bpp_act
@@ -1327,7 +1332,7 @@ class SPVC(nn.Module):
                 if tar>bs:continue
                 parent = parents[tar]
                 ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1) if self.use_gpu else mv_hat[tar-1:tar]] # motion needed for this id
             if ref:
                 ref = torch.cat(ref,dim=0)
                 diff = torch.cat(diff,dim=0)
@@ -1348,13 +1353,12 @@ class SPVC(nn.Module):
         
         # reconstruction
         t_0 = time.perf_counter()
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).cuda(0)
+        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x_ref.device)
         self.meters['D-REC'].update(time.perf_counter() - t_0)
         
         return com_frames
         
     def forward(self, x):
-        x = x.cuda(0)
         bs, c, h, w = x[1:].size()
         
         # BATCH:compute optical flow
@@ -1408,7 +1412,7 @@ class SPVC(nn.Module):
                 if tar>bs:continue
                 parent = parents[tar]
                 ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-                diff += [mv_hat[tar-1:tar].cuda(1)] # motion needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1) if self.use_gpu else mv_hat[tar-1:tar]] # motion needed for this id
             if ref:
                 ref = torch.cat(ref,dim=0)
                 diff = torch.cat(diff,dim=0)
@@ -1443,11 +1447,11 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est.cuda(0) + res_est.cuda(0))/(h * w)
+        bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
         # actual bits
-        bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/2
+        aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
@@ -1455,7 +1459,7 @@ class SPVC(nn.Module):
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        flow_loss = (l0+l1+l2+l3+l4).cuda(0)/5*1024
+        flow_loss = (l0+l1+l2+l3+l4)/5*1024
         img_loss = (self.r_rec*rec_loss + \
                     self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
