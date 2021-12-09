@@ -582,9 +582,11 @@ def streaming_sequential(model, test_dataset):
                     x_b = torch.flip(x_GoP[:fP+1],[0])
                     B,_,H,W = x_b.size()
                     hidden = model.init_hidden(H,W)
-                    x_ref = data[0:1]
+                    x_ref = x_b[0:1]
+                    # wait until the group is ready (e.g., count for 6*0.03), then compress
+                    # make sure the fetch interval of two frames is at least 1/60. or 1/30.
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,hidden,mv_size,res_size = model.compress(x_ref, data[i:i+1], hidden, i>1)
+                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, data[i:i+1], hidden, i>1)
                         com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
                         raw = data[i:i+1].cuda().unsqueeze(0)
                         psnr_list += [PSNR(raw, com)]
@@ -593,10 +595,11 @@ def streaming_sequential(model, test_dataset):
                     
                     # compress forward
                     x_f = data[fP:]
+                    # compress as soon as a new frame is ready
                 else:
                     # compress I
-                    # compress backward
-                    x_b = torch.flip(data,[0])
+                    # compress forward
+                    x_f = data
                     
                     
             # compress GoP
@@ -714,7 +717,7 @@ def test(model, test_dataset):
 # complete the compression/decompress function for DVC and RLVC
 # complete a streaming sequential function
 # run this script in docker
-# then test throughput(fps) and rate-distortion on different devices
+# then test throughput(fps) and rate-distortion on different devices and different losses
 
 # Train and test model
 #streaming_parallel(model, test_dataset)

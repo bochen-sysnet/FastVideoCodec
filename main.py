@@ -36,6 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 3
+USE_VIMEO = True
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -347,7 +348,7 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 # ---------------------------------------------------------------
 parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
 aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': .1}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
 best_codec_score = [1,0,0]
 
@@ -385,11 +386,13 @@ TRAIN_FILE = "../dataset/ucf24/trainlist.txt"
 TRAIN_CROP_SIZE = 224
 NUM_FRAMES = 16
 SAMPLING_RATE = 1
-train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
-                       shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
-                       transform=transforms.Compose([transforms.ToTensor()]), 
-                       train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
-#train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
+if USE_VIMEO:
+    train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
+else:
+    train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
+                           shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
+                           transform=transforms.Compose([transforms.ToTensor()]), 
+                           train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
@@ -398,8 +401,10 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
-    #train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
+    if USE_VIMEO:
+        train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
+    else:
+        train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)

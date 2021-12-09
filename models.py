@@ -84,7 +84,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # optimize bpp and app loss only
     
     # setup training weights
-    if epoch <= warmup_epoch or (batch_idx is not None and batch_idx<10000):
+    if epoch <= warmup_epoch or (batch_idx is not None and batch_idx<20000):
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,1,1,1
     else:
@@ -956,7 +956,7 @@ class Coder2D(nn.Module):
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
-        aux_loss = self.entropy_bottleneck.loss()/self.channels
+        aux_loss = self.entropy_bottleneck.loss()
         
         if self.conv_type == 'rec':
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
