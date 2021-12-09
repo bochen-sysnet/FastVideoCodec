@@ -310,114 +310,6 @@ def index2GOP(i, clip_len, fP = 6, bP = 6):
             ranges += [_range]
     max_seen, max_proc = i, right
     return ranges, max_seen, max_proc
-    
-# DVC,RLVC,MLVC
-# Need to measure time and implement decompression for demo
-# cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
-class IterPredVideoCodecs(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2):
-        super(IterPredVideoCodecs, self).__init__()
-        self.name = name 
-        self.optical_flow = OpticalFlowNet()
-        self.MC_network = MCNet()
-        self.mv_codec = Coder2D(self.name, in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
-        self.res_codec = Coder2D(self.name, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
-        self.channels = channels
-        self.loss_type=loss_type
-        self.compression_level=compression_level
-        self.use_psnr = loss_type=='P'
-        init_training_params(self)
-        self.epoch = -1
-        self.noMeasure = noMeasure
-        
-        # split on multi-gpus
-        self.split()
-
-    def split(self):
-        self.optical_flow.cuda(0)
-        self.mv_codec.cuda(0)
-        self.MC_network.cuda(1)
-        self.res_codec.cuda(1)
-
-    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
-        # Y0_com: compressed previous frame, [1,c,h,w]
-        # Y1_raw: uncompressed current frame
-        batch_size, _, Height, Width = Y1_raw.shape
-        if self.name == 'RAW':
-            bpp_est = bpp_act = metrics = torch.FloatTensor([0]).cuda(0)
-            aux_loss = img_loss = torch.FloatTensor([0]).squeeze(0).cuda(0)
-            return Y1_raw, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, metrics
-        if Y0_com is None:
-            Y1_com, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(Y1_raw, self.I_level)
-            return Y1_com, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-        # otherwise, it's P frame
-        # hidden states
-        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
-        # estimate optical flow
-        t_0 = time.perf_counter()
-        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
-        if not self.noMeasure:
-            self.meters['E-FL'].update(time.perf_counter() - t_0)
-        # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
-        if not self.noMeasure:
-            self.meters['E-MV'].update(self.mv_codec.enc_t)
-            self.meters['D-MV'].update(self.mv_codec.dec_t)
-            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
-            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
-        # motion compensation
-        t_0 = time.perf_counter()
-        loc = get_grid_locations(batch_size, Height, Width).type(Y0_com.type())
-        Y1_warp = F.grid_sample(Y0_com, loc + mv_hat.permute(0,2,3,1), align_corners=True)
-        MC_input = torch.cat((mv_hat, Y0_com, Y1_warp), axis=1)
-        Y1_MC = self.MC_network(MC_input.cuda(1))
-        t_comp = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.meters['E-MC'].update(t_comp)
-            self.meters['D-MC'].update(t_comp)
-        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), self.r, True)
-        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, True)
-        # compress residual
-        res_tensor = Y1_raw.cuda(1) - Y1_MC
-        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
-        if not self.noMeasure:
-            self.meters['E-RES'].update(self.res_codec.enc_t)
-            self.meters['D-RES'].update(self.res_codec.dec_t)
-            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
-            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
-        # reconstruction
-        t_0 = time.perf_counter()
-        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
-        if not self.noMeasure:
-            self.meters['D-REC'].update(time.perf_counter() - t_0)
-        ##### compute bits
-        # estimated bits
-        bpp_est = (mv_est.cuda() + res_est.cuda(0))/(Height * Width * batch_size)
-        # actual bits
-        bpp_act = (mv_act.cuda() + res_act.cuda())/(Height * Width * batch_size)
-        # auxilary loss
-        aux_loss = (mv_aux + res_aux.to(mv_aux.device))
-        # calculate metrics/loss
-        psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
-        msssim = MSSSIM(Y1_raw, Y1_com.to(Y1_raw.device))
-        rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
-        img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
-        img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
-        # hidden states
-        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-        return Y1_com.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-        
-    def loss(self, pix_loss, bpp_loss, aux_loss):
-        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
-        return loss
-    
-    def init_hidden(self, h, w):
-        rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
-        rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
-        rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
-        rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
-        return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
-            
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
@@ -600,6 +492,102 @@ class ConvLSTM(nn.Module):
         h = o * self._activation(c)
 
         return h, torch.cat((c, h),dim=1)
+
+class MCNet(nn.Module):
+    def __init__(self):
+        super(MCNet, self).__init__()
+        self.l1 = nn.Conv2d(8, 64, kernel_size=3, stride=1, padding=1)
+        self.l2 = ResidualBlock(64,64)
+        self.l3 = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
+        self.l4 = ResidualBlock(64,64)
+        self.l5 = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
+        self.l6 = ResidualBlock(64,64)
+        self.l7 = ResidualBlock(64,64)
+        self.l8 = nn.Upsample(scale_factor=2, mode='nearest')
+        self.l9 = ResidualBlock(64,64)
+        self.l10 = nn.Upsample(scale_factor=2, mode='nearest')
+        self.l11 = ResidualBlock(64,64)
+        self.l12 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
+        self.l13 = nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1)
+
+    def forward(self, x):
+        m1 = self.l1(x)
+        m2 = self.l2(m1)
+        m3 = self.l3(m2)
+        m4 = self.l4(m3)
+        m5 = self.l5(m4)
+        m6 = self.l6(m5)
+        m7 = self.l7(m6)
+        m8 = self.l8(m7) + m4
+        m9 = self.l9(m8)
+        m10 = self.l10(m9) + m2
+        m11 = self.l11(m10)
+        m12 = F.relu(self.l12(m11))
+        m13 = self.l13(m12)
+        return m13
+
+def get_grid_locations(b, h, w):
+    new_h = torch.linspace(-1,1,h).view(-1,1).repeat(1,w)
+    new_w = torch.linspace(-1,1,w).repeat(h,1)
+    grid  = torch.cat((new_w.unsqueeze(2),new_h.unsqueeze(2)),dim=2)
+    grid  = grid.unsqueeze(0)
+    grid = grid.repeat(b,1,1,1)
+    return grid
+
+def attention(q, k, v, d_model, dropout=None):
+    
+    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_model)
+        
+    scores = F.softmax(scores, dim=-1)
+    
+    if dropout is not None:
+        scores = dropout(scores)
+        
+    output = torch.matmul(scores, v)
+    return output
+        
+class Attention(nn.Module):
+    def __init__(self, d_model, dropout = 0.1):
+        super().__init__()
+        
+        self.d_model = d_model
+        
+        self.q_linear = nn.Linear(d_model, d_model)
+        self.v_linear = nn.Linear(d_model, d_model)
+        self.k_linear = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+        self.out = nn.Linear(d_model, d_model)
+    
+    def forward(self, x):
+        bs,C,H,W = x.size()
+        x = x.view(bs,C,-1).permute(2,0,1).contiguous()
+        
+        # perform linear operation
+        
+        k = self.k_linear(x)
+        q = self.q_linear(x)
+        v = self.v_linear(x)
+        
+        # calculate attention using function we will define next
+        scores = attention(q, k, v, self.d_model, self.dropout)
+        
+        output = self.out(scores) # bs * sl * d_model
+        
+        output = output.permute(1,2,0).view(bs,C,H,W).contiguous()
+    
+        return output
+        
+def set_model_grad(model,requires_grad=True):
+    for k,v in model.named_parameters():
+        v.requires_grad = requires_grad
+        
+def motion_compensation(mc_model,x,motion):
+    bs, c, h, w = x.size()
+    loc = get_grid_locations(bs, h, w).to(motion.device)
+    warped_frames = F.grid_sample(x.to(motion.device), loc + motion.permute(0,2,3,1), align_corners=True)
+    MC_input = torch.cat((motion, x.to(motion.device), warped_frames), axis=1)
+    MC_frames = mc_model(MC_input)
+    return MC_frames,warped_frames
     
 def get_actual_bits(self, string):
     bits_act = torch.FloatTensor([len(b''.join(string))*8]).squeeze(0)
@@ -1008,102 +996,6 @@ class Coder2D(nn.Module):
         x_hat = torch.stack(x_hat_list, dim=0)
         self.enc_t,self.dec_t = enc_t,dec_t
         return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux
-
-class MCNet(nn.Module):
-    def __init__(self):
-        super(MCNet, self).__init__()
-        self.l1 = nn.Conv2d(8, 64, kernel_size=3, stride=1, padding=1)
-        self.l2 = ResidualBlock(64,64)
-        self.l3 = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        self.l4 = ResidualBlock(64,64)
-        self.l5 = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        self.l6 = ResidualBlock(64,64)
-        self.l7 = ResidualBlock(64,64)
-        self.l8 = nn.Upsample(scale_factor=2, mode='nearest')
-        self.l9 = ResidualBlock(64,64)
-        self.l10 = nn.Upsample(scale_factor=2, mode='nearest')
-        self.l11 = ResidualBlock(64,64)
-        self.l12 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-        self.l13 = nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1)
-
-    def forward(self, x):
-        m1 = self.l1(x)
-        m2 = self.l2(m1)
-        m3 = self.l3(m2)
-        m4 = self.l4(m3)
-        m5 = self.l5(m4)
-        m6 = self.l6(m5)
-        m7 = self.l7(m6)
-        m8 = self.l8(m7) + m4
-        m9 = self.l9(m8)
-        m10 = self.l10(m9) + m2
-        m11 = self.l11(m10)
-        m12 = F.relu(self.l12(m11))
-        m13 = self.l13(m12)
-        return m13
-
-def get_grid_locations(b, h, w):
-    new_h = torch.linspace(-1,1,h).view(-1,1).repeat(1,w)
-    new_w = torch.linspace(-1,1,w).repeat(h,1)
-    grid  = torch.cat((new_w.unsqueeze(2),new_h.unsqueeze(2)),dim=2)
-    grid  = grid.unsqueeze(0)
-    grid = grid.repeat(b,1,1,1)
-    return grid
-
-def attention(q, k, v, d_model, dropout=None):
-    
-    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_model)
-        
-    scores = F.softmax(scores, dim=-1)
-    
-    if dropout is not None:
-        scores = dropout(scores)
-        
-    output = torch.matmul(scores, v)
-    return output
-        
-class Attention(nn.Module):
-    def __init__(self, d_model, dropout = 0.1):
-        super().__init__()
-        
-        self.d_model = d_model
-        
-        self.q_linear = nn.Linear(d_model, d_model)
-        self.v_linear = nn.Linear(d_model, d_model)
-        self.k_linear = nn.Linear(d_model, d_model)
-        self.dropout = nn.Dropout(dropout)
-        self.out = nn.Linear(d_model, d_model)
-    
-    def forward(self, x):
-        bs,C,H,W = x.size()
-        x = x.view(bs,C,-1).permute(2,0,1).contiguous()
-        
-        # perform linear operation
-        
-        k = self.k_linear(x)
-        q = self.q_linear(x)
-        v = self.v_linear(x)
-        
-        # calculate attention using function we will define next
-        scores = attention(q, k, v, self.d_model, self.dropout)
-        
-        output = self.out(scores) # bs * sl * d_model
-        
-        output = output.permute(1,2,0).view(bs,C,H,W).contiguous()
-    
-        return output
-        
-def set_model_grad(model,requires_grad=True):
-    for k,v in model.named_parameters():
-        v.requires_grad = requires_grad
-        
-def motion_compensation(mc_model,x,motion):
-    bs, c, h, w = x.size()
-    loc = get_grid_locations(bs, h, w).to(motion.device)
-    warped_frames = F.grid_sample(x.to(motion.device), loc + motion.permute(0,2,3,1), align_corners=True)
-    MC_input = torch.cat((motion, x.to(motion.device), warped_frames), axis=1)
-    MC_frames = mc_model(MC_input)
-    return MC_frames,warped_frames
     
 def generate_graph(graph_type='default'):
     # 7 nodes, 6 edges
@@ -1135,6 +1027,175 @@ def generate_graph(graph_type='default'):
         print('Undefined graph type:',graph_type)
         exit(1)
     return g,layers,parents
+    
+# DVC,RLVC,MLVC
+# Need to measure time and implement decompression for demo
+# cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
+class IterPredVideoCodecs(nn.Module):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2):
+        super(IterPredVideoCodecs, self).__init__()
+        self.name = name 
+        self.optical_flow = OpticalFlowNet()
+        self.MC_network = MCNet()
+        self.mv_codec = Coder2D(self.name, in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
+        self.res_codec = Coder2D(self.name, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
+        self.channels = channels
+        self.loss_type=loss_type
+        self.compression_level=compression_level
+        self.use_psnr = loss_type=='P'
+        init_training_params(self)
+        self.epoch = -1
+        self.noMeasure = noMeasure
+        
+        # split on multi-gpus
+        self.split()
+
+    def split(self):
+        self.optical_flow.cuda(0)
+        self.mv_codec.cuda(0)
+        self.MC_network.cuda(1)
+        self.res_codec.cuda(1)
+
+    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
+        # Y0_com: compressed previous frame, [1,c,h,w]
+        # Y1_raw: uncompressed current frame
+        batch_size, _, Height, Width = Y1_raw.shape
+        if self.name == 'RAW':
+            bpp_est = bpp_act = metrics = torch.FloatTensor([0]).cuda(0)
+            aux_loss = img_loss = torch.FloatTensor([0]).squeeze(0).cuda(0)
+            return Y1_raw, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, metrics
+        if Y0_com is None:
+            Y1_com, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(Y1_raw, self.I_level)
+            return Y1_com, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
+        # otherwise, it's P frame
+        # hidden states
+        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
+        # estimate optical flow
+        t_0 = time.perf_counter()
+        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        if not self.noMeasure:
+            self.meters['E-FL'].update(time.perf_counter() - t_0)
+        # compress optical flow
+        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
+        if not self.noMeasure:
+            self.meters['E-MV'].update(self.mv_codec.enc_t)
+            self.meters['D-MV'].update(self.mv_codec.dec_t)
+            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
+        # motion compensation
+        t_0 = time.perf_counter()
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
+        t_comp = time.perf_counter() - t_0
+        if not self.noMeasure:
+            self.meters['E-MC'].update(t_comp)
+            self.meters['D-MC'].update(t_comp)
+        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), self.r, True)
+        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, True)
+        # compress residual
+        res_tensor = Y1_raw.cuda(1) - Y1_MC
+        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
+        if not self.noMeasure:
+            self.meters['E-RES'].update(self.res_codec.enc_t)
+            self.meters['D-RES'].update(self.res_codec.dec_t)
+            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
+        # reconstruction
+        t_0 = time.perf_counter()
+        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
+        if not self.noMeasure:
+            self.meters['D-REC'].update(time.perf_counter() - t_0)
+        ##### compute bits
+        # estimated bits
+        bpp_est = (mv_est.cuda() + res_est.cuda(0))/(Height * Width * batch_size)
+        # actual bits
+        bpp_act = (mv_act.cuda() + res_act.cuda())/(Height * Width * batch_size)
+        # auxilary loss
+        aux_loss = (mv_aux + res_aux.to(mv_aux.device))
+        # calculate metrics/loss
+        psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
+        msssim = MSSSIM(Y1_raw, Y1_com.to(Y1_raw.device))
+        rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
+        img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
+        img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
+        # hidden states
+        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
+        return Y1_com.cuda(0), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
+        
+    def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
+        Y1_raw = Y1_raw.cuda(0)
+        bs, c, h, w = Y1_raw[1:].size()
+        # hidden states
+        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
+        # estimate optical flow
+        t_0 = time.perf_counter()
+        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        if not self.noMeasure:
+            self.meters['E-FL'].update(time.perf_counter() - t_0)
+        # compress optical flow
+        mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True)
+        if not self.noMeasure:
+            self.meters['E-MV'].update(self.mv_codec.enc_t)
+            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+        # motion compensation
+        t_0 = time.perf_counter()
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
+        t_comp = time.perf_counter() - t_0
+        if not self.noMeasure:
+            self.meters['E-MC'].update(t_comp)
+        # compress residual
+        res_tensor = Y1_raw.cuda(1) - Y1_MC
+        res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size = self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False)
+        if not self.noMeasure:
+            self.meters['E-RES'].update(self.res_codec.enc_t)
+            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+        # actual bits
+        bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
+        # hidden states
+        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
+        
+        return mv_string,res_string,bpp_act,hidden_states,mv_size,res_size
+    
+    def decompress(self, x_ref, mv_string, res_string, hidden_states, RPM_flag, mv_size, res_size):
+        # hidden states
+        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
+        # compress optical flow
+        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size)
+        if not self.noMeasure:
+            self.meters['D-MV'].update(self.mv_codec.dec_t)
+            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
+        # motion compensation
+        t_0 = time.perf_counter()
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
+        t_comp = time.perf_counter() - t_0
+        if not self.noMeasure:
+            self.meters['D-MC'].update(t_comp)
+        # compress residual
+        res_tensor = Y1_raw.cuda(1) - Y1_MC
+        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size)
+        if not self.noMeasure:
+            self.meters['D-RES'].update(self.res_codec.dec_t)
+            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
+        # reconstruction
+        t_0 = time.perf_counter()
+        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
+        if not self.noMeasure:
+            self.meters['D-REC'].update(time.perf_counter() - t_0)
+        # hidden states
+        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
+            
+        return Y1_com,hidden_states
+        
+    def loss(self, pix_loss, bpp_loss, aux_loss):
+        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
+        return loss
+    
+    def init_hidden(self, h, w):
+        rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
+        rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4).cuda()
+        rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
+        rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16).cuda()
+        return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
+            
         
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2):
