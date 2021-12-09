@@ -471,6 +471,10 @@ def streaming_parallel(model, test_dataset):
             L = data.size(0)
             stream_iter = tqdm(range(L))
             # start listening
+            for i in range(10):
+                text = process.stdout.read(10)
+                print(text,len(text))
+            exit(0)
             while True:
                 text = process.stdout.read(10)
                 if len(text) != (10):
@@ -552,6 +556,7 @@ def streaming_sequential(model, test_dataset):
         
     test_dataset.reset()
 # todo: a protocol to send strings of compressed frames
+# complete I frame comrpession
 # complete the compression/decompress function for DVC and RLVC
 # complete a streaming sequential function
 # run this script in docker
