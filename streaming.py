@@ -474,6 +474,13 @@ def streaming_parallel(model, test_dataset):
             for i in range(10):
                 text = process.stdout.read(10)
                 print(text,len(text))
+            # Close and flush stdin
+            process.stdout.close()
+            # Wait for sub-process to finish
+            process.wait()
+            # Terminate the sub-process
+            process.terminate()
+            print('close server')
             exit(0)
             while True:
                 text = process.stdout.read(10)
