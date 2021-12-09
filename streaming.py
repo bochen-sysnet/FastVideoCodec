@@ -334,12 +334,12 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
         
 # OPTION
 BACKUP_DIR = 'backup'
-CODEC_NAME = 'SPVC-stream'
-#CODEC_NAME = 'RLVC'
+#CODEC_NAME = 'SPVC-stream'
+CODEC_NAME = 'RLVC'
 loss_type = 'P'
 compression_level = 2
-#RESUME_CODEC_PATH = f'backup/RLVC/RLVC-1024P_best.pth'
-RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/RLVC/RLVC-1024P_best.pth'
+#RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1

@@ -232,7 +232,6 @@ def parallel_compression(model, data, compressI=False):
         psnr_list += [psnr.cuda()]
         msssim_list += [msssim.cuda()]
         data[0:1] = x_hat
-        print(bpp_est_list)
     
     
     # P compression, not including I frame
@@ -259,7 +258,6 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp_act]
                 psnr_list += [psnr]
                 msssim_list += [msssim]
-        print(bpp_est_list)
     
     return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
@@ -922,7 +920,7 @@ class Coder2D(nn.Module):
         if self.noMeasure:
             bits_est = self.entropy_bottleneck.get_estimate_bits(likelihoods)
         else:
-            bits_est = torch.zeros(latent_hat.size(0)).to(x.device)
+            bits_est = torch.zeros(latent_hat.size(0)).squeeze(0).to(x.device)
         
         # calculate bpp (actual)
         if self.realCom:
