@@ -170,7 +170,7 @@ def static_simulation_x26x(test_dataset,name='x264'):
             
         test_dataset.reset()
     
-def static_bench():
+def static_bench_x26x():
     # optionaly try x264,x265
     test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
     static_simulation_x26x(test_dataset,'x264')
@@ -328,9 +328,6 @@ def dynamic_simulation_x26x(test_dataset, name='x264'):
         
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-
-# try x265,x264 streaming with Gstreamer
-#dynamic_simulation_x26x(test_dataset, 'x264')
         
 # OPTION
 BACKUP_DIR = 'backup'
@@ -364,29 +361,8 @@ model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compressi
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
-####### Create optimizer
-# ---------------------------------------------------------------
-parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
-aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-# initialize best score
-best_score = 0 
-best_codec_score = [1,0,0]
-
-####### Load yowo model
-# ---------------------------------------------------------------
-# try to load codec model 
-if CODEC_NAME in ['x265', 'x264', 'RAW']:
-    # nothing to load
-    print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SCVC']:
-    # load what exists
-    print("Load whatever exists for",CODEC_NAME)
-    pretrained_model_path = "/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth"
-    checkpoint = torch.load(pretrained_model_path)
-    load_state_dict_whatever(model_codec, checkpoint['state_dict'])
-    del checkpoint
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+####### Load codec model 
+if os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
     BEGIN_EPOCH = checkpoint['epoch'] + 1
@@ -573,6 +549,7 @@ def streaming_sequential(model, test_dataset):
         # a different timer for forward frames
         psnr_list = []
         msssim_list = []
+        bpp_act_list = []
         for begin in range(0,L,GoP):
             with torch.no_grad():
                 x_GoP = data[begin:begin+GoP]
@@ -585,34 +562,59 @@ def streaming_sequential(model, test_dataset):
                     x_ref = x_b[0:1]
                     # wait until the group is ready (e.g., count for 6*0.03), then compress
                     # make sure the fetch interval of two frames is at least 1/60. or 1/30.
+                    psnr_list1 = []
+                    msssim_list1 = []
+                    bpp_act_list1 = []
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, data[i:i+1], hidden, i>1)
+                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
                         com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        raw = data[i:i+1].cuda().unsqueeze(0)
-                        psnr_list += [PSNR(raw, com)]
-                        msssim_list += [MSSSIM(raw, com)]
+                        raw = x_b[i:i+1].cuda().unsqueeze(0)
+                        psnr_list1 += [PSNR(raw, com)]
+                        msssim_list1 += [MSSSIM(raw, com)]
+                        bpp_act_list1 += [bpp_act]
                         x_ref = com.detach()
                     
                     # compress forward
                     x_f = data[fP:]
                     # compress as soon as a new frame is ready
+                    B,_,H,W = x_b.size()
+                    hidden = model.init_hidden(H,W)
+                    x_ref = x_f[0:1]
+                    psnr_list2 = []
+                    msssim_list2 = []
+                    bpp_act_list2 = []
+                    for i in range(1,B):
+                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_f[i:i+1], hidden, i>1)
+                        com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        raw = x_f[i:i+1].cuda().unsqueeze(0)
+                        psnr_list2 += [PSNR(raw, com)]
+                        msssim_list2 += [MSSSIM(raw, com)]
+                        bpp_act_list2 += [bpp_act]
+                        x_ref = com.detach()
+                    # concat 
+                    psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()] + psnr_list2
+                    msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + msssim_list2
+                    bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + bpp_act_list2
                 else:
                     # compress I
                     # compress forward
-                    x_f = data
+                    x_b = torch.flip(data,[0])
+                    psnr_list = []
+                    msssim_list = []
+                    bpp_act_list = []
+                    for i in range(1,B):
+                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
+                        com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        raw = x_b[i:i+1].cuda().unsqueeze(0)
+                        psnr_list += [PSNR(raw, com)]
+                        msssim_list += [MSSSIM(raw, com)]
+                        bpp_act_list += [bpp_act]
+                        x_ref = com.detach()
+                    # concat 
+                    psnr_list = psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()]
+                    msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
+                    bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
                     
-                    
-            # compress GoP
-            if l>fP+1:
-                com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
-                data[fP:fP+1] = com_imgs[0:1]
-                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
-                psnr_list = psnr_list1[::-1] + psnr_list2
-                msssim_list = msssim_list1[::-1] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
-            else:
-                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
-                
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -636,7 +638,7 @@ def streaming_sequential(model, test_dataset):
         
     test_dataset.reset()
     
-def test(model, test_dataset):
+def static_simulation_model(model, test_dataset):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -719,7 +721,10 @@ def test(model, test_dataset):
 # run this script in docker
 # then test throughput(fps) and rate-distortion on different devices and different losses
 
-# Train and test model
+
+# try x265,x264 streaming with Gstreamer
+#dynamic_simulation_x26x(test_dataset, 'x264')
 #streaming_parallel(model, test_dataset)
-test(model, test_dataset)
+#static_simulation_model(model, test_dataset)
+streaming_sequential(model, test_dataset)
 enc,dec = showTimer(model)
