@@ -314,7 +314,7 @@ def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
     t1 = time.time()
     print('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
 
-def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type='P', compression_level=2):
+def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level):
     import shutil
     torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
     if is_best:
@@ -329,8 +329,8 @@ if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
 
 ####### Create model
-seed = int(time.time())
-#seed = int(0)
+#seed = int(time.time())
+seed = int(0)
 torch.manual_seed(seed)
 use_cuda = True
 if use_cuda:
