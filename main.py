@@ -362,7 +362,7 @@ elif CODEC_NAME in ['SCVC','SPVC']:
     print("Load whatever exists for",CODEC_NAME)
     pretrained_model_path = "backup/RLVC/RLVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
-    load_state_dict_whatever(model_codec, checkpoint['state_dict'])
+    load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
