@@ -574,7 +574,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     for i in range(1,B):
                         #mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
                         #x_ref,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        x_ref,hidden,_,_,_,bpp_act,_,_ = model(x_ref, x_b[i:i+1], hidden, i>1)
+                        x_ref,hidden,_,_,_,bpp_act,_,_ = model(x_ref, x_b[i:i+1], hidden, False)
                         x_ref = x_ref.detach()
                         raw = x_b[i:i+1]
                         psnr_list1 += [PSNR(raw, x_ref)]
