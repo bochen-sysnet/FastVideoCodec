@@ -615,6 +615,7 @@ def test(model, test_dataset):
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            print(bpp_est_list)
             be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
             aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
             img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
