@@ -572,8 +572,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     msssim_list1 = []
                     bpp_act_list1 = []
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
-                        com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        #mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
+                        #com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        x_ref,hidden,_,_,_,bpp_act,_,_ = model(x_ref, x_b[i:i+1], hidden, i>1)
                         raw = x_b[i:i+1]
                         psnr_list1 += [PSNR(raw, com)]
                         msssim_list1 += [MSSSIM(raw, com)]
