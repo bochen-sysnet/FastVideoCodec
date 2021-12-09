@@ -418,11 +418,6 @@ def streaming_parallel(model, test_dataset):
             cmd = f'nc localhost 8888'
             process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
             for begin in range(0,L,GoP):
-                # check number of elements to send
-                bytes_send = struct.pack('L',begin)
-                process.stdin.write(bytes_send)
-                print('Send:',begin)
-                continue
                 with torch.no_grad():
                     x_GoP = data[begin:begin+GoP]
                     if x_GoP.size(0)>fP+1:
@@ -433,22 +428,38 @@ def streaming_parallel(model, test_dataset):
                         # compress forward
                         x_f = data[fP:]
                         mv_string2,res_string2,_ = model.compress(x_f)
-                        com_data = (x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2)
+                        com_data = [x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2]
                     else:
                         # compress I
                         # compress backward
                         x_b = torch.flip(data,[0])
                         mv_string,res_string,bpp_act_list = model.compress(x_b)
-                        com_data = (x_GoP[:1],mv_string,res_string)
+                        com_data = [x_GoP[:1],mv_string,res_string]
+                assert(len(com_data[0])==2 and len(com_data[1])==2)
+                # Send compressed I frame (todo)
+                # [B=1] check number of elements to send
+                bytes_send = struct.pack('B',len(com_data[1:]))
+                process.stdin.write(bytes_send)
+                # send compressed strings
+                for x_string,z_string in com_data[1:]:
+                    # [L=8] send length of next string
+                    x_len = len(x_string)
+                    bytes_send = struct.pack('L',x_len)
+                    process.stdin.write(bytes_send)
+                    # send actual string
+                    process.stdin.write(x_string)
+                    # [L=8] send length of next string
+                    z_len = len(z_string)
+                    bytes_send = struct.pack('L',z_len)
+                    process.stdin.write(bytes_send)
+                    # send actual string
+                    process.stdin.write(z_string)
             # Close and flush stdin
             process.stdin.close()
-            print('close stdin')
             # Wait for sub-process to finish
             process.wait()
-            print('wait end')
             # Terminate the sub-process
             process.terminate()
-            print('close nc')
         
         def server(data):
             # create a pipe for listening from netcat
@@ -463,10 +474,24 @@ def streaming_parallel(model, test_dataset):
             stream_iter = tqdm(range(L))
             # start listening
             for begin in range(0,L,GoP):
-                bytes_recv = process.stdout.read(8)
-                num_of_elem = struct.unpack('L',bytes_recv)
-                print('recv:',num_of_elem)
-                continue
+                # decompress I frame
+                com_data = [data[begin:begin+1]]
+                # [B=1] receive number of elements
+                bytes_recv = process.stdout.read(1)
+                num_of_elem = struct.unpack('B',bytes_recv)
+                # receive compressed strings
+                for _ in range(num_of_elem):
+                    # [L=8] receive length of next string
+                    bytes_recv = process.stdout.read(8)
+                    x_len = struct.unpack('L',bytes_recv)
+                    # recv actual string
+                    x_string = process.stdout.read(x_len)
+                    # [L=8] receive length of next string
+                    bytes_recv = process.stdout.read(8)
+                    z_len = struct.unpack('L',bytes_recv)
+                    # recv actual string
+                    z_string = process.stdout.read(z_len)
+                    com_data += [(x_string,z_string)]
                 with torch.no_grad():
                     if len(com_data)==5:
                         # decompress I
