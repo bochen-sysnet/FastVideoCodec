@@ -29,12 +29,13 @@ BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
 loss_type = 'P'
 compression_level = 2 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 #RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
+WARMUP_EPOCH = 3
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -240,7 +241,7 @@ def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
 
     model_codec.train()
     # get instructions on training
-    doAD = update_training(model_codec,epoch)
+    doAD = update_training(model_codec,epoch,warmup_epoch=WARMUP_EPOCH)
     train_iter = tqdm(range(0,l_loader*batch_size,batch_size))
     frame_idx = []; data = []; target = []; img_loss_list = []; aux_loss_list = []
     bpp_est_list = []; psnr_list = []; msssim_list = []
@@ -359,7 +360,7 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
 elif CODEC_NAME in ['SCVC']:
     # load what exists
     print("Load whatever exists for",CODEC_NAME)
-    pretrained_model_path = "/home/monet/research/YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_best.pth"
+    pretrained_model_path = "backup/RLVC/RLVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model_codec, checkpoint['state_dict'])
     del checkpoint
