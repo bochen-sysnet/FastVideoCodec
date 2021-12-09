@@ -556,6 +556,13 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # compress I
                     # compress backward
                     x_b = torch.flip(x_GoP[:fP+1],[0])
+                    
+                    # correct impl
+                    _,_,_,_,psnr_list1,_,bpp_act_list1 = parallel_compression(model,x_b,False)
+                    print(bpp_act_list1)
+                    print(psnr_list1)
+                    
+                    
                     B,_,H,W = x_b.size()
                     hidden = model.init_hidden(H,W)
                     x_ref = x_b[0:1]
@@ -572,7 +579,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         msssim_list1 += [MSSSIM(raw, com)]
                         bpp_act_list1 += [bpp_act]
                         x_ref = com.detach()
-                        print(i)
+                    print(bpp_act_list1)
+                    print(psnr_list1)
+                    exit(0)
                     
                     # compress forward
                     x_f = data[fP:]
