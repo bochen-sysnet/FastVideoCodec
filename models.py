@@ -1169,7 +1169,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eDRES'].update(self.res_codec.AC_t)
         # reconstruction
         t_0 = time.perf_counter()
-        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
+        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1).to(x_ref.device)
         self.meters['D-REC'].update(time.perf_counter() - t_0)
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
