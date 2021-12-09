@@ -528,7 +528,7 @@ def streaming_parallel(model, test_dataset):
         
     test_dataset.reset()
     
-def streaming_sequential(model, test_dataset):
+def streaming_sequential(model, test_dataset, use_gpu=True):
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
@@ -543,7 +543,9 @@ def streaming_sequential(model, test_dataset):
         data.append(transforms.ToTensor()(frame))
         if not eof: continue
             
-        data = torch.stack(data, dim=0).cuda()
+        data = torch.stack(data, dim=0)
+        if use_gpu:
+            data = data.cuda()
         L = data.size(0)
         # put a timer for backward frames
         # a different timer for forward frames
@@ -568,7 +570,7 @@ def streaming_sequential(model, test_dataset):
                     for i in range(1,B):
                         mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
                         com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        raw = x_b[i:i+1].cuda().unsqueeze(0)
+                        raw = x_b[i:i+1]
                         psnr_list1 += [PSNR(raw, com)]
                         msssim_list1 += [MSSSIM(raw, com)]
                         bpp_act_list1 += [bpp_act]
@@ -586,15 +588,15 @@ def streaming_sequential(model, test_dataset):
                     for i in range(1,B):
                         mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_f[i:i+1], hidden, i>1)
                         com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        raw = x_f[i:i+1].cuda().unsqueeze(0)
+                        raw = x_f[i:i+1]
                         psnr_list2 += [PSNR(raw, com)]
                         msssim_list2 += [MSSSIM(raw, com)]
                         bpp_act_list2 += [bpp_act]
                         x_ref = com.detach()
                     # concat 
-                    psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()] + psnr_list2
-                    msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + msssim_list2
-                    bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()] + bpp_act_list2
+                    psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)] + psnr_list2
+                    msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)] + msssim_list2
+                    bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)] + bpp_act_list2
                 else:
                     # compress I
                     # compress forward
@@ -605,15 +607,15 @@ def streaming_sequential(model, test_dataset):
                     for i in range(1,B):
                         mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
                         com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        raw = x_b[i:i+1].cuda().unsqueeze(0)
+                        raw = x_b[i:i+1]
                         psnr_list += [PSNR(raw, com)]
                         msssim_list += [MSSSIM(raw, com)]
                         bpp_act_list += [bpp_act]
                         x_ref = com.detach()
                     # concat 
-                    psnr_list = psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).cuda()]
-                    msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
-                    bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0).cuda()]
+                    psnr_list = psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
+                    msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
+                    bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
                     
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
