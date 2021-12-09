@@ -1395,7 +1395,7 @@ class SPVC(nn.Module):
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))
+        aux_loss = (mv_aux.cuda(0) + res_aux.cuda(0))/2
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
