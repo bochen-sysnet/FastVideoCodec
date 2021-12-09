@@ -1129,25 +1129,21 @@ class IterPredVideoCodecs(nn.Module):
         # estimate optical flow
         t_0 = time.perf_counter()
         mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
-        if not self.noMeasure:
-            self.meters['E-FL'].update(time.perf_counter() - t_0)
+        self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
         mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True)
-        if not self.noMeasure:
-            self.meters['E-MV'].update(self.mv_codec.enc_t)
-            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+        self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
+        self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
         Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
         t_comp = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.meters['E-MC'].update(t_comp)
+        self.meters['E-MC'].update(t_comp)
         # compress residual
         res_tensor = Y1_raw.cuda(1) - Y1_MC
         res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size = self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False)
-        if not self.noMeasure:
-            self.meters['E-RES'].update(self.res_codec.enc_t)
-            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+        self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
+        self.meters['eERES'].update(self.res_codec.AC_t)
         # actual bits
         bpp_act = (mv_act.cuda(0) + res_act.cuda(0))/(h * w)
         # hidden states
@@ -1160,26 +1156,22 @@ class IterPredVideoCodecs(nn.Module):
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # compress optical flow
         mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size)
-        if not self.noMeasure:
-            self.meters['D-MV'].update(self.mv_codec.dec_t)
-            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
+        self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
+        self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
         Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat)
         t_comp = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.meters['D-MC'].update(t_comp)
+        self.meters['D-MC'].update(t_comp)
         # compress residual
         res_tensor = Y1_raw.cuda(1) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size)
-        if not self.noMeasure:
-            self.meters['D-RES'].update(self.res_codec.dec_t)
-            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
+        self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
+        self.meters['eDRES'].update(self.res_codec.AC_t)
         # reconstruction
         t_0 = time.perf_counter()
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
-        if not self.noMeasure:
-            self.meters['D-REC'].update(time.perf_counter() - t_0)
+        self.meters['D-REC'].update(time.perf_counter() - t_0)
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
             
