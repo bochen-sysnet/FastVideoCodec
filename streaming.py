@@ -549,9 +549,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
         L = data.size(0)
         # put a timer for backward frames
         # a different timer for forward frames
-        psnr_list = []
-        msssim_list = []
-        bpp_act_list = []
         for begin in range(0,L,GoP):
             with torch.no_grad():
                 x_GoP = data[begin:begin+GoP]
@@ -575,11 +572,12 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         msssim_list1 += [MSSSIM(raw, com)]
                         bpp_act_list1 += [bpp_act]
                         x_ref = com.detach()
+                        print(i)
                     
                     # compress forward
                     x_f = data[fP:]
                     # compress as soon as a new frame is ready
-                    B,_,H,W = x_b.size()
+                    B,_,H,W = x_f.size()
                     hidden = model.init_hidden(H,W)
                     x_ref = x_f[0:1]
                     psnr_list2 = []
@@ -625,9 +623,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
             
             # record loss
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
-            psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
+            ba_loss_module.update(ba_loss.cpu().data.item(), len(psnr_list))
+            psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
+            msssim_module.update(msssim.cpu().data.item(), len(psnr_list))
         
         # show result
         test_iter.set_description(
