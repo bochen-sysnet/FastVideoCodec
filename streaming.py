@@ -504,9 +504,9 @@ def streaming_parallel(model, test_dataset):
                     else:
                         # compress I
                         # compress backward
-                        x_b = torch.flip(x_GoP,[0])
-                        mv_string,res_string,bpp_act_list = model.compress(x_b)
-                        com_data = [x_b[:1],mv_string,res_string]
+                        x_f = x_GoP
+                        mv_string,res_string,bpp_act_list = model.compress(x_f)
+                        com_data = [x_f[:1],mv_string,res_string]
                 # Send GoP size, this determines how to encode/decode the strings
                 bytes_send = struct.pack('B',GoP_size)
                 process.stdin.write(bytes_send)
@@ -535,7 +535,8 @@ def streaming_parallel(model, test_dataset):
             # start listening
             for begin in range(0,L,GoP):
                 # decompress I frame
-                com_data = [data[fP:fP+1]]
+                x_GoP = data[begin:begin+GoP]
+                com_data = [x_GoP[fP:fP+1]] if x_GoP.size(0)>fP+1 else [x_GoP[:1]]
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)[0]
@@ -572,9 +573,9 @@ def streaming_parallel(model, test_dataset):
                         # decompress I
                         x_ref,mv_string,res_string = com_data
                         # decompress backward
-                        x_b_hat = model.decompress(x_ref,mv_string,res_string)
+                        x_f_hat = model.decompress(x_ref,mv_string,res_string)
                         # concate
-                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
+                        x_hat = torch.cat(x_ref,x_f_hat),dim=0)
                     for com in x_hat:
                         com = com.cuda().unsqueeze(0)
                         raw = data[i].cuda().unsqueeze(0)
