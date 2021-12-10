@@ -1254,7 +1254,7 @@ class SPVC(nn.Module):
         self.meters['E-FL'].update(time.perf_counter() - t_0)
             
         # BATCH motion compression
-        mv_hat,mv_string,_,_,mv_act,mv_size,_,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
+        mv_hat,mv_string,_,_,mv_act,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         
@@ -1288,7 +1288,7 @@ class SPVC(nn.Module):
         
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        res_string,_,_,res_act,res_size,_,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
+        res_string,_,_,res_act,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
         self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eERES'].update(self.res_codec.AC_t)
         
