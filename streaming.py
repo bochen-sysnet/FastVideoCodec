@@ -510,8 +510,9 @@ def streaming_parallel(model, test_dataset):
                         psnr = PSNR(x_b, x_b_hat, use_list=True)
                         print('----',psnr,'-----')
                         ###########
-                        _, _, _, _, bpp_act, psnr, _ = model(x_b)
-                        print(psnr)
+                        x_b_hat, _, _, _, bpp_act, psnr, _ = model(x_b)
+                        psnr = PSNR(x_b, x_b_hat, use_list=True)
+                        print('----',psnr,'-----')
                         exit(0)
                         #############
                         # compress forward
