@@ -226,13 +226,13 @@ def parallel_compression(model, data, compressI=False):
     
     if compressI:
         x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=model.name)
-        img_loss_list += [img_loss.cuda()]
-        aux_loss_list += [aux_loss.cuda()]
-        bpp_est_list += [bpp_est.cuda()]
-        bpp_act_list += [bpp_act.cuda()]
-        psnr_list += [psnr.cuda()]
-        msssim_list += [msssim.cuda()]
-        data[0:1] = x_hat.cuda()
+        img_loss_list += [img_loss.to(data.device)]
+        aux_loss_list += [aux_loss.to(data.device)]
+        bpp_est_list += [bpp_est.to(data.device)]
+        bpp_act_list += [bpp_act.to(data.device)]
+        psnr_list += [psnr.to(data.device)]
+        msssim_list += [msssim.to(data.device)]
+        data[0:1] = x_hat
     
     
     # P compression, not including I frame
