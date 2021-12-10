@@ -1289,7 +1289,7 @@ class SPVC(nn.Module):
         mv_hat,mv_string,_,_,_,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_gpu)
+        MC_frames,_ = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_gpu)
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         #res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
@@ -1298,7 +1298,7 @@ class SPVC(nn.Module):
         # DECODE
         mv_hat2,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
         
-        MC_frames,_ = TFE(self.MC_network,x_ref,bs,mv_hat2,layers,parents,self.use_gpu)
+        MC_frames,_ = TFE(self.MC_network,x[:1],bs,mv_hat2,layers,parents,self.use_gpu)
         
         res_hat2,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
         
