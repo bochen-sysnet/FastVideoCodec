@@ -1227,6 +1227,7 @@ class SPVC(nn.Module):
         
     def compress(self, x):
         bs, c, h, w = x[1:].size()
+        print(x.size())
         
         # BATCH:compute optical flow
         t_0 = time.perf_counter()
@@ -1244,6 +1245,7 @@ class SPVC(nn.Module):
                 g,layers,parents = generate_graph('4layers')
             else:
                 print('Batch size not supported yet:',bs)
+                exit(0)
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
