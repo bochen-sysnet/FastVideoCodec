@@ -332,7 +332,7 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 # OPTION
 BACKUP_DIR = 'backup'
 #CODEC_NAME = 'SPVC-stream'
-CODEC_NAME = 'DVC'
+CODEC_NAME = 'RLVC'
 loss_type = 'P'
 compression_level = 2
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
