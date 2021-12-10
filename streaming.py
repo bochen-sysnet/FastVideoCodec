@@ -538,7 +538,7 @@ def streaming_parallel(model, test_dataset):
             for begin in range(0,L,GoP):
                 # decompress I frame
                 x_GoP = data[begin:begin+GoP]
-                x_ref = x_GoP[fP:fP+1]] if x_GoP.size(0)>fP+1 else [x_GoP[:1]
+                x_ref = x_GoP[fP:fP+1] if x_GoP.size(0)>fP+1 else x_GoP[:1]
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)[0]
