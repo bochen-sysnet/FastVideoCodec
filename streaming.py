@@ -407,7 +407,8 @@ def LoadModel(CODEC_NAME):
     #CODEC_NAME = 'SPVC-stream'
     loss_type = 'P'
     compression_level = 2
-    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+    RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
+    #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
     model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
@@ -512,6 +513,9 @@ def streaming_parallel(model, test_dataset):
                             com = x_b[j:j+1].cuda()
                             raw = x_b_hat[j:j+1].cuda()
                             print('2',PSNR(raw, com))
+                        ###########
+                        _, _, _, _, bpp_act, psnr, _ = model(x_b)
+                        print(psnr)
                         exit(0)
                         #############
                         # compress forward
@@ -797,7 +801,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 ####### Load model
-model = LoadModel('SPVC')
+model = LoadModel('SPVC-stream')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
