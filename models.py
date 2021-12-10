@@ -1158,7 +1158,7 @@ class IterPredVideoCodecs(nn.Module):
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size, prior_latent=mv_prior_latent)
+        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_prior_latent = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size, prior_latent=mv_prior_latent)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
@@ -1167,7 +1167,7 @@ class IterPredVideoCodecs(nn.Module):
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
-        res_hat,rae_res_hidden,rpm_res_hidden = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size, prior_latent=res_prior_latent)
+        res_hat,rae_res_hidden,rpm_res_hidden,res_prior_latent = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size, prior_latent=res_prior_latent)
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
         # reconstruction
