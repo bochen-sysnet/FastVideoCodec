@@ -1136,8 +1136,8 @@ class IterPredVideoCodecs(nn.Module):
         mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
         # compress optical flow
         #mv_hat,com_rae_mv_hidden,com_rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag)
-        mv_string,com_rae_mv_hidden,_,mv_act,mv_size = \
-            self.mv_codec.compress(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, decodeLatent=False, setPrior=False)
+        _,mv_string,com_rae_mv_hidden,_,mv_act,mv_size = \
+            self.mv_codec.compress(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, decodeLatent=True, setPrior=False)
         mv_hat,com_rae_mv_hidden,com_rpm_mv_hidden = \
             self.mv_codec.decompress(mv_string, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, latentSize=mv_size, setPrior=True)
         # motion compensation
