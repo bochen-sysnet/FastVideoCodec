@@ -1195,7 +1195,7 @@ class IterPredVideoCodecs(nn.Module):
             rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
-def TFE(MC_network,ref,bs,mv_hat,layers,parents,use_gpu):
+def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_gpu):
     MC_frame_list = [None for _ in range(bs)]
     warped_frame_list = [None for _ in range(bs)]
     # for layers in graph
