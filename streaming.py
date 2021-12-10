@@ -549,7 +549,8 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
         L = data.size(0)
         # put a timer for backward frames
         # a different timer for forward frames
-        for begin in range(0,L,GoP):
+        proc_iter = tqdm(range(0,L,GoP))
+        for _,begin in enumerate(proc_iter):
             with torch.no_grad():
                 x_GoP = data[begin:begin+GoP]
                 if x_GoP.size(0)>fP+1:
@@ -637,7 +638,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             msssim_module.update(msssim.cpu().data.item(), len(psnr_list))
         
             # show result
-            test_iter.set_description(
+            proc_iter.set_description(
                 f"{data_idx:6}. "
                 f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
