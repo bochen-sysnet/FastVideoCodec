@@ -29,8 +29,7 @@ BACKUP_DIR = 'backup'
 CODEC_NAME = 'DVC'
 loss_type = 'P'
 compression_level = 2 # 0,1,2,3
-RESUME_CODEC_PATH = 'backup/SPVC/SPVC-2P_ckpt.pth'
-#RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 #RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
@@ -356,10 +355,10 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SCVC']:
+elif CODEC_NAME in ['SCVC','DVC']:
     # load what exists
     print("Load whatever exists for",CODEC_NAME)
-    pretrained_model_path = "backup/RLVC/RLVC-2P_best.pth"
+    pretrained_model_path = "backup/SPVC/SPVC-2P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
