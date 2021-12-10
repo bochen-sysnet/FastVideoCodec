@@ -510,6 +510,37 @@ def streaming_parallel(model, test_dataset):
                         x_b = torch.flip(x_GoP,[0])
                         mv_string,res_string,bpp_act_list = model.compress(x_b)
                         com_data = [x_GoP[:1],mv_string,res_string]
+                        
+                #######################
+                
+                with torch.no_grad():
+                    if len(com_data)==5:
+                        # decompress I
+                        x_ref,mv_string1,res_string1,mv_string2,res_string2 = com_data
+                        # decompress backward
+                        x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+                        # decompress forward
+                        x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+                        # concate
+                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
+                    else:
+                        # decompress I
+                        x_ref,mv_string,res_string = com_data
+                        # decompress backward
+                        x_b_hat = model.decompress(x_ref,mv_string,res_string)
+                        # concate
+                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
+                    i=0
+                    for com in x_hat:
+                        com = com.cuda().unsqueeze(0)
+                        raw = x_GoP[i].cuda().unsqueeze(0)
+                        print(PSNR(raw, com))
+                        i += 1
+                continue
+                
+                
+                
+                ##################
                 # Send GoP size, this determines how to encode/decode the strings
                 bytes_send = struct.pack('B',GoP_size)
                 process.stdin.write(bytes_send)
