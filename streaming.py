@@ -503,13 +503,12 @@ def streaming_parallel(model, test_dataset):
                         mv_string1,res_string1,_ = model.compress(x_b)
                         #################
                         x_b_hat = model.decompress(x_b[:1],mv_string1,res_string1)
-                        for j in range(6):
-                            com = x_b[j:j+1].cuda()
-                            raw = x_b_hat[j:j+1].cuda()
-                            print('----',PSNR(raw, com),'-----')
+                        psnr = PSNR(x_b, x_b_hat, use_list=True)
+                        print('----',psnr,'-----')
                         #############
-                        psnr = model.fake(x_b)
-                        print(psnr)
+                        x_b_hat = model.fake(x_b)
+                        psnr = PSNR(x_b, x_b_hat, use_list=True)
+                        print('----',psnr,'-----')
                         ###########
                         _, _, _, _, bpp_act, psnr, _ = model(x_b)
                         print(psnr)
