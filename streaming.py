@@ -454,6 +454,7 @@ def streaming_parallel(model, test_dataset):
                     process.stdin.write(bytes_send)
                     # send actual string
                     process.stdin.write(x_string)
+                    print('S:',bytes_send,len(x_string),'-----')
                 for z_string in z_string_list:
                     # [L=8] send length of next string
                     z_len = len(z_string)
@@ -461,6 +462,7 @@ def streaming_parallel(model, test_dataset):
                     process.stdin.write(bytes_send)
                     # send actual string
                     process.stdin.write(z_string)
+                    print('S:',bytes_send,len(z_string),'-----')
             
         def recv_strings_from_process(process, strings_to_recv):
             x_string_list = []
@@ -471,6 +473,7 @@ def streaming_parallel(model, test_dataset):
                 # recv actual string
                 x_string = process.stdout.read(x_len)
                 x_string_list += [x_string]
+                print('R:',x_len,len(x_string))
             z_string_list = []
             for _ in range(strings_to_recv):
                 # [L=8] receive length of next string
@@ -479,6 +482,7 @@ def streaming_parallel(model, test_dataset):
                 # recv actual string
                 z_string = process.stdout.read(z_len)
                 z_string_list += [z_string]
+                print('R:',z_len,len(z_string))
             strings = (x_string_list,z_string_list)
             return strings
             
