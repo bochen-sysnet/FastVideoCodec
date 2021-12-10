@@ -357,7 +357,7 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 
 # codec model .
-model = get_codec_model(CODEC_NAME,noMeasure=True,loss_type=loss_type,compression_level=compression_level)
+model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -556,13 +556,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # compress I
                     # compress backward
                     x_b = torch.flip(x_GoP[:fP+1],[0])
-                    
-                    # correct impl
-                    _,_,_,_,psnr_list1,_,bpp_act_list1 = parallel_compression(model,x_b,False)
-                    print(bpp_act_list1)
-                    print(psnr_list1)
-                    
-                    
                     B,_,H,W = x_b.size()
                     com_hidden = model.init_hidden(H,W)
                     com_mv_prior_latent = com_res_prior_latent = None
@@ -580,33 +573,34 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                             model.compress(x_ref, x_b[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                             model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size, decom_mv_prior_latent, decom_res_prior_latent)
-                        #x_ref,com_hidden,decom_hidden,bpp_act = model.fake(x_ref, x_b[i:i+1], com_hidden, decom_hidden, i>1)
                         x_ref = x_ref.detach()
                         raw = x_b[i:i+1]
                         psnr_list1 += [PSNR(raw, x_ref)]
                         msssim_list1 += [MSSSIM(raw, x_ref)]
                         bpp_act_list1 += [bpp_act]
-                    print(bpp_act_list1)
-                    print(psnr_list1)
-                    exit(0)
                     
                     # compress forward
                     x_f = data[fP:]
                     # compress as soon as a new frame is ready
                     B,_,H,W = x_f.size()
-                    hidden = model.init_hidden(H,W)
+                    com_hidden = model.init_hidden(H,W)
+                    com_mv_prior_latent = com_res_prior_latent = None
+                    decom_hidden = model.init_hidden(H,W)
+                    decom_mv_prior_latent = decom_res_prior_latent = None
                     x_ref = x_f[0:1]
                     psnr_list2 = []
                     msssim_list2 = []
                     bpp_act_list2 = []
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_f[i:i+1], hidden, i>1)
-                        com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        mv_string,res_string,bpp_act,com_hidden,mv_size,res_size,com_mv_prior_latent,com_res_prior_latent = \
+                            model.compress(x_ref, x_f[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
+                        x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
+                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size, decom_mv_prior_latent, decom_res_prior_latent)
+                        x_ref = x_ref.detach()
                         raw = x_f[i:i+1]
-                        psnr_list2 += [PSNR(raw, com)]
-                        msssim_list2 += [MSSSIM(raw, com)]
+                        psnr_list2 += [PSNR(raw, x_ref)]
+                        msssim_list2 += [MSSSIM(raw, x_ref)]
                         bpp_act_list2 += [bpp_act]
-                        x_ref = com.detach()
                     # concat 
                     psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)] + psnr_list2
                     msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)] + msssim_list2
