@@ -735,7 +735,7 @@ class Coder2D(nn.Module):
             
         self.net_t += self.entropy_bottleneck.enet_t
         self.AC_t += self.entropy_bottleneck.eAC_t
-        if decodeLatent:
+        if decodeLatent and self.entropy_type != 'rpm':
             self.net_t += self.entropy_bottleneck.dnet_t
             self.AC_t += self.entropy_bottleneck.dAC_t
             
