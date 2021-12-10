@@ -1138,7 +1138,7 @@ class IterPredVideoCodecs(nn.Module):
         #mv_hat,com_rae_mv_hidden,com_rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag)
         mv_string,com_rae_mv_hidden,_,mv_act,mv_size = \
             self.mv_codec.compress(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, decodeLatent=False, setPrior=False)
-        mv_hat,com_rae_mv_hidden,de_rpm_mv_hidden = \
+        mv_hat,com_rae_mv_hidden,com_rpm_mv_hidden = \
             self.mv_codec.decompress(mv_string, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, latentSize=mv_size, setPrior=True)
         # motion compensation
         Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
