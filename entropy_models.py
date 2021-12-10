@@ -53,8 +53,8 @@ class RecProbModel(CompressionModel):
         self, x, rpm_hidden, training = None
     ):
         if self.RPM_flag:
-            assert self.prior_latent is not None, 'prior latent is none!'
-            rpm_in = self.prior_latent
+            assert self.prior_latent_enc is not None, 'prior latent is none!'
+            rpm_in = self.prior_latent_enc
             self.sigma, self.mu, rpm_hidden = self.RPM(rpm_in, rpm_hidden.to(x.device))
             self.sigma = torch.maximum(self.sigma, torch.FloatTensor([-7.0]).to(x.device))
             self.sigma = torch.exp(self.sigma)/10
@@ -62,7 +62,6 @@ class RecProbModel(CompressionModel):
             rpm_hidden = rpm_hidden
         else:
             x_hat,likelihood = self.entropy_bottleneck(x,training=training)
-        # self.prior_latent = torch.round(x).detach()
         return x_hat, likelihood, rpm_hidden.detach()
         
     def get_actual_bits(self, string):
@@ -92,14 +91,10 @@ class RecProbModel(CompressionModel):
         
     # there should be a validattion for speed
     # RPM will be executed twice on both encoder and decoder
-    def set_prior(self, x, forEnc=False, forDec=False):
+    def set_prior(self, x):
         assert(x is not None)
-        if forEnc: 
-            self.prior_latent_enc = torch.round(x).detach()
-        if forDec:
-            self.prior_latent_dec = torch.round(x).detach()
-        if not forEnc and not forDec:
-            self.prior_latent = torch.round(x).detach()
+        self.prior_latent_enc = torch.round(x).detach()
+        self.prior_latent_dec = torch.round(x).detach()
         
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, rpm_hidden):
