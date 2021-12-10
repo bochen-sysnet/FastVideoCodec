@@ -500,6 +500,11 @@ def streaming_parallel(model, test_dataset):
                         # compress backward
                         x_b = torch.flip(x_GoP[:fP+1],[0])
                         mv_string1,res_string1,_ = model.compress(x_b)
+                        #################
+                        _,_,_,_,psnr_list,_,bpp_act_list = parallel_compression(model,x_b,True)
+                        print(psnr_list)
+                        exit(0)
+                        #############
                         # compress forward
                         x_f = x_GoP[fP:]
                         mv_string2,res_string2,_ = model.compress(x_f)
