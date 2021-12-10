@@ -1300,7 +1300,7 @@ class SPVC(nn.Module):
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
-        return psnr
+        return psnr,mv_string,res_string
         
     def compress(self, x):
         bs, c, h, w = x[1:].size()
