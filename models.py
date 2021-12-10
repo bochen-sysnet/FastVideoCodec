@@ -1147,7 +1147,7 @@ class IterPredVideoCodecs(nn.Module):
         # hidden states
         com_hidden = (com_rae_mv_hidden.detach(), com_rae_res_hidden.detach(), com_rpm_mv_hidden, com_rpm_res_hidden)
         decom_hidden = (decom_rae_mv_hidden.detach(), decom_rae_res_hidden.detach(), decom_rpm_mv_hidden, decom_rpm_res_hidden)
-        return Y1_com.to(Y1_raw.device), hidden_states, bpp_act
+        return Y1_com.to(Y1_raw.device), com_hidden, decom_hidden, bpp_act
         
     def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
         bs, c, h, w = Y1_raw[1:].size()
