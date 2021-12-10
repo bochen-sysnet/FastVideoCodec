@@ -626,8 +626,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0)]
                     
             # aggregate loss
-            print(bpp_act_list)
-            print(psnr_list)
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
