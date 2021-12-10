@@ -381,7 +381,8 @@ def streaming_parallel(model, test_dataset):
                         # compress backward
                         x_b = torch.flip(x_GoP[:fP+1],[0])
                         mv_string1,res_string1,_ = model.compress(x_b)
-                        print(len(mv_string1),len(mv_string1[0]),type(mv_string1[0]),len(mv_string1[0][0]))
+                        print(len(mv_string1),len(mv_string1[0]),type(mv_string1[0]))
+                        print((mv_string1[0][0]))
                         # compress forward
                         x_f = x_GoP[fP:]
                         mv_string2,res_string2,_ = model.compress(x_f)
