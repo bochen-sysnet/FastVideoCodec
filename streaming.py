@@ -533,6 +533,7 @@ def streaming_parallel(model, test_dataset):
             psnr_list = []
             msssim_list = []
             i = 0
+            t_warmup = None
             stream_iter = tqdm(range(L))
             # start listening
             for begin in range(0,L,GoP):
