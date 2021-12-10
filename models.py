@@ -1163,7 +1163,7 @@ class IterPredVideoCodecs(nn.Module):
         mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
-        mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True)
+        mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True, setPrior=False)
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
@@ -1173,7 +1173,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['E-MC'].update(t_comp)
         # compress residual
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
-        res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size = self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False)
+        res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size = self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False, setPrior=False)
         self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eERES'].update(self.res_codec.AC_t)
         # actual bits
@@ -1187,7 +1187,7 @@ class IterPredVideoCodecs(nn.Module):
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size)
+        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size, setPrior=True)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
@@ -1196,7 +1196,7 @@ class IterPredVideoCodecs(nn.Module):
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
-        res_hat,rae_res_hidden,rpm_res_hidden = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size)
+        res_hat,rae_res_hidden,rpm_res_hidden = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size, setPrior=True)
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
         # reconstruction
