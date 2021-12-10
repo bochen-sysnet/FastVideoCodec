@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 3
-USE_VIMEO = True
+USE_VIMEO = False
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -242,7 +242,7 @@ def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
 
     model_codec.train()
     # get instructions on training
-    doAD = update_training(model_codec,epoch,warmup_epoch=WARMUP_EPOCH)
+    update_training(model_codec,epoch,warmup_epoch=WARMUP_EPOCH)
     train_iter = tqdm(range(0,l_loader*batch_size,batch_size))
     frame_idx = []; data = []; target = []; img_loss_list = []; aux_loss_list = []
     bpp_est_list = []; psnr_list = []; msssim_list = []

@@ -92,6 +92,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
     
     model.epoch = epoch
+    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.r_rec, model.r_flow, model.r_warp, model.r_mc)
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     imgByteArr = io.BytesIO()
