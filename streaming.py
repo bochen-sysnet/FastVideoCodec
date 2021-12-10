@@ -501,9 +501,11 @@ def streaming_parallel(model, test_dataset):
                         x_b = torch.flip(x_GoP[:fP+1],[0])
                         mv_string1,res_string1,_ = model.compress(x_b)
                         #################
-                        _,_,_,_,psnr_list,_,bpp_act_list = parallel_compression(model,x_b,True)
-                        print(psnr_list)
-                        exit(0)
+                        x_b_hat = model.decompress(x_b[:1],mv_string1,res_string1)
+                        for j in range(6):
+                            com = x_b[j:j+1].cuda()
+                            raw = x_b_hat[j:j+1].cuda()
+                            print(PSNR(raw, com))
                         #############
                         # compress forward
                         x_f = x_GoP[fP:]
