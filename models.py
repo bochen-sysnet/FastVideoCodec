@@ -1235,6 +1235,15 @@ def graph_from_batch(bs,isLinear=False):
         else:
             print('Batch size not supported yet:',bs)
     return g,layers,parents
+    
+def refidx_from_graph(g,bs):
+    ref_index = [-1 for _ in x_tar]
+    for start in g:
+        if start>bs:continue
+        for k in g[start]:
+            if k>bs:continue
+            ref_index[k-1] = start
+    return ref_index
            
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2, use_gpu=True):
@@ -1273,12 +1282,7 @@ class SPVC(nn.Module):
         # obtain reference frames from a graph
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
-        ref_index = [-1 for _ in x_tar]
-        for start in g:
-            if start>bs:continue
-            for k in g[start]:
-                if k>bs:continue
-                ref_index[k-1] = start
+        ref_index = refidx_from_graph(g,bs)
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         # BATCH:compress optical flow
         #mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
@@ -1306,12 +1310,7 @@ class SPVC(nn.Module):
         # obtain reference frames from a graph
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
-        ref_index = [-1 for _ in x_tar]
-        for start in g:
-            if start>bs:continue
-            for k in g[start]:
-                if k>bs:continue
-                ref_index[k-1] = start
+        ref_index = refidx_from_graph(g,bs)
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
             
@@ -1375,12 +1374,7 @@ class SPVC(nn.Module):
         # obtain reference frames from a graph
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
-        ref_index = [-1 for _ in x_tar]
-        for start in g:
-            if start>bs:continue
-            for k in g[start]:
-                if k>bs:continue
-                ref_index[k-1] = start
+        ref_index = refidx_from_graph(g,bs)
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
