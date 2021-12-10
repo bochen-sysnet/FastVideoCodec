@@ -538,42 +538,33 @@ def streaming_parallel(model, test_dataset):
             for begin in range(0,L,GoP):
                 # decompress I frame
                 x_GoP = data[begin:begin+GoP]
-                com_data = [x_GoP[fP:fP+1]] if x_GoP.size(0)>fP+1 else [x_GoP[:1]]
+                x_ref = x_GoP[fP:fP+1]] if x_GoP.size(0)>fP+1 else [x_GoP[:1]
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)[0]
-                # receive strings based on gop size
-                if GoP_size>fP+1:
-                    # receive the first two strings
-                    strings_to_recv = fP
-                    for _ in range(2):
-                        strings = recv_strings_from_process(process, strings_to_recv)
-                        com_data += [strings]
-                    # receive the second two strings
-                    strings_to_recv = GoP-1-fP
-                    for _ in range(2):
-                        strings = recv_strings_from_process(process, strings_to_recv)
-                        com_data += [strings]
-                else:
-                    strings_to_recv = GoP-1
-                    # receive two strings
-                    strings_to_recv = fP
-                    for _ in range(2):
-                        strings = recv_strings_from_process(process, strings_to_recv)
-                        com_data += [strings]
                 with torch.no_grad():
-                    if len(com_data)==5:
-                        # decompress I
-                        x_ref,mv_string1,res_string1,mv_string2,res_string2 = com_data
+                    # receive strings based on gop size
+                    if GoP_size>fP+1:
+                        # receive the first two strings
+                        strings_to_recv = fP
+                        mv_string1 = recv_strings_from_process(process, strings_to_recv)
+                        res_string1 = recv_strings_from_process(process, strings_to_recv)
                         # decompress backward
                         x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+                        # receive the second two strings
+                        strings_to_recv = GoP-1-fP
+                        mv_string2 = recv_strings_from_process(process, strings_to_recv)
+                        res_string2 = recv_strings_from_process(process, strings_to_recv)
                         # decompress forward
                         x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
                         # concate
                         x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
                     else:
-                        # decompress I
-                        x_ref,mv_string,res_string = com_data
+                        strings_to_recv = GoP-1
+                        # receive two strings
+                        strings_to_recv = fP
+                        mv_string = recv_strings_from_process(process, strings_to_recv)
+                        res_string = recv_strings_from_process(process, strings_to_recv)
                         # decompress backward
                         x_f_hat = model.decompress(x_ref,mv_string,res_string)
                         # concate
@@ -582,25 +573,29 @@ def streaming_parallel(model, test_dataset):
                 if t_warmup is None:
                     t_warmup = time.perf_counter() - t_0
                     print('Warm-up:',t_warmup)
-                        
+                    
                 for com in x_hat:
                     com = com.cuda().unsqueeze(0)
                     raw = data[i].cuda().unsqueeze(0)
                     psnr_list += [PSNR(raw, com)]
                     msssim_list += [MSSSIM(raw, com)]
                     i += 1
+                    # Count time
+                    total_time = time.perf_counter() - t_0
+                    fps = i/total_time
                     # show result
                     stream_iter.set_description(
                         f"{i:3}. "
+                        f"FPS: {fps:.2f}. "
                         f"PSNR: {float(psnr_list[-1]):.2f}. "
-                        f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
+                        f"MSSSIM: {float(msssim_list[-1]):.4f}. "
+                        f"Total: {total_time:.3f}. ")
             # Close and flush stdin
             process.stdout.close()
             # Wait for sub-process to finish
             process.wait()
             # Terminate the sub-process
             process.terminate()
-            print('close server')
             return psnr_list,msssim_list
                 
         psnr_list,msssim_list = server(data)
@@ -751,7 +746,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 # run this script in docker
 # then test throughput(fps) and rate-distortion on different devices and different losses
 # need to add time measurement in parallel compression/decompress
-
+# THROUGHPUT
         
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
