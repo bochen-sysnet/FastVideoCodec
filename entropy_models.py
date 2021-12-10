@@ -92,11 +92,14 @@ class RecProbModel(CompressionModel):
         
     # there should be a validattion for speed
     # RPM will be executed twice on both encoder and decoder
-    def set_prior(self, x):
-        if x is not None:
-            self.prior_latent = torch.round(x).detach()
+    def set_prior(self, x, forEnc=False, forDec=False):
+        assert(x is not None)
+        if forEnc: 
+            self.prior_latent_enc = torch.round(x).detach()
+        elif forDec:
+            self.prior_latent_dec = torch.round(x).detach()
         else:
-            self.prior_latent = None
+            self.prior_latent = torch.round(x).detach()
         
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, rpm_hidden):
@@ -104,10 +107,10 @@ class RecProbModel(CompressionModel):
         # otherwise rpm_hidden will be messed up
         self.eAC_t = self.enet_t = 0
         if self.RPM_flag:
-            assert self.prior_latent is not None, 'prior latent is none!'
+            assert self.prior_latent_enc is not None, 'prior latent is none!'
             # network part
             t_0 = time.perf_counter()
-            sigma, mu, rpm_hidden = self.RPM(self.prior_latent, rpm_hidden.to(self.prior_latent.device))
+            sigma, mu, rpm_hidden = self.RPM(self.prior_latent_enc, rpm_hidden.to(self.prior_latent_enc.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
             self.enet_t += time.perf_counter() - t_0
@@ -127,10 +130,10 @@ class RecProbModel(CompressionModel):
     def decompress_slow(self, string, shape, rpm_hidden):
         self.dAC_t = self.dnet_t = 0
         if self.RPM_flag:
-            assert self.prior_latent is not None, 'prior latent is none!'
+            assert self.prior_latent_dec is not None, 'prior latent is none!'
             # NET
             t_0 = time.perf_counter()
-            sigma, mu, rpm_hidden = self.RPM(self.prior_latent, rpm_hidden.to(self.prior_latent.device))
+            sigma, mu, rpm_hidden = self.RPM(self.prior_latent_dec, rpm_hidden.to(self.prior_latent_dec.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
             self.dnet_t += time.perf_counter() - t_0
