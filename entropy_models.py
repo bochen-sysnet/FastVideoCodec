@@ -100,7 +100,6 @@ class RecProbModel(CompressionModel):
         
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, rpm_hidden):
-        print('com',self.RPM_flag)
         # shouldnt be used together with forward()
         # otherwise rpm_hidden will be messed up
         self.eAC_t = self.enet_t = 0
@@ -126,7 +125,6 @@ class RecProbModel(CompressionModel):
         return string, rpm_hidden.detach()
         
     def decompress_slow(self, string, shape, rpm_hidden):
-        print('decom',self.RPM_flag)
         self.dAC_t = self.dnet_t = 0
         if self.RPM_flag:
             assert self.prior_latent is not None, 'prior latent is none!'
