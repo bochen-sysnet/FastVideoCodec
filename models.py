@@ -1229,7 +1229,6 @@ class SPVC(nn.Module):
         bs, c, h, w = x[1:].size()
         
         # BATCH:compute optical flow
-        t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
         if self.name == 'SPVC-L':
@@ -1251,20 +1250,8 @@ class SPVC(nn.Module):
                 if k>bs:continue
                 ref_index[k-1] = start
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
-        if not self.noMeasure:
-            self.meters['E-FL'].update(time.perf_counter() - t_0)
-        
         # BATCH:compress optical flow
-        if '-R' not in self.name:
-            mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
-        else:
-            mv_hat,mv_act,mv_est,mv_aux,_ = self.mv_codec.compress_sequence(mv_tensors)
-        if not self.noMeasure:
-            self.meters['E-MV'].update(self.mv_codec.enc_t)
-            self.meters['D-MV'].update(self.mv_codec.dec_t)
-            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
-            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
-        
+        mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
         # SEQ:motion compensation
         t_0 = time.perf_counter()
         MC_frame_list = [None for _ in x_tar]
@@ -1290,27 +1277,9 @@ class SPVC(nn.Module):
                     warped_frame_list[tar-1] = warped_frame[i:i+1]
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
-        t_comp = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.meters['E-MC'].update(t_comp)
-            self.meters['D-MC'].update(t_comp)
-        
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        if '-R' not in self.name:
-            res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
-        else:
-            res_hat,res_act,res_est,res_aux = self.res_codec.compress_sequence(res_tensors)
-        if not self.noMeasure:
-            self.meters['E-RES'].update(self.res_codec.enc_t)
-            self.meters['D-RES'].update(self.res_codec.dec_t)
-            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
-            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
-        # reconstruction
-        t_0 = time.perf_counter()
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
-        if not self.noMeasure:
-            self.meters['D-REC'].update(time.perf_counter() - t_0)
+        res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
         return psnr
