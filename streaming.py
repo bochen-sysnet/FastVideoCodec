@@ -325,55 +325,32 @@ def dynamic_simulation_x26x(test_dataset, name='x264'):
             exit(0)
             
         test_dataset.reset()
-        
-####### Load dataset
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-        
-# OPTION
-BACKUP_DIR = 'backup'
-#CODEC_NAME = 'SPVC-stream'
-CODEC_NAME = 'RLVC'
-loss_type = 'P'
-compression_level = 2
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-#RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
-LEARNING_RATE = 0.0001
-WEIGHT_DECAY = 5e-4
-BEGIN_EPOCH = 1
-END_EPOCH = 10
 
-####### Check backup directory, create if necessary
-# ---------------------------------------------------------------
-if not os.path.exists(BACKUP_DIR):
-    os.makedirs(BACKUP_DIR)
+def LoadModel(CODEC_NAME):
+    #CODEC_NAME = 'SPVC-stream'
+    loss_type = 'P'
+    compression_level = 2
+    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
-####### Create model
-seed = int(time.time())
-#seed = int(0)
-torch.manual_seed(seed)
-use_cuda = True
-if use_cuda:
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
-    torch.cuda.manual_seed(seed)
+    ####### Codec model 
+    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
+    pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
-# codec model .
-model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
-pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-
-####### Load codec model 
-if os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score'][1:4]
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
-else:
-    print("Cannot load model codec", CODEC_NAME)
-    exit(1)
-print("===================================================================")
+    ####### Load codec model 
+    if os.path.isfile(RESUME_CODEC_PATH):
+        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+        checkpoint = torch.load(RESUME_CODEC_PATH)
+        BEGIN_EPOCH = checkpoint['epoch'] + 1
+        best_codec_score = checkpoint['score'][1:4]
+        load_state_dict_all(model, checkpoint['state_dict'])
+        print("Loaded model codec score: ", checkpoint['score'])
+        del checkpoint
+    else:
+        print("Cannot load model codec", CODEC_NAME)
+        exit(1)
+    print("===================================================================")
+    return model
     
 def streaming_parallel(model, test_dataset):
     psnr_module = AverageMeter()
@@ -732,6 +709,11 @@ def static_simulation_model(model, test_dataset):
 # run this script in docker
 # then test throughput(fps) and rate-distortion on different devices and different losses
 
+        
+####### Load dataset
+test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+####### Load model
+model = LoadModel('SPVC')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
