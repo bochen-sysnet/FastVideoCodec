@@ -555,7 +555,7 @@ def streaming_parallel(model, test_dataset):
                         # receive the second two strings
                         strings_to_recv = GoP-1-fP
                         mv_string2 = recv_strings_from_process(process, strings_to_recv)
-                        res_string2 = recv_strings_from_prosscess(process, strings_to_recv)
+                        res_string2 = recv_strings_from_process(process, strings_to_recv)
                         # decompress forward
                         x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
                         # concate
