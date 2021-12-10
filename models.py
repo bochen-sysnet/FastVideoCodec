@@ -1313,7 +1313,7 @@ class SPVC(nn.Module):
             self.meters['D-REC'].update(time.perf_counter() - t_0)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
-        return com_frames,psnr
+        return psnr
         
     def compress(self, x):
         bs, c, h, w = x[1:].size()
