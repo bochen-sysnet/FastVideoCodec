@@ -455,7 +455,6 @@ def streaming_parallel(model, test_dataset):
                     process.stdin.write(bytes_send)
                     # send actual string
                     process.stdin.write(x_string)
-                    print('S:',x_len,len(x_string),'-----')
                 for z_string in z_string_list:
                     # [L=8] send length of next string
                     z_len = len(z_string)
@@ -463,7 +462,6 @@ def streaming_parallel(model, test_dataset):
                     process.stdin.write(bytes_send)
                     # send actual string
                     process.stdin.write(z_string)
-                    print('S:',z_len,len(z_string),'-----')
             
         def recv_strings_from_process(process, strings_to_recv):
             x_string_list = []
@@ -474,7 +472,6 @@ def streaming_parallel(model, test_dataset):
                 # recv actual string
                 x_string = process.stdout.read(x_len)
                 x_string_list += [x_string]
-                print('R:',x_len,len(x_string),'-----')
             z_string_list = []
             for _ in range(strings_to_recv):
                 # [L=8] receive length of next string
@@ -483,7 +480,6 @@ def streaming_parallel(model, test_dataset):
                 # recv actual string
                 z_string = process.stdout.read(z_len)
                 z_string_list += [z_string]
-                print('R:',z_len,len(z_string),'-----')
             strings = (x_string_list,z_string_list)
             return strings
             
@@ -511,41 +507,9 @@ def streaming_parallel(model, test_dataset):
                         x_b = torch.flip(x_GoP,[0])
                         mv_string,res_string,bpp_act_list = model.compress(x_b)
                         com_data = [x_b[:1],mv_string,res_string]
-                        
-                #######################
-                
-                with torch.no_grad():
-                    if len(com_data)==5:
-                        # decompress I
-                        x_ref,mv_string1,res_string1,mv_string2,res_string2 = com_data
-                        # decompress backward
-                        x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
-                        # decompress forward
-                        x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
-                        # concate
-                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
-                    else:
-                        # decompress I
-                        x_ref,mv_string,res_string = com_data
-                        # decompress backward
-                        x_b_hat = model.decompress(x_ref,mv_string,res_string)
-                        # concate
-                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref),dim=0)
-                    i=0
-                    for com in x_hat:
-                        com = com.cuda().unsqueeze(0)
-                        raw = x_GoP[i].cuda().unsqueeze(0)
-                        print(PSNR(raw, com))
-                        i += 1
-                continue
-                
-                
-                
-                ##################
                 # Send GoP size, this determines how to encode/decode the strings
                 bytes_send = struct.pack('B',GoP_size)
                 process.stdin.write(bytes_send)
-                print('send',bytes_send)
                 # Send compressed I frame (todo)
                 # Send all strings in order
                 send_strings_to_process(process, com_data[1:])
@@ -575,7 +539,6 @@ def streaming_parallel(model, test_dataset):
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)[0]
-                print('GoP size:',GoP_size)
                 # receive strings based on gop size
                 if GoP_size>fP+1:
                     # receive the first two strings
