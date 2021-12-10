@@ -367,48 +367,6 @@ def streaming_parallel(model, test_dataset):
         if not eof: continue
         data = torch.stack(data, dim=0).cuda()
         L = data.size(0)
-        def client(data):
-            # start a process to pipe data to netcat
-            cmd = f'nc localhost 8888'
-            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-            for begin in range(0,L,GoP):
-                # put a timer here
-                with torch.no_grad():
-                    x_GoP = data[begin:begin+GoP]
-                    GoP_size = x_GoP.size(0)
-                    if GoP_size>fP+1:
-                        # compress I
-                        # compress backward
-                        x_b = torch.flip(x_GoP[:fP+1],[0])
-                        mv_string1,res_string1,_ = model.compress(x_b)
-                        # compress forward
-                        x_f = x_GoP[fP:]
-                        mv_string2,res_string2,_ = model.compress(x_f)
-                        com_data = [x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2]
-                    else:
-                        # compress I
-                        # compress backward
-                        x_b = torch.flip(x_GoP,[0])
-                        mv_string,res_string,bpp_act_list = model.compress(x_b)
-                        com_data = [x_GoP[:1],mv_string,res_string]
-                print(len(com_data[1][0]),len(com_data[1][1]))
-                continue
-                assert(len(com_data[0])==2 and len(com_data[1])==2)
-                # [B=1] check number of strings to send
-                # strings = 2*[1...6]*str_len*{2,4}
-                # Send GoP size, this determines how to encode/decode the strings
-                bytes_send = struct.pack('B',GoP_size)
-                process.stdin.write(bytes_send)
-                # Send compressed I frame (todo)
-                # Send all strings in order
-                send_strings_to_process(process, com_data[1:])
-                
-            # Close and flush stdin
-            process.stdin.close()
-            # Wait for sub-process to finish
-            process.wait()
-            # Terminate the sub-process
-            process.terminate()
             
         def send_strings_to_process(process, strings):
             for x_string_list,z_string_list in strings:
@@ -446,6 +404,44 @@ def streaming_parallel(model, test_dataset):
                 z_string_list += [z_string]
             strings = (x_string_list,z_string_list)
             return strings
+            
+        def client(data):
+            # start a process to pipe data to netcat
+            cmd = f'nc localhost 8888'
+            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+            for begin in range(0,L,GoP):
+                # put a timer here
+                with torch.no_grad():
+                    x_GoP = data[begin:begin+GoP]
+                    GoP_size = x_GoP.size(0)
+                    if GoP_size>fP+1:
+                        # compress I
+                        # compress backward
+                        x_b = torch.flip(x_GoP[:fP+1],[0])
+                        mv_string1,res_string1,_ = model.compress(x_b)
+                        # compress forward
+                        x_f = x_GoP[fP:]
+                        mv_string2,res_string2,_ = model.compress(x_f)
+                        com_data = [x_GoP[:1],mv_string1,res_string1,mv_string2,res_string2]
+                    else:
+                        # compress I
+                        # compress backward
+                        x_b = torch.flip(x_GoP,[0])
+                        mv_string,res_string,bpp_act_list = model.compress(x_b)
+                        com_data = [x_GoP[:1],mv_string,res_string]
+                # Send GoP size, this determines how to encode/decode the strings
+                bytes_send = struct.pack('B',GoP_size)
+                process.stdin.write(bytes_send)
+                # Send compressed I frame (todo)
+                # Send all strings in order
+                send_strings_to_process(process, com_data[1:])
+                
+            # Close and flush stdin
+            process.stdin.close()
+            # Wait for sub-process to finish
+            process.wait()
+            # Terminate the sub-process
+            process.terminate()
             
         def server(data):
             # create a pipe for listening from netcat
