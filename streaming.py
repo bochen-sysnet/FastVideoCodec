@@ -505,10 +505,6 @@ def streaming_parallel(model, test_dataset):
                         x_b_hat = model.decompress(x_b[:1],mv_string1,res_string1)
                         psnr = PSNR(x_b[1:], x_b_hat, use_list=True)
                         print('----',psnr,'-----')
-                        #############
-                        x_b_hat = model.fake(x_b)
-                        psnr = PSNR(x_b[1:], x_b_hat, use_list=True)
-                        print('----',psnr,'-----')
                         ###########
                         x_b_hat, _, _, _, bpp_act, psnr, _ = model(x_b)
                         psnr2 = PSNR(x_b[1:], x_b_hat, use_list=True)

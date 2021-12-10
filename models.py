@@ -1275,29 +1275,6 @@ class SPVC(nn.Module):
         self.MC_network.cuda(1)
         self.res_codec.cuda(1)
         
-    def fake(self, x):
-        bs, c, h, w = x[1:].size()
-        # BATCH:compute optical flow
-        x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
-        ref_index = refidx_from_graph(g,bs)
-        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
-        # BATCH:compress optical flow
-        #mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
-        mv_hat,mv_string,_,_,_,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
-        # SEQ:motion compensation
-        t_0 = time.perf_counter()
-        MC_frames,_ = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_gpu)
-        # BATCH:compress residual
-        res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        #res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
-        res_string,_,_,_,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
-        res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
-        # reconstruction
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
-        
-        return com_frames
-        
     def compress(self, x):
         bs, c, h, w = x[1:].size()
         
