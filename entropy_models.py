@@ -96,16 +96,16 @@ class RecProbModel(CompressionModel):
         self.prior_latent = torch.round(x).detach()
         
     # we should only use one hidden from compression or decompression
-    def compress_slow(self, x, rpm_hidden, needCompressed=False):
+    def compress_slow(self, x, rpm_hidden, prior_latent):
         # shouldnt be used together with forward()
         # otherwise rpm_hidden will be messed up
         self.eAC_t = self.enet_t = 0
         shape = x.size()[-2:]
         if self.RPM_flag:
-            assert self.prior_latent is not None, 'prior latent is none!'
+            assert prior_latent is not None, 'prior latent is none!'
             # network part
             t_0 = time.perf_counter()
-            sigma, mu, rpm_hidden = self.RPM(self.prior_latent, rpm_hidden.to(self.prior_latent.device))
+            sigma, mu, rpm_hidden = self.RPM(prior_latent, rpm_hidden.to(prior_latent.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
             self.enet_t += time.perf_counter() - t_0
@@ -113,29 +113,25 @@ class RecProbModel(CompressionModel):
             t_0 = time.perf_counter()
             indexes = self.gaussian_conditional.build_indexes(sigma)
             string = self.gaussian_conditional.compress(x, indexes, means=mu)
-            if needCompressed:
-                x_hat = self.gaussian_conditional.decompress(string, indexes, means=mu)
+            x_hat = self.gaussian_conditional.decompress(string, indexes, means=mu)
             self.eAC_t += time.perf_counter() - t_0
         else:
             t_0 = time.perf_counter()
             string = self.entropy_bottleneck.compress(x)
-            if needCompressed:
-                x_hat = self.entropy_bottleneck.decompress(string, shape)
+            x_hat = self.entropy_bottleneck.decompress(string, shape)
             self.enet_t += 0
             self.eAC_t += time.perf_counter() - t_0
+        prior_latent = torch.round(x_hat).detach()
         self.enc_t = self.enet_t + self.eAC_t
-        if needCompressed:
-            return x_hat, string, rpm_hidden.detach()
-        else:
-            return
+        return x_hat, string, rpm_hidden.detach(), prior_latent
         
-    def decompress_slow(self, string, shape, rpm_hidden):
+    def decompress_slow(self, string, shape, rpm_hidden, prior_latent):
         self.dAC_t = self.dnet_t = 0
         if self.RPM_flag:
-            assert self.prior_latent is not None, 'prior latent is none!'
+            assert prior_latent is not None, 'prior latent is none!'
             # NET
             t_0 = time.perf_counter()
-            sigma, mu, rpm_hidden = self.RPM(self.prior_latent, rpm_hidden.to(self.prior_latent.device))
+            sigma, mu, rpm_hidden = self.RPM(prior_latent, rpm_hidden.to(prior_latent.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
             self.dnet_t += time.perf_counter() - t_0
@@ -149,8 +145,9 @@ class RecProbModel(CompressionModel):
             x_hat = self.entropy_bottleneck.decompress(string, shape)
             self.dnet_t += 0
             self.dAC_t += time.perf_counter() - t_0
+        prior_latent = torch.round(x_hat).detach()
         self.dec_t = self.dnet_t + self.dAC_t
-        return x_hat, rpm_hidden.detach()
+        return x_hat, rpm_hidden.detach(), prior_latent
         
 class MeanScaleHyperPriors(CompressionModel):
 

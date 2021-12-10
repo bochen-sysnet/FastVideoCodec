@@ -669,7 +669,7 @@ class Coder2D(nn.Module):
         self.noMeasure = noMeasure
         # include two average meter to measure time
         
-    def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False, setPrior=True):
+    def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False, prior_latent=None):
         # update only once during testing
         if not self.updated and not self.training:
             self.entropy_bottleneck.update(force=True)
@@ -729,9 +729,7 @@ class Coder2D(nn.Module):
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
-            latent_hat, latent_string, rpm_hidden = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
-            if setPrior:
-                self.entropy_bottleneck.set_prior(latent_hat)
+            latent_hat, latent_string, rpm_hidden, prior_latent = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent)
             latentSize = latent.size()[-2:]
             
         self.net_t += self.entropy_bottleneck.enet_t
@@ -770,11 +768,11 @@ class Coder2D(nn.Module):
         bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
         
         if decodeLatent:
-            return hat,latent_string, rae_hidden, rpm_hidden, bits_act, latentSize
+            return hat,latent_string, rae_hidden, rpm_hidden, bits_act, latentSize, prior_latent
         else:
-            return latent_string, rae_hidden, rpm_hidden, bits_act, latentSize
+            return latent_string, rae_hidden, rpm_hidden, bits_act, latentSize, prior_latent
         
-    def decompress(self, latent_string, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, latentSize=None, setPrior=True):
+    def decompress(self, latent_string, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, latentSize=None, prior_latent=None):
         # update only once during testing
         if not self.updated and not self.training:
             self.entropy_bottleneck.update(force=True)
@@ -794,9 +792,7 @@ class Coder2D(nn.Module):
             latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
-            latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, rpm_hidden)
-            if setPrior:
-                self.entropy_bottleneck.set_prior(latent_hat)
+            latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, rpm_hidden, prior_latent)
             
         self.net_t += self.entropy_bottleneck.dnet_t
         self.AC_t += self.entropy_bottleneck.dAC_t
@@ -830,9 +826,9 @@ class Coder2D(nn.Module):
             if rae_hidden is not None:
                 rae_hidden = rae_hidden.detach()
             
-        return hat, rae_hidden, rpm_hidden
+        return hat, rae_hidden, rpm_hidden, prior_latent
         
-    def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None):
+    def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
         self.realCom = not self.training
         # update only once during testing
         if not self.updated and self.realCom:
@@ -910,8 +906,8 @@ class Coder2D(nn.Module):
                 if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
-                _, latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
-                latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden)
+                _, latent_string, _, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent=prior_latent)
+                latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden, prior_latent=prior_latent)
             self.entropy_bottleneck.set_prior(latent_hat)
             
         # add in the time in entropy bottleneck
@@ -1125,36 +1121,7 @@ class IterPredVideoCodecs(nn.Module):
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
-    def fake(self, Y0_com, Y1_raw, com_hidden, decom_hidden, RPM_flag):
-        # Y0_com: compressed previous frame, [1,c,h,w]
-        # Y1_raw: uncompressed current frame
-        batch_size, _, Height, Width = Y1_raw.shape
-        # hidden states
-        com_rae_mv_hidden, com_rae_res_hidden, com_rpm_mv_hidden, com_rpm_res_hidden = com_hidden
-        decom_rae_mv_hidden, decom_rae_res_hidden, decom_rpm_mv_hidden, decom_rpm_res_hidden = decom_hidden
-        # estimate optical flow
-        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
-        # compress optical flow
-        #mv_hat,com_rae_mv_hidden,com_rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag)
-        _,mv_string,com_rae_mv_hidden,com_rpm_mv_hidden,mv_act,mv_size = \
-            self.mv_codec.compress(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, decodeLatent=True, setPrior=False)
-        mv_hat,decom_rae_mv_hidden,decom_rpm_mv_hidden = \
-            self.mv_codec.decompress(mv_string, decom_rae_mv_hidden, decom_rpm_mv_hidden, RPM_flag, latentSize=mv_size, setPrior=True)
-        # motion compensation
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
-        # compress residual
-        res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
-        res_hat,com_rae_res_hidden,com_rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, com_rae_res_hidden, com_rpm_res_hidden, RPM_flag)
-        # reconstruction
-        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
-        # actual bits
-        bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
-        # hidden states
-        com_hidden = (com_rae_mv_hidden.detach(), com_rae_res_hidden.detach(), com_rpm_mv_hidden, com_rpm_res_hidden)
-        decom_hidden = (decom_rae_mv_hidden.detach(), decom_rae_res_hidden.detach(), decom_rpm_mv_hidden, decom_rpm_res_hidden)
-        return Y1_com.to(Y1_raw.device), com_hidden, decom_hidden, bpp_act
-        
-    def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
+    def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag, mv_prior_latent, res_prior_latent):
         bs, c, h, w = Y1_raw[1:].size()
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
@@ -1163,7 +1130,8 @@ class IterPredVideoCodecs(nn.Module):
         mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
-        mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True, setPrior=False)
+        mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size,mv_prior_latent = \
+            self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True, prior_latent=mv_prior_latent)
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
@@ -1173,7 +1141,8 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['E-MC'].update(t_comp)
         # compress residual
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
-        res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size = self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False, setPrior=False)
+        res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size,res_prior_latent = \
+            self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=False, prior_latent=res_prior_latent)
         self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eERES'].update(self.res_codec.AC_t)
         # actual bits
@@ -1181,13 +1150,13 @@ class IterPredVideoCodecs(nn.Module):
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         
-        return mv_string,res_string,bpp_act,hidden_states,mv_size,res_size
+        return mv_string,res_string,bpp_act,hidden_states,mv_size,res_size,mv_prior_latent,res_prior_latent
     
-    def decompress(self, x_ref, mv_string, res_string, hidden_states, RPM_flag, mv_size, res_size):
+    def decompress(self, x_ref, mv_string, res_string, hidden_states, RPM_flag, mv_size, res_size, mv_prior_latent, res_prior_latent):
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size, setPrior=True)
+        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size, prior_latent=mv_prior_latent)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
@@ -1196,7 +1165,7 @@ class IterPredVideoCodecs(nn.Module):
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
-        res_hat,rae_res_hidden,rpm_res_hidden = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size, setPrior=True)
+        res_hat,rae_res_hidden,rpm_res_hidden = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=res_size, prior_latent=res_prior_latent)
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
         # reconstruction
@@ -1206,7 +1175,7 @@ class IterPredVideoCodecs(nn.Module):
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
             
-        return Y1_com,hidden_states
+        return Y1_com,hidden_states, mv_prior_latent, res_prior_latent
         
     def loss(self, pix_loss, bpp_loss, aux_loss):
         loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
@@ -1283,7 +1252,7 @@ class SPVC(nn.Module):
         self.meters['E-FL'].update(time.perf_counter() - t_0)
             
         # BATCH motion compression
-        mv_hat,mv_string,_,_,mv_act,mv_size = self.mv_codec.compress(mv_tensors,decodeLatent=True)
+        mv_hat,mv_string,_,_,mv_act,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         
@@ -1317,7 +1286,7 @@ class SPVC(nn.Module):
         
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        res_string,_,_,res_act,res_size = self.res_codec.compress(res_tensors,decodeLatent=False)
+        res_string,_,_,res_act,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
         self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eERES'].update(self.res_codec.AC_t)
         

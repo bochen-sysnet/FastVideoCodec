@@ -565,7 +565,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     
                     B,_,H,W = x_b.size()
                     com_hidden = model.init_hidden(H,W)
+                    com_mv_prior_latent = com_res_prior_latent = None
                     decom_hidden = model.init_hidden(H,W)
+                    decom_mv_prior_latent = decom_res_prior_latent = None
                     x_ref = x_b[0:1]
                     # wait until the group is ready (e.g., count for 6*0.03), then compress
                     # make sure the fetch interval of two frames is at least 1/60. or 1/30.
@@ -573,8 +575,11 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     msssim_list1 = []
                     bpp_act_list1 = []
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,com_hidden,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], com_hidden, i>1)
-                        x_ref,decom_hidden = model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size)
+                        # need to enable compress and decompress to have separate prior_latent!!!!!!!!!!!!
+                        mv_string,res_string,bpp_act,com_hidden,mv_size,res_size,com_mv_prior_latent,com_res_prior_latent = \
+                            model.compress(x_ref, x_b[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
+                        x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
+                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size, decom_mv_prior_latent, decom_res_prior_latent)
                         #x_ref,com_hidden,decom_hidden,bpp_act = model.fake(x_ref, x_b[i:i+1], com_hidden, decom_hidden, i>1)
                         x_ref = x_ref.detach()
                         raw = x_b[i:i+1]
