@@ -68,13 +68,13 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     ds_size = len(train_dataset)
     
     model.train()
+    update_training(model,epoch)
     
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        update_training(model,epoch,batch_idx=batch_idx)
         data = data[0].cuda()
         # flip occasionally
         data = torch.flip(data,[0])
