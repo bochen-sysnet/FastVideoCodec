@@ -1289,7 +1289,9 @@ class SPVC(nn.Module):
         MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_gpu)
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+        #res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+        res_string,_,_,_,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
+        res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
         # reconstruction
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         # calculate metrics/loss
