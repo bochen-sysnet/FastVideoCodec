@@ -729,8 +729,7 @@ class Coder2D(nn.Module):
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
-            latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden)
-            latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden)
+            latent_hat, latent_string, rpm_hidden = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
             self.entropy_bottleneck.set_prior(latent_hat)
             latentSize = latent.size()[-2:]
             
@@ -908,8 +907,7 @@ class Coder2D(nn.Module):
                 if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
-                latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden)
-                latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden)
+                latent_hat, latent_string, rpm_hidden = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
             self.entropy_bottleneck.set_prior(latent_hat)
             
         # add in the time in entropy bottleneck
@@ -1132,7 +1130,9 @@ class IterPredVideoCodecs(nn.Module):
         # estimate optical flow
         mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
         # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
+        #mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
+        _,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True)
+        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size)
         # motion compensation
         Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
         # compress residual

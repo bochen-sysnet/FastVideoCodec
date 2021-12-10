@@ -53,8 +53,8 @@ class RecProbModel(CompressionModel):
         self, x, rpm_hidden, training = None
     ):
         if self.RPM_flag:
-            assert self.prior_latent_enc is not None, 'prior latent is none!'
-            rpm_in = self.prior_latent_enc
+            assert self.prior_latent is not None, 'prior latent is none!'
+            rpm_in = self.prior_latent
             self.sigma, self.mu, rpm_hidden = self.RPM(rpm_in, rpm_hidden.to(x.device))
             self.sigma = torch.maximum(self.sigma, torch.FloatTensor([-7.0]).to(x.device))
             self.sigma = torch.exp(self.sigma)/10
@@ -62,6 +62,7 @@ class RecProbModel(CompressionModel):
             rpm_hidden = rpm_hidden
         else:
             x_hat,likelihood = self.entropy_bottleneck(x,training=training)
+        # self.prior_latent = torch.round(x).detach()
         return x_hat, likelihood, rpm_hidden.detach()
         
     def get_actual_bits(self, string):
@@ -92,20 +93,22 @@ class RecProbModel(CompressionModel):
     # there should be a validattion for speed
     # RPM will be executed twice on both encoder and decoder
     def set_prior(self, x):
-        assert(x is not None)
-        self.prior_latent_enc = torch.round(x).detach()
-        self.prior_latent_dec = torch.round(x).detach()
+        if x is not None:
+            self.prior_latent = torch.round(x).detach()
+        else:
+            self.prior_latent = None
         
     # we should only use one hidden from compression or decompression
-    def compress_slow(self, x, rpm_hidden):
+    def compress_slow(self, x, rpm_hidden, needCompressed=False):
         # shouldnt be used together with forward()
         # otherwise rpm_hidden will be messed up
         self.eAC_t = self.enet_t = 0
+        shape = x.size()[-2:]
         if self.RPM_flag:
-            assert self.prior_latent_enc is not None, 'prior latent is none!'
+            assert self.prior_latent is not None, 'prior latent is none!'
             # network part
             t_0 = time.perf_counter()
-            sigma, mu, rpm_hidden = self.RPM(self.prior_latent_enc, rpm_hidden.to(self.prior_latent_enc.device))
+            sigma, mu, rpm_hidden = self.RPM(self.prior_latent, rpm_hidden.to(self.prior_latent.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
             self.enet_t += time.perf_counter() - t_0
@@ -113,22 +116,29 @@ class RecProbModel(CompressionModel):
             t_0 = time.perf_counter()
             indexes = self.gaussian_conditional.build_indexes(sigma)
             string = self.gaussian_conditional.compress(x, indexes, means=mu)
+            if needCompressed:
+                x_hat = self.gaussian_conditional.decompress(string, indexes, means=mu)
             self.eAC_t += time.perf_counter() - t_0
         else:
             t_0 = time.perf_counter()
             string = self.entropy_bottleneck.compress(x)
+            if needCompressed:
+                x_hat = self.entropy_bottleneck.decompress(string, shape)
             self.enet_t += 0
             self.eAC_t += time.perf_counter() - t_0
         self.enc_t = self.enet_t + self.eAC_t
-        return string, rpm_hidden.detach()
+        if needCompressed:
+            return x_hat, string, rpm_hidden.detach()
+        else:
+            return
         
     def decompress_slow(self, string, shape, rpm_hidden):
         self.dAC_t = self.dnet_t = 0
         if self.RPM_flag:
-            assert self.prior_latent_dec is not None, 'prior latent is none!'
+            assert self.prior_latent is not None, 'prior latent is none!'
             # NET
             t_0 = time.perf_counter()
-            sigma, mu, rpm_hidden = self.RPM(self.prior_latent_dec, rpm_hidden.to(self.prior_latent_dec.device))
+            sigma, mu, rpm_hidden = self.RPM(self.prior_latent, rpm_hidden.to(self.prior_latent.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
             self.dnet_t += time.perf_counter() - t_0
