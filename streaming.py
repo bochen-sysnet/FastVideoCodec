@@ -461,7 +461,7 @@ def streaming_parallel(model, test_dataset):
                 com_data = [data[begin:begin+1]]
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
-                GoP_size = struct.unpack('B',bytes_recv)
+                GoP_size,_ = struct.unpack('B',bytes_recv)
                 print(GoP_size)
                 # receive strings based on gop size
                 if GoP_size>fP+1:
