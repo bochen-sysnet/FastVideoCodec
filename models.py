@@ -907,7 +907,8 @@ class Coder2D(nn.Module):
                 if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
-                latent_hat, latent_string, rpm_hidden = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
+                _, latent_string, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
+                latent_hat, rpm_hidden = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden)
             self.entropy_bottleneck.set_prior(latent_hat)
             
         # add in the time in entropy bottleneck
