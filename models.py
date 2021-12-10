@@ -1195,9 +1195,9 @@ class IterPredVideoCodecs(nn.Module):
             rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
-def TFE(MC_network,ref,mv_hat,layers,parents,use_gpu):
-    MC_frame_list = [None for _ in x_tar]
-    warped_frame_list = [None for _ in x_tar]
+def TFE(MC_network,ref,bs,mv_hat,layers,parents,use_gpu):
+    MC_frame_list = [None for _ in range(bs)]
+    warped_frame_list = [None for _ in range(bs)]
     # for layers in graph
     # get elements of this layers
     # get parents of all elements above
@@ -1282,7 +1282,7 @@ class SPVC(nn.Module):
         mv_hat,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],mv_hat,layers,parents,self.use_gpu)
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_gpu)
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
