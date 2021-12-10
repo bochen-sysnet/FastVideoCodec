@@ -35,7 +35,7 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 3
+WARMUP_EPOCH = 1
 USE_VIMEO = True
 
 class AverageMeter(object):
@@ -395,9 +395,6 @@ else:
                            train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 #test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
-
-test(0, model, test_dataset)
-exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
