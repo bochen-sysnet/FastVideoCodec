@@ -1280,6 +1280,8 @@ class SPVC(nn.Module):
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+        # reconstruction
+        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
         return psnr
