@@ -332,10 +332,10 @@ test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 # OPTION
 BACKUP_DIR = 'backup'
 #CODEC_NAME = 'SPVC-stream'
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'DVC'
 loss_type = 'P'
 compression_level = 2
-RESUME_CODEC_PATH = f'backup/RLVC/RLVC-2P_best.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 #RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
@@ -628,7 +628,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            print(ba_loss,bpp_act_list)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
             
