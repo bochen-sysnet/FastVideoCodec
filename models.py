@@ -1056,7 +1056,7 @@ class IterPredVideoCodecs(nn.Module):
         self.MC_network.cuda(1)
         self.res_codec.cuda(1)
 
-    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_fla,mv_prior_latent,res_prior_latent):
+    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag,mv_prior_latent,res_prior_latent):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
         batch_size, _, Height, Width = Y1_raw.shape
