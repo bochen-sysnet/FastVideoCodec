@@ -1286,8 +1286,7 @@ class SPVC(nn.Module):
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         # BATCH:compress optical flow
         #mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
-        _,mv_string,_,_,_,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
-        mv_hat,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
+        mv_hat,mv_string,_,_,_,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
         # SEQ:motion compensation
         t_0 = time.perf_counter()
         MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_gpu)
@@ -1295,12 +1294,20 @@ class SPVC(nn.Module):
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         #res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
         res_string,_,_,_,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
-        res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
+        
+        # DECODE
+        mv_hat2,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
+        
+        MC_frames,_ = TFE(self.MC_network,x_ref,bs,mv_hat2,layers,parents,self.use_gpu)
+        
+        res_hat2,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
+        
+        
         # reconstruction
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
+        com_frames = torch.clip(res_hat2 + MC_frames, min=0, max=1).to(x.device)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
-        return psnr,mv_string,res_string
+        return psnr
         
     def compress(self, x):
         bs, c, h, w = x[1:].size()

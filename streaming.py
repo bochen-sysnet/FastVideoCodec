@@ -508,9 +508,8 @@ def streaming_parallel(model, test_dataset):
                             raw = x_b_hat[j:j+1].cuda()
                             print('----',PSNR(raw, com),'-----')
                         #############
-                        psnr,fake_mv_string,fake_res_string = model.fake(x_b)
+                        psnr = model.fake(x_b)
                         print(psnr)
-                        print(mv_string1==fake_mv_string,res_string1==fake_res_string)
                         ###########
                         _, _, _, _, bpp_act, psnr, _ = model(x_b)
                         print(psnr)
