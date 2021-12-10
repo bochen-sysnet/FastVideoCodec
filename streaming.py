@@ -27,6 +27,33 @@ from models import get_codec_model,parallel_compression,update_training,compress
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
+def LoadModel(CODEC_NAME):
+    #CODEC_NAME = 'SPVC-stream'
+    loss_type = 'P'
+    compression_level = 2
+    RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
+    #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+
+    ####### Codec model 
+    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
+    pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
+
+    ####### Load codec model 
+    if os.path.isfile(RESUME_CODEC_PATH):
+        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+        checkpoint = torch.load(RESUME_CODEC_PATH)
+        BEGIN_EPOCH = checkpoint['epoch'] + 1
+        best_codec_score = checkpoint['score'][1:4]
+        load_state_dict_all(model, checkpoint['state_dict'])
+        print("Loaded model codec score: ", checkpoint['score'])
+        del checkpoint
+    else:
+        print("Cannot load model codec", CODEC_NAME)
+        exit(1)
+    print("===================================================================")
+    return model
+    
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir)
@@ -402,33 +429,6 @@ def dynamic_simulation_x26x(test_dataset, name='x264'):
             exit(0)
             
         test_dataset.reset()
-
-def LoadModel(CODEC_NAME):
-    #CODEC_NAME = 'SPVC-stream'
-    loss_type = 'P'
-    compression_level = 2
-    RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
-    #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-
-    ####### Codec model 
-    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
-    pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-
-    ####### Load codec model 
-    if os.path.isfile(RESUME_CODEC_PATH):
-        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-        checkpoint = torch.load(RESUME_CODEC_PATH)
-        BEGIN_EPOCH = checkpoint['epoch'] + 1
-        best_codec_score = checkpoint['score'][1:4]
-        load_state_dict_all(model, checkpoint['state_dict'])
-        print("Loaded model codec score: ", checkpoint['score'])
-        del checkpoint
-    else:
-        print("Cannot load model codec", CODEC_NAME)
-        exit(1)
-    print("===================================================================")
-    return model
     
 def streaming_parallel(model, test_dataset):
     psnr_module = AverageMeter()
@@ -522,6 +522,8 @@ def streaming_parallel(model, test_dataset):
             process.terminate()
             
         def server(data):
+            # Beginning time of streaming
+            t_0 = time.perf_counter()
             # create a pipe for listening from netcat
             cmd = f'nc -l 8888'
             process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
@@ -576,18 +578,22 @@ def streaming_parallel(model, test_dataset):
                         x_f_hat = model.decompress(x_ref,mv_string,res_string)
                         # concate
                         x_hat = torch.cat((x_ref,x_f_hat),dim=0)
-                    for com in x_hat:
-                        com = com.cuda().unsqueeze(0)
-                        raw = data[i].cuda().unsqueeze(0)
-                        psnr_list += [PSNR(raw, com)]
-                        msssim_list += [MSSSIM(raw, com)]
-                        print(psnr_list[-1])
-                        i += 1
-                        # show result
-                        stream_iter.set_description(
-                            f"{i:3}. "
-                            f"PSNR: {float(psnr_list[-1]):.2f}. "
-                            f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
+                        
+                if t_warmup is None:
+                    t_warmup = time.perf_counter() - t_0
+                    print('Warm-up:',t_warmup)
+                        
+                for com in x_hat:
+                    com = com.cuda().unsqueeze(0)
+                    raw = data[i].cuda().unsqueeze(0)
+                    psnr_list += [PSNR(raw, com)]
+                    msssim_list += [MSSSIM(raw, com)]
+                    i += 1
+                    # show result
+                    stream_iter.set_description(
+                        f"{i:3}. "
+                        f"PSNR: {float(psnr_list[-1]):.2f}. "
+                        f"MSSSIM: {float(msssim_list[-1]):.4f}. ")
             # Close and flush stdin
             process.stdout.close()
             # Wait for sub-process to finish
@@ -741,9 +747,10 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # complete the compression/decompress function for DVC and RLVC
-# complete a streaming sequential function
+# complete a streaming sequential function, need the networking part
 # run this script in docker
 # then test throughput(fps) and rate-distortion on different devices and different losses
+# need to add time measurement in parallel compression/decompress
 
         
 ####### Load dataset
