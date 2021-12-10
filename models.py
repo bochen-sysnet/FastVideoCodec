@@ -1227,7 +1227,6 @@ class SPVC(nn.Module):
         
     def compress(self, x):
         bs, c, h, w = x[1:].size()
-        print(x.size())
         
         # BATCH:compute optical flow
         t_0 = time.perf_counter()

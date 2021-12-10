@@ -375,11 +375,14 @@ def streaming_parallel(model, test_dataset):
                 # put a timer here
                 with torch.no_grad():
                     x_GoP = data[begin:begin+GoP]
+                    print(begin,x_GoP.size())
                     if x_GoP.size(0)>fP+1:
                         # compress I
                         # compress backward
                         x_b = torch.flip(x_GoP[:fP+1],[0])
-                        mv_string1,res_string1,_ = model.compress(x_GoP)
+                        mv_string1,res_string1,_ = model.compress(x_b)
+                        print(len(mv_string),len(mv_string[0]),type(mv_string[0]))
+                        exit(0)
                         # compress forward
                         x_f = data[fP:]
                         mv_string2,res_string2,_ = model.compress(x_f)
