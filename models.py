@@ -240,12 +240,12 @@ def parallel_compression(model, data, compressI=False):
         if 'SPVC' in model.name or 'AE3D' in model.name:
             _, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
             for pos in range(data.size(0)-1):
-                img_loss_list += [img_loss[pos]]
-                aux_loss_list += [aux_loss[pos]]
-                bpp_est_list += [bpp_est[pos]]
-                bpp_act_list += [bpp_act[pos]]
-                psnr_list += [psnr[pos]]
-                msssim_list += [msssim[pos]]
+                img_loss_list += [img_loss[pos].to(data.device)]
+                aux_loss_list += [aux_loss[pos].to(data.device)]
+                bpp_est_list += [bpp_est[pos].to(data.device)]
+                bpp_act_list += [bpp_act[pos].to(data.device)]
+                psnr_list += [psnr[pos].to(data.device)]
+                msssim_list += [msssim[pos].to(data.device)]
         elif model.name in ['DVC','RLVC','DCVC']:
             B,_,H,W = data.size()
             hidden = model.init_hidden(H,W)
@@ -253,12 +253,12 @@ def parallel_compression(model, data, compressI=False):
             for i in range(1,B):
                 x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim = model(x_hat, data[i:i+1], hidden, i>1)
                 x_hat = x_hat.detach()
-                img_loss_list += [img_loss]
-                aux_loss_list += [aux_loss]
-                bpp_est_list += [bpp_est]
-                bpp_act_list += [bpp_act]
-                psnr_list += [psnr]
-                msssim_list += [msssim]
+                img_loss_list += [img_loss.to(data.device)]
+                aux_loss_list += [aux_loss.to(data.device)]
+                bpp_est_list += [bpp_est.to(data.device)]
+                bpp_act_list += [bpp_act.to(data.device)]
+                psnr_list += [psnr.to(data.device)]
+                msssim_list += [msssim.to(data.device)]
     
     return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
