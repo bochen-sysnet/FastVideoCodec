@@ -505,11 +505,13 @@ def streaming_parallel(model, test_dataset):
                         for j in range(6):
                             com = x_b[j:j+1].cuda()
                             raw = x_b_hat[j:j+1].cuda()
-                            print(PSNR(raw, com))
+                            print('1',PSNR(raw, com))
                         #############
-                        _, _, _, _, bpp_act, psnr, _ = model(x_b)
-                        print(psnr)
-                        print(bpp_act)
+                        x_b_hat = model.fake(x_b)
+                        for j in range(6):
+                            com = x_b[j:j+1].cuda()
+                            raw = x_b_hat[j:j+1].cuda()
+                            print('2',PSNR(raw, com))
                         exit(0)
                         #############
                         # compress forward

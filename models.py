@@ -1225,6 +1225,64 @@ class SPVC(nn.Module):
         self.MC_network.cuda(1)
         self.res_codec.cuda(1)
         
+    def fake(self, x):
+        bs, c, h, w = x[1:].size()
+        # BATCH:compute optical flow
+        # obtain reference frames from a graph
+        x_tar = x[1:]
+        if self.name == 'SPVC-L':
+            g,layers,parents = generate_graph('default')
+        else:
+            # I frame is the only first layer
+            if bs <=2:
+                g,layers,parents = generate_graph('2layers')
+            elif bs <=6:
+                g,layers,parents = generate_graph('3layers')
+            elif bs <=14:
+                g,layers,parents = generate_graph('4layers')
+            else:
+                print('Batch size not supported yet:',bs)
+        ref_index = [-1 for _ in x_tar]
+        for start in g:
+            if start>bs:continue
+            for k in g[start]:
+                if k>bs:continue
+                ref_index[k-1] = start
+        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
+        # BATCH:compress optical flow
+        mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
+        # SEQ:motion compensation
+        MC_frame_list = [None for _ in x_tar]
+        warped_frame_list = [None for _ in x_tar]
+        # for layers in graph
+        # get elements of this layers
+        # get parents of all elements above
+        for layer in layers:
+            ref = [] # reference frame
+            diff = [] # motion
+            for tar in layer: # id of frames in this layer
+                if tar>bs:continue
+                parent = parents[tar]
+                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+                diff += [mv_hat[tar-1:tar].cuda(1) if self.use_gpu else mv_hat[tar-1:tar]] # motion needed for this id
+            if ref:
+                ref = torch.cat(ref,dim=0)
+                diff = torch.cat(diff,dim=0)
+                MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
+                for i,tar in enumerate(layer):
+                    if tar>bs:continue
+                    MC_frame_list[tar-1] = MC_frame[i:i+1]
+                    warped_frame_list[tar-1] = warped_frame[i:i+1]
+        MC_frames = torch.cat(MC_frame_list,dim=0)
+        warped_frames = torch.cat(warped_frame_list,dim=0)
+        # BATCH:compress residual
+        res_tensors = x_tar.to(MC_frames.device) - MC_frames
+        res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+        # reconstruction
+        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
+        
+        return com_frames
+        
     def compress(self, x):
         bs, c, h, w = x[1:].size()
         
