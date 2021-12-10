@@ -580,7 +580,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         bpp_act_list1 += [bpp_act]
                     
                     # compress forward
-                    x_f = data[fP:]
+                    x_f = x_GoP[fP:]
                     # compress as soon as a new frame is ready
                     B,_,H,W = x_f.size()
                     com_hidden = model.init_hidden(H,W)
@@ -608,7 +608,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                 else:
                     # compress I
                     # compress forward
-                    x_b = torch.flip(data,[0])
+                    x_b = torch.flip(x_GoP,[0])
                     psnr_list = []
                     msssim_list = []
                     bpp_act_list = []
