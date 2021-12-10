@@ -752,7 +752,7 @@ model = LoadModel('SPVC')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
-streaming_parallel(model, test_dataset)
-#static_simulation_model(model, test_dataset)
+#streaming_parallel(model, test_dataset)
+static_simulation_model(model, test_dataset)
 #streaming_sequential(model, test_dataset)
 enc,dec = showTimer(model)
