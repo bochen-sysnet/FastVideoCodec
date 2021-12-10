@@ -50,20 +50,19 @@ class RecProbModel(CompressionModel):
         return self.aux_loss()
 
     def forward(
-        self, x, rpm_hidden, training = None
+        self, x, rpm_hidden, training = None, prior_latent=None
     ):
         if self.RPM_flag:
-            assert self.prior_latent is not None, 'prior latent is none!'
-            rpm_in = self.prior_latent
-            self.sigma, self.mu, rpm_hidden = self.RPM(rpm_in, rpm_hidden.to(x.device))
+            assert prior_latent is not None, 'prior latent is none!'
+            self.sigma, self.mu, rpm_hidden = self.RPM(prior_latent, rpm_hidden.to(x.device))
             self.sigma = torch.maximum(self.sigma, torch.FloatTensor([-7.0]).to(x.device))
             self.sigma = torch.exp(self.sigma)/10
             x_hat,likelihood = self.gaussian_conditional(x, self.sigma, means=self.mu, training=training)
             rpm_hidden = rpm_hidden
         else:
             x_hat,likelihood = self.entropy_bottleneck(x,training=training)
-        # self.prior_latent = torch.round(x).detach()
-        return x_hat, likelihood, rpm_hidden.detach()
+        prior_latent = torch.round(x).detach()
+        return x_hat, likelihood, rpm_hidden.detach(), prior_latent
         
     def get_actual_bits(self, string):
         bits_act = torch.FloatTensor([len(b''.join(string))*8]).squeeze(0)
@@ -89,11 +88,6 @@ class RecProbModel(CompressionModel):
         else:
             x_hat = self.entropy_bottleneck.decompress(string, shape)
         return x_hat
-        
-    # there should be a validattion for speed
-    # RPM will be executed twice on both encoder and decoder
-    def set_prior(self, x):
-        self.prior_latent = torch.round(x).detach()
         
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, rpm_hidden, prior_latent):
