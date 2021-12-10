@@ -28,11 +28,12 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from models import PSNR,MSSSIM
 
 def LoadModel(CODEC_NAME):
-    #CODEC_NAME = 'SPVC-stream'
     loss_type = 'P'
     compression_level = 2
-    RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
-    #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+    if CODEC_NAME == 'SPVC-stream':
+        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
+    else:
+        RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
     model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
@@ -752,11 +753,12 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 ####### Load model
-model = LoadModel('SPVC-stream')
+#model = LoadModel('SPVC-stream')
+model = LoadModel('RLVC')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
-streaming_parallel(model, test_dataset)
+#streaming_parallel(model, test_dataset)
 #static_simulation_model(model, test_dataset)
-#streaming_sequential(model, test_dataset)
+streaming_sequential(model, test_dataset)
 enc,dec = showTimer(model)
