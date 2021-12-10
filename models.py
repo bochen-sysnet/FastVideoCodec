@@ -1137,6 +1137,7 @@ class IterPredVideoCodecs(nn.Module):
         # motion compensation
         Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
         # compress residual
+        res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
