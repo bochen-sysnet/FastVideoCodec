@@ -75,7 +75,6 @@ class RecProbModel(CompressionModel):
         return bits_est
         
     def compress(self, x):
-        print('com',self.RPM_flag)
         if self.RPM_flag:
             indexes = self.gaussian_conditional.build_indexes(self.sigma)
             string = self.gaussian_conditional.compress(x, indexes, means=self.mu)
@@ -84,7 +83,6 @@ class RecProbModel(CompressionModel):
         return string
 
     def decompress(self, string, shape):
-        print('decom',self.RPM_flag)
         if self.RPM_flag:
             indexes = self.gaussian_conditional.build_indexes(self.sigma)
             x_hat = self.gaussian_conditional.decompress(string, indexes, means=self.mu)
@@ -102,6 +100,7 @@ class RecProbModel(CompressionModel):
         
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, rpm_hidden):
+        print('com',self.RPM_flag)
         # shouldnt be used together with forward()
         # otherwise rpm_hidden will be messed up
         self.eAC_t = self.enet_t = 0
@@ -127,6 +126,7 @@ class RecProbModel(CompressionModel):
         return string, rpm_hidden.detach()
         
     def decompress_slow(self, string, shape, rpm_hidden):
+        print('decom',self.RPM_flag)
         self.dAC_t = self.dnet_t = 0
         if self.RPM_flag:
             assert self.prior_latent is not None, 'prior latent is none!'
