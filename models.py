@@ -1277,9 +1277,7 @@ class SPVC(nn.Module):
         
     def fake(self, x):
         bs, c, h, w = x[1:].size()
-        
         # BATCH:compute optical flow
-        # obtain reference frames from a graph
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
         ref_index = refidx_from_graph(g,bs)
@@ -1294,17 +1292,9 @@ class SPVC(nn.Module):
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         #res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
         res_string,_,_,_,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
-        
-        # DECODE
-        mv_hat2,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=mv_size)
-        
-        MC_frames,_ = TFE(self.MC_network,x[:1],bs,mv_hat2,layers,parents,self.use_gpu)
-        
-        res_hat2,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
-        
-        
+        res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=res_size)
         # reconstruction
-        com_frames = torch.clip(res_hat2 + MC_frames, min=0, max=1).to(x.device)
+        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         
         return com_frames
         
