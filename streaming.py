@@ -635,13 +635,13 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
             msssim_module.update(msssim.cpu().data.item(), len(psnr_list))
         
-        # show result
-        test_iter.set_description(
-            f"{data_idx:6}. "
-            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
-            f"I: {float(max(psnr_list)):.2f}")
+            # show result
+            test_iter.set_description(
+                f"{data_idx:6}. "
+                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+                f"I: {float(max(psnr_list)):.2f}")
         
         # clear input
         data = []
