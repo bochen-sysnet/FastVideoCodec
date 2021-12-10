@@ -390,7 +390,7 @@ def streaming_parallel(model, test_dataset):
             for _ in range(strings_to_recv):
                 # [L=8] receive length of next string
                 bytes_recv = process.stdout.read(8)
-                x_len = struct.unpack('L',bytes_recv)
+                x_len = struct.unpack('L',bytes_recv)[0]
                 # recv actual string
                 x_string = process.stdout.read(x_len)
                 x_string_list += [x_string]
@@ -398,7 +398,7 @@ def streaming_parallel(model, test_dataset):
             for _ in range(strings_to_recv):
                 # [L=8] receive length of next string
                 bytes_recv = process.stdout.read(8)
-                z_len = struct.unpack('L',bytes_recv)
+                z_len = struct.unpack('L',bytes_recv)[0]
                 # recv actual string
                 z_string = process.stdout.read(z_len)
                 z_string_list += [z_string]
