@@ -1237,7 +1237,7 @@ def graph_from_batch(bs,isLinear=False):
     return g,layers,parents
     
 def refidx_from_graph(g,bs):
-    ref_index = [-1 for _ in x_tar]
+    ref_index = [-1 for _ in range(bs)]
     for start in g:
         if start>bs:continue
         for k in g[start]:
