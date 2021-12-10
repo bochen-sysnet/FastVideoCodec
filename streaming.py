@@ -357,7 +357,7 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 
 # codec model .
-model = get_codec_model(CODEC_NAME,noMeasure=True,loss_type=loss_type,compression_level=compression_level)
+model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -572,9 +572,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     msssim_list1 = []
                     bpp_act_list1 = []
                     for i in range(1,B):
-                        #mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
-                        #x_ref,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        x_ref,hidden,_,_,_,bpp_act,_,_ = model(x_ref, x_b[i:i+1], hidden, i>1)
+                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
+                        x_ref,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
+                        #x_ref,hidden,_,_,_,bpp_act,_,_ = model(x_ref, x_b[i:i+1], hidden, i>1)
                         x_ref = x_ref.detach()
                         raw = x_b[i:i+1]
                         psnr_list1 += [PSNR(raw, x_ref)]

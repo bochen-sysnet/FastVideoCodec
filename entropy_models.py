@@ -75,6 +75,7 @@ class RecProbModel(CompressionModel):
         return bits_est
         
     def compress(self, x):
+        print('com',self.RPM_flag)
         if self.RPM_flag:
             indexes = self.gaussian_conditional.build_indexes(self.sigma)
             string = self.gaussian_conditional.compress(x, indexes, means=self.mu)
@@ -83,6 +84,7 @@ class RecProbModel(CompressionModel):
         return string
 
     def decompress(self, string, shape):
+        print('decom',self.RPM_flag)
         if self.RPM_flag:
             indexes = self.gaussian_conditional.build_indexes(self.sigma)
             x_hat = self.gaussian_conditional.decompress(string, indexes, means=self.mu)
