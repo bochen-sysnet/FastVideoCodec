@@ -432,6 +432,7 @@ def streaming_parallel(model, test_dataset):
                 # Send GoP size, this determines how to encode/decode the strings
                 bytes_send = struct.pack('B',GoP_size)
                 process.stdin.write(bytes_send)
+                print('send',bytes_send)
                 # Send compressed I frame (todo)
                 # Send all strings in order
                 send_strings_to_process(process, com_data[1:])
@@ -461,6 +462,7 @@ def streaming_parallel(model, test_dataset):
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)
+                print(GoP_size)
                 # receive strings based on gop size
                 if GoP_size>fP+1:
                     # receive the first two strings
