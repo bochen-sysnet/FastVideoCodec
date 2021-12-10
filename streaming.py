@@ -488,32 +488,32 @@ def streaming_parallel(model, test_dataset):
             cmd = f'nc localhost 8888'
             process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
             for begin in range(0,L,GoP):
-                # put a timer here
+                x_GoP = data[begin:begin+GoP]
+                GoP_size = x_GoP.size(0)
+                # Send GoP size, this determines how to encode/decode the strings
+                bytes_send = struct.pack('B',GoP_size)
+                process.stdin.write(bytes_send)
+                # Send compressed I frame (todo)
                 with torch.no_grad():
-                    x_GoP = data[begin:begin+GoP]
-                    GoP_size = x_GoP.size(0)
                     if GoP_size>fP+1:
                         # compress I
                         # compress backward
                         x_b = torch.flip(x_GoP[:fP+1],[0])
                         mv_string1,res_string1,_ = model.compress(x_b)
+                        # Send strings in order
+                        send_strings_to_process(process, [mv_string1,res_string1])
                         # compress forward
                         x_f = x_GoP[fP:]
                         mv_string2,res_string2,_ = model.compress(x_f)
-                        com_data = [x_b[:1],mv_string1,res_string1,mv_string2,res_string2]
+                        # Send strings in order
+                        send_strings_to_process(process, [mv_string2,res_string2])
                     else:
                         # compress I
                         # compress backward
                         x_f = x_GoP
                         mv_string,res_string,bpp_act_list = model.compress(x_f)
-                        com_data = [x_f[:1],mv_string,res_string]
-                # Send GoP size, this determines how to encode/decode the strings
-                bytes_send = struct.pack('B',GoP_size)
-                process.stdin.write(bytes_send)
-                # Send compressed I frame (todo)
-                # Send all strings in order
-                send_strings_to_process(process, com_data[1:])
-                
+                        # Send strings in order
+                        send_strings_to_process(process, [mv_string,res_string])
             # Close and flush stdin
             process.stdin.close()
             # Wait for sub-process to finish
@@ -555,7 +555,7 @@ def streaming_parallel(model, test_dataset):
                         # receive the second two strings
                         strings_to_recv = GoP-1-fP
                         mv_string2 = recv_strings_from_process(process, strings_to_recv)
-                        res_string2 = recv_strings_from_process(process, strings_to_recv)
+                        res_string2 = recv_strings_from_prosscess(process, strings_to_recv)
                         # decompress forward
                         x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
                         # concate
