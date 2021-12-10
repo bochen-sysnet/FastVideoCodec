@@ -232,7 +232,7 @@ def parallel_compression(model, data, compressI=False):
         bpp_act_list += [bpp_act.cuda()]
         psnr_list += [psnr.cuda()]
         msssim_list += [msssim.cuda()]
-        data[0:1] = x_hat
+        data[0:1] = x_hat.cuda()
     
     
     # P compression, not including I frame
