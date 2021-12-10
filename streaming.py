@@ -179,6 +179,83 @@ def static_bench_x26x():
     static_simulation_x26x(test_dataset,'x264')
     static_simulation_x26x(test_dataset,'x265')
     exit(0)
+    
+def static_simulation_model(model, test_dataset):
+    aux_loss_module = AverageMeter()
+    img_loss_module = AverageMeter()
+    ba_loss_module = AverageMeter()
+    be_loss_module = AverageMeter()
+    psnr_module = AverageMeter()
+    msssim_module = AverageMeter()
+    all_loss_module = AverageMeter()
+    ds_size = len(test_dataset)
+    
+    model.eval()
+    
+    fP,bP = 6,6
+    GoP = fP+bP+1
+    
+    data = []
+    test_iter = tqdm(range(ds_size))
+    for data_idx,_ in enumerate(test_iter):
+        frame,eof = test_dataset[data_idx]
+        data.append(transforms.ToTensor()(frame))
+        if len(data) < GoP and not eof:
+            continue
+            
+        with torch.no_grad():
+            data = torch.stack(data, dim=0).cuda()
+            l = data.size(0)
+            
+            # compress GoP
+            if l>fP+1:
+                com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
+                data[fP:fP+1] = com_imgs[0:1]
+                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
+                img_loss_list = img_loss_list1[::-1] + img_loss_list2
+                aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
+                psnr_list = psnr_list1[::-1] + psnr_list2
+                msssim_list = msssim_list1[::-1] + msssim_list2
+                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+                bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
+            else:
+                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+                
+            # aggregate loss
+            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+            aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+            img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            loss = model.loss(img_loss,ba_loss,aux_loss)
+            
+            # record loss
+            aux_loss_module.update(aux_loss.cpu().data.item(), l)
+            img_loss_module.update(img_loss.cpu().data.item(), l)
+            ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            be_loss_module.update(ba_loss.cpu().data.item(), l)
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+            all_loss_module.update(loss.cpu().data.item(), l)
+        
+        # show result
+        test_iter.set_description(
+            f"{data_idx:6}. "
+            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+            f"I: {float(max(psnr_list)):.2f}")
+            
+        # clear input
+        data = []
+        
+    test_dataset.reset()
+    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def dynamic_simulation_x26x(test_dataset, name='x264'):
     print('Benchmarking:',name)
@@ -462,7 +539,7 @@ def streaming_parallel(model, test_dataset):
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)[0]
-                print(GoP_size)
+                print('GoP size:',GoP_size)
                 # receive strings based on gop size
                 if GoP_size>fP+1:
                     # receive the first two strings
@@ -660,83 +737,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
         data = []
         
     test_dataset.reset()
-    
-def static_simulation_model(model, test_dataset):
-    aux_loss_module = AverageMeter()
-    img_loss_module = AverageMeter()
-    ba_loss_module = AverageMeter()
-    be_loss_module = AverageMeter()
-    psnr_module = AverageMeter()
-    msssim_module = AverageMeter()
-    all_loss_module = AverageMeter()
-    ds_size = len(test_dataset)
-    
-    model.eval()
-    
-    fP,bP = 6,6
-    GoP = fP+bP+1
-    
-    data = []
-    test_iter = tqdm(range(ds_size))
-    for data_idx,_ in enumerate(test_iter):
-        frame,eof = test_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
-        if len(data) < GoP and not eof:
-            continue
-            
-        with torch.no_grad():
-            data = torch.stack(data, dim=0).cuda()
-            l = data.size(0)
-            
-            # compress GoP
-            if l>fP+1:
-                com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
-                data[fP:fP+1] = com_imgs[0:1]
-                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
-                img_loss_list = img_loss_list1[::-1] + img_loss_list2
-                aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
-                psnr_list = psnr_list1[::-1] + psnr_list2
-                msssim_list = msssim_list1[::-1] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
-                bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
-            else:
-                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
-                
-            # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-            aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-            img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            loss = model.loss(img_loss,ba_loss,aux_loss)
-            
-            # record loss
-            aux_loss_module.update(aux_loss.cpu().data.item(), l)
-            img_loss_module.update(img_loss.cpu().data.item(), l)
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
-            be_loss_module.update(ba_loss.cpu().data.item(), l)
-            psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
-            all_loss_module.update(loss.cpu().data.item(), l)
-        
-        # show result
-        test_iter.set_description(
-            f"{data_idx:6}. "
-            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
-            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
-            f"I: {float(max(psnr_list)):.2f}")
-            
-        # clear input
-        data = []
-        
-    test_dataset.reset()
-    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # complete the compression/decompress function for DVC and RLVC
@@ -752,7 +752,7 @@ model = LoadModel('SPVC')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
-#streaming_parallel(model, test_dataset)
-static_simulation_model(model, test_dataset)
+streaming_parallel(model, test_dataset)
+#static_simulation_model(model, test_dataset)
 #streaming_sequential(model, test_dataset)
 enc,dec = showTimer(model)
