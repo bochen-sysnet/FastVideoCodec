@@ -730,7 +730,7 @@ class Coder2D(nn.Module):
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
             latent_hat, latent_string, rpm_hidden = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
-            self.entropy_bottleneck.set_prior(latent_hat)
+            #self.entropy_bottleneck.set_prior(latent_hat)
             latentSize = latent.size()[-2:]
             
         self.net_t += self.entropy_bottleneck.enet_t
@@ -1122,29 +1122,31 @@ class IterPredVideoCodecs(nn.Module):
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
-    def fake(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
+    def fake(self, Y0_com, Y1_raw, com_hidden, decom_hidden, RPM_flag):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
         batch_size, _, Height, Width = Y1_raw.shape
         # hidden states
-        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
+        com_rae_mv_hidden, com_rae_res_hidden, com_rpm_mv_hidden, com_rpm_res_hidden = com_hidden
+        decom_rae_mv_hidden, decom_rae_res_hidden, decom_rpm_mv_hidden, decom_rpm_res_hidden = decom_hidden
         # estimate optical flow
         mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
         # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
-        #_,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True)
-        #mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=mv_size)
+        #mv_hat,com_rae_mv_hidden,com_rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag)
+        _,mv_string,com_rae_mv_hidden,com_rpm_mv_hidden,mv_act,mv_size = self.mv_codec.compress(mv_tensor, com_rae_mv_hidden, com_rpm_mv_hidden, RPM_flag, decodeLatent=True)
+        mv_hat,rae_mv_hidden,rpm_mv_hidden = self.mv_codec.decompress(mv_string, decom_rae_mv_hidden, decom_rpm_mv_hidden, RPM_flag, latentSize=mv_size)
         # motion compensation
         Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
         # compress residual
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
-        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
+        res_hat,com_rae_res_hidden,com_rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, com_rae_res_hidden, com_rpm_res_hidden, RPM_flag)
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # hidden states
-        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
+        com_hidden = (com_rae_mv_hidden.detach(), com_rae_res_hidden.detach(), com_rpm_mv_hidden, com_rpm_res_hidden)
+        decom_hidden = (decom_rae_mv_hidden.detach(), decom_rae_res_hidden.detach(), decom_rpm_mv_hidden, decom_rpm_res_hidden)
         return Y1_com.to(Y1_raw.device), hidden_states, bpp_act
         
     def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
