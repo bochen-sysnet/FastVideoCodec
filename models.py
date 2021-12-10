@@ -252,7 +252,7 @@ def parallel_compression(model, data, compressI=False):
             mv_prior_latent = res_prior_latent = None
             x_hat = data[0:1]
             for i in range(1,B):
-                x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim = model(x_hat, data[i:i+1], hidden, i>1)
+                x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = model(x_hat, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 x_hat = x_hat.detach()
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
@@ -1056,7 +1056,7 @@ class IterPredVideoCodecs(nn.Module):
         self.MC_network.cuda(1)
         self.res_codec.cuda(1)
 
-    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
+    def forward(self, Y0_com, Y1_raw, hidden_states, RPM_fla,mv_prior_latent,res_prior_latent):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
         batch_size, _, Height, Width = Y1_raw.shape
@@ -1076,7 +1076,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux,mv_prior_latent = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
+        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux,mv_prior_latent = \
+            self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag,prior_latent=mv_prior_latent)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
@@ -1093,7 +1094,8 @@ class IterPredVideoCodecs(nn.Module):
         mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, True)
         # compress residual
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
-        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
+        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
+            self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag,prior_latent=res_prior_latent)
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
