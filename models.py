@@ -1251,7 +1251,9 @@ class SPVC(nn.Module):
                 ref_index[k-1] = start
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         # BATCH:compress optical flow
-        mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
+        #mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
+        _,mv_string,_,_,_,_,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
+        mv_hat,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
         # SEQ:motion compensation
         t_0 = time.perf_counter()
         MC_frame_list = [None for _ in x_tar]
