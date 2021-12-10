@@ -730,7 +730,7 @@ class Coder2D(nn.Module):
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
             latent_hat, latent_string, rpm_hidden = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,needCompressed=True)
-            #self.entropy_bottleneck.set_prior(latent_hat)
+            self.entropy_bottleneck.set_prior(latent_hat)
             latentSize = latent.size()[-2:]
             
         self.net_t += self.entropy_bottleneck.enet_t
