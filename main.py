@@ -182,7 +182,6 @@ def test(epoch, model, test_dataset):
                 _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
                 
             # aggregate loss
-            print(bpp_act_list)
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
             aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
