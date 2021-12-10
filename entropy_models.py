@@ -96,9 +96,9 @@ class RecProbModel(CompressionModel):
         assert(x is not None)
         if forEnc: 
             self.prior_latent_enc = torch.round(x).detach()
-        elif forDec:
+        if forDec:
             self.prior_latent_dec = torch.round(x).detach()
-        else:
+        if not forEnc and not forDec:
             self.prior_latent = torch.round(x).detach()
         
     # we should only use one hidden from compression or decompression
