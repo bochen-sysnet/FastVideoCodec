@@ -575,12 +575,13 @@ def streaming_parallel(model, test_dataset):
                         # decompress backward
                         x_f_hat = model.decompress(x_ref,mv_string,res_string)
                         # concate
-                        x_hat = torch.cat(x_ref,x_f_hat),dim=0)
+                        x_hat = torch.cat((x_ref,x_f_hat),dim=0)
                     for com in x_hat:
                         com = com.cuda().unsqueeze(0)
                         raw = data[i].cuda().unsqueeze(0)
                         psnr_list += [PSNR(raw, com)]
                         msssim_list += [MSSSIM(raw, com)]
+                        print(psnr_list[-1])
                         i += 1
                         # show result
                         stream_iter.set_description(
