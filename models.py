@@ -1220,6 +1220,21 @@ def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_gpu):
     MC_frames = torch.cat(MC_frame_list,dim=0)
     warped_frames = torch.cat(warped_frame_list,dim=0)
     return MC_frames,warped_frames
+    
+def graph_from_batch(bs,isLinear=False):
+    if isLinear:
+        g,layers,parents = generate_graph('default')
+    else:
+        # I frame is the only first layer
+        if bs <=2:
+            g,layers,parents = generate_graph('2layers')
+        elif bs <=6:
+            g,layers,parents = generate_graph('3layers')
+        elif bs <=14:
+            g,layers,parents = generate_graph('4layers')
+        else:
+            print('Batch size not supported yet:',bs)
+    return g,layers,parents
            
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2, use_gpu=True):
@@ -1257,18 +1272,7 @@ class SPVC(nn.Module):
         # BATCH:compute optical flow
         # obtain reference frames from a graph
         x_tar = x[1:]
-        if self.name == 'SPVC-L':
-            g,layers,parents = generate_graph('default')
-        else:
-            # I frame is the only first layer
-            if bs <=2:
-                g,layers,parents = generate_graph('2layers')
-            elif bs <=6:
-                g,layers,parents = generate_graph('3layers')
-            elif bs <=14:
-                g,layers,parents = generate_graph('4layers')
-            else:
-                print('Batch size not supported yet:',bs)
+        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
@@ -1299,19 +1303,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        if self.name == 'SPVC-L':
-            g,layers,parents = generate_graph('default')
-        else:
-            # I frame is the only first layer
-            if bs <=2:
-                g,layers,parents = generate_graph('2layers')
-            elif bs <=6:
-                g,layers,parents = generate_graph('3layers')
-            elif bs <=14:
-                g,layers,parents = generate_graph('4layers')
-            else:
-                print('Batch size not supported yet:',bs)
-                exit(0)
+        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
@@ -1353,18 +1345,7 @@ class SPVC(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         
         # graph
-        if self.name == 'SPVC-L':
-            g,layers,parents = generate_graph('default')
-        else:
-            # I frame is the only first layer
-            if bs <=2:
-                g,layers,parents = generate_graph('2layers')
-            elif bs <=6:
-                g,layers,parents = generate_graph('3layers')
-            elif bs <=14:
-                g,layers,parents = generate_graph('4layers')
-            else:
-                print('Batch size not supported yet.')
+        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
@@ -1391,18 +1372,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        if self.name == 'SPVC-L':
-            g,layers,parents = generate_graph('default')
-        else:
-            # I frame is the only first layer
-            if bs <=2:
-                g,layers,parents = generate_graph('2layers')
-            elif bs <=6:
-                g,layers,parents = generate_graph('3layers')
-            elif bs <=14:
-                g,layers,parents = generate_graph('4layers')
-            else:
-                print('Batch size not supported yet:',bs)
+        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
         ref_index = [-1 for _ in x_tar]
         for start in g:
             if start>bs:continue
@@ -1426,29 +1396,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frame_list = [None for _ in x_tar]
-        warped_frame_list = [None for _ in x_tar]
-        # for layers in graph
-        # get elements of this layers
-        # get parents of all elements above
-        for layer in layers:
-            ref = [] # reference frame
-            diff = [] # motion
-            for tar in layer: # id of frames in this layer
-                if tar>bs:continue
-                parent = parents[tar]
-                ref += [x[:1] if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-                diff += [mv_hat[tar-1:tar].cuda(1) if self.use_gpu else mv_hat[tar-1:tar]] # motion needed for this id
-            if ref:
-                ref = torch.cat(ref,dim=0)
-                diff = torch.cat(diff,dim=0)
-                MC_frame,warped_frame = motion_compensation(self.MC_network,ref,diff)
-                for i,tar in enumerate(layer):
-                    if tar>bs:continue
-                    MC_frame_list[tar-1] = MC_frame[i:i+1]
-                    warped_frame_list[tar-1] = warped_frame[i:i+1]
-        MC_frames = torch.cat(MC_frame_list,dim=0)
-        warped_frames = torch.cat(warped_frame_list,dim=0)
+        MC_frames,warped_frames = TFE(self.MC_network,x_ref,bs,mv_hat,layers,parents,self.use_gpu)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
