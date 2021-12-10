@@ -75,9 +75,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
+        if batch_idx<=45000:continue
         data = data[0].cuda()
-        # flip occasionally
-        data = torch.flip(data,[0])
         l = data.size(0)-1
         
         # run model

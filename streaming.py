@@ -507,6 +507,8 @@ def streaming_parallel(model, test_dataset):
                             raw = x_b_hat[j:j+1].cuda()
                             print(PSNR(raw, com))
                         #############
+                        exit(0)
+                        #############
                         # compress forward
                         x_f = x_GoP[fP:]
                         mv_string2,res_string2,_ = model.compress(x_f)
