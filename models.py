@@ -1123,6 +1123,28 @@ class IterPredVideoCodecs(nn.Module):
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         
+    def fake(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
+        # Y0_com: compressed previous frame, [1,c,h,w]
+        # Y1_raw: uncompressed current frame
+        batch_size, _, Height, Width = Y1_raw.shape
+        # hidden states
+        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
+        # estimate optical flow
+        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        # compress optical flow
+        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag)
+        # motion compensation
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_gpu else mv_hat)
+        # compress residual
+        res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux = self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag)
+        # reconstruction
+        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
+        # actual bits
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
+        # hidden states
+        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
+        return Y1_com.to(Y1_raw.device), hidden_states, bpp_act
+        
     def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag):
         bs, c, h, w = Y1_raw[1:].size()
         # hidden states
