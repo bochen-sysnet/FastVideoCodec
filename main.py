@@ -365,7 +365,7 @@ elif CODEC_NAME in ['DVC','SPVC']:
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
+    BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
