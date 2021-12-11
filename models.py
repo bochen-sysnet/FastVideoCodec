@@ -1687,10 +1687,8 @@ class AE3D(nn.Module):
         bpp_act = latent_act/(h * w)
         t_1=time.perf_counter()
         # calculate metrics/loss
-        if self.use_psnr:
-            msssim = psnr = PSNR(x, x_hat, use_list=True)
-        else:
-            msssim = psnr = MSSSIM(x, x_hat, use_list=True)
+        psnr = PSNR(x, x_hat, use_list=True)
+        msssim MSSSIM(x, x_hat, use_list=True)
         print(time.perf_counter()-t_1)
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
