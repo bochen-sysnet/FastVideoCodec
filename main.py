@@ -26,7 +26,7 @@ from dataset import VideoDataset, FrameDataset
 
 # OPTION
 BACKUP_DIR = 'backup'
-CODEC_NAME = 'DVC'
+CODEC_NAME = 'SPVC'
 loss_type = 'P'
 compression_level = 2 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
@@ -35,7 +35,7 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 2
+WARMUP_EPOCH = 0
 USE_VIMEO = True
 
 class AverageMeter(object):
