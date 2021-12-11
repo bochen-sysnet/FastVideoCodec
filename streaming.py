@@ -640,6 +640,27 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
         if use_gpu:
             data = data.cuda()
         L = data.size(0)
+        
+        def client(data):
+            # start a process to pipe data to netcat
+            cmd = f'nc localhost 8888'
+            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+            for begin in range(0,L,GoP):
+                x_GoP = data[begin:begin+GoP]
+                GoP_size = x_GoP.size(0)
+                # Send GoP size, this determines how to encode/decode the strings
+                bytes_send = struct.pack('B',GoP_size)
+                process.stdin.write(bytes_send)
+        
+        def server(data):
+            # Beginning time of streaming
+            t_0 = time.perf_counter()
+            # create a pipe for listening from netcat
+            cmd = f'nc -l 8888'
+            process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+            # Start a thread that streams data
+            threading.Thread(target=client, args=(data,)).start() 
+        
         # put a timer for backward frames
         # a different timer for forward frames
         proc_iter = tqdm(range(0,L,GoP))
@@ -702,7 +723,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                 else:
                     # compress I
                     # compress forward
-                    x_b = torch.flip(x_GoP,[0])
+                    x_b = x_GoP
                     psnr_list = []
                     msssim_list = []
                     bpp_act_list = []
@@ -715,9 +736,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         bpp_act_list += [bpp_act]
                         x_ref = com.detach()
                     # concat 
-                    psnr_list = psnr_list[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
-                    msssim_list = msssim_list[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
-                    bpp_act_list = bpp_act_list[::-1] + [torch.FloatTensor([1]).squeeze(0)]
+                    psnr_list = psnr_list + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
+                    msssim_list = msssim_list + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
+                    bpp_act_list = bpp_act_list + [torch.FloatTensor([1]).squeeze(0)]
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
