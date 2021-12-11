@@ -1858,7 +1858,7 @@ def test_seq_proc(name='RLVC'):
     
 if __name__ == '__main__':
     #test_seq_proc('DVC')
-    rlvc_e,_ = test_seq_proc('RLVC')
+    #rlvc_e,_ = test_seq_proc('RLVC')
     spvc_e,_ = test_batch_proc('SPVC')
     #result = []
     #for B in range(2,16):
