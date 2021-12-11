@@ -970,10 +970,12 @@ class Coder2D(nn.Module):
         x_est = []
         x_act = []
         x_aux = torch.FloatTensor([0]).squeeze(0).cuda()
+        print('012',time.perf_counter()-t_1)
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
         else:
             rpm_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
+        print('0123',time.perf_counter()-t_1)
         rae_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
         prior_latent = None
         if not self.noMeasure:
