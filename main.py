@@ -355,10 +355,10 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SCVC',]:
+elif CODEC_NAME in ['DVC',]:
     # load what exists
     print("Load whatever exists for",CODEC_NAME)
-    pretrained_model_path = "backup/SPVC/SPVC-2P_ckpt.pth"
+    pretrained_model_path = "backup/DVC/DVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
