@@ -1688,7 +1688,7 @@ class AE3D(nn.Module):
         t_1=time.perf_counter()
         # calculate metrics/loss
         psnr = PSNR(x, x_hat, use_list=True)
-        msssim MSSSIM(x, x_hat, use_list=True)
+        msssim = MSSSIM(x, x_hat, use_list=True)
         print(time.perf_counter()-t_1)
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
