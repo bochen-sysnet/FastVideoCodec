@@ -1645,9 +1645,6 @@ class AE3D(nn.Module):
     def forward(self, x):
         x = x[1:]
             
-        if not self.noMeasure:
-            self.enc_t = [];self.dec_t = []
-            
         # x=[B,C,H,W]: input sequence of frames
         x = x.permute(1,0,2,3).contiguous().unsqueeze(0)
         bs, c, t, h, w = x.size()
@@ -1661,6 +1658,7 @@ class AE3D(nn.Module):
             self.meters['E-NET'].update(time.perf_counter() - t_0)
         
         # entropy
+        t_1 = time.perf_counter()
         # compress each frame sequentially
         latent = latent.squeeze(0).permute(1,0,2,3).contiguous()
         latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
@@ -1669,6 +1667,7 @@ class AE3D(nn.Module):
         if not self.noMeasure:
             self.meters['E-MV'].update(self.latent_codec.enc_t)
             self.meters['D-MV'].update(self.latent_codec.dec_t)
+        print(time.perf_counter()-t1)
         
         # decoder
         t_0 = time.perf_counter()
