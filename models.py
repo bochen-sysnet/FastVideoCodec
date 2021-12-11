@@ -831,6 +831,7 @@ class Coder2D(nn.Module):
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
         self.realCom = not self.training
+        t_x = time.perf_counter()
         # update only once during testing
         if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
@@ -868,7 +869,7 @@ class Coder2D(nn.Module):
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
-        t_x = time.perf_counter()
+        
         # quantization + entropy coding
         if self.entropy_type == 'base':
             if self.noMeasure:
@@ -914,7 +915,6 @@ class Coder2D(nn.Module):
         if not self.noMeasure:
             self.enc_t += self.entropy_bottleneck.enc_t
             self.dec_t += self.entropy_bottleneck.dec_t
-            print(time.perf_counter()-t_x)
         
         # calculate bpp (estimated) if it is training else it will be set to 0
         if self.noMeasure:
@@ -962,6 +962,7 @@ class Coder2D(nn.Module):
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
             if rae_hidden is not None:
                 rae_hidden = rae_hidden.detach()
+        print('codec2d:',time.perf_counter()-t_x)
             
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
