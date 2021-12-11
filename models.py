@@ -1658,7 +1658,7 @@ class AE3D(nn.Module):
         x2 = self.conv2(x1) + x1
         latent = self.conv3(x2)
         if not self.noMeasure:
-            self.enc_t += [time.perf_counter() - t_0]
+            self.meters['E-NET'].update(time.perf_counter() - t_0)
         
         # entropy
         # compress each frame sequentially
@@ -1666,6 +1666,9 @@ class AE3D(nn.Module):
         latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
         latent_hat = latent_hat.permute(1,0,2,3).unsqueeze(0).contiguous()
         aux_loss = aux_loss.repeat(t)
+        if not self.noMeasure:
+            self.meters['E-MV'].update(self.latent_codec.enc_t)
+            self.meters['D-MV'].update(self.latent_codec.dec_t)
         
         # decoder
         t_0 = time.perf_counter()
@@ -1673,7 +1676,7 @@ class AE3D(nn.Module):
         x4 = self.deconv2(x3) + x3
         x_hat = self.deconv3(x4)
         if not self.noMeasure:
-            self.dec_t += [time.perf_counter() - t_0]
+            self.meters['D-NET'].update(time.perf_counter() - t_0)
         
         # reshape
         x = x.permute(0,2,1,3,4).contiguous().squeeze(0)
@@ -1692,9 +1695,6 @@ class AE3D(nn.Module):
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
         img_loss = img_loss.repeat(t)
-        
-        if not self.noMeasure:
-            print(np.sum(self.enc_t)/t,np.sum(self.dec_t)/t,self.enc_t,self.dec_t)
         
         return x_hat.to(x.device), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
