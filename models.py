@@ -970,7 +970,7 @@ class Coder2D(nn.Module):
         x_est = []
         x_act = []
         print('01',time.perf_counter()-t_1)
-        x_aux = torch.FloatTensor([0]).squeeze(0).cuda()
+        x_aux = []
         print('012',time.perf_counter()-t_1)
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
@@ -996,7 +996,7 @@ class Coder2D(nn.Module):
             x_act += [x_act_i.cuda()]
             
             # aux
-            x_aux += x_aux_i.cuda()
+            x_aux += [x_aux_i.cuda()]
             
             if not self.noMeasure:
                 enc_t += self.enc_t
@@ -1669,7 +1669,6 @@ class AE3D(nn.Module):
         latent = latent.squeeze(0).permute(1,0,2,3).contiguous()
         latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
         latent_hat = latent_hat.permute(1,0,2,3).unsqueeze(0).contiguous()
-        aux_loss = aux_loss.repeat(t)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.latent_codec.enc_t)
             self.meters['D-MV'].update(self.latent_codec.dec_t)
