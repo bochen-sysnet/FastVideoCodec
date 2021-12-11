@@ -831,7 +831,6 @@ class Coder2D(nn.Module):
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
         self.realCom = not self.training
-        t_x = time.perf_counter()
         # update only once during testing
         if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
@@ -962,7 +961,6 @@ class Coder2D(nn.Module):
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
             if rae_hidden is not None:
                 rae_hidden = rae_hidden.detach()
-        print('codec2d:',time.perf_counter()-t_x)
             
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
@@ -1663,7 +1661,9 @@ class AE3D(nn.Module):
         t_1 = time.perf_counter()
         # compress each frame sequentially
         latent = latent.squeeze(0).permute(1,0,2,3).contiguous()
+        t_2 = time.perf_counter()
         latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
+        print('pure',time.perf_counter()-t_2)
         latent_hat = latent_hat.permute(1,0,2,3).unsqueeze(0).contiguous()
         aux_loss = aux_loss.repeat(t)
         if not self.noMeasure:
