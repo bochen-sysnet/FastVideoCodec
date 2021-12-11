@@ -1784,6 +1784,7 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
         # measure start
         t_0 = time.perf_counter()
         com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, sim = model(x)
+        print(d)
         d = time.perf_counter() - t_0
         timer.update(d)
         # measure end
