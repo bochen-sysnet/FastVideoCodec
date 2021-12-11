@@ -830,23 +830,23 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden, prior_latent
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
-        t_1 = time.perf_counter()
         self.realCom = not self.training
         # update only once during testing
         if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
             self.updated = True
-        print('a',time.perf_counter()-t_1)    
+            
         if not self.noMeasure:
             self.enc_t = self.dec_t = 0
-        
-        # latent states
-        if self.conv_type == 'rec':
-            state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
-            print('bbb',time.perf_counter()-t_1)    
+            
         # Time measurement: start
         if not self.noMeasure:
             t_0 = time.perf_counter()
+        
+        # latent states
+        if self.conv_type == 'rec':
+            state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1) 
+            
         # compress
         if self.downsample:
             x = self.gdn1(self.enc_conv1(x))
@@ -949,6 +949,11 @@ class Coder2D(nn.Module):
         else:
             hat = latent_hat
         
+        if self.conv_type == 'rec':
+            rae_hidden = torch.cat((state_enc, state_dec),dim=1)
+            if rae_hidden is not None:
+                rae_hidden = rae_hidden.detach()
+        
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
@@ -956,11 +961,6 @@ class Coder2D(nn.Module):
         
         # auxilary loss
         aux_loss = self.entropy_bottleneck.loss()
-        
-        if self.conv_type == 'rec':
-            rae_hidden = torch.cat((state_enc, state_dec),dim=1)
-            if rae_hidden is not None:
-                rae_hidden = rae_hidden.detach()
             
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
