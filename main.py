@@ -218,7 +218,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = []
+    STEPS = [2]
     steps = [s for s in STEPS if s<0] if epoch<0 else [s for s in STEPS if s>=0]
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
     for param_group in optimizer.param_groups:
