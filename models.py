@@ -832,23 +832,21 @@ class Coder2D(nn.Module):
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
         t_1 = time.perf_counter()
         self.realCom = not self.training
-        print('a',time.perf_counter()-t_1) 
         # update only once during testing
         if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
             self.updated = True
-        print('zzz',time.perf_counter()-t_1)    
+        print('a',time.perf_counter()-t_1)    
         if not self.noMeasure:
             self.enc_t = self.dec_t = 0
         
         # latent states
         if self.conv_type == 'rec':
             state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
-           
+            print('bbb',time.perf_counter()-t_1)    
         # Time measurement: start
         if not self.noMeasure:
             t_0 = time.perf_counter()
-        
         # compress
         if self.downsample:
             x = self.gdn1(self.enc_conv1(x))
