@@ -1667,7 +1667,7 @@ class AE3D(nn.Module):
         if not self.noMeasure:
             self.meters['E-MV'].update(self.latent_codec.enc_t)
             self.meters['D-MV'].update(self.latent_codec.dec_t)
-        print(time.perf_counter()-t1)
+        print(time.perf_counter()-t_1)
         
         # decoder
         t_0 = time.perf_counter()
