@@ -1645,6 +1645,7 @@ class AE3D(nn.Module):
         self.latent_codec.cuda(0)
         
     def forward(self, x):
+        t_1 = time.perf_counter()
         t_0 = time.perf_counter()
         x = x[1:]
             
@@ -1679,6 +1680,7 @@ class AE3D(nn.Module):
         x_hat = x_hat.permute(0,2,1,3,4).contiguous().squeeze(0)
         if not self.noMeasure:
             self.meters['D-NET'].update(time.perf_counter() - t_0)
+        print('??',time.perf_counter()-t_1)
         
         # estimated bits
         bpp_est = latent_est/(h * w)
@@ -1693,6 +1695,7 @@ class AE3D(nn.Module):
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
         img_loss = img_loss.repeat(t)
+        print('????',time.perf_counter()-t_1)
         
         return x_hat.to(x.device), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
