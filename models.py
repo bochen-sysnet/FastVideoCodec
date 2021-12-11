@@ -671,7 +671,6 @@ class Coder2D(nn.Module):
         # include two average meter to measure time
         
     def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False, prior_latent=None):
-        t_1 = time.perf_counter()
         # update only once during testing
         if not self.updated and not self.training:
             self.entropy_bottleneck.update(force=True)
@@ -686,7 +685,6 @@ class Coder2D(nn.Module):
         # latent states
         if self.conv_type == 'rec':
             state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
-        print('b',time.perf_counter()-t_1)
             
         # compress
         if self.downsample:
@@ -705,7 +703,6 @@ class Coder2D(nn.Module):
             latent = self.enc_conv4(x) # latent optical flow
         else:
             latent = x
-        print('v',time.perf_counter()-t_1)
         
         self.net_t += time.perf_counter() - t_0
             
@@ -741,7 +738,6 @@ class Coder2D(nn.Module):
         if decodeLatent and self.entropy_type != 'rpm':
             self.net_t += self.entropy_bottleneck.dnet_t
             self.AC_t += self.entropy_bottleneck.dAC_t
-        print('c',time.perf_counter()-t_1)
             
         if decodeLatent:
             t_0 = time.perf_counter()
@@ -763,7 +759,6 @@ class Coder2D(nn.Module):
             else:
                 hat = latent_hat
             self.net_t += time.perf_counter() - t_0
-        print('x',time.perf_counter()-t_1)
             
         if self.conv_type == 'rec':
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
@@ -772,7 +767,7 @@ class Coder2D(nn.Module):
                 
         # actual bits
         bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
-        print('z',time.perf_counter()-t_1)
+        
         if decodeLatent:
             return hat,latent_string, rae_hidden, rpm_hidden, bits_act, latentSize, prior_latent
         else:
@@ -835,6 +830,7 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden, prior_latent
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
+        t_1 = time.perf_counter()
         self.realCom = not self.training
         # update only once during testing
         if not self.updated and self.realCom:
@@ -851,7 +847,7 @@ class Coder2D(nn.Module):
         # Time measurement: start
         if not self.noMeasure:
             t_0 = time.perf_counter()
-            
+        print('a',time.perf_counter()-t_1)
         # compress
         if self.downsample:
             x = self.gdn1(self.enc_conv1(x))
@@ -869,7 +865,7 @@ class Coder2D(nn.Module):
             latent = self.enc_conv4(x) # latent optical flow
         else:
             latent = x
-        
+        print('b',time.perf_counter()-t_1)
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
@@ -914,7 +910,7 @@ class Coder2D(nn.Module):
             else:
                 _, latent_string, _, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent=prior_latent)
                 latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden, prior_latent=prior_latent)
-            
+        print('c',time.perf_counter()-t_1)    
         # add in the time in entropy bottleneck
         if not self.noMeasure:
             self.enc_t += self.entropy_bottleneck.enc_t
@@ -953,7 +949,7 @@ class Coder2D(nn.Module):
             hat = self.dec_conv4(x)
         else:
             hat = latent_hat
-        
+        print('d',time.perf_counter()-t_1)
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
@@ -966,7 +962,7 @@ class Coder2D(nn.Module):
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
             if rae_hidden is not None:
                 rae_hidden = rae_hidden.detach()
-            
+        print('e',time.perf_counter()-t_1)    
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
     def compress_sequence(self,x):
