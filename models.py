@@ -1642,7 +1642,7 @@ class AE3D(nn.Module):
         self.deconv3.cuda(1)
         self.latent_codec.cuda(0)
         
-    def forward(self, x, RPM_flag=False):
+    def forward(self, x):
         x = x[1:]
             
         if not self.noMeasure:
@@ -1669,7 +1669,7 @@ class AE3D(nn.Module):
         
         # decoder
         t_0 = time.perf_counter()
-        x3 = self.deconv1(latent_hat.cuda(1) if use_gpu else latent_hat)
+        x3 = self.deconv1(latent_hat.cuda(1) if self.use_gpu else latent_hat)
         x4 = self.deconv2(x3) + x3
         x_hat = self.deconv3(x4)
         if not self.noMeasure:
