@@ -671,6 +671,7 @@ class Coder2D(nn.Module):
         # include two average meter to measure time
         
     def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False, prior_latent=None):
+        t_1 = time.perf_counter()
         # update only once during testing
         if not self.updated and not self.training:
             self.entropy_bottleneck.update(force=True)
@@ -685,6 +686,7 @@ class Coder2D(nn.Module):
         # latent states
         if self.conv_type == 'rec':
             state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
+        print('b',time.perf_counter()-t_1)
             
         # compress
         if self.downsample:
@@ -703,6 +705,7 @@ class Coder2D(nn.Module):
             latent = self.enc_conv4(x) # latent optical flow
         else:
             latent = x
+        print('v',time.perf_counter()-t_1)
         
         self.net_t += time.perf_counter() - t_0
             
@@ -738,6 +741,7 @@ class Coder2D(nn.Module):
         if decodeLatent and self.entropy_type != 'rpm':
             self.net_t += self.entropy_bottleneck.dnet_t
             self.AC_t += self.entropy_bottleneck.dAC_t
+        print('c',time.perf_counter()-t_1)
             
         if decodeLatent:
             t_0 = time.perf_counter()
@@ -759,6 +763,7 @@ class Coder2D(nn.Module):
             else:
                 hat = latent_hat
             self.net_t += time.perf_counter() - t_0
+        print('x',time.perf_counter()-t_1)
             
         if self.conv_type == 'rec':
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
@@ -767,7 +772,7 @@ class Coder2D(nn.Module):
                 
         # actual bits
         bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
-        
+        print('z',time.perf_counter()-t_1)
         if decodeLatent:
             return hat,latent_string, rae_hidden, rpm_hidden, bits_act, latentSize, prior_latent
         else:
@@ -980,9 +985,7 @@ class Coder2D(nn.Module):
         x_hat_list = []
         for frame_idx in range(bs): 
             x_i = x[frame_idx,:,:,:].unsqueeze(0)
-            t_1 = time.perf_counter()  
             x_hat_i,rae_hidden,rpm_hidden,x_act_i,x_est_i,x_aux_i,prior_latent = self.forward(x_i, rae_hidden, rpm_hidden, frame_idx>=1,prior_latent=prior_latent)
-            print(frame_idx,time.perf_counter()-t_1)
             x_hat_list.append(x_hat_i.squeeze(0))
             
             # calculate bpp (estimated) if it is training else it will be set to 0
