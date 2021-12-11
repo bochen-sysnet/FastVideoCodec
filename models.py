@@ -868,7 +868,7 @@ class Coder2D(nn.Module):
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
-        
+        t_x = time.perf_counter()
         # quantization + entropy coding
         if self.entropy_type == 'base':
             if self.noMeasure:
@@ -914,7 +914,7 @@ class Coder2D(nn.Module):
         if not self.noMeasure:
             self.enc_t += self.entropy_bottleneck.enc_t
             self.dec_t += self.entropy_bottleneck.dec_t
-            print(self.entropy_bottleneck.enc_t,self.entropy_bottleneck.dec_t)
+            print(time.perf_counter()-t_x)
         
         # calculate bpp (estimated) if it is training else it will be set to 0
         if self.noMeasure:
