@@ -1680,21 +1680,21 @@ class AE3D(nn.Module):
         if not self.noMeasure:
             self.meters['D-NET'].update(time.perf_counter() - t_0)
         
-        t_1 = time.perf_counter()
         # estimated bits
         bpp_est = latent_est/(h * w)
-        print('?',time.perf_counter()-t_1)
+        
         # actual bits
         bpp_act = latent_act/(h * w)
-        print('??',time.perf_counter()-t_1)
+        
         # calculate metrics/loss
-        psnr = PSNR(x, x_hat, use_list=True)
-        msssim = MSSSIM(x, x_hat, use_list=True)
-        print('???',time.perf_counter()-t_1)
+        if self.use_psnr:
+            msssim = psnr = PSNR(x, x_hat, use_list=True)
+        else:
+            msssim = psnr = MSSSIM(x, x_hat, use_list=True)
+        
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
         img_loss = img_loss.repeat(t)
-        print('????',time.perf_counter()-t_1)
         
         return x_hat.to(x.device), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
