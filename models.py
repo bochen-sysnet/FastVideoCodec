@@ -1859,13 +1859,14 @@ def test_seq_proc(name='RLVC'):
 if __name__ == '__main__':
     #test_seq_proc('DVC')
     rlvc_e,_ = test_seq_proc('RLVC')
-    result = []
-    for B in range(2,16):
-        spvc_e,_ = test_batch_proc('SPVC', B)
-        tpt = rlvc_e*(B-1)/spvc_e
-        result += [tpt]
-    print(result)
+    spvc_e,_ = test_batch_proc('SPVC')
+    #result = []
+    #for B in range(2,16):
+    #    spvc_e,_ = test_batch_proc('SPVC', B)
+    #    tpt = rlvc_e*(B-1)/spvc_e
+    #    result += [tpt]
+    #print(result)
     #test_batch_proc('SPVC-L')
     #test_batch_proc('SPVC-R')
-    #test_batch_proc('AE3D')
+    test_batch_proc('AE3D')
     #test_batch_proc('SCVC')
