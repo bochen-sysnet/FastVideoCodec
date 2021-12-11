@@ -357,11 +357,11 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['DVC','SPVC']:
     # load what exists
-    print("Load whatever exists for",CODEC_NAME)
     pretrained_model_path = "backup/DVC/DVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
+    print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
