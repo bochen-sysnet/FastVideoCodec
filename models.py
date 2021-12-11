@@ -969,6 +969,7 @@ class Coder2D(nn.Module):
         bs,c,h,w = x.size()
         x_est = []
         x_act = []
+        print('01',time.perf_counter()-t_1)
         x_aux = torch.FloatTensor([0]).squeeze(0).cuda()
         print('012',time.perf_counter()-t_1)
         if not self.downsample:
