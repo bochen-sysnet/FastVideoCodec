@@ -26,7 +26,7 @@ from dataset import VideoDataset, FrameDataset
 
 # OPTION
 BACKUP_DIR = 'backup'
-CODEC_NAME = 'SPVC'
+CODEC_NAME = 'AE3D'
 loss_type = 'P'
 compression_level = 2 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
@@ -355,7 +355,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SCVC','DVC']:
+elif CODEC_NAME in ['SCVC','AE3D']:
     # load what exists
     print("Load whatever exists for",CODEC_NAME)
     pretrained_model_path = "backup/SPVC/SPVC-2P_ckpt.pth"

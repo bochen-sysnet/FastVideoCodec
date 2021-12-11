@@ -1573,10 +1573,9 @@ class SCVC(nn.Module):
         return None
         
 class AE3D(nn.Module):
-    def __init__(self, name, noMeasure=True, loss_type='P', compression_level=2):
+    def __init__(self, name, noMeasure=True, loss_type='P', compression_level=2, use_gpu=True):
         super(AE3D, self).__init__()
         self.name = name 
-        device = torch.device('cuda')
         self.conv1 = nn.Sequential(
             nn.Conv3d(3, 64, kernel_size=5, stride=(1,2,2), padding=2), 
             nn.BatchNorm3d(64),
@@ -1624,9 +1623,9 @@ class AE3D(nn.Module):
         self.compression_level=compression_level
         self.use_psnr = loss_type=='P'
         init_training_params(self)
-        self.r = 1024 # PSNR:[256,512,1024,2048] MSSSIM:[8,16,32,64]
-        # split on multi-gpus
-        self.split()
+        self.use_gpu = use_gpu
+        if use_gpu:
+            self.split()
         self.noMeasure = noMeasure
 
     def split(self):
@@ -1666,7 +1665,7 @@ class AE3D(nn.Module):
         
         # decoder
         t_0 = time.perf_counter()
-        x3 = self.deconv1(latent_hat.cuda(1))
+        x3 = self.deconv1(latent_hat.cuda(1) if use_gpu else latent_hat)
         x4 = self.deconv2(x3) + x3
         x_hat = self.deconv3(x4)
         if not self.noMeasure:
@@ -1693,7 +1692,7 @@ class AE3D(nn.Module):
         if not self.noMeasure:
             print(np.sum(self.enc_t)/t,np.sum(self.dec_t)/t,self.enc_t,self.dec_t)
         
-        return x_hat.cuda(0), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
+        return x_hat.to(x.device), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
     def init_hidden(self, h, w):
         return None
