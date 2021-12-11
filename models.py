@@ -830,6 +830,10 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden, prior_latent
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
+        # Time measurement: start
+        if not self.noMeasure:
+            t_0 = time.perf_counter()
+            
         self.realCom = not self.training
         # update only once during testing
         if not self.updated and self.realCom:
@@ -838,10 +842,6 @@ class Coder2D(nn.Module):
             
         if not self.noMeasure:
             self.enc_t = self.dec_t = 0
-            
-        # Time measurement: start
-        if not self.noMeasure:
-            t_0 = time.perf_counter()
         
         # latent states
         if self.conv_type == 'rec':
