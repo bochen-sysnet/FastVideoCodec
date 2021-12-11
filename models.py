@@ -992,7 +992,7 @@ class Coder2D(nn.Module):
             x_act += [x_act_i.cuda()]
             
             # aux
-            x_aux += x_aux_i.cuda()
+            x_aux += x_aux_i.to(x_aux.device)
             
             if not self.noMeasure:
                 enc_t += self.enc_t
