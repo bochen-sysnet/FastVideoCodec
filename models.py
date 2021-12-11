@@ -969,7 +969,7 @@ class Coder2D(nn.Module):
         x_est = []
         x_act = []
         t_1 = time.perf_counter()
-        x_aux = torch.FloatTensor([0]).squeeze(0).cuda()
+        x_aux = torch.FloatTensor([0]).squeeze(0)
         print('012',time.perf_counter()-t_1)
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
@@ -1000,7 +1000,7 @@ class Coder2D(nn.Module):
         x_hat = torch.stack(x_hat_list, dim=0)
         if not self.noMeasure:
             self.enc_t,self.dec_t = enc_t,dec_t
-        return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux
+        return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux.to(x.device)
     
 def generate_graph(graph_type='default'):
     # 7 nodes, 6 edges
