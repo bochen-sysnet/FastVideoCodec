@@ -974,12 +974,13 @@ class Coder2D(nn.Module):
         else:
             rpm_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
         rae_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
+        prior_latent = None
         if not self.noMeasure:
             enc_t = dec_t = 0
         x_hat_list = []
         for frame_idx in range(bs):
             x_i = x[frame_idx,:,:,:].unsqueeze(0)
-            x_hat_i,rae_hidden,rpm_hidden,x_act_i,x_est_i,x_aux_i,_ = self.forward(x_i, rae_hidden, rpm_hidden, frame_idx>=1)
+            x_hat_i,rae_hidden,rpm_hidden,x_act_i,x_est_i,x_aux_i,prior_latent = self.forward(x_i, rae_hidden, rpm_hidden, frame_idx>=1,prior_latent=prior_latent)
             x_hat_list.append(x_hat_i.squeeze(0))
             
             # calculate bpp (estimated) if it is training else it will be set to 0
