@@ -958,7 +958,6 @@ class Coder2D(nn.Module):
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
             self.dec_t += time.perf_counter() - t_0
-        print(self.enc_t,self.dec_t)
         
         # auxilary loss
         aux_loss = self.entropy_bottleneck.loss()
@@ -1363,7 +1362,7 @@ class SPVC(nn.Module):
         if '-R' not in self.name:
             mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
         else:
-            mv_hat,mv_act,mv_est,mv_aux,_ = self.mv_codec.compress_sequence(mv_tensors)
+            mv_hat,mv_act,mv_est,mv_aux = self.mv_codec.compress_sequence(mv_tensors)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
@@ -1646,6 +1645,7 @@ class AE3D(nn.Module):
         self.latent_codec.cuda(0)
         
     def forward(self, x):
+        t_0 = time.perf_counter()
         x = x[1:]
             
         # x=[B,C,H,W]: input sequence of frames
@@ -1653,7 +1653,6 @@ class AE3D(nn.Module):
         bs, c, t, h, w = x.size()
         
         # encoder
-        t_0 = time.perf_counter()
         x1 = self.conv1(x)
         x2 = self.conv2(x1) + x1
         latent = self.conv3(x2)
@@ -1674,12 +1673,12 @@ class AE3D(nn.Module):
         x3 = self.deconv1(latent_hat.cuda(1) if self.use_gpu else latent_hat)
         x4 = self.deconv2(x3) + x3
         x_hat = self.deconv3(x4)
-        if not self.noMeasure:
-            self.meters['D-NET'].update(time.perf_counter() - t_0)
         
         # reshape
         x = x.permute(0,2,1,3,4).contiguous().squeeze(0)
         x_hat = x_hat.permute(0,2,1,3,4).contiguous().squeeze(0)
+        if not self.noMeasure:
+            self.meters['D-NET'].update(time.perf_counter() - t_0)
         
         # estimated bits
         bpp_est = latent_est/(h * w)
