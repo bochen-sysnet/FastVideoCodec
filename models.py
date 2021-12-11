@@ -1663,7 +1663,7 @@ class AE3D(nn.Module):
         # entropy
         # compress each frame sequentially
         latent = latent.squeeze(0).permute(1,0,2,3).contiguous()
-        latent_hat,latent_act,latent_est,aux_loss,_ = self.latent_codec.compress_sequence(latent)
+        latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
         latent_hat = latent_hat.permute(1,0,2,3).unsqueeze(0).contiguous()
         aux_loss = aux_loss.repeat(t)
         
@@ -1686,8 +1686,8 @@ class AE3D(nn.Module):
         bpp_act = latent_act/(h * w)
         
         # calculate metrics/loss
-        psnr = PSNR(x, x_hat.to(x.device), use_list=True)
-        msssim = MSSSIM(x, x_hat.to(x.device), use_list=True)
+        psnr = PSNR(x, x_hat, use_list=True)
+        msssim = MSSSIM(x, x_hat, use_list=True)
         
         # calculate img loss
         img_loss = calc_loss(x, x_hat.to(x.device), self.r, self.use_psnr)
