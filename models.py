@@ -836,18 +836,18 @@ class Coder2D(nn.Module):
         if not self.updated and self.realCom:
             self.entropy_bottleneck.update(force=True)
             self.updated = True
-            
+        print('a',time.perf_counter()-t_1)    
         if not self.noMeasure:
             self.enc_t = self.dec_t = 0
         
         # latent states
         if self.conv_type == 'rec':
             state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
-            
+        print('b',time.perf_counter()-t_1)    
         # Time measurement: start
         if not self.noMeasure:
             t_0 = time.perf_counter()
-        print('a',time.perf_counter()-t_1)
+        print('c',time.perf_counter()-t_1)
         # compress
         if self.downsample:
             x = self.gdn1(self.enc_conv1(x))
@@ -865,7 +865,7 @@ class Coder2D(nn.Module):
             latent = self.enc_conv4(x) # latent optical flow
         else:
             latent = x
-        print('b',time.perf_counter()-t_1)
+        
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
@@ -910,7 +910,7 @@ class Coder2D(nn.Module):
             else:
                 _, latent_string, _, _ = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent=prior_latent)
                 latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden, prior_latent=prior_latent)
-        print('c',time.perf_counter()-t_1)    
+            
         # add in the time in entropy bottleneck
         if not self.noMeasure:
             self.enc_t += self.entropy_bottleneck.enc_t
@@ -949,7 +949,7 @@ class Coder2D(nn.Module):
             hat = self.dec_conv4(x)
         else:
             hat = latent_hat
-        print('d',time.perf_counter()-t_1)
+        
         # Time measurement: end
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
@@ -962,7 +962,7 @@ class Coder2D(nn.Module):
             rae_hidden = torch.cat((state_enc, state_dec),dim=1)
             if rae_hidden is not None:
                 rae_hidden = rae_hidden.detach()
-        print('e',time.perf_counter()-t_1)    
+            
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
     def compress_sequence(self,x):
