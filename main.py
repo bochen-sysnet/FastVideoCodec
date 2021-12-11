@@ -68,7 +68,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     ds_size = len(train_dataset)
     
     model.train()
-    update_training(model,epoch)
+    update_training(model,epoch,warmup_epoch=WARMUP_EPOCH)
     
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
