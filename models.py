@@ -965,6 +965,7 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
     def compress_sequence(self,x):
+        t_1 = time.perf_counter()
         bs,c,h,w = x.size()
         x_est = []
         x_act = []
@@ -978,10 +979,12 @@ class Coder2D(nn.Module):
         if not self.noMeasure:
             enc_t = dec_t = 0
         x_hat_list = []
+        print('01234',time.perf_counter()-t_1)
         for frame_idx in range(bs):
             x_i = x[frame_idx,:,:,:].unsqueeze(0)
             x_hat_i,rae_hidden,rpm_hidden,x_act_i,x_est_i,x_aux_i,prior_latent = self.forward(x_i, rae_hidden, rpm_hidden, frame_idx>=1,prior_latent=prior_latent)
             x_hat_list.append(x_hat_i.squeeze(0))
+            print(frame_idx,time.perf_counter()-t_1)
             
             # calculate bpp (estimated) if it is training else it will be set to 0
             x_est += [x_est_i.cuda()]
@@ -998,6 +1001,7 @@ class Coder2D(nn.Module):
         x_hat = torch.stack(x_hat_list, dim=0)
         if not self.noMeasure:
             self.enc_t,self.dec_t = enc_t,dec_t
+        print(time.perf_counter()-t_1)
         return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux
     
 def generate_graph(graph_type='default'):
@@ -1658,18 +1662,14 @@ class AE3D(nn.Module):
             self.meters['E-NET'].update(time.perf_counter() - t_0)
         
         # entropy
-        t_1 = time.perf_counter()
         # compress each frame sequentially
         latent = latent.squeeze(0).permute(1,0,2,3).contiguous()
-        t_2 = time.perf_counter()
         latent_hat,latent_act,latent_est,aux_loss = self.latent_codec.compress_sequence(latent)
-        print('pure',time.perf_counter()-t_2)
         latent_hat = latent_hat.permute(1,0,2,3).unsqueeze(0).contiguous()
         aux_loss = aux_loss.repeat(t)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.latent_codec.enc_t)
             self.meters['D-MV'].update(self.latent_codec.dec_t)
-        print(time.perf_counter()-t_1)
         
         # decoder
         t_0 = time.perf_counter()
