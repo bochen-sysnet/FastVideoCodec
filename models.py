@@ -958,6 +958,7 @@ class Coder2D(nn.Module):
         if not self.noMeasure:
             self.enc_t += time.perf_counter() - t_0
             self.dec_t += time.perf_counter() - t_0
+        print(self.enc_t,self.dec_t)
         
         # auxilary loss
         aux_loss = self.entropy_bottleneck.loss()
