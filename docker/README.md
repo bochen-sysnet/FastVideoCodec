@@ -4,6 +4,6 @@ sudo docker build -t server -f docker/Dockerfile.server .
 
 # start the docker container
 1. On server
-sudo docker run -it --rm --gpus all -p 8888:8888/udp server
+sudo docker run -it --rm --gpus all -p 8888:8888/tcp server
 2. On client
-sudo docker run -it --rm -p 8888:8888/udp client
+sudo docker run -it --rm -p 8888:8888/tcp client

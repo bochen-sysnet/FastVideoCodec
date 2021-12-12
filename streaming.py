@@ -795,6 +795,8 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
         
     test_dataset.reset()
     
+    enc,dec = showTimer(model)
+    
 def streaming_AE3D(model, test_dataset, use_gpu=True):
     pass
 # todo: a protocol to send strings of compressed frames
@@ -815,4 +817,3 @@ test_dataset = VideoDataset('./UVG', frame_size=(256,256))
 #streaming_SPVC('SPVC-stream', test_dataset)
 #streaming_RLVC_DVC('DVC', test_dataset)
 streaming_RLVC_DVC('RLVC', test_dataset)
-enc,dec = showTimer(model)
