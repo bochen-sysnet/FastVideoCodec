@@ -45,6 +45,8 @@ RUN pip3 install torch torchvision torchaudio
 
 RUN pip3 install av aiortc joblib scipy compressai pytorch_msssim
 
+RUN apt-get install -y netcat
+
 COPY ./ ./
 
 CMD ["python3", "streaming.py"]
