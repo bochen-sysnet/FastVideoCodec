@@ -622,9 +622,7 @@ def streaming_parallel(model, test_dataset):
     test_dataset.reset()
     
 def streaming_sequential(model, test_dataset, use_gpu=True):
-    ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
-    msssim_module = AverageMeter()
     ds_size = len(test_dataset)
     model.eval()
     fP,bP = 6,6
@@ -659,11 +657,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             cmd = f'nc -l 8888'
             process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
             # Start a thread that streams data
-            #threading.Thread(target=client, args=(data,)).start() 
-        
-        #def iterative_compress(x,):
-        
-        #def iterative_decompress(x,):
+            threading.Thread(target=client, args=(data,)).start() 
         
         # put a timer for backward frames
         # a different timer for forward frames
@@ -683,18 +677,16 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     x_ref = x_b[0:1]
                     # wait until the group is ready (e.g., count for 6*0.03), then compress
                     # make sure the fetch interval of two frames is at least 1/60. or 1/30.
-                    x_b_hat = []
+                    psnr_list1 = []
                     for i in range(1,B):
                         # need to enable compress and decompress to have separate prior_latent!!!!!!!!!!!!
-                        mv_string,res_string,bpp_act,com_hidden,mv_size,res_size,com_mv_prior_latent,com_res_prior_latent = \
+                        _,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                             model.compress(x_ref, x_b[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
-                        print(mv_size,res_size)
-                        exit(0)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size, decom_mv_prior_latent, decom_res_prior_latent)
+                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
-                        x_b_hat += [x_ref]
-                    x_b_hat = torch.cat(x_b_hat,dim=0)
+                        raw = x_b[i:i+1]
+                        psnr_list1 += [PSNR(raw, x_ref)]
                     
                     # compress forward
                     x_f = x_GoP[fP:]
@@ -705,46 +697,48 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
                     x_ref = x_f[0:1]
-                    x_f_hat = []
+                    psnr_list2 = []
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,com_hidden,mv_size,res_size,com_mv_prior_latent,com_res_prior_latent = \
+                        _,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                             model.compress(x_ref, x_f[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size, decom_mv_prior_latent, decom_res_prior_latent)
+                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
                         raw = x_f[i:i+1]
                         psnr_list2 += [PSNR(raw, x_ref)]
-                        msssim_list2 += [MSSSIM(raw, x_ref)]
-                        bpp_act_list2 += [bpp_act]
+                    # concat 
+                    psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)] + psnr_list2
                 else:
                     # compress I
                     # compress forward
-                    x_b = x_GoP
+                    x_f = x_GoP
+                    # compress as soon as a new frame is ready
+                    B,_,H,W = x_f.size()
+                    com_hidden = model.init_hidden(H,W)
+                    com_mv_prior_latent = com_res_prior_latent = None
+                    decom_hidden = model.init_hidden(H,W)
+                    decom_mv_prior_latent = decom_res_prior_latent = None
+                    x_ref = x_f[0:1]
+                    psnr_list = []
                     for i in range(1,B):
-                        mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
-                        com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
-                        raw = x_b[i:i+1]
-                        psnr_list += [PSNR(raw, com)]
-                        msssim_list += [MSSSIM(raw, com)]
-                        bpp_act_list += [bpp_act]
-                        x_ref = com.detach()
+                        _,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
+                            model.compress(x_ref, x_f[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
+                        x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
+                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, decom_mv_prior_latent, decom_res_prior_latent)
+                        x_ref = x_ref.detach()
+                        raw = x_f[i:i+1]
+                        psnr_list += [PSNR(raw, x_ref)]
             
             # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
             
             # record loss
-            ba_loss_module.update(ba_loss.cpu().data.item(), len(psnr_list))
             psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
-            msssim_module.update(msssim.cpu().data.item(), len(psnr_list))
         
             # show result
             proc_iter.set_description(
                 f"{data_idx:6}. "
-                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
                 f"I: {float(max(psnr_list)):.2f}")
         
         # clear input
