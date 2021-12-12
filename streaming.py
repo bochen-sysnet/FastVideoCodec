@@ -783,8 +783,8 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 ####### Load model
-#model = LoadModel('SPVC-stream')
-model = LoadModel('RLVC')
+model = LoadModel('SPVC-stream')
+#model = LoadModel('RLVC')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
