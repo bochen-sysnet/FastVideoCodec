@@ -15,7 +15,7 @@ RUN pip3 install torch torchvision torchaudio
 
 RUN pip3 install av aiortc joblib scipy compressai pytorch_msssim
 
-RUN pip3 install opencv-python opencv-python-contrib
+RUN pip3 install opencv-python opencv-contrib-python
 
 COPY ./ ./
 
