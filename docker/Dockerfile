@@ -40,4 +40,6 @@ RUN pip3 install av aiortc joblib scipy compressai pytorch_msssim
 
 COPY ./ ./
 
+CMD ["ffmpeg"]
+
 CMD ["python3", "streaming.py"]
