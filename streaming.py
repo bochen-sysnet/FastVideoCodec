@@ -710,6 +710,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
                     # get compressed I frame
+                    x_ref = x_b[:1]
                     # receive strings and compress backward
                     psnr_list1 = []
                     for j in range(1,B):
