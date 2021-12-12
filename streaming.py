@@ -691,6 +691,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             # Start a thread that streams data
             threading.Thread(target=client, args=(data,)).start() 
             psnr_list = []
+            stream_iter = tqdm(range(L))
             for i in range(L):
                 p = i%GoP
                 # wait for 1/30. or 1/60.
@@ -703,6 +704,15 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
                     x_ref = x_ref.detach()
                     psnr_list += [PSNR(data[i:i+1], x_ref)]
+                    # Count time
+                    total_time = time.perf_counter() - t_0
+                    fps = i/total_time
+                    # show result
+                    stream_iter.set_description(
+                        f"{i:3}. "
+                        f"FPS: {fps:.2f}. "
+                        f"PSNR: {float(psnr_list[-1]):.2f}. "
+                        f"Total: {total_time:.3f}. ")
                 elif p == fP or i == L-1:
                     # get current GoP 
                     x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
@@ -721,12 +731,25 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                             model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
                         psnr_list1 += [PSNR(x_b[j:j+1], x_ref)]
+                        # Count time
+                        total_time = time.perf_counter() - t_0
+                        fps = i/total_time
+                        # show result
+                        stream_iter.set_description(
+                            f"{i:3}. "
+                            f"FPS: {fps:.2f}. "
+                            f"PSNR: {float(psnr_list1[-1]):.2f}. "
+                            f"Total: {total_time:.3f}. ")
                     psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
                     x_ref = x_b[:1]
-                
-                print(psnr_list)
+            # Close and flush stdin
+            process.stdout.close()
+            # Wait for sub-process to finish
+            process.wait()
+            # Terminate the sub-process
+            process.terminate()    
             return psnr_list
         
         with torch.no_grad():
