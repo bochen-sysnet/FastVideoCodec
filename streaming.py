@@ -659,7 +659,11 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             cmd = f'nc -l 8888'
             process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
             # Start a thread that streams data
-            threading.Thread(target=client, args=(data,)).start() 
+            #threading.Thread(target=client, args=(data,)).start() 
+        
+        #def iterative_compress(x,):
+        
+        #def iterative_decompress(x,):
         
         # put a timer for backward frames
         # a different timer for forward frames
@@ -679,20 +683,18 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     x_ref = x_b[0:1]
                     # wait until the group is ready (e.g., count for 6*0.03), then compress
                     # make sure the fetch interval of two frames is at least 1/60. or 1/30.
-                    psnr_list1 = []
-                    msssim_list1 = []
-                    bpp_act_list1 = []
+                    x_b_hat = []
                     for i in range(1,B):
                         # need to enable compress and decompress to have separate prior_latent!!!!!!!!!!!!
                         mv_string,res_string,bpp_act,com_hidden,mv_size,res_size,com_mv_prior_latent,com_res_prior_latent = \
                             model.compress(x_ref, x_b[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
+                        print(mv_size,res_size)
+                        exit(0)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                             model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, mv_size, res_size, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
-                        raw = x_b[i:i+1]
-                        psnr_list1 += [PSNR(raw, x_ref)]
-                        msssim_list1 += [MSSSIM(raw, x_ref)]
-                        bpp_act_list1 += [bpp_act]
+                        x_b_hat += [x_ref]
+                    x_b_hat = torch.cat(x_b_hat,dim=0)
                     
                     # compress forward
                     x_f = x_GoP[fP:]
@@ -703,9 +705,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
                     x_ref = x_f[0:1]
-                    psnr_list2 = []
-                    msssim_list2 = []
-                    bpp_act_list2 = []
+                    x_f_hat = []
                     for i in range(1,B):
                         mv_string,res_string,bpp_act,com_hidden,mv_size,res_size,com_mv_prior_latent,com_res_prior_latent = \
                             model.compress(x_ref, x_f[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
@@ -716,17 +716,10 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         psnr_list2 += [PSNR(raw, x_ref)]
                         msssim_list2 += [MSSSIM(raw, x_ref)]
                         bpp_act_list2 += [bpp_act]
-                    # concat 
-                    psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)] + psnr_list2
-                    msssim_list = msssim_list1[::-1] + [torch.FloatTensor([1]).squeeze(0).to(data.device)] + msssim_list2
-                    bpp_act_list = bpp_act_list1[::-1] + [torch.FloatTensor([1]).squeeze(0)] + bpp_act_list2
                 else:
                     # compress I
                     # compress forward
                     x_b = x_GoP
-                    psnr_list = []
-                    msssim_list = []
-                    bpp_act_list = []
                     for i in range(1,B):
                         mv_string,res_string,bpp_act,_,mv_size,res_size = model.compress(x_ref, x_b[i:i+1], hidden, i>1)
                         com,hidden = model.decompress(x_ref, mv_string, res_string, hidden, i>1, mv_size, res_size)
@@ -735,10 +728,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         msssim_list += [MSSSIM(raw, com)]
                         bpp_act_list += [bpp_act]
                         x_ref = com.detach()
-                    # concat 
-                    psnr_list = psnr_list + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
-                    msssim_list = msssim_list + [torch.FloatTensor([1]).squeeze(0).to(data.device)]
-                    bpp_act_list = bpp_act_list + [torch.FloatTensor([1]).squeeze(0)]
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
