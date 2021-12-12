@@ -474,7 +474,9 @@ def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
             
-def streaming_parallel(model, test_dataset):
+def streaming_SPVC(name, test_dataset):
+    ####### Load model
+    model = LoadModel(name)
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
     ds_size = len(test_dataset)
@@ -586,16 +588,16 @@ def streaming_parallel(model, test_dataset):
                     psnr_list += [PSNR(raw, com)]
                     msssim_list += [MSSSIM(raw, com)]
                     i += 1
-                    # Count time
-                    total_time = time.perf_counter() - t_0
-                    fps = i/total_time
-                    # show result
-                    stream_iter.set_description(
-                        f"{i:3}. "
-                        f"FPS: {fps:.2f}. "
-                        f"PSNR: {float(psnr_list[-1]):.2f}. "
-                        f"MSSSIM: {float(msssim_list[-1]):.4f}. "
-                        f"Total: {total_time:.3f}. ")
+                # Count time
+                total_time = time.perf_counter() - t_0
+                fps = i/total_time
+                # show result
+                stream_iter.set_description(
+                    f"{i:3}. "
+                    f"FPS: {fps:.2f}. "
+                    f"PSNR: {float(psnr_list[-1]):.2f}. "
+                    f"MSSSIM: {float(msssim_list[-1]):.4f}. "
+                    f"Total: {total_time:.3f}. ")
             # Close and flush stdin
             process.stdout.close()
             # Wait for sub-process to finish
@@ -626,7 +628,9 @@ def streaming_parallel(model, test_dataset):
         
     test_dataset.reset()
     
-def streaming_sequential(model, test_dataset, use_gpu=True):
+def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
+    ####### Load model
+    model = LoadModel(name)
     psnr_module = AverageMeter()
     ds_size = len(test_dataset)
     model.eval()
@@ -790,6 +794,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
         data = []
         
     test_dataset.reset()
+    
+def streaming_AE3D(model, test_dataset, use_gpu=True):
+    pass
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # complete the compression/decompress function for DVC and RLVC
@@ -800,13 +807,11 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
         
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-####### Load model
-#model = LoadModel('SPVC-stream')
-model = LoadModel('DVC')
 
 # try x265,x264 streaming with Gstreamer
-#dynamic_simulation_x26x(test_dataset, 'x264')
-#streaming_parallel(model, test_dataset)
 #static_simulation_model(model, test_dataset)
-streaming_sequential(model, test_dataset)
+#dynamic_simulation_x26x(test_dataset, 'x264')
+#streaming_SPVC('SPVC-stream', test_dataset)
+#streaming_RLVC_DVC('DVC', test_dataset)
+streaming_RLVC_DVC('RLVC', test_dataset)
 enc,dec = showTimer(model)
