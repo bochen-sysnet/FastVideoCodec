@@ -655,6 +655,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # compress forward
                     x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                         model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
+                    # send frame type
+                    bytes_send = struct.pack('B',2) # 0:iframe;1:backward;2 forward
+                    process.stdin.write(bytes_send)
                     # send strings
                     send_strings_to_process(process, [mv_string,res_string], useXZ=False)
                     x_ref = x_ref.detach()
@@ -665,13 +668,19 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     B,_,H,W = x_b.size()
                     com_hidden = model.init_hidden(H,W)
                     com_mv_prior_latent = com_res_prior_latent = None
-                    x_ref = x_b[:1]
                     # send this compressed I frame
+                    x_ref = x_b[:1]
+                    # send frame type
+                    bytes_send = struct.pack('B',0) # 0:iframe;1:backward;2 forward
+                    process.stdin.write(bytes_send)
                     # compress backward
                     for j in range(1,B):
                         x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                             model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
                         x_ref = x_ref.detach()
+                        # send frame type
+                        bytes_send = struct.pack('B',1) # 0:iframe;1:backward;2 forward
+                        process.stdin.write(bytes_send)
                         # send strings
                         send_strings_to_process(process, [mv_string,res_string], useXZ=False)
                     # init some states for forward compression
@@ -696,6 +705,9 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                 p = i%GoP
                 # wait for 1/30. or 1/60.
                 if p > fP:
+                    # [B=1] receive frame type
+                    bytes_recv = process.stdout.read(1)
+                    frame_type = struct.unpack('B',bytes_recv)[0]
                     # receive strings
                     mv_string = recv_strings_from_process(process, 1, useXZ=False)
                     res_string = recv_strings_from_process(process, 1, useXZ=False)
@@ -721,10 +733,17 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
                     # get compressed I frame
+                    # [B=1] receive frame type
+                    bytes_recv = process.stdout.read(1)
+                    frame_type = struct.unpack('B',bytes_recv)[0]
                     x_ref = x_b[:1]
-                    # receive strings and compress backward
+                    # decompress backward
                     psnr_list1 = []
                     for j in range(1,B):
+                        # [B=1] receive frame type
+                        bytes_recv = process.stdout.read(1)
+                        frame_type = struct.unpack('B',bytes_recv)[0]
+                        # receive strings
                         mv_string = recv_strings_from_process(process, 1, useXZ=False)
                         res_string = recv_strings_from_process(process, 1, useXZ=False)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
@@ -774,7 +793,6 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # complete the compression/decompress function for DVC and RLVC
-# complete a streaming sequential function, need the networking part
 # run this script in docker
 # then test throughput(fps) and rate-distortion on different devices and different losses
 # need to add time measurement in parallel compression/decompress
@@ -783,12 +801,12 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
 ####### Load dataset
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 ####### Load model
-model = LoadModel('SPVC-stream')
-#model = LoadModel('RLVC')
+#model = LoadModel('SPVC-stream')
+model = LoadModel('RLVC')
 
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
-streaming_parallel(model, test_dataset)
+#streaming_parallel(model, test_dataset)
 #static_simulation_model(model, test_dataset)
-#streaming_sequential(model, test_dataset)
+streaming_sequential(model, test_dataset)
 enc,dec = showTimer(model)
