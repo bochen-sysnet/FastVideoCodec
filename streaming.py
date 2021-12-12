@@ -431,8 +431,12 @@ def dynamic_simulation_x26x(test_dataset, name='x264'):
             
         test_dataset.reset()
     
-def send_strings_to_process(process, strings):
-    for x_string_list,z_string_list in strings:
+def send_strings_to_process(process, strings, useXZ=True):
+    for string_list in strings:
+        if useXZ:
+            x_string_list,z_string_list = string_list
+        else:
+            x_string_list = string_list
         for x_string in x_string_list:
             # [L=8] send length of next string
             x_len = len(x_string)
@@ -440,15 +444,16 @@ def send_strings_to_process(process, strings):
             process.stdin.write(bytes_send)
             # send actual string
             process.stdin.write(x_string)
-        for z_string in z_string_list:
-            # [L=8] send length of next string
-            z_len = len(z_string)
-            bytes_send = struct.pack('L',z_len)
-            process.stdin.write(bytes_send)
-            # send actual string
-            process.stdin.write(z_string)
+        if useXZ:
+            for z_string in z_string_list:
+                # [L=8] send length of next string
+                z_len = len(z_string)
+                bytes_send = struct.pack('L',z_len)
+                process.stdin.write(bytes_send)
+                # send actual string
+                process.stdin.write(z_string)
     
-def recv_strings_from_process(process, strings_to_recv):
+def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     x_string_list = []
     for _ in range(strings_to_recv):
         # [L=8] receive length of next string
@@ -457,15 +462,16 @@ def recv_strings_from_process(process, strings_to_recv):
         # recv actual string
         x_string = process.stdout.read(x_len)
         x_string_list += [x_string]
-    z_string_list = []
-    for _ in range(strings_to_recv):
-        # [L=8] receive length of next string
-        bytes_recv = process.stdout.read(8)
-        z_len = struct.unpack('L',bytes_recv)[0]
-        # recv actual string
-        z_string = process.stdout.read(z_len)
-        z_string_list += [z_string]
-    strings = (x_string_list,z_string_list)
+    if useXZ:
+        z_string_list = []
+        for _ in range(strings_to_recv):
+            # [L=8] receive length of next string
+            bytes_recv = process.stdout.read(8)
+            z_len = struct.unpack('L',bytes_recv)[0]
+            # recv actual string
+            z_string = process.stdout.read(z_len)
+            z_string_list += [z_string]
+    strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
             
 def streaming_parallel(model, test_dataset):
@@ -650,7 +656,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                         model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
                     # send strings
-                    send_strings_to_process(process, [mv_string,res_string])
+                    send_strings_to_process(process, [mv_string,res_string], useXZ=False)
                     x_ref = x_ref.detach()
                 elif p == fP or i == L-1:
                     # get current GoP 
@@ -667,7 +673,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                             model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
                         x_ref = x_ref.detach()
                         # send strings
-                        send_strings_to_process(process, [mv_string,res_string])
+                        send_strings_to_process(process, [mv_string,res_string], useXZ=False)
                     # init some states for forward compression
                     com_hidden = model.init_hidden(H,W)
                     com_mv_prior_latent = com_res_prior_latent = None
@@ -689,8 +695,8 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                 # wait for 1/30. or 1/60.
                 if p > fP:
                     # receive strings
-                    mv_string = recv_strings_from_process(process, 1)
-                    res_string = recv_strings_from_process(process, 1)
+                    mv_string = recv_strings_from_process(process, 1, useXZ=False)
+                    res_string = recv_strings_from_process(process, 1, useXZ=False)
                     # decompress forward
                     x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                         model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
@@ -706,8 +712,8 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # receive strings and compress backward
                     psnr_list1 = []
                     for j in range(1,B):
-                        mv_string = recv_strings_from_process(process, 1)
-                        res_string = recv_strings_from_process(process, 1)
+                        mv_string = recv_strings_from_process(process, 1, useXZ=False)
+                        res_string = recv_strings_from_process(process, 1, useXZ=False)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                             model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
