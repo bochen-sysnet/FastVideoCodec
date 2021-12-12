@@ -6,7 +6,7 @@ RUN apt-get update
 
 RUN apt-get install -y python3.7 python3-pip
 
-RUN apt-get -y install git cmake ffmpeg
+RUN apt-get -y install git cmake ffmpeg libavcodec-dev libavformat-dev libavdevice-dev
 
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir matplotlib pillow numpy tqdm
@@ -30,6 +30,8 @@ RUN cmake -D CMAKE_BUILD_TYPE=RELEASE \
 -D PYTHON3_EXECUTABLE=$(which python3) \
 -D PYTHON3_INCLUDE_DIR=$(python3 -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())") \
 -D PYTHON3_PACKAGES_PATH=$(python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())") \
+-D WITH_GSTREAMER=ON \
+-D WITH_FFMPEG=ON \
 -D BUILD_EXAMPLES=ON ..
 
 RUN make && make install && ldconfig
