@@ -431,6 +431,43 @@ def dynamic_simulation_x26x(test_dataset, name='x264'):
             
         test_dataset.reset()
     
+def send_strings_to_process(process, strings):
+    for x_string_list,z_string_list in strings:
+        for x_string in x_string_list:
+            # [L=8] send length of next string
+            x_len = len(x_string)
+            bytes_send = struct.pack('L',x_len)
+            process.stdin.write(bytes_send)
+            # send actual string
+            process.stdin.write(x_string)
+        for z_string in z_string_list:
+            # [L=8] send length of next string
+            z_len = len(z_string)
+            bytes_send = struct.pack('L',z_len)
+            process.stdin.write(bytes_send)
+            # send actual string
+            process.stdin.write(z_string)
+    
+def recv_strings_from_process(process, strings_to_recv):
+    x_string_list = []
+    for _ in range(strings_to_recv):
+        # [L=8] receive length of next string
+        bytes_recv = process.stdout.read(8)
+        x_len = struct.unpack('L',bytes_recv)[0]
+        # recv actual string
+        x_string = process.stdout.read(x_len)
+        x_string_list += [x_string]
+    z_string_list = []
+    for _ in range(strings_to_recv):
+        # [L=8] receive length of next string
+        bytes_recv = process.stdout.read(8)
+        z_len = struct.unpack('L',bytes_recv)[0]
+        # recv actual string
+        z_string = process.stdout.read(z_len)
+        z_string_list += [z_string]
+    strings = (x_string_list,z_string_list)
+    return strings
+            
 def streaming_parallel(model, test_dataset):
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
@@ -447,43 +484,6 @@ def streaming_parallel(model, test_dataset):
         data = torch.stack(data, dim=0).cuda()
         L = data.size(0)
             
-        def send_strings_to_process(process, strings):
-            for x_string_list,z_string_list in strings:
-                for x_string in x_string_list:
-                    # [L=8] send length of next string
-                    x_len = len(x_string)
-                    bytes_send = struct.pack('L',x_len)
-                    process.stdin.write(bytes_send)
-                    # send actual string
-                    process.stdin.write(x_string)
-                for z_string in z_string_list:
-                    # [L=8] send length of next string
-                    z_len = len(z_string)
-                    bytes_send = struct.pack('L',z_len)
-                    process.stdin.write(bytes_send)
-                    # send actual string
-                    process.stdin.write(z_string)
-            
-        def recv_strings_from_process(process, strings_to_recv):
-            x_string_list = []
-            for _ in range(strings_to_recv):
-                # [L=8] receive length of next string
-                bytes_recv = process.stdout.read(8)
-                x_len = struct.unpack('L',bytes_recv)[0]
-                # recv actual string
-                x_string = process.stdout.read(x_len)
-                x_string_list += [x_string]
-            z_string_list = []
-            for _ in range(strings_to_recv):
-                # [L=8] receive length of next string
-                bytes_recv = process.stdout.read(8)
-                z_len = struct.unpack('L',bytes_recv)[0]
-                # recv actual string
-                z_string = process.stdout.read(z_len)
-                z_string_list += [z_string]
-            strings = (x_string_list,z_string_list)
-            return strings
-            
         def client(data):
             # start a process to pipe data to netcat
             cmd = f'nc localhost 8888'
@@ -495,26 +495,25 @@ def streaming_parallel(model, test_dataset):
                 bytes_send = struct.pack('B',GoP_size)
                 process.stdin.write(bytes_send)
                 # Send compressed I frame (todo)
-                with torch.no_grad():
-                    if GoP_size>fP+1:
-                        # compress I
-                        # compress backward
-                        x_b = torch.flip(x_GoP[:fP+1],[0])
-                        mv_string1,res_string1,_ = model.compress(x_b)
-                        # Send strings in order
-                        send_strings_to_process(process, [mv_string1,res_string1])
-                        # compress forward
-                        x_f = x_GoP[fP:]
-                        mv_string2,res_string2,_ = model.compress(x_f)
-                        # Send strings in order
-                        send_strings_to_process(process, [mv_string2,res_string2])
-                    else:
-                        # compress I
-                        # compress backward
-                        x_f = x_GoP
-                        mv_string,res_string,bpp_act_list = model.compress(x_f)
-                        # Send strings in order
-                        send_strings_to_process(process, [mv_string,res_string])
+                if GoP_size>fP+1:
+                    # compress I
+                    # compress backward
+                    x_b = torch.flip(x_GoP[:fP+1],[0])
+                    mv_string1,res_string1,_ = model.compress(x_b)
+                    # Send strings in order
+                    send_strings_to_process(process, [mv_string1,res_string1])
+                    # compress forward
+                    x_f = x_GoP[fP:]
+                    mv_string2,res_string2,_ = model.compress(x_f)
+                    # Send strings in order
+                    send_strings_to_process(process, [mv_string2,res_string2])
+                else:
+                    # compress I
+                    # compress backward
+                    x_f = x_GoP
+                    mv_string,res_string,bpp_act_list = model.compress(x_f)
+                    # Send strings in order
+                    send_strings_to_process(process, [mv_string,res_string])
             # Close and flush stdin
             process.stdin.close()
             # Wait for sub-process to finish
@@ -544,33 +543,32 @@ def streaming_parallel(model, test_dataset):
                 # [B=1] receive number of elements
                 bytes_recv = process.stdout.read(1)
                 GoP_size = struct.unpack('B',bytes_recv)[0]
-                with torch.no_grad():
-                    # receive strings based on gop size
-                    if GoP_size>fP+1:
-                        # receive the first two strings
-                        strings_to_recv = fP
-                        mv_string1 = recv_strings_from_process(process, strings_to_recv)
-                        res_string1 = recv_strings_from_process(process, strings_to_recv)
-                        # decompress backward
-                        x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
-                        # receive the second two strings
-                        strings_to_recv = GoP-1-fP
-                        mv_string2 = recv_strings_from_process(process, strings_to_recv)
-                        res_string2 = recv_strings_from_process(process, strings_to_recv)
-                        # decompress forward
-                        x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
-                        # concate
-                        x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
-                    else:
-                        strings_to_recv = GoP-1
-                        # receive two strings
-                        strings_to_recv = fP
-                        mv_string = recv_strings_from_process(process, strings_to_recv)
-                        res_string = recv_strings_from_process(process, strings_to_recv)
-                        # decompress backward
-                        x_f_hat = model.decompress(x_ref,mv_string,res_string)
-                        # concate
-                        x_hat = torch.cat((x_ref,x_f_hat),dim=0)
+                # receive strings based on gop size
+                if GoP_size>fP+1:
+                    # receive the first two strings
+                    strings_to_recv = fP
+                    mv_string1 = recv_strings_from_process(process, strings_to_recv)
+                    res_string1 = recv_strings_from_process(process, strings_to_recv)
+                    # decompress backward
+                    x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+                    # receive the second two strings
+                    strings_to_recv = GoP-1-fP
+                    mv_string2 = recv_strings_from_process(process, strings_to_recv)
+                    res_string2 = recv_strings_from_process(process, strings_to_recv)
+                    # decompress forward
+                    x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+                    # concate
+                    x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
+                else:
+                    strings_to_recv = GoP-1
+                    # receive two strings
+                    strings_to_recv = fP
+                    mv_string = recv_strings_from_process(process, strings_to_recv)
+                    res_string = recv_strings_from_process(process, strings_to_recv)
+                    # decompress backward
+                    x_f_hat = model.decompress(x_ref,mv_string,res_string)
+                    # concate
+                    x_hat = torch.cat((x_ref,x_f_hat),dim=0)
                         
                 if t_warmup is None:
                     t_warmup = time.perf_counter() - t_0
@@ -600,7 +598,8 @@ def streaming_parallel(model, test_dataset):
             process.terminate()
             return psnr_list,msssim_list
                 
-        psnr_list,msssim_list = server(data)
+        with torch.no_grad():
+            psnr_list,msssim_list = server(data)
             
         # aggregate loss
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -643,12 +642,38 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             # start a process to pipe data to netcat
             cmd = f'nc localhost 8888'
             process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-            for begin in range(0,L,GoP):
-                x_GoP = data[begin:begin+GoP]
-                GoP_size = x_GoP.size(0)
-                # Send GoP size, this determines how to encode/decode the strings
-                bytes_send = struct.pack('B',GoP_size)
-                process.stdin.write(bytes_send)
+            for i in range(L):
+                p = i%GoP
+                # wait for 1/30. or 1/60.
+                if p > fP:
+                    # compress forward
+                    x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
+                        model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
+                    # send strings
+                    send_strings_to_process(process, [mv_string,res_string])
+                    x_ref = x_ref.detach()
+                elif p == fP or i == L-1:
+                    # get current GoP 
+                    x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
+                    x_b = torch.flip(x_GoP[:fP+1],[0])
+                    B,_,H,W = x_b.size()
+                    com_hidden = model.init_hidden(H,W)
+                    com_mv_prior_latent = com_res_prior_latent = None
+                    x_ref = x_b[:1]
+                    # send this compressed I frame
+                    # compress backward
+                    for j in range(1,B):
+                        x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
+                            model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
+                        x_ref = x_ref.detach()
+                        # send strings
+                        send_strings_to_process(process, [mv_string,res_string])
+                    # init some states for forward compression
+                    com_hidden = model.init_hidden(H,W)
+                    com_mv_prior_latent = com_res_prior_latent = None
+                else:
+                    # collect frames for current GoP
+                    pass
         
         def server(data):
             # Beginning time of streaming
@@ -658,88 +683,56 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
             process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
             # Start a thread that streams data
             threading.Thread(target=client, args=(data,)).start() 
-        
-        # put a timer for backward frames
-        # a different timer for forward frames
-        proc_iter = tqdm(range(0,L,GoP))
-        for _,begin in enumerate(proc_iter):
-            with torch.no_grad():
-                x_GoP = data[begin:begin+GoP]
-                if x_GoP.size(0)>fP+1:
-                    # compress I
-                    # compress backward
+            psnr_list = []
+            for i in range(L):
+                p = i%GoP
+                # wait for 1/30. or 1/60.
+                if p > fP:
+                    # receive strings
+                    mv_string = recv_strings_from_process(process, 1)
+                    res_string = recv_strings_from_process(process, 1)
+                    # decompress forward
+                    x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
+                        model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
+                    x_ref = x_ref.detach()
+                elif p == fP or i == L-1:
+                    # get current GoP 
+                    x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
                     x_b = torch.flip(x_GoP[:fP+1],[0])
                     B,_,H,W = x_b.size()
-                    com_hidden = model.init_hidden(H,W)
-                    com_mv_prior_latent = com_res_prior_latent = None
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
-                    x_ref = x_b[0:1]
-                    # wait until the group is ready (e.g., count for 6*0.03), then compress
-                    # make sure the fetch interval of two frames is at least 1/60. or 1/30.
+                    # get compressed I frame
+                    # receive strings and compress backward
                     psnr_list1 = []
-                    for i in range(1,B):
-                        # need to enable compress and decompress to have separate prior_latent!!!!!!!!!!!!
-                        _,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
-                            model.compress(x_ref, x_b[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
+                    for j in range(1,B):
+                        mv_string = recv_strings_from_process(process, 1)
+                        res_string = recv_strings_from_process(process, 1)
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, decom_mv_prior_latent, decom_res_prior_latent)
+                            model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
-                        raw = x_b[i:i+1]
-                        psnr_list1 += [PSNR(raw, x_ref)]
-                    
-                    # compress forward
-                    x_f = x_GoP[fP:]
-                    # compress as soon as a new frame is ready
-                    B,_,H,W = x_f.size()
-                    com_hidden = model.init_hidden(H,W)
-                    com_mv_prior_latent = com_res_prior_latent = None
+                        psnr_list1 += [PSNR(data[i:i+1], x_ref)]
+                    psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
-                    x_ref = x_f[0:1]
-                    psnr_list2 = []
-                    for i in range(1,B):
-                        _,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
-                            model.compress(x_ref, x_f[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
-                        x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, decom_mv_prior_latent, decom_res_prior_latent)
-                        x_ref = x_ref.detach()
-                        raw = x_f[i:i+1]
-                        psnr_list2 += [PSNR(raw, x_ref)]
-                    # concat 
-                    psnr_list = psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)] + psnr_list2
-                else:
-                    # compress I
-                    # compress forward
-                    x_f = x_GoP
-                    # compress as soon as a new frame is ready
-                    B,_,H,W = x_f.size()
-                    com_hidden = model.init_hidden(H,W)
-                    com_mv_prior_latent = com_res_prior_latent = None
-                    decom_hidden = model.init_hidden(H,W)
-                    decom_mv_prior_latent = decom_res_prior_latent = None
-                    x_ref = x_f[0:1]
-                    psnr_list = []
-                    for i in range(1,B):
-                        _,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
-                            model.compress(x_ref, x_f[i:i+1], com_hidden, i>1, com_mv_prior_latent, com_res_prior_latent)
-                        x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                            model.decompress(x_ref, mv_string, res_string, decom_hidden, i>1, decom_mv_prior_latent, decom_res_prior_latent)
-                        x_ref = x_ref.detach()
-                        raw = x_f[i:i+1]
-                        psnr_list += [PSNR(raw, x_ref)]
-            
-            # aggregate loss
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            
-            # record loss
-            psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
+                psnr_list += [PSNR(data[i:i+1], x_ref)]
+                print(psnr_list)
+            return psnr_list
         
-            # show result
-            proc_iter.set_description(
-                f"{data_idx:6}. "
-                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"I: {float(max(psnr_list)):.2f}")
+        with torch.no_grad():
+            psnr_list = server(data)
+            
+        # aggregate loss
+        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+        
+        # record loss
+        psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
+    
+        # show result
+        test_iter.set_description(
+            f"{data_idx:6}. "
+            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"I: {float(max(psnr_list)):.2f}")
         
         # clear input
         data = []
