@@ -29,14 +29,14 @@ BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC'
 loss_type = 'P'
 compression_level = 2 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 #RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_SPVC_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 1
-USE_VIMEO = True
+WARMUP_EPOCH = 2
+USE_VIMEO = False
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -355,9 +355,9 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
+elif CODEC_NAME in ['SPVC']:
     # load what exists
-    pretrained_model_path = "backup/DVC/DVC-2P_best.pth"
+    pretrained_model_path = "backup/RLVC/RLVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
@@ -391,7 +391,7 @@ else:
                            transform=transforms.Compose([transforms.ToTensor()]), 
                            train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-#test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
@@ -413,3 +413,5 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
     save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',score)
+    
+    test(epoch, model, test_dataset2)
