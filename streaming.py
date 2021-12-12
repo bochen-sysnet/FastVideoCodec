@@ -701,6 +701,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                         model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
                     x_ref = x_ref.detach()
+                    psnr_list += [PSNR(data[i:i+1], x_ref)]
                 elif p == fP or i == L-1:
                     # get current GoP 
                     x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
@@ -721,7 +722,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
-                psnr_list += [PSNR(data[i:i+1], x_ref)]
+                
                 print(psnr_list)
             return psnr_list
         
