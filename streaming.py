@@ -806,7 +806,8 @@ def streaming_AE3D(model, test_dataset, use_gpu=True):
 # THROUGHPUT
         
 ####### Load dataset
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+#test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+test_dataset = VideoDataset('./UVG', frame_size=(256,256))
 
 # try x265,x264 streaming with Gstreamer
 #static_simulation_model(model, test_dataset)
