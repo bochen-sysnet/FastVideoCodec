@@ -677,6 +677,7 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                     # init some states for forward compression
                     com_hidden = model.init_hidden(H,W)
                     com_mv_prior_latent = com_res_prior_latent = None
+                    x_ref = x_b[:1]
                 else:
                     # collect frames for current GoP
                     pass
@@ -719,10 +720,11 @@ def streaming_sequential(model, test_dataset, use_gpu=True):
                         x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                             model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                         x_ref = x_ref.detach()
-                        psnr_list1 += [PSNR(data[i:i+1], x_ref)]
+                        psnr_list1 += [PSNR(x_b[j:j+1], x_ref)]
                     psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
                     decom_hidden = model.init_hidden(H,W)
                     decom_mv_prior_latent = decom_res_prior_latent = None
+                    x_ref = x_b[:1]
                 
                 print(psnr_list)
             return psnr_list
@@ -764,6 +766,6 @@ model = LoadModel('RLVC')
 # try x265,x264 streaming with Gstreamer
 #dynamic_simulation_x26x(test_dataset, 'x264')
 #streaming_parallel(model, test_dataset)
-static_simulation_model(model, test_dataset)
-#streaming_sequential(model, test_dataset)
+#static_simulation_model(model, test_dataset)
+streaming_sequential(model, test_dataset)
 enc,dec = showTimer(model)
