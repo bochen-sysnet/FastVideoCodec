@@ -785,11 +785,15 @@ if __name__ == '__main__':
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
+    parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
+    parser.set_defaults(use_cuda=True)
     args = parser.parse_args()
     
     # check gpu
     if torch.cuda.is_available() and torch.cuda.device_count()>=2:
-        args.use_cuda = True
+        args.use_cuda = False
+    else:
+        args.use_cuda = False
         
     print(args)
     
