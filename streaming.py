@@ -630,21 +630,7 @@ def streaming_SPVC(name, test_dataset):
     test_dataset.reset()
     
 def RLVC_DVC_client(model,data,fP=6,bP=6):
-    # SYNC using TCP
-    time.sleep(3)
-    TCP_IP = '127.0.0.1'
-    TCP_PORT = 8888
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while True:
-        result = s.connect_ex((TCP_IP,TCP_PORT))
-        if result == 0:
-            print('port OPEN')
-            break
-        else:
-            print('port CLOSED, connect_ex returned: '+str(result))
-        time.sleep(0.5)
-    s.close()
-    ######################
+    
     GoP = fP+bP+1
     # cannot connect before server is started
     # start a process to pipe data to netcat
@@ -710,6 +696,7 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
     cmd = f'nc -lkp 8888'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     print('Server is ready')
+    threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
     psnr_list = []
     L = data.size(0)
     stream_iter = tqdm(range(L))
@@ -798,7 +785,7 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
         
         with torch.no_grad():
             if role == 'Standalone':
-                threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
+                
                 psnr_list,fps = RLVC_DVC_server(model,data)
             elif role == 'Server':
                 psnr_list,fps = RLVC_DVC_server(model,data)
