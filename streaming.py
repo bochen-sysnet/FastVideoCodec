@@ -648,6 +648,7 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
     # start a process to pipe data to netcat
     cmd = f'nc localhost 8888'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    print('Client pipe generated.')
     L = data.size(0)
     for i in range(L):
         p = i%GoP
