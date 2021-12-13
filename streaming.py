@@ -713,10 +713,16 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
         test_iter = tqdm(range(ds_size))
         for data_idx in test_iter:
             frame,eof = test_dataset[data_idx]
-            data.append(frame)
+            if args.task in ['RLVC','DVC','SPVC','AE3D']:
+                data.append(transforms.ToTensor()(frame))
+            else:
+                data.append(frame)
             if not eof:
                 continue
-            l = len(data)
+            if args.task in ['RLVC','DVC','SPVC','AE3D']:
+                data = torch.stack(data, dim=0)
+                if use_gpu:
+                    data = data.cuda()
             
             with torch.no_grad():
                 if args.role == 'Standalone':
@@ -734,7 +740,7 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             
             # record loss
-            psnr_module.update(psnr.cpu().data.item(),l)
+            psnr_module.update(psnr.cpu().data.item())
             
             # show result
             if args.role == 'Standalone' or args.role == 'Server':
@@ -749,6 +755,8 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
             data = []
             
         test_dataset.reset()
+        if args.task in ['RLVC','DVC','SPVC','AE3D']:
+            enc,dec = showTimer(model)
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # run this script in docker
