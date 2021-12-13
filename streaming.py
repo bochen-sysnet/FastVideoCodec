@@ -32,7 +32,7 @@ from models import PSNR,MSSSIM
 
 def LoadModel(CODEC_NAME,compression_level = 2,use_cuda=True):
     loss_type = 'P'
-    if CODEC_NAME == 'SPVC-stream':
+    if CODEC_NAME == 'SPVC':
         RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best_best.pth'
     else:
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
