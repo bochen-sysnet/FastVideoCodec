@@ -312,9 +312,7 @@ def x26x_client(args, data,Q,width=256,height=256):
     else:
         print('Codec not supported')
         exit(1)
-    print('wait')
-    time.sleep(3)
-    #block_until_open(args.server_ip,args.server_port)
+    block_until_open(args.server_ip,args.probe_port)
     # create a rtsp track
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     t_0 = None
@@ -348,7 +346,11 @@ def x26x_server(args, data,Q,width=256,height=256):
         
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
     p_server = sp.Popen(command, stdout=sp.PIPE)
-    print('SERVER READY')
+    # Probe port (server port in rtsp cannot be probed)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((args.server_ip, int(args.probe_port)))
+    s.listen(1)
+    conn, addr = s.accept()
     # Beginning time of streaming
     t_0 = time.perf_counter()
     
@@ -386,6 +388,7 @@ def x26x_server(args, data,Q,width=256,height=256):
             f"FPS: {fps:.2f}. "
             f"PSNR: {float(psnr_list[-1]):.2f}. "
             f"Total: {total_time:.3f}. ")
+    conn.close()
     return psnr_list,fps,t_warmup
         
 def dynamic_simulation_x26x(args, test_dataset):
@@ -802,7 +805,8 @@ if __name__ == '__main__':
     parser.add_argument('--role', type=str, default='Standalone', help='Server or Client or Standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     parser.add_argument('--server_ip', type=str, default='localhost', help='Server IP')
-    parser.add_argument('--server_port', type=str, default='8887', help='Server port')
+    parser.add_argument('--server_port', type=str, default='8087', help='Server port')
+    parser.add_argument('--probe_port', type=str, default='8086', help='Port to check if server is ready')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
