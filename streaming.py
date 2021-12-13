@@ -159,11 +159,11 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
                         
-def static_simulation_x26x(test_dataset,name='x264'):
-    print('Benchmarking:',name)
+def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
     
-    for Q in [15,19,23,27]:
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else Q_list = [23]
+    for Q in Q_list:
         data = []
         ba_loss_module = AverageMeter()
         psnr_module = AverageMeter()
@@ -190,6 +190,7 @@ def static_simulation_x26x(test_dataset,name='x264'):
             
             # show result
             test_iter.set_description(
+                f"Q:{Q}"
                 f"{data_idx:6}. "
                 f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
@@ -210,7 +211,7 @@ def static_bench_x26x():
     static_simulation_x26x(test_dataset,'x265')
     exit(0)
     
-def static_simulation_model(model, test_dataset):
+def static_simulation_model(args, test_dataset):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -219,12 +220,10 @@ def static_simulation_model(model, test_dataset):
     msssim_module = AverageMeter()
     all_loss_module = AverageMeter()
     ds_size = len(test_dataset)
-    
+    model = LoadModel(args.task)
     model.eval()
-    
     fP,bP = 6,6
     GoP = fP+bP+1
-    
     data = []
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
@@ -472,7 +471,7 @@ def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
             
-def SPVC_client(args,model,data,fP=6,bP=6):
+def SPVC_AE3D_client(args,model,data,fP=6,bP=6):
     block_until_open(args.server_ip,args.server_port)
     GoP = fP+bP+1
     L = data.size(0)
@@ -512,7 +511,7 @@ def SPVC_client(args,model,data,fP=6,bP=6):
     # Terminate the sub-process
     process.terminate()
     
-def SPVC_server(args,model,data,fP=6,bP=6):
+def SPVC_AE3D_server(args,model,data,fP=6,bP=6):
     GoP = fP+bP+1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.server_ip}'
@@ -580,46 +579,6 @@ def SPVC_server(args,model,data,fP=6,bP=6):
     # Close and flush stdin
     process.stdout.close()
     return psnr_list,fps,t_warmup
-        
-def streaming_SPVC_AE3D(args, test_dataset):
-    ####### Load model
-    model = LoadModel(args.task)
-    psnr_module = AverageMeter()
-    ds_size = len(test_dataset)
-    model.eval()
-    fP,bP = 6,6
-    GoP = fP+bP+1
-    data = []
-    test_iter = tqdm(range(ds_size))
-    for data_idx,_ in enumerate(test_iter):
-        frame,eof = test_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
-        if not eof: continue
-        data = torch.stack(data, dim=0).cuda()
-        L = data.size(0)
-            
-        with torch.no_grad():
-            threading.Thread(target=SPVC_client, args=(data,)).start() 
-            psnr_list,fps,t_warmup = SPVC_server(args,mode,data)
-            
-        # aggregate loss
-        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        
-        # record loss
-        psnr_module.update(psnr.cpu().data.item(),l)
-        msssim_module.update(msssim.cpu().data.item(), l)
-        
-        # show result
-        test_iter.set_description(
-            f"{data_idx:6}. "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
-            
-        # clear input
-        data = []
-        
-    test_dataset.reset()
     
 def RLVC_DVC_client(args,model,data,fP=6,bP=6):
     block_until_open(args.server_ip,args.server_port)
@@ -757,13 +716,23 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
     process.stdout.close()
     return psnr_list,fps,t_warmup
 
-def streaming_RLVC_DVC(args, test_dataset, use_gpu=True):
+def dynamic_simulation_model(args, test_dataset, use_gpu=True):
     ####### Load model
     model = LoadModel(args.task)
     psnr_module = AverageMeter()
     ds_size = len(test_dataset)
     model.eval()
     data = []
+    # get server and client simulator
+    if args.task in ['RLVC','DVC']:
+        server_sim = RLVC_DVC_server
+        client_sim = RLVC_DVC_client
+    elif args.task in ['SPVC','AE3D']:
+        server_sim = SPVC_AE3D_server
+        client_sim = SPVC_AE3D_client
+    else:
+        print('Unexpected task:',args.task)
+        exit(1)
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
         frame,eof = test_dataset[data_idx]
@@ -776,14 +745,14 @@ def streaming_RLVC_DVC(args, test_dataset, use_gpu=True):
         
         with torch.no_grad():
             if args.role == 'Standalone':
-                threading.Thread(target=RLVC_DVC_client, args=(args,model,data,)).start() 
-                psnr_list,fps,t_warmup = RLVC_DVC_server(args,model,data)
+                threading.Thread(target=client_sim, args=(args,model,data,)).start() 
+                psnr_list,fps,t_warmup = server_sim(args,model,data)
             elif args.role == 'Server':
-                psnr_list,fps,t_warmup = RLVC_DVC_server(args,model,data)
+                psnr_list,fps,t_warmup = server_sim(args,model,data)
             elif args.role == 'Client':
-                RLVC_DVC_client(args,model,data)
+                client_sim(args,model,data)
             else:
-                print('Unexpected role:',role)
+                print('Unexpected role:',args.role)
                 exit(1)
             
         # aggregate loss
@@ -807,9 +776,6 @@ def streaming_RLVC_DVC(args, test_dataset, use_gpu=True):
     
     enc,dec = showTimer(model)
     
-    
-def streaming_AE3D(model, test_dataset, use_gpu=True):
-    pass
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # run this script in docker
@@ -819,8 +785,6 @@ def streaming_AE3D(model, test_dataset, use_gpu=True):
 # use locks 
 # auto detect gpu
 
-# try x265,x264 streaming with Gstreamer
-#static_simulation_model(model, test_dataset)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
@@ -830,6 +794,7 @@ if __name__ == '__main__':
     parser.add_argument('--server_port', type=str, default='8887', help='Server port')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
+    parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
     args = parser.parse_args()
     
     print('Dataset:',args.dataset)
@@ -838,10 +803,14 @@ if __name__ == '__main__':
     else:
         test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
         
-    print('Benchmarking:',args.task)
-    if args.task in ['RLVC','DVC']:
-        streaming_RLVC_DVC(args, test_dataset)
-    elif args.task in ['SPVC','AE3D']:
-        streaming_SPVC_AE3D(args, test_dataset)
-    elif args.task in ['x264','x265']:
-        dynamic_simulation_x26x(args, test_dataset)
+    print('Benchmarking:',args.task,args.mode)
+    if args.mode == 'Dynamic':
+        if args.task in ['RLVC','DVC','SPVC','AE3D']:
+            dynamic_simulation_model(args, test_dataset)
+        elif args.task in ['x264','x265']:
+            dynamic_simulation_x26x(args, test_dataset)
+    else:
+        if args.task in ['x264','x265']:
+            static_simulation_x26x(args, test_dataset)
+        elif args.task in ['RLVC','DVC','SPVC','AE3D']:
+            static_simulation_model(args, test_dataset)
