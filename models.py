@@ -1816,17 +1816,18 @@ def test_seq_proc(name='RLVC'):
     train_iter = tqdm(range(0,13))
     model.eval()
     x_hat_prev = x
+    mv_prior_latent=res_prior_latent=None
     for i,_ in enumerate(train_iter):
         optimizer.zero_grad()
         
         # measure start
         t_0 = time.perf_counter()
-        x_hat, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, p,m = model(x, x_hat_prev.detach(), hidden_states, i%13!=0)
+        x_hat, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, p,m,mv_prior_latent, res_prior_latent = model(x, x_hat_prev, hidden_states, i%13!=0,mv_prior_latent,res_prior_latent)
         d = time.perf_counter() - t_0
         timer.update(d)
         # measure end
         
-        x_hat_prev = x_hat
+        x_hat_prev = x_hat.detach()
         
         loss = model.loss(img_loss,bpp_est,aux_loss)
         loss.backward()
