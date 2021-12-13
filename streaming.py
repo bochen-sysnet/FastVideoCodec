@@ -588,9 +588,14 @@ def RLVC_DVC_client(args,model,data,fP=6,bP=6):
     cmd = f'nc {args.server_ip} {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     L = data.size(0)
+    t_0 = None
     for i in range(L):
-        p = i%GoP
+        # read data
         # wait for 1/30. or 1/60.
+        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:
+            time.sleep(1/60.)
+        t_0 = time.perf_counter()
+        p = i%GoP
         if p > fP:
             # compress forward
             x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
