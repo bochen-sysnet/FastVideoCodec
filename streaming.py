@@ -661,7 +661,8 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
     psnr_list = []
     t_warmup = None
     L = data.size(0)
-    for i in tqdm(range(L)):
+    stream_iter = tqdm(range(L))
+    for i in stream_iter:
         p = i%GoP
         # wait for 1/30. or 1/60.
         if p > fP:
@@ -746,7 +747,8 @@ def dynamic_simulation_model(args, test_dataset, use_gpu=True):
     else:
         print('Unexpected task:',args.task)
         exit(1)
-    for data_idx in tqdm(range(ds_size)):
+    test_iter = tqdm(range(ds_size))
+    for data_idx in test_iter:
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if not eof: continue
