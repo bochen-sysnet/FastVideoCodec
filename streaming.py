@@ -791,9 +791,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # check gpu
-    if torch.cuda.is_available() and torch.cuda.device_count()>=2:
-        args.use_cuda = True
-    else:
+    if not torch.cuda.is_available() or torch.cuda.device_count()<2:
         args.use_cuda = False
         
     print(args)
