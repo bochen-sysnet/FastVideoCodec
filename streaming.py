@@ -632,7 +632,7 @@ def streaming_SPVC(name, test_dataset):
 def block_until_open(ip_addr,port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
-        result = s.connect_ex((ip_addr,port))
+        result = s.connect_ex((ip_addr,int(port)))
         if result == 0:
             print('port OPEN')
             break
