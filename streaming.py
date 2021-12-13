@@ -688,7 +688,7 @@ def RLVC_DVC_server(model,data,useThreading=True,fP=6,bP=6):
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -l 8888'
+    cmd = f'nc -vlkp 8888'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Start a thread that streams data
     if useThreading:
@@ -830,8 +830,14 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
-    parser.add_argument('--role', type=str, default='Server', help='Server or Client')
+    parser.add_argument('--role', type=str, default='Standalone', help='Server or Client or Standalone')
+    parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     args = parser.parse_args()
     
-    test_dataset = VideoDataset('UVG', frame_size=(256,256))
-    streaming_RLVC_DVC('RLVC', test_dataset)
+    if args.dataset == 'UVG':
+        test_dataset = VideoDataset('UVG', frame_size=(256,256))
+    else:
+        test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+        
+    if args.role == 'Standalone':
+        streaming_RLVC_DVC('RLVC', test_dataset)
