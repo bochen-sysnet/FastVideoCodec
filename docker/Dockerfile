@@ -49,4 +49,4 @@ RUN apt-get install -y netcat
 
 COPY ./ ./
 
-CMD ["python3", "streaming.py"]
+CMD ["sh", "benchmark.sh"]
