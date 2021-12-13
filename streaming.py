@@ -678,10 +678,13 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
             pass
     # Close and flush stdin
     process.stdin.close()
+    print('client closed')
     # Wait for sub-process to finish
     process.wait()
+    print('client waited')
     # Terminate the sub-process
     process.terminate()
+    print('client terminated')
 
 def RLVC_DVC_server(model,data,useThreading=True,fP=6,bP=6):
     GoP = fP+bP+1
@@ -760,10 +763,13 @@ def RLVC_DVC_server(model,data,useThreading=True,fP=6,bP=6):
             x_ref = x_b[:1]
     # Close and flush stdin
     process.stdout.close()
+    print('serv closed')
     # Wait for sub-process to finish
     process.wait()
+    print('serve wait')
     # Terminate the sub-process
     process.terminate()    
+    print('serv term')
     return psnr_list
 
 def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
