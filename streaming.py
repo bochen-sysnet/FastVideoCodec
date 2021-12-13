@@ -294,8 +294,8 @@ def block_until_open(ip_addr,port):
             #print('Port OPEN')
             break
         else:
-            print('Port CLOSED, connect_ex returned: '+str(result))
-        time.sleep(0.1)
+            #print('Port CLOSED, connect_ex returned: '+str(result))
+            time.sleep(0.1)
     s.close()
     
 def x26x_client(args, data,Q,width=256,height=256):
@@ -661,8 +661,7 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
     psnr_list = []
     t_warmup = None
     L = data.size(0)
-    stream_iter = tqdm(range(L))
-    for i in range(L):
+    for i in tqdm(range(L)):
         p = i%GoP
         # wait for 1/30. or 1/60.
         if p > fP:
@@ -747,8 +746,7 @@ def dynamic_simulation_model(args, test_dataset, use_gpu=True):
     else:
         print('Unexpected task:',args.task)
         exit(1)
-    test_iter = tqdm(range(ds_size))
-    for data_idx,_ in enumerate(test_iter):
+    for data_idx,_ in tqdm(range(ds_size)):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if not eof: continue
