@@ -302,11 +302,11 @@ def x26x_client(args, data,Q,width=256,height=256):
     fps = 25
     GOP = 13
     if args.task == 'x265':
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
+        cmd = f'/usr/bin/ffmpeg -hide_banner -loglevel error -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
                 f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
                 f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
     elif args.task == 'x264':
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
+        cmd = f'/usr/bin/ffmpeg -hide_banner -loglevel error -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                 f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
                 f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
     else:
@@ -314,7 +314,7 @@ def x26x_client(args, data,Q,width=256,height=256):
         exit(1)
     block_until_open(args.server_ip,args.probe_port)
     # create a rtsp track
-    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL)
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     t_0 = None
     for idx,img in enumerate(data):
         # read data
@@ -337,6 +337,7 @@ def x26x_server(args, data,Q,width=256,height=256):
     # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
     # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
     command = ['/usr/bin/ffmpeg',
+        '-hide_banner', '-loglevel', 'error',
         '-rtsp_flags', 'listen',
         '-i', f'rtsp://{args.server_ip}:{args.server_port}/live?tcp?',
         '-f', 'image2pipe',    # Use image2pipe demuxer
