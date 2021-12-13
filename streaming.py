@@ -23,6 +23,7 @@ import subprocess as sp
 import shlex
 import struct
 import socket
+import argparse
 
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
@@ -32,7 +33,7 @@ def LoadModel(CODEC_NAME):
     loss_type = 'P'
     compression_level = 2
     if CODEC_NAME == 'SPVC-stream':
-        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-vimeo-2P_best.pth'
+        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
     else:
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
@@ -286,122 +287,109 @@ def static_simulation_model(model, test_dataset):
     test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
-def dynamic_simulation_x26x(test_dataset, name='x264'):
-    print('Benchmarking:',name)
+def block_until_open(ip_addr,port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while True:
+        result = s.connect_ex((ip_addr,int(port)))
+        if result == 0:
+            print('port OPEN')
+            break
+        else:
+            print('port CLOSED, connect_ex returned: '+str(result))
+        time.sleep(0.1)
+    s.close()
+    
+def x26X_client(args, raw_clip,Q,width=256,height=256):
+    fps = 25
+    GOP = 13
+    if name == 'x265':
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
+                f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
+                f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
+    elif name == 'x264':
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
+                f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
+                f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
+    else:
+        print('Codec not supported')
+        exit(1)
+    block_until_open(args.server_ip,args.server_port)
+    # create a rtsp track
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+    
+    for idx,img in enumerate(raw_clip):
+        img = np.array(img)
+        process.stdin.write(img.tobytes())
+        #time.sleep(1/60.)
+        # maybe not necessary. this will never be bottleneck if set to 1/60.?
+    # Close and flush stdin
+    process.stdin.close()
+    # Wait for sub-process to finish
+    process.wait()
+    # Terminate the sub-process
+    process.terminate()
+    
+# how to direct rtsp traffic?
+def x26x_server(args, data,Q,width=256,height=256):
+    # create a rtsp server or listener
+    # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
+    # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
+    command = ['/usr/bin/ffmpeg',
+        '-rtsp_flags', 'listen',
+        '-i', f'rtsp://{args.server_ip}:{args.server_port}/live?tcp?',
+        '-f', 'image2pipe',    # Use image2pipe demuxer
+        '-pix_fmt', 'bgr24',   # Set BGR pixel format
+        '-vcodec', 'rawvideo', # Get rawvideo output format.
+        '-']
+        
+    # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
+    p_server = sp.Popen(command, stdout=sp.PIPE)
+    # Beginning time of streaming
+    t_0 = time.perf_counter()
+    
+    psnr_list = []
+    i = 0
+    t_warmup = None
+    stream_iter = tqdm(range(len(data)))
+    while True:
+        # read width*height*3 bytes from stdout (1 frame)
+        raw_frame = p_server.stdout.read(width*height*3)
+        if t_warmup is None:
+            t_warmup = time.perf_counter() - t_0
+
+        if len(raw_frame) != (width*height*3):
+            #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
+            break
+
+        # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
+        frame = np.fromstring(raw_frame, np.uint8)
+        frame = frame.reshape((height, width, 3))
+        
+        # process metrics
+        com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
+        raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
+        psnr_list += [PSNR(raw, com)]
+        i += 1
+        
+        # Count time
+        total_time = time.perf_counter() - t_0
+        fps = i/total_time
+    
+        # show result
+        stream_iter.set_description(
+            f"{i:3}. "
+            f"FPS: {fps:.2f}. "
+            f"PSNR: {float(psnr_list[-1]):.2f}. "
+            f"Total: {total_time:.3f}. ")
+    return psnr_list,fps,t_warmup
+        
+def dynamic_simulation_x26x(args, test_dataset):
     ds_size = len(test_dataset)
     
-    def create_client(Q,width=256,height=256):
-        fps = 25
-        GOP = 13
-        if name == 'x265':
-            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
-                    f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8888/live'
-        elif name == 'x264':
-            cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
-                    f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
-                    f'-rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8888/live'
-        else:
-            print('Codec not supported')
-            exit(1)
-        process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-        return process
-        
-    def client(raw_clip,process):
-        for idx,img in enumerate(raw_clip):
-            img = np.array(img)
-            process.stdin.write(img.tobytes())
-            print('write',idx)
-            #time.sleep(1/60.)
-        # Close and flush stdin
-        process.stdin.close()
-        # Wait for sub-process to finish
-        process.wait()
-        # Terminate the sub-process
-        process.terminate()
-        
-    def create_server():
-        # serve as a rtsp server
-        # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
-        # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
-        command = ['/usr/bin/ffmpeg',
-            '-rtsp_flags', 'listen',
-            '-i', 'rtsp://127.0.0.1:8888/live?tcp?',
-            '-f', 'image2pipe',    # Use image2pipe demuxer
-            '-pix_fmt', 'bgr24',   # Set BGR pixel format
-            '-vcodec', 'rawvideo', # Get rawvideo output format.
-            '-']
-            
-        # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
-        p_server = sp.Popen(command, stdout=sp.PIPE)
-        
-        return p_server
-        
-    # how to direct rtsp traffic?
-    def server(data,Q,width=256,height=256):
-        # Beginning time of streaming
-        t_0 = time.perf_counter()
-        
-        # create a rtsp server or listener
-        p_server = create_server()
-        print('server created')
-        
-        # create a rtsp track
-        p_client = create_client(Q)
-        print('client created')
-        
-        # Start a thread that streams data
-        threading.Thread(target=client, args=(data,p_client,)).start() 
-        
-        psnr_list = []
-        msssim_list = []
-        
-        i = 0
-        
-        t_warmup = None
-        
-        stream_iter = tqdm(range(len(data)))
-        while True:
-            # read width*height*3 bytes from stdout (1 frame)
-            raw_frame = p_server.stdout.read(width*height*3)
-            if t_warmup is None:
-                t_warmup = time.perf_counter() - t_0
-                print('Warm-up:',t_warmup)
-
-            if len(raw_frame) != (width*height*3):
-                #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
-                break
-
-            # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
-            frame = np.fromstring(raw_frame, np.uint8)
-            frame = frame.reshape((height, width, 3))
-            
-            # process metrics
-            com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
-            raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-            psnr_list += [PSNR(raw, com)]
-            msssim_list += [MSSSIM(raw, com)]
-            i += 1
-            
-            # Count time
-            total_time = time.perf_counter() - t_0
-            fps = i/total_time
-        
-            # show result
-            stream_iter.set_description(
-                f"{i:3}. "
-                f"FPS: {fps:.2f}. "
-                f"PSNR: {float(psnr_list[-1]):.2f}. "
-                f"MSSSIM: {float(msssim_list[-1]):.4f}. "
-                f"Total: {total_time:.3f}. ")
-        return psnr_list,msssim_list
-            
-    from collections import deque
-    
-    for Q in [15,19,23,27]:
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else Q_list = [23]
+    for Q in Q_list:
         data = []
         psnr_module = AverageMeter()
-        msssim_module = AverageMeter()
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             frame,eof = test_dataset[data_idx]
@@ -409,26 +397,35 @@ def dynamic_simulation_x26x(test_dataset, name='x264'):
             if not eof:
                 continue
             l = len(data)
+        
+            if args.role == 'Standalone':
+                threading.Thread(target=x26x_client, args=(args,data,Q,)).start() 
+                psnr_list, fps, t_warmup = x26x_server(data,Q)
+            elif args.role == 'Server':
+                psnr_list, fps, t_warmup = x26x_server(data,Q)
+            elif args.role == 'Client':
+                x26x_client(args,data,Q)
+            else:
+                print('Unexpected role:',role)
+                exit(1)
             
-            psnr_list, msssim_list = server(data,Q)
-                
             # aggregate loss
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
             
             # record loss
             psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
             
             # show result
-            test_iter.set_description(
-                f"{data_idx:6}. "
-                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+            if args.role == 'Standalone' or args.role == 'Server':
+                test_iter.set_description(
+                    f"{Q}. "
+                    f"{data_idx:6}. "
+                    f"FPS: {fps:.2f}. "
+                    f"Warmup: {t_warmup:.2f}. "
+                    f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
                 
             # clear input
             data = []
-            exit(0)
             
         test_dataset.reset()
     
@@ -475,11 +472,119 @@ def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
             
-def streaming_SPVC(name, test_dataset):
+def SPVC_client(args,model,data,fP=6,bP=6):
+    block_until_open(args.server_ip,args.server_port)
+    GoP = fP+bP+1
+    L = data.size(0)
+    # start a process to pipe data to netcat
+    cmd = f'nc {args.server_ip} {args.server_port}'
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    for begin in range(0,L,GoP):
+        x_GoP = data[begin:begin+GoP]
+        GoP_size = x_GoP.size(0)
+        # Send GoP size, this determines how to encode/decode the strings
+        bytes_send = struct.pack('B',GoP_size)
+        process.stdin.write(bytes_send)
+        # Send compressed I frame (todo)
+        if GoP_size>fP+1:
+            # compress I
+            # compress backward
+            x_b = torch.flip(x_GoP[:fP+1],[0])
+            mv_string1,res_string1,_ = model.compress(x_b)
+            # Send strings in order
+            send_strings_to_process(process, [mv_string1,res_string1])
+            # compress forward
+            x_f = x_GoP[fP:]
+            mv_string2,res_string2,_ = model.compress(x_f)
+            # Send strings in order
+            send_strings_to_process(process, [mv_string2,res_string2])
+        else:
+            # compress I
+            # compress backward
+            x_f = x_GoP
+            mv_string,res_string,bpp_act_list = model.compress(x_f)
+            # Send strings in order
+            send_strings_to_process(process, [mv_string,res_string])
+    # Close and flush stdin
+    process.stdin.close()
+    # Wait for sub-process to finish
+    process.wait()
+    # Terminate the sub-process
+    process.terminate()
+    
+def SPVC_server(args,model,data,fP=6,bP=6):
+    GoP = fP+bP+1
+    # create a pipe for listening from netcat
+    cmd = f'nc -lkp {args.server_ip}'
+    process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+    # Beginning time of streaming
+    t_0 = time.perf_counter()
+    # initialize
+    psnr_list = []
+    i = 0
+    t_warmup = None
+    L = data.size(0)
+    stream_iter = tqdm(range(L))
+    # start listening
+    for begin in range(0,L,GoP):
+        # decompress I frame
+        x_GoP = data[begin:begin+GoP]
+        x_ref = x_GoP[fP:fP+1] if x_GoP.size(0)>fP+1 else x_GoP[:1]
+        # [B=1] receive number of elements
+        bytes_recv = process.stdout.read(1)
+        GoP_size = struct.unpack('B',bytes_recv)[0]
+        # receive strings based on gop size
+        if GoP_size>fP+1:
+            # receive the first two strings
+            strings_to_recv = fP
+            mv_string1 = recv_strings_from_process(process, strings_to_recv)
+            res_string1 = recv_strings_from_process(process, strings_to_recv)
+            # decompress backward
+            x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+            # receive the second two strings
+            strings_to_recv = GoP-1-fP
+            mv_string2 = recv_strings_from_process(process, strings_to_recv)
+            res_string2 = recv_strings_from_process(process, strings_to_recv)
+            # decompress forward
+            x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+            # concate
+            x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
+        else:
+            strings_to_recv = GoP-1
+            # receive two strings
+            strings_to_recv = fP
+            mv_string = recv_strings_from_process(process, strings_to_recv)
+            res_string = recv_strings_from_process(process, strings_to_recv)
+            # decompress backward
+            x_f_hat = model.decompress(x_ref,mv_string,res_string)
+            # concate
+            x_hat = torch.cat((x_ref,x_f_hat),dim=0)
+                
+        if t_warmup is None:
+            t_warmup = time.perf_counter() - t_0
+            
+        for com in x_hat:
+            com = com.cuda().unsqueeze(0)
+            raw = data[i].cuda().unsqueeze(0)
+            psnr_list += [PSNR(raw, com)]
+            i += 1
+        # Count time
+        total_time = time.perf_counter() - t_0
+        fps = i/total_time
+        # show result
+        stream_iter.set_description(
+            f"{i:3}. "
+            f"FPS: {fps:.2f}. "
+            f"PSNR: {float(psnr_list[-1]):.2f}. "
+            f"Total: {total_time:.3f}. ")
+    # Close and flush stdin
+    process.stdout.close()
+    return psnr_list,fps,t_warmup
+        
+def streaming_SPVC_AE3D(args, test_dataset):
     ####### Load model
-    model = LoadModel(name)
+    model = LoadModel(args.task)
     psnr_module = AverageMeter()
-    msssim_module = AverageMeter()
     ds_size = len(test_dataset)
     model.eval()
     fP,bP = 6,6
@@ -493,122 +598,9 @@ def streaming_SPVC(name, test_dataset):
         data = torch.stack(data, dim=0).cuda()
         L = data.size(0)
             
-        def client(data):
-            # start a process to pipe data to netcat
-            cmd = f'nc localhost 8888'
-            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-            for begin in range(0,L,GoP):
-                x_GoP = data[begin:begin+GoP]
-                GoP_size = x_GoP.size(0)
-                # Send GoP size, this determines how to encode/decode the strings
-                bytes_send = struct.pack('B',GoP_size)
-                process.stdin.write(bytes_send)
-                # Send compressed I frame (todo)
-                if GoP_size>fP+1:
-                    # compress I
-                    # compress backward
-                    x_b = torch.flip(x_GoP[:fP+1],[0])
-                    mv_string1,res_string1,_ = model.compress(x_b)
-                    # Send strings in order
-                    send_strings_to_process(process, [mv_string1,res_string1])
-                    # compress forward
-                    x_f = x_GoP[fP:]
-                    mv_string2,res_string2,_ = model.compress(x_f)
-                    # Send strings in order
-                    send_strings_to_process(process, [mv_string2,res_string2])
-                else:
-                    # compress I
-                    # compress backward
-                    x_f = x_GoP
-                    mv_string,res_string,bpp_act_list = model.compress(x_f)
-                    # Send strings in order
-                    send_strings_to_process(process, [mv_string,res_string])
-            # Close and flush stdin
-            process.stdin.close()
-            # Wait for sub-process to finish
-            process.wait()
-            # Terminate the sub-process
-            process.terminate()
-            
-        def server(data):
-            # Beginning time of streaming
-            t_0 = time.perf_counter()
-            # create a pipe for listening from netcat
-            cmd = f'nc -l 8888'
-            process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-            # Start a thread that streams data
-            threading.Thread(target=client, args=(data,)).start() 
-            # initialize
-            psnr_list = []
-            msssim_list = []
-            i = 0
-            t_warmup = None
-            stream_iter = tqdm(range(L))
-            # start listening
-            for begin in range(0,L,GoP):
-                # decompress I frame
-                x_GoP = data[begin:begin+GoP]
-                x_ref = x_GoP[fP:fP+1] if x_GoP.size(0)>fP+1 else x_GoP[:1]
-                # [B=1] receive number of elements
-                bytes_recv = process.stdout.read(1)
-                GoP_size = struct.unpack('B',bytes_recv)[0]
-                # receive strings based on gop size
-                if GoP_size>fP+1:
-                    # receive the first two strings
-                    strings_to_recv = fP
-                    mv_string1 = recv_strings_from_process(process, strings_to_recv)
-                    res_string1 = recv_strings_from_process(process, strings_to_recv)
-                    # decompress backward
-                    x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
-                    # receive the second two strings
-                    strings_to_recv = GoP-1-fP
-                    mv_string2 = recv_strings_from_process(process, strings_to_recv)
-                    res_string2 = recv_strings_from_process(process, strings_to_recv)
-                    # decompress forward
-                    x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
-                    # concate
-                    x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
-                else:
-                    strings_to_recv = GoP-1
-                    # receive two strings
-                    strings_to_recv = fP
-                    mv_string = recv_strings_from_process(process, strings_to_recv)
-                    res_string = recv_strings_from_process(process, strings_to_recv)
-                    # decompress backward
-                    x_f_hat = model.decompress(x_ref,mv_string,res_string)
-                    # concate
-                    x_hat = torch.cat((x_ref,x_f_hat),dim=0)
-                        
-                if t_warmup is None:
-                    t_warmup = time.perf_counter() - t_0
-                    print('Warm-up:',t_warmup)
-                    
-                for com in x_hat:
-                    com = com.cuda().unsqueeze(0)
-                    raw = data[i].cuda().unsqueeze(0)
-                    psnr_list += [PSNR(raw, com)]
-                    msssim_list += [MSSSIM(raw, com)]
-                    i += 1
-                # Count time
-                total_time = time.perf_counter() - t_0
-                fps = i/total_time
-                # show result
-                stream_iter.set_description(
-                    f"{i:3}. "
-                    f"FPS: {fps:.2f}. "
-                    f"PSNR: {float(psnr_list[-1]):.2f}. "
-                    f"MSSSIM: {float(msssim_list[-1]):.4f}. "
-                    f"Total: {total_time:.3f}. ")
-            # Close and flush stdin
-            process.stdout.close()
-            # Wait for sub-process to finish
-            process.wait()
-            # Terminate the sub-process
-            process.terminate()
-            return psnr_list,msssim_list
-                
         with torch.no_grad():
-            psnr_list,msssim_list = server(data)
+            threading.Thread(target=SPVC_client, args=(data,)).start() 
+            psnr_list,fps,t_warmup = SPVC_server(args,mode,data)
             
         # aggregate loss
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -628,18 +620,6 @@ def streaming_SPVC(name, test_dataset):
         data = []
         
     test_dataset.reset()
-    
-def block_until_open(ip_addr,port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    while True:
-        result = s.connect_ex((ip_addr,int(port)))
-        if result == 0:
-            print('port OPEN')
-            break
-        else:
-            print('port CLOSED, connect_ex returned: '+str(result))
-        time.sleep(0.5)
-    s.close()
     
 def RLVC_DVC_client(args,model,data,fP=6,bP=6):
     block_until_open(args.server_ip,args.server_port)
@@ -706,6 +686,7 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
     cmd = f'nc -lkp {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     psnr_list = []
+    t_warmup = None
     L = data.size(0)
     stream_iter = tqdm(range(L))
     for i in range(L):
@@ -739,11 +720,13 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
             B,_,H,W = x_b.size()
             decom_hidden = model.init_hidden(H,W)
             decom_mv_prior_latent = decom_res_prior_latent = None
-            # get compressed I frame
             # [B=1] receive frame type
             bytes_recv = process.stdout.read(1)
             frame_type = struct.unpack('B',bytes_recv)[0]
             x_ref = x_b[:1]
+            # get compressed I frame
+            if t_warmup is None:
+                t_warmup = time.perf_counter() - t_0
             # decompress backward
             psnr_list1 = []
             for j in range(1,B):
@@ -772,11 +755,11 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
             x_ref = x_b[:1]
     # Close and flush stdin
     process.stdout.close()
-    return psnr_list,fps
+    return psnr_list,fps,t_warmup
 
-def streaming_RLVC_DVC(args, name, test_dataset, use_gpu=True, role='Standalone'):
+def streaming_RLVC_DVC(args, test_dataset, use_gpu=True):
     ####### Load model
-    model = LoadModel(name)
+    model = LoadModel(args.task)
     psnr_module = AverageMeter()
     ds_size = len(test_dataset)
     model.eval()
@@ -792,13 +775,13 @@ def streaming_RLVC_DVC(args, name, test_dataset, use_gpu=True, role='Standalone'
             data = data.cuda()
         
         with torch.no_grad():
-            if role == 'Standalone':
+            if args.role == 'Standalone':
                 threading.Thread(target=RLVC_DVC_client, args=(args,model,data,)).start() 
-                psnr_list,fps = RLVC_DVC_server(args,model,data)
-            elif role == 'Server':
-                psnr_list,fps = RLVC_DVC_server(args,model,data)
-            elif role == 'Client':
-                psnr_list = RLVC_DVC_client(args,model,data)
+                psnr_list,fps,t_warmup = RLVC_DVC_server(args,model,data)
+            elif args.role == 'Server':
+                psnr_list,fps,t_warmup = RLVC_DVC_server(args,model,data)
+            elif args.role == 'Client':
+                RLVC_DVC_client(args,model,data)
             else:
                 print('Unexpected role:',role)
                 exit(1)
@@ -810,9 +793,10 @@ def streaming_RLVC_DVC(args, name, test_dataset, use_gpu=True, role='Standalone'
         psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
     
         # show result
-        if role == 'Standalone' or role == 'Server':
+        if args.role == 'Standalone' or args.role == 'Server':
             test_iter.set_description(
                 f"{data_idx:6}. "
+                f"Warmup: {t_warmup:.2f}. "
                 f"FPS: {fps:.2f}. "
                 f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
         
@@ -834,31 +818,30 @@ def streaming_AE3D(model, test_dataset, use_gpu=True):
 # THROUGHPUT
 # use locks 
 # auto detect gpu
-        
-####### Load dataset
-#test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-
 
 # try x265,x264 streaming with Gstreamer
 #static_simulation_model(model, test_dataset)
-#dynamic_simulation_x26x(test_dataset, 'x264')
-#streaming_SPVC('SPVC-stream', test_dataset)
-#streaming_RLVC_DVC('DVC', test_dataset)
-#streaming_RLVC_DVC('RLVC', test_dataset)
 
 if __name__ == '__main__':
-    import argparse
-
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='Standalone', help='Server or Client or Standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     parser.add_argument('--server_ip', type=str, default='localhost', help='Server IP')
     parser.add_argument('--server_port', type=str, default='8887', help='Server port')
+    parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
+    parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     args = parser.parse_args()
     
+    print('Dataset:',args.dataset)
     if args.dataset == 'UVG':
         test_dataset = VideoDataset('UVG', frame_size=(256,256))
     else:
         test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
         
-    streaming_RLVC_DVC(args, 'RLVC', test_dataset, role = args.role)
+    print('Benchmarking:',args.task)
+    if args.task in ['RLVC','DVC']:
+        streaming_RLVC_DVC(args, test_dataset)
+    elif args.task in ['SPVC','AE3D']:
+        streaming_SPVC_AE3D(args, test_dataset)
+    elif args.task in ['x264','x265']:
+        dynamic_simulation_x26x(args, test_dataset)
