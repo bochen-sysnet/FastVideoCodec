@@ -746,7 +746,7 @@ def dynamic_simulation_model(args, test_dataset, use_gpu=True):
     else:
         print('Unexpected task:',args.task)
         exit(1)
-    for data_idx,_ in tqdm(range(ds_size)):
+    for data_idx in tqdm(range(ds_size)):
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if not eof: continue
