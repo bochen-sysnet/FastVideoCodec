@@ -497,6 +497,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
         x_ref = x_GoP[fP:fP+1] if x_GoP.size(0)>fP+1 else x_GoP[:1]
         # [B=1] receive number of elements
         bytes_recv = process.stdout.read(1)
+        print(bytes_recv)
         GoP_size = struct.unpack('B',bytes_recv)[0]
         # receive strings based on gop size
         if GoP_size>fP+1:

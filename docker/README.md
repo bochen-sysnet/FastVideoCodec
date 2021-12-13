@@ -11,3 +11,5 @@ sudo docker run -it --rm -p 8888:8888/tcp client
 sudo docker build -t benchmark -f docker/Dockerfile .
 
 sudo docker run -it --rm --gpus all -p 8888:8888 benchmark
+
+sudo docker run -it --rm --gpus all --network host benchmark
