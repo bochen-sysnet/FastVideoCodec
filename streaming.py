@@ -677,7 +677,8 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
             x_ref = x_b[:1]
             # send frame type
             bytes_send = struct.pack('B',0) # 0:iframe;1:backward;2 forward
-            process.stdin.write(bytes_send)
+            r=process.stdin.write(bytes_send)
+            print(r)
             # compress backward
             for j in range(1,B):
                 x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
@@ -720,7 +721,6 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
             # [B=1] receive frame type
             bytes_recv = process.stdout.read(1)
             frame_type = struct.unpack('B',bytes_recv)[0]
-            print(frame_type)
             # receive strings
             mv_string = recv_strings_from_process(process, 1, useXZ=False)
             res_string = recv_strings_from_process(process, 1, useXZ=False)
