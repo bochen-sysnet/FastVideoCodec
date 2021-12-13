@@ -639,7 +639,6 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
         try:
             s.connect((TCP_IP, TCP_PORT))
             print('Connection built')
-            break
         except socket.error as exc:
             print(exc)
         time.sleep(0.5)
