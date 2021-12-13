@@ -720,6 +720,7 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
             # [B=1] receive frame type
             bytes_recv = process.stdout.read(1)
             frame_type = struct.unpack('B',bytes_recv)[0]
+            print(frame_type)
             # receive strings
             mv_string = recv_strings_from_process(process, 1, useXZ=False)
             res_string = recv_strings_from_process(process, 1, useXZ=False)
