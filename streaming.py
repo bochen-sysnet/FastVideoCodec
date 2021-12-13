@@ -445,22 +445,37 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
     # start a process to pipe data to netcat
     cmd = f'nc {args.server_ip} {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    t_0 = None
     for begin in range(0,L,GoP):
         x_GoP = data[begin:begin+GoP]
         GoP_size = x_GoP.size(0)
-        # Send GoP size, this determines how to encode/decode the strings
-        bytes_send = struct.pack('B',GoP_size)
-        process.stdin.write(bytes_send)
         # Send compressed I frame (todo)
         if GoP_size>fP+1:
             # compress I
             # compress backward
             x_b = torch.flip(x_GoP[:fP+1],[0])
+            # wait
+            for k in range(x_b.size(0)):
+                while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+                t_0 = time.perf_counter()
+                if k<x_b.size(0)-1:
+                    # send time stamp
+                    bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+                    process.stdin.write(bytes_send)
+            # ready
             mv_string1,res_string1,_ = model.compress(x_b)
             # Send strings in order
             send_strings_to_process(process, [mv_string1,res_string1])
             # compress forward
             x_f = x_GoP[fP:]
+            # wait
+            for k in range(x_f.size(0)-1):
+                while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+                t_0 = time.perf_counter()
+                # send time stamp
+                bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+                process.stdin.write(bytes_send)
+            # ready
             mv_string2,res_string2,_ = model.compress(x_f)
             # Send strings in order
             send_strings_to_process(process, [mv_string2,res_string2])
@@ -468,6 +483,15 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
             # compress I
             # compress backward
             x_f = x_GoP
+            # wait
+            for k in range(GoP_size):
+                while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+                t_0 = time.perf_counter()
+                if k<x_f.size(0)-1:
+                    # send time stamp
+                    bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+                    process.stdin.write(bytes_send)
+            # ready
             mv_string,res_string,bpp_act_list = model.compress(x_f)
             # Send strings in order
             send_strings_to_process(process, [mv_string,res_string])
@@ -486,7 +510,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # initialize
-    psnr_list = []
+    latency_module = AverageMeter()
+    psnr_module = AverageMeter()
     i = 0
     t_warmup = None
     L = data.size(0)
@@ -496,43 +521,69 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
         # decompress I frame
         x_GoP = data[begin:begin+GoP]
         x_ref = x_GoP[fP:fP+1] if x_GoP.size(0)>fP+1 else x_GoP[:1]
-        # [B=1] receive number of elements
-        bytes_recv = process.stdout.read(1)
-        GoP_size = struct.unpack('B',bytes_recv)[0]
+        GoP_size = x_GoP.size(0)
         # receive strings based on gop size
         if GoP_size>fP+1:
-            # receive the first two strings
+            ###############################################################
             strings_to_recv = fP
+            # receive timestamp
+            sent_timestamps = []
+            for _ in range(strings_to_recv):
+                bytes_recv = process.stdout.read(29)
+                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
+                sent_timestamps += [sent_ts]
+            # receive the first two strings
             mv_string1 = recv_strings_from_process(process, strings_to_recv)
             res_string1 = recv_strings_from_process(process, strings_to_recv)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+            # record time
+            for sent_ts in sent_timestamps:
+                recv_ts = datetime.now()
+                latency_module.update((recv_ts-sent_ts).total_seconds())
+            ###############################################################
+            strings_to_recv = GoP_size-1-fP
+            # receive timestamp
+            sent_timestamps = []
+            for _ in range(strings_to_recv):
+                bytes_recv = process.stdout.read(29)
+                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
+                sent_timestamps += [sent_ts]
             # receive the second two strings
-            strings_to_recv = GoP-1-fP
             mv_string2 = recv_strings_from_process(process, strings_to_recv)
             res_string2 = recv_strings_from_process(process, strings_to_recv)
             # decompress forward
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+            # record time
+            for sent_ts in sent_timestamps:
+                recv_ts = datetime.now()
+                latency_module.update((recv_ts-sent_ts).total_seconds())
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
         else:
-            strings_to_recv = GoP-1
+            strings_to_recv = GoP_size-1
+            # receive timestamp
+            sent_timestamps = []
+            for _ in range(strings_to_recv):
+                bytes_recv = process.stdout.read(29)
+                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
+                sent_timestamps += [sent_ts]
             # receive two strings
-            strings_to_recv = fP
             mv_string = recv_strings_from_process(process, strings_to_recv)
             res_string = recv_strings_from_process(process, strings_to_recv)
             # decompress backward
             x_f_hat = model.decompress(x_ref,mv_string,res_string)
+            # record time
+            for sent_ts in sent_timestamps:
+                recv_ts = datetime.now()
+                latency_module.update((recv_ts-sent_ts).total_seconds())
             # concate
             x_hat = torch.cat((x_ref,x_f_hat),dim=0)
-                
-        if t_warmup is None:
-            t_warmup = time.perf_counter() - t_0
             
         for com in x_hat:
-            com = com.cuda().unsqueeze(0)
-            raw = data[i].cuda().unsqueeze(0)
-            psnr_list += [PSNR(raw, com)]
+            com = com.unsqueeze(0)
+            raw = data[i].unsqueeze(0)
+            psnr_module.update(PSNR(com, raw).cpu().data.item())
             i += 1
         # Count time
         total_time = time.perf_counter() - t_0
@@ -541,13 +592,14 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
         stream_iter.set_description(
             f"{i:3}. "
             f"FPS: {fps:.2f}. "
-            f"PSNR: {float(psnr_list[-1]):.2f}. "
+            f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_list,fps,t_warmup
+    return psnr_module.avg,fps,latency_module.avg
     
 def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
     block_until_open(args.server_ip,args.server_port)
@@ -558,6 +610,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     L = data.size(0)
     t_0 = None
+    sent_timestamps = []
     for i in range(L):
         # read data
         # wait for 1/30. or 1/60.
@@ -566,14 +619,14 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
         t_0 = time.perf_counter()
         p = i%GoP
         if p > fP:
+            # send time stamp
+            bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+            process.stdin.write(bytes_send)
             # compress forward
             x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                 model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
             # send frame type
             bytes_send = struct.pack('B',2) # 0:iframe;1:backward;2 forward
-            process.stdin.write(bytes_send)
-            # send time stamp
-            bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
             process.stdin.write(bytes_send)
             # send strings
             send_strings_to_process(process, [mv_string,res_string], useXZ=False)
@@ -589,14 +642,15 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
             x_ref = x_b[:1]
             # compress backward
             for j in range(1,B):
+                # send time stamp
+                bytes_send = bytes(sent_timestamps[j-1].strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+                process.stdin.write(bytes_send)
+                # compress
                 x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                     model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
                 x_ref = x_ref.detach()
                 # send frame type
                 bytes_send = struct.pack('B',1) # 0:iframe;1:backward;2 forward
-                process.stdin.write(bytes_send)
-                # send time stamp
-                bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
                 process.stdin.write(bytes_send)
                 # send strings
                 send_strings_to_process(process, [mv_string,res_string], useXZ=False)
@@ -604,9 +658,10 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
             com_hidden = model.init_hidden(H,W)
             com_mv_prior_latent = com_res_prior_latent = None
             x_ref = x_b[:1]
+            sent_timestamps = []
         else:
             # collect frames for current GoP
-            pass
+            sent_timestamps += [datetime.now()]
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
@@ -629,12 +684,12 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
         p = i%GoP
         # wait for 1/30. or 1/60.
         if p > fP:
-            # [B=1] receive frame type
-            bytes_recv = process.stdout.read(1)
-            frame_type = struct.unpack('B',bytes_recv)[0]
             # receive timestamp
             bytes_recv = process.stdout.read(29)
             sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
+            # [B=1] receive frame type
+            bytes_recv = process.stdout.read(1)
+            frame_type = struct.unpack('B',bytes_recv)[0]
             # receive strings
             mv_string = recv_strings_from_process(process, 1, useXZ=False)
             res_string = recv_strings_from_process(process, 1, useXZ=False)
@@ -667,12 +722,12 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
             # get compressed I frame
             # decompress backward
             for j in range(1,B):
-                # [B=1] receive frame type
-                bytes_recv = process.stdout.read(1)
-                frame_type = struct.unpack('B',bytes_recv)[0]
                 # receive timestamp
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
+                # [B=1] receive frame type
+                bytes_recv = process.stdout.read(1)
+                frame_type = struct.unpack('B',bytes_recv)[0]
                 # receive strings
                 mv_string = recv_strings_from_process(process, 1, useXZ=False)
                 res_string = recv_strings_from_process(process, 1, useXZ=False)
