@@ -632,6 +632,7 @@ def RLVC_DVC_client(model, data):
     # start a process to pipe data to netcat
     cmd = f'nc localhost 8888'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    L = data.size(0)
     for i in range(L):
         p = i%GoP
         # wait for 1/30. or 1/60.
@@ -691,6 +692,7 @@ def RLVC_DVC_server(model,data,useThreading=True):
     if useThreading:
         threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
     psnr_list = []
+    L = data.size(0)
     stream_iter = tqdm(range(L))
     for i in range(L):
         p = i%GoP
@@ -780,7 +782,6 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
         data = torch.stack(data, dim=0)
         if use_gpu:
             data = data.cuda()
-        L = data.size(0)
         
         with torch.no_grad():
             psnr_list = RLVC_DVC_server(model,data)
