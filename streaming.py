@@ -629,14 +629,10 @@ def streaming_SPVC(name, test_dataset):
         
     test_dataset.reset()
     
-def RLVC_DVC_client(model,data,fP=6,bP=6):
-    # SYNC using TCP
-    time.sleep(3)
-    TCP_IP = '127.0.0.1'
-    TCP_PORT = 8887
+def block_until_open(ip_addr,port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
-        result = s.connect_ex((TCP_IP,TCP_PORT))
+        result = s.connect_ex((ip_addr,port))
         if result == 0:
             print('port OPEN')
             break
@@ -644,14 +640,14 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
             print('port CLOSED, connect_ex returned: '+str(result))
         time.sleep(0.5)
     s.close()
-    ######################
+    
+def RLVC_DVC_client(args,model,data,fP=6,bP=6):
+    block_until_open(args.server_ip,args.server_port)
     GoP = fP+bP+1
     # cannot connect before server is started
     # start a process to pipe data to netcat
-    cmd = f'nc localhost 8887'
-    print('Client trying to build pipe')
+    cmd = f'nc {args.server_ip} {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-    print('Client pipe generated.')
     L = data.size(0)
     for i in range(L):
         p = i%GoP
@@ -702,14 +698,13 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
     # Terminate the sub-process
     process.terminate()
 
-def RLVC_DVC_server(model,data,fP=6,bP=6):
+def RLVC_DVC_server(args,model,data,fP=6,bP=6):
     GoP = fP+bP+1
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -lkp 8887'
+    cmd = f'nc -lkp {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    print('Server is ready')
     psnr_list = []
     L = data.size(0)
     stream_iter = tqdm(range(L))
@@ -779,7 +774,7 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
     process.stdout.close()
     return psnr_list,fps
 
-def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
+def streaming_RLVC_DVC(args, name, test_dataset, use_gpu=True, role='Standalone'):
     ####### Load model
     model = LoadModel(name)
     psnr_module = AverageMeter()
@@ -798,12 +793,12 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
         
         with torch.no_grad():
             if role == 'Standalone':
-                threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
-                psnr_list,fps = RLVC_DVC_server(model,data)
+                threading.Thread(target=RLVC_DVC_client, args=(args,model,data,)).start() 
+                psnr_list,fps = RLVC_DVC_server(args,model,data)
             elif role == 'Server':
-                psnr_list,fps = RLVC_DVC_server(model,data)
+                psnr_list,fps = RLVC_DVC_server(args,model,data)
             elif role == 'Client':
-                psnr_list = RLVC_DVC_client(model,data)
+                psnr_list = RLVC_DVC_client(args,model,data)
             else:
                 print('Unexpected role:',role)
                 exit(1)
@@ -857,6 +852,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='Standalone', help='Server or Client or Standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
+    parser.add_argument('--server_ip', type=str, default='localhost', help='Server IP')
+    parser.add_argument('--server_port', type=str, default='8887', help='Server port')
     args = parser.parse_args()
     
     if args.dataset == 'UVG':
@@ -864,4 +861,4 @@ if __name__ == '__main__':
     else:
         test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
         
-    streaming_RLVC_DVC('RLVC', test_dataset, role = args.role)
+    streaming_RLVC_DVC(args, 'RLVC', test_dataset, role = args.role)
