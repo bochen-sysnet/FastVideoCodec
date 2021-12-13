@@ -298,7 +298,7 @@ def block_until_open(ip_addr,port):
         time.sleep(0.1)
     s.close()
     
-def x26X_client(args, raw_clip,Q,width=256,height=256):
+def x26x_client(args, raw_clip,Q,width=256,height=256):
     fps = 25
     GOP = 13
     if name == 'x265':
@@ -315,12 +315,15 @@ def x26X_client(args, raw_clip,Q,width=256,height=256):
     block_until_open(args.server_ip,args.server_port)
     # create a rtsp track
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-    
+    t_0 = None
     for idx,img in enumerate(raw_clip):
+        # read data
+        # wait for 1/30. or 1/60.
         img = np.array(img)
+        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:
+            time.sleep(1/60.)
+        t_0 = time.perf_counter()
         process.stdin.write(img.tobytes())
-        #time.sleep(1/60.)
-        # maybe not necessary. this will never be bottleneck if set to 1/60.?
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
