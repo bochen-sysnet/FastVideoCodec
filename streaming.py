@@ -320,8 +320,7 @@ def x26x_client(args, data,Q,width=256,height=256):
         # read data
         # wait for 1/30. or 1/60.
         img = np.array(img)
-        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:
-            time.sleep(1/60.)
+        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
         t_0 = time.perf_counter()
         process.stdin.write(img.tobytes())
     # Close and flush stdin
@@ -370,7 +369,7 @@ def x26x_server(args, data,Q,width=256,height=256):
             break
 
         # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
-        frame = np.fromstring(raw_frame, np.uint8)
+        frame = np.frombuffer(raw_frame, np.uint8)
         frame = frame.reshape((height, width, 3))
         
         # process metrics
