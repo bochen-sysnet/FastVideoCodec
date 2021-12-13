@@ -29,7 +29,7 @@ from models import get_codec_model,parallel_compression,update_training,compress
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
-def LoadModel(CODEC_NAME,compression_level = 2):
+def LoadModel(CODEC_NAME,compression_level = 2,use_cuda=True):
     loss_type = 'P'
     if CODEC_NAME == 'SPVC-stream':
         RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best.pth'
@@ -37,7 +37,7 @@ def LoadModel(CODEC_NAME,compression_level = 2):
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
-    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level)
+    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level,use_cuda=use_cuda)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -711,7 +711,7 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
     for com_level,Q in zip(com_level_list,Q_list):
         ####### Load model
         if args.task in ['RLVC','DVC','SPVC','AE3D']:
-            model = LoadModel(args.task,compression_level=com_level)
+            model = LoadModel(args.task,compression_level=com_level,use_cuda=args.use_cuda)
             model.eval()
         else:
             model = None
@@ -786,15 +786,18 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
     args = parser.parse_args()
+    
+    # check gpu
+    if torch.cuda.is_available() and torch.cuda.device_count()>=2:
+        args.use_cuda = True
+        
     print(args)
     
-    print('Dataset:',args.dataset)
     if args.dataset == 'UVG':
         test_dataset = VideoDataset('UVG', frame_size=(256,256))
     else:
         test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
         
-    print('Benchmarking:',args.task,args.mode)
     if args.mode == 'Dynamic':
         dynamic_simulation(args, test_dataset)
     else:
