@@ -75,7 +75,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        if batch_idx<=5000 and epoch==1:continue
         data = data[0].cuda()
         l = data.size(0)-1
         
