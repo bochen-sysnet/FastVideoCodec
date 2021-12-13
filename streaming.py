@@ -808,14 +808,14 @@ def streaming_AE3D(model, test_dataset, use_gpu=True):
         
 ####### Load dataset
 #test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-test_dataset = VideoDataset('UVG', frame_size=(256,256))
+#test_dataset = VideoDataset('UVG', frame_size=(256,256))
 
 # try x265,x264 streaming with Gstreamer
 #static_simulation_model(model, test_dataset)
 #dynamic_simulation_x26x(test_dataset, 'x264')
 #streaming_SPVC('SPVC-stream', test_dataset)
 #streaming_RLVC_DVC('DVC', test_dataset)
-streaming_RLVC_DVC('RLVC', test_dataset)
+#streaming_RLVC_DVC('RLVC', test_dataset)
 
 if __name__ == '__main__':
     import argparse
