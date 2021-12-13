@@ -33,7 +33,7 @@ from models import PSNR,MSSSIM
 def LoadModel(CODEC_NAME,compression_level = 2,use_cuda=True):
     loss_type = 'P'
     if CODEC_NAME == 'SPVC-stream':
-        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best.pth'
+        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best_best.pth'
     else:
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
@@ -461,7 +461,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
                 if k<x_b.size(0)-1:
                     # send time stamp
                     bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                    #process.stdin.write(bytes_send)
+                    process.stdin.write(bytes_send)
             # ready
             mv_string1,res_string1,_ = model.compress(x_b)
             # Send strings in order
@@ -474,7 +474,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
                 t_0 = time.perf_counter()
                 # send time stamp
                 bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                #process.stdin.write(bytes_send)
+                process.stdin.write(bytes_send)
             # ready
             mv_string2,res_string2,_ = model.compress(x_f)
             # Send strings in order
@@ -490,7 +490,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
                 if k<x_f.size(0)-1:
                     # send time stamp
                     bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                    #process.stdin.write(bytes_send)
+                    process.stdin.write(bytes_send)
             # ready
             mv_string,res_string,bpp_act_list = model.compress(x_f)
             # Send strings in order
@@ -529,7 +529,6 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
             # receive timestamp
             sent_timestamps = []
             for _ in range(strings_to_recv):
-                break
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 sent_timestamps += [sent_ts]
@@ -547,7 +546,6 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
             # receive timestamp
             sent_timestamps = []
             for _ in range(strings_to_recv):
-                break
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 sent_timestamps += [sent_ts]
@@ -567,7 +565,6 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
             # receive timestamp
             sent_timestamps = []
             for _ in range(strings_to_recv):
-                break
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 sent_timestamps += [sent_ts]
