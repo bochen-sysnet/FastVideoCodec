@@ -631,6 +631,7 @@ def streaming_SPVC(name, test_dataset):
     
 def RLVC_DVC_client(model,data,fP=6,bP=6):
     # SYNC using TCP
+    time.sleep(3)
     TCP_IP = '127.0.0.1'
     TCP_PORT = 8008
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
