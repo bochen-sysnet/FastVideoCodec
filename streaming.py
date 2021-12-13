@@ -720,7 +720,7 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
             
             with torch.no_grad():
                 if args.role == 'Standalone':
-                    threading.Thread(target=client_sim, args=(args,data,model=model,Q=Q)).start() 
+                    threading.Thread(target=client_sim, args=(args,data,model,Q)).start() 
                     psnr_list,fps,t_warmup = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'Server':
                     psnr_list,fps,t_warmup = server_sim(args,data,model=model,Q=Q)
