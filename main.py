@@ -35,8 +35,8 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 2
-USE_VIMEO = False
+WARMUP_EPOCH = 5
+USE_VIMEO = True
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
