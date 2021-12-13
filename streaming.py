@@ -52,7 +52,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_cuda=True):
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
-        exit(1)
+        #exit(1)
     print("===================================================================")
     return model
     
