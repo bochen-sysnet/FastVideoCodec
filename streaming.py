@@ -298,14 +298,14 @@ def block_until_open(ip_addr,port):
         time.sleep(0.1)
     s.close()
     
-def x26x_client(args, raw_clip,Q,width=256,height=256):
+def x26x_client(args, data,Q,width=256,height=256):
     fps = 25
     GOP = 13
-    if name == 'x265':
+    if args.task == 'x265':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
                 f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
                 f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
-    elif name == 'x264':
+    elif args.task == 'x264':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
                 f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
                 f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
@@ -316,7 +316,7 @@ def x26x_client(args, raw_clip,Q,width=256,height=256):
     # create a rtsp track
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     t_0 = None
-    for idx,img in enumerate(raw_clip):
+    for idx,img in enumerate(data):
         # read data
         # wait for 1/30. or 1/60.
         img = np.array(img)
@@ -402,9 +402,9 @@ def dynamic_simulation_x26x(args, test_dataset):
         
             if args.role == 'Standalone':
                 threading.Thread(target=x26x_client, args=(args,data,Q,)).start() 
-                psnr_list, fps, t_warmup = x26x_server(data,Q)
+                psnr_list, fps, t_warmup = x26x_server(args,data,Q)
             elif args.role == 'Server':
-                psnr_list, fps, t_warmup = x26x_server(data,Q)
+                psnr_list, fps, t_warmup = x26x_server(args,data,Q)
             elif args.role == 'Client':
                 x26x_client(args,data,Q)
             else:
