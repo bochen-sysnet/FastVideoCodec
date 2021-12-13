@@ -291,10 +291,10 @@ def block_until_open(ip_addr,port):
     while True:
         result = s.connect_ex((ip_addr,int(port)))
         if result == 0:
-            #print('port OPEN')
+            #print('Port OPEN')
             break
         else:
-            #print('port CLOSED, connect_ex returned: '+str(result))
+            print('Port CLOSED, connect_ex returned: '+str(result))
         time.sleep(0.1)
     s.close()
     
