@@ -176,7 +176,7 @@ def static_simulation_x26x(args,test_dataset):
                 continue
             l = len(data)
                 
-            psnr_list,msssim_list,bpp_act_list = compress_whole_video(name,data,Q,*test_dataset._frame_size)
+            psnr_list,msssim_list,bpp_act_list = compress_whole_video(args.task,data,Q,*test_dataset._frame_size)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
