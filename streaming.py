@@ -531,7 +531,10 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
         for com in x_hat:
             com = com.cuda().unsqueeze(0)
             raw = data[i].cuda().unsqueeze(0)
-            psnr_list += [PSNR(raw, com)]
+            if args.use_psnr:
+                psnr_list += [PSNR(raw, com)]
+            else:
+                psnr_list += [0]
             i += 1
         # Count time
         total_time = time.perf_counter() - t_0
@@ -788,6 +791,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
     parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
     parser.set_defaults(use_cuda=True)
+    parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
+    parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
+    parser.set_defaults(use_psnr=False)
     args = parser.parse_args()
     
     # check gpu
