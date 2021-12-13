@@ -786,6 +786,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
     parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
+    parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
     parser.set_defaults(use_cuda=True)
     args = parser.parse_args()
     
