@@ -647,6 +647,7 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
     # cannot connect before server is started
     # start a process to pipe data to netcat
     cmd = f'nc localhost 8888'
+    print('Client trying to build pipe'))
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     print('Client pipe generated.')
     L = data.size(0)
@@ -704,8 +705,9 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -vlkp 8888'
+    cmd = f'nc -lkp 8888'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+    print('Server is ready')
     # TELL client it is ready
     TCP_IP = '127.0.0.1'
     TCP_PORT = 8008
