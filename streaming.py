@@ -360,7 +360,7 @@ def x26x_server(args, data,Q,width=256,height=256):
             t_warmup = time.perf_counter() - t_0
 
         if len(raw_frame) != (width*height*3):
-            #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
+            print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
             break
 
         # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
