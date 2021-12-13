@@ -314,7 +314,7 @@ def x26x_client(args, data,Q,width=256,height=256):
         exit(1)
     print('wait')
     time.sleep(3)
-    block_until_open(args.server_ip,args.server_port)
+    #block_until_open(args.server_ip,args.server_port)
     # create a rtsp track
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     t_0 = None
@@ -348,6 +348,7 @@ def x26x_server(args, data,Q,width=256,height=256):
         
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
     p_server = sp.Popen(command, stdout=sp.PIPE)
+    print('SERVER READY')
     # Beginning time of streaming
     t_0 = time.perf_counter()
     
