@@ -22,6 +22,7 @@ import threading
 import subprocess as sp
 import shlex
 import struct
+import socket
 
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
@@ -629,7 +630,21 @@ def streaming_SPVC(name, test_dataset):
     test_dataset.reset()
     
 def RLVC_DVC_client(model,data,fP=6,bP=6):
+    # SYNC using TCP
+    TCP_IP = '127.0.0.1'
+    TCP_PORT = 8008
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while True:
+        try:
+            s.connect((TCP_IP, TCP_PORT))
+            break
+        except socket.error as exc:
+            print(exc)
+        time.sleep(0.5)
+    s.close()
+    ######################
     GoP = fP+bP+1
+    # cannot connect before server is started
     # start a process to pipe data to netcat
     cmd = f'nc localhost 8888'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
@@ -683,16 +698,23 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
     # Terminate the sub-process
     process.terminate()
 
-def RLVC_DVC_server(model,data,useThreading=True,fP=6,bP=6):
+def RLVC_DVC_server(model,data,fP=6,bP=6):
     GoP = fP+bP+1
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
     cmd = f'nc -vlkp 8888'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    # Start a thread that streams data
-    if useThreading:
-        threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
+    # TELL client it is ready
+    TCP_IP = '127.0.0.1'
+    TCP_PORT = 8008
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((TCP_IP, TCP_PORT))
+    s.listen(1)
+    conn, addr = s.accept()
+    print('Connection address:', addr)
+    conn.close()
+    #####################
     psnr_list = []
     L = data.size(0)
     stream_iter = tqdm(range(L))
@@ -762,7 +784,7 @@ def RLVC_DVC_server(model,data,useThreading=True,fP=6,bP=6):
     process.stdout.close()
     return psnr_list
 
-def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
+def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
     ####### Load model
     model = LoadModel(name)
     psnr_module = AverageMeter()
@@ -780,7 +802,16 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
             data = data.cuda()
         
         with torch.no_grad():
-            psnr_list = RLVC_DVC_server(model,data)
+            if role == 'Standalone':
+                threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
+                psnr_list = RLVC_DVC_server(model,data)
+            elif role == 'Server':
+                psnr_list = RLVC_DVC_server(model,data)
+            elif role == 'Client':
+                psnr_list = RLVC_DVC_client(model,data)
+            else:
+                print('Unexpected role:',role)
+                exit(1)
             
         # aggregate loss
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -837,9 +868,4 @@ if __name__ == '__main__':
     else:
         test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
         
-    if args.role == 'Standalone':
-        streaming_RLVC_DVC('RLVC', test_dataset)
-    elif args.role == 'Server':
-        pass
-    elif args.role == 'Client':
-        pass
+    streaming_RLVC_DVC('RLVC', test_dataset, role = args.role)
