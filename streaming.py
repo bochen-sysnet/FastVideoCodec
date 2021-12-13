@@ -344,7 +344,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         '-']
         
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
-    p_server = sp.Popen(command, stdout=sp.PIPE)
+    process = sp.Popen(command, stdout=sp.PIPE)
     # Probe port (server port in rtsp cannot be probed)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((args.server_ip, int(args.probe_port)))
@@ -359,7 +359,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     stream_iter = tqdm(range(len(data)))
     while True:
         # read width*height*3 bytes from stdout (1 frame)
-        raw_frame = p_server.stdout.read(width*height*3)
+        raw_frame = process.stdout.read(width*height*3)
         if t_warmup is None:
             t_warmup = time.perf_counter() - t_0
 
@@ -388,6 +388,10 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
             f"PSNR: {float(psnr_list[-1]):.2f}. "
             f"Total: {total_time:.3f}. ")
     conn.close()
+    # Close and flush stdin
+    process.stdout.close()
+    # Terminate the sub-process
+    process.terminate()
     return psnr_list,fps,t_warmup
     
 def send_strings_to_process(process, strings, useXZ=True):
@@ -540,6 +544,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdout.close()
+    # Terminate the sub-process
+    process.terminate()
     return psnr_list,fps,t_warmup
     
 def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
@@ -681,6 +687,8 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
             x_ref = x_b[:1]
     # Close and flush stdin
     process.stdout.close()
+    # Terminate the sub-process
+    process.terminate()
     return psnr_list,fps,t_warmup
         
 def dynamic_simulation(args, test_dataset, use_gpu=True):
