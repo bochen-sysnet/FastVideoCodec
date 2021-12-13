@@ -691,7 +691,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     process.terminate()
     return psnr_list,fps,t_warmup
         
-def dynamic_simulation(args, test_dataset, use_gpu=True):
+def dynamic_simulation(args, test_dataset):
     # get server and client simulator
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
@@ -729,7 +729,7 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
                 continue
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 data = torch.stack(data, dim=0)
-                if use_gpu:
+                if args.use_cuda:
                     data = data.cuda()
             
             with torch.no_grad():
@@ -791,7 +791,7 @@ if __name__ == '__main__':
     
     # check gpu
     if torch.cuda.is_available() and torch.cuda.device_count()>=2:
-        args.use_cuda = False
+        args.use_cuda = True
     else:
         args.use_cuda = False
         
