@@ -442,35 +442,35 @@ def send_strings_to_process(process, strings, useXZ=True):
             # [L=8] send length of next string
             x_len = len(x_string)
             bytes_send = struct.pack('L',x_len)
-            process.stdin.write(bytes_send)
+            process.send(bytes_send)
             # send actual string
-            process.stdin.write(x_string)
+            process.send(x_string)
         if useXZ:
             for z_string in z_string_list:
                 # [L=8] send length of next string
                 z_len = len(z_string)
                 bytes_send = struct.pack('L',z_len)
-                process.stdin.write(bytes_send)
+                process.send(bytes_send)
                 # send actual string
-                process.stdin.write(z_string)
+                process.send(z_string)
     
 def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     x_string_list = []
     for _ in range(strings_to_recv):
         # [L=8] receive length of next string
-        bytes_recv = process.stdout.read(8)
+        bytes_recv = process.recv(8)
         x_len = struct.unpack('L',bytes_recv)[0]
         # recv actual string
-        x_string = process.stdout.read(x_len)
+        x_string = process.recv(x_len)
         x_string_list += [x_string]
     if useXZ:
         z_string_list = []
         for _ in range(strings_to_recv):
             # [L=8] receive length of next string
-            bytes_recv = process.stdout.read(8)
+            bytes_recv = process.recv(8)
             z_len = struct.unpack('L',bytes_recv)[0]
             # recv actual string
-            z_string = process.stdout.read(z_len)
+            z_string = process.recv(z_len)
             z_string_list += [z_string]
     strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
@@ -636,22 +636,15 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
     TCP_PORT = 8888
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
-        result = s.connect_ex((TCP_IP,TCP_PORT))
-        if result == 0:
-            print('port OPEN')
-            break
-        else:
-            print('port CLOSED, connect_ex returned: '+str(result))
+        try:
+            s.connect((TCP_IP, TCP_PORT))
+            print('Connection built')
+        except socket.error as exc:
+            print(exc)
         time.sleep(0.5)
-    s.close()
     ######################
     GoP = fP+bP+1
     # cannot connect before server is started
-    # start a process to pipe data to netcat
-    cmd = f'nc localhost 8888'
-    print('Client trying to build pipe')
-    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-    print('Client pipe generated.')
     L = data.size(0)
     for i in range(L):
         p = i%GoP
@@ -662,9 +655,10 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
                 model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
             # send frame type
             bytes_send = struct.pack('B',2) # 0:iframe;1:backward;2 forward
-            process.stdin.write(bytes_send)
+            #process.stdin.write(bytes_send)
+            s.send(bytes_send)
             # send strings
-            send_strings_to_process(process, [mv_string,res_string], useXZ=False)
+            send_strings_to_process(s, [mv_string,res_string], useXZ=False)
             x_ref = x_ref.detach()
         elif p == fP or i == L-1:
             # get current GoP 
@@ -677,8 +671,7 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
             x_ref = x_b[:1]
             # send frame type
             bytes_send = struct.pack('B',0) # 0:iframe;1:backward;2 forward
-            r=process.stdin.write(bytes_send)
-            print(r)
+            s.send(bytes_send)
             # compress backward
             for j in range(1,B):
                 x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
@@ -686,9 +679,9 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
                 x_ref = x_ref.detach()
                 # send frame type
                 bytes_send = struct.pack('B',1) # 0:iframe;1:backward;2 forward
-                process.stdin.write(bytes_send)
+                s.send(bytes_send)
                 # send strings
-                send_strings_to_process(process, [mv_string,res_string], useXZ=False)
+                send_strings_to_process(s, [mv_string,res_string], useXZ=False)
             # init some states for forward compression
             com_hidden = model.init_hidden(H,W)
             com_mv_prior_latent = com_res_prior_latent = None
@@ -697,20 +690,22 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
             # collect frames for current GoP
             pass
     # Close and flush stdin
-    process.stdin.close()
-    # Wait for sub-process to finish
-    process.wait()
-    # Terminate the sub-process
-    process.terminate()
+    s.close()
 
 def RLVC_DVC_server(model,data,fP=6,bP=6):
     GoP = fP+bP+1
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -lkp 8888'
-    process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    print('Server is ready')
+    #cmd = f'nc -lkp 8888'
+    #process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+    TCP_IP = '127.0.0.1'
+    TCP_PORT = 8008
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((TCP_IP, TCP_PORT))
+    s.listen(1)
+    conn, addr = s.accept()
+    print('Connection address:', addr)
     psnr_list = []
     L = data.size(0)
     stream_iter = tqdm(range(L))
@@ -719,11 +714,12 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
         # wait for 1/30. or 1/60.
         if p > fP:
             # [B=1] receive frame type
-            bytes_recv = process.stdout.read(1)
+            #bytes_recv = process.stdout.read(1)
+            bytes_recv = conn.recv(1)
             frame_type = struct.unpack('B',bytes_recv)[0]
             # receive strings
-            mv_string = recv_strings_from_process(process, 1, useXZ=False)
-            res_string = recv_strings_from_process(process, 1, useXZ=False)
+            mv_string = recv_strings_from_process(conn, 1, useXZ=False)
+            res_string = recv_strings_from_process(conn, 1, useXZ=False)
             # decompress forward
             x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                 model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
@@ -747,18 +743,18 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
             decom_mv_prior_latent = decom_res_prior_latent = None
             # get compressed I frame
             # [B=1] receive frame type
-            bytes_recv = process.stdout.read(1)
+            bytes_recv = conn.recv(1)
             frame_type = struct.unpack('B',bytes_recv)[0]
             x_ref = x_b[:1]
             # decompress backward
             psnr_list1 = []
             for j in range(1,B):
                 # [B=1] receive frame type
-                bytes_recv = process.stdout.read(1)
+                bytes_recv = conn.recv(1)
                 frame_type = struct.unpack('B',bytes_recv)[0]
                 # receive strings
-                mv_string = recv_strings_from_process(process, 1, useXZ=False)
-                res_string = recv_strings_from_process(process, 1, useXZ=False)
+                mv_string = recv_strings_from_process(conn, 1, useXZ=False)
+                res_string = recv_strings_from_process(conn, 1, useXZ=False)
                 x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                 x_ref = x_ref.detach()
@@ -776,8 +772,8 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
             decom_hidden = model.init_hidden(H,W)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
-    # Close and flush stdin
-    process.stdout.close()
+    # Close 
+    conn.close()
     return psnr_list,fps
 
 def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
