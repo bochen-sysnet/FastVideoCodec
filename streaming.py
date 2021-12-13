@@ -700,7 +700,7 @@ def dynamic_simulation(args, test_dataset, use_gpu=True):
     ds_size = len(test_dataset)
     Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
     com_level_list = [0,1,2,3] if args.Q_option == 'Slow' else [2]
-    for com_level,Q in zip(com_level,Q_list):
+    for com_level,Q in zip(com_level_list,Q_list):
         ####### Load model
         if args.task in ['RLVC','DVC','SPVC','AE3D']:
             model = LoadModel(args.task,compression_level=com_level)
@@ -770,6 +770,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
     args = parser.parse_args()
+    print(args)
     
     print('Dataset:',args.dataset)
     if args.dataset == 'UVG':
