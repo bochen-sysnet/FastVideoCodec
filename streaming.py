@@ -312,6 +312,8 @@ def x26x_client(args, data,Q,width=256,height=256):
     else:
         print('Codec not supported')
         exit(1)
+    print('wait')
+    time.sleep(3)
     block_until_open(args.server_ip,args.server_port)
     # create a rtsp track
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
