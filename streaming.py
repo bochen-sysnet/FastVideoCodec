@@ -353,16 +353,13 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     conn, addr = s.accept()
     # Beginning time of streaming
     t_0 = time.perf_counter()
-    
-    psnr_list = []
+    latency_module = AverageMeter()
+    psnr_module = AverageMeter()
     i = 0
-    t_warmup = None
     stream_iter = tqdm(range(len(data)))
     while True:
         # read width*height*3 bytes from stdout (1 frame)
         raw_frame = process.stdout.read(width*height*3)
-        if t_warmup is None:
-            t_warmup = time.perf_counter() - t_0
 
         if len(raw_frame) != (width*height*3):
             #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
@@ -375,7 +372,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         # process metrics
         com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
         raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-        psnr_list += [PSNR(raw, com)]
+        psnr_module.update(PSNR(com, raw).cpu().data.item())
         i += 1
         
         # Count time
@@ -386,14 +383,15 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         stream_iter.set_description(
             f"{i:3}. "
             f"FPS: {fps:.2f}. "
-            f"PSNR: {float(psnr_list[-1]):.2f}. "
+            f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     conn.close()
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_list,fps,t_warmup
+    return psnr_module.avg,fps,latency_module.avg
     
 def send_strings_to_process(process, strings, useXZ=True):
     for string_list in strings:
@@ -835,7 +833,7 @@ def dynamic_simulation(args, test_dataset):
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # then test throughput(fps) and rate-distortion on different devices and different losses
-# THROUGHPUT,avg latency [frame becomes available,frame decoded]
+# THROUGHPUT,avg latency [frame becomes available,frame decoded] do this for x26x using tcp
 
 
 if __name__ == '__main__':
