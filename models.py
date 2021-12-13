@@ -965,7 +965,6 @@ class Coder2D(nn.Module):
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
     def compress_sequence(self,x):
-        t1 = time.perf_counter()
         bs,c,h,w = x.size()
         x_est = []
         x_act = []
@@ -999,7 +998,6 @@ class Coder2D(nn.Module):
         x_hat = torch.stack(x_hat_list, dim=0)
         if not self.noMeasure:
             self.enc_t,self.dec_t = enc_t,dec_t
-        print(time.perf_counter()-t1)
         return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux
     
 def generate_graph(graph_type='default'):

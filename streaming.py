@@ -767,12 +767,8 @@ def dynamic_simulation(args, test_dataset):
             enc,dec = showTimer(model)
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
-# run this script in docker
 # then test throughput(fps) and rate-distortion on different devices and different losses
-# need to add time measurement in parallel compression/decompress
 # THROUGHPUT
-# use locks 
-# auto detect gpu
 
 
 if __name__ == '__main__':
