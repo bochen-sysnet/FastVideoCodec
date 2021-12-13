@@ -783,7 +783,7 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
             x_ref = x_b[:1]
     # Close and flush stdin
     process.stdout.close()
-    return psnr_list
+    return psnr_list,fps
 
 def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
     ####### Load model
@@ -805,9 +805,9 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
         with torch.no_grad():
             if role == 'Standalone':
                 threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
-                psnr_list = RLVC_DVC_server(model,data)
+                psnr_list,fps = RLVC_DVC_server(model,data)
             elif role == 'Server':
-                psnr_list = RLVC_DVC_server(model,data)
+                psnr_list,fps = RLVC_DVC_server(model,data)
             elif role == 'Client':
                 psnr_list = RLVC_DVC_client(model,data)
             else:
@@ -821,10 +821,11 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True, role='Standalone'):
         psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
     
         # show result
-        test_iter.set_description(
-            f"{data_idx:6}. "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"I: {float(psnr_list.mean()):.2f}")
+        if role == 'Standalone' or role == 'Server':
+            test_iter.set_description(
+                f"{data_idx:6}. "
+                f"FPS: {fps:.2f}. "
+                f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
         
         # clear input
         data = []
