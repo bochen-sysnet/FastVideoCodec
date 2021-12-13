@@ -29,11 +29,10 @@ from models import get_codec_model,parallel_compression,update_training,compress
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
-def LoadModel(CODEC_NAME):
+def LoadModel(CODEC_NAME,compression_level = 2):
     loss_type = 'P'
-    compression_level = 2
     if CODEC_NAME == 'SPVC-stream':
-        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-2P_best.pth'
+        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best.pth'
     else:
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
@@ -298,7 +297,7 @@ def block_until_open(ip_addr,port):
             time.sleep(0.1)
     s.close()
     
-def x26x_client(args, data,Q,width=256,height=256):
+def x26x_client(args,data,model=None,Q=None,width=256,height=256):
     fps = 25
     GOP = 13
     if args.task == 'x265':
@@ -331,7 +330,7 @@ def x26x_client(args, data,Q,width=256,height=256):
     process.terminate()
     
 # how to direct rtsp traffic?
-def x26x_server(args, data,Q,width=256,height=256):
+def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     # create a rtsp server or listener
     # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
     # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
@@ -390,52 +389,6 @@ def x26x_server(args, data,Q,width=256,height=256):
             f"Total: {total_time:.3f}. ")
     conn.close()
     return psnr_list,fps,t_warmup
-        
-def dynamic_simulation_x26x(args, test_dataset):
-    ds_size = len(test_dataset)
-    
-    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
-    for Q in Q_list:
-        data = []
-        psnr_module = AverageMeter()
-        test_iter = tqdm(range(ds_size))
-        for data_idx,_ in enumerate(test_iter):
-            frame,eof = test_dataset[data_idx]
-            data.append(frame)
-            if not eof:
-                continue
-            l = len(data)
-        
-            if args.role == 'Standalone':
-                threading.Thread(target=x26x_client, args=(args,data,Q,)).start() 
-                psnr_list, fps, t_warmup = x26x_server(args,data,Q)
-            elif args.role == 'Server':
-                psnr_list, fps, t_warmup = x26x_server(args,data,Q)
-            elif args.role == 'Client':
-                x26x_client(args,data,Q)
-            else:
-                print('Unexpected role:',role)
-                exit(1)
-            
-            # aggregate loss
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            
-            # record loss
-            psnr_module.update(psnr.cpu().data.item(),l)
-            
-            # show result
-            if args.role == 'Standalone' or args.role == 'Server':
-                test_iter.set_description(
-                    f"{Q}. "
-                    f"{data_idx:6}. "
-                    f"FPS: {fps:.2f}. "
-                    f"Warmup: {t_warmup:.2f}. "
-                    f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
-                
-            # clear input
-            data = []
-            
-        test_dataset.reset()
     
 def send_strings_to_process(process, strings, useXZ=True):
     for string_list in strings:
@@ -480,7 +433,7 @@ def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
             
-def SPVC_AE3D_client(args,model,data,fP=6,bP=6):
+def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
     block_until_open(args.server_ip,args.server_port)
     GoP = fP+bP+1
     L = data.size(0)
@@ -520,7 +473,7 @@ def SPVC_AE3D_client(args,model,data,fP=6,bP=6):
     # Terminate the sub-process
     process.terminate()
     
-def SPVC_AE3D_server(args,model,data,fP=6,bP=6):
+def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.server_ip}'
@@ -589,7 +542,7 @@ def SPVC_AE3D_server(args,model,data,fP=6,bP=6):
     process.stdout.close()
     return psnr_list,fps,t_warmup
     
-def RLVC_DVC_client(args,model,data,fP=6,bP=6):
+def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
     block_until_open(args.server_ip,args.server_port)
     GoP = fP+bP+1
     # cannot connect before server is started
@@ -651,7 +604,7 @@ def RLVC_DVC_client(args,model,data,fP=6,bP=6):
     # Terminate the sub-process
     process.terminate()
 
-def RLVC_DVC_server(args,model,data,fP=6,bP=6):
+def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # Beginning time of streaming
     t_0 = time.perf_counter()
@@ -729,14 +682,8 @@ def RLVC_DVC_server(args,model,data,fP=6,bP=6):
     # Close and flush stdin
     process.stdout.close()
     return psnr_list,fps,t_warmup
-
-def dynamic_simulation_model(args, test_dataset, use_gpu=True):
-    ####### Load model
-    model = LoadModel(args.task)
-    psnr_module = AverageMeter()
-    ds_size = len(test_dataset)
-    model.eval()
-    data = []
+        
+def dynamic_simulation(args, test_dataset, use_gpu=True):
     # get server and client simulator
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
@@ -744,52 +691,64 @@ def dynamic_simulation_model(args, test_dataset, use_gpu=True):
     elif args.task in ['SPVC','AE3D']:
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
+    elif args.task in ['x264','x265']:
+        server_sim = x26x_server
+        client_sim = x26x_client
     else:
         print('Unexpected task:',args.task)
         exit(1)
-    test_iter = tqdm(range(ds_size))
-    for data_idx in test_iter:
-        frame,eof = test_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
-        if not eof: continue
-            
-        data = torch.stack(data, dim=0)
-        if use_gpu:
-            data = data.cuda()
-        
-        with torch.no_grad():
-            if args.role == 'Standalone':
-                threading.Thread(target=client_sim, args=(args,model,data,)).start() 
-                psnr_list,fps,t_warmup = server_sim(args,model,data)
-            elif args.role == 'Server':
-                psnr_list,fps,t_warmup = server_sim(args,model,data)
-            elif args.role == 'Client':
-                client_sim(args,model,data)
-            else:
-                print('Unexpected role:',args.role)
-                exit(1)
-            
-        # aggregate loss
-        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-        
-        # record loss
-        psnr_module.update(psnr.cpu().data.item(),len(psnr_list))
-    
-        # show result
-        if args.role == 'Standalone' or args.role == 'Server':
-            test_iter.set_description(
-                f"{data_idx:6}. "
-                f"Warmup: {t_warmup:.2f}. "
-                f"FPS: {fps:.2f}. "
-                f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
-        
-        # clear input
+    ds_size = len(test_dataset)
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
+    com_level_list = [0,1,2,3] if args.Q_option == 'Slow' else [2]
+    for com_level,Q in zip(com_level,Q_list):
+        ####### Load model
+        if args.task in ['RLVC','DVC','SPVC','AE3D']:
+            model = LoadModel(args.task,compression_level=com_level)
+            model.eval()
+        else:
+            model = None
+        ##################
         data = []
-        
-    test_dataset.reset()
-    
-    enc,dec = showTimer(model)
-    
+        psnr_module = AverageMeter()
+        test_iter = tqdm(range(ds_size))
+        for data_idx in test_iter:
+            frame,eof = test_dataset[data_idx]
+            data.append(frame)
+            if not eof:
+                continue
+            l = len(data)
+            
+            with torch.no_grad():
+                if args.role == 'Standalone':
+                    threading.Thread(target=client_sim, args=(args,data,model=model,Q=Q)).start() 
+                    psnr_list,fps,t_warmup = server_sim(args,data,model=model,Q=Q)
+                elif args.role == 'Server':
+                    psnr_list,fps,t_warmup = server_sim(args,data,model=model,Q=Q)
+                elif args.role == 'Client':
+                    client_sim(args,data,model=model,Q=Q)
+                else:
+                    print('Unexpected role:',args.role)
+                    exit(1)
+            
+            # aggregate loss
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            
+            # record loss
+            psnr_module.update(psnr.cpu().data.item(),l)
+            
+            # show result
+            if args.role == 'Standalone' or args.role == 'Server':
+                test_iter.set_description(
+                    f"L:{com_level}. "
+                    f"{data_idx:6}. "
+                    f"FPS: {fps:.2f}. "
+                    f"Warmup: {t_warmup:.2f}. "
+                    f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
+                
+            # clear input
+            data = []
+            
+        test_dataset.reset()
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # run this script in docker
@@ -820,10 +779,7 @@ if __name__ == '__main__':
         
     print('Benchmarking:',args.task,args.mode)
     if args.mode == 'Dynamic':
-        if args.task in ['RLVC','DVC','SPVC','AE3D']:
-            dynamic_simulation_model(args, test_dataset)
-        elif args.task in ['x264','x265']:
-            dynamic_simulation_x26x(args, test_dataset)
+        dynamic_simulation(args, test_dataset)
     else:
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
