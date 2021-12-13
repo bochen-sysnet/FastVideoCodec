@@ -1797,7 +1797,7 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
             f"bits_est: {float(bpp_est[0]):.2f}. "
             f"bits_act: {float(bpp_act[0]):.2f}. "
             f"aux_loss: {float(aux_loss[0]):.2f}. "
-            f"duration: {timer.avg:.3f}. )
+            f"duration: {timer.avg:.3f}. ")
     enc,dec = showTimer(model)
     return enc,dec
             
