@@ -768,7 +768,7 @@ def dynamic_simulation(args, test_dataset):
 # todo: a protocol to send strings of compressed frames
 # complete I frame comrpession
 # then test throughput(fps) and rate-distortion on different devices and different losses
-# THROUGHPUT
+# THROUGHPUT,avg latency [frame becomes available,frame decoded]
 
 
 if __name__ == '__main__':
