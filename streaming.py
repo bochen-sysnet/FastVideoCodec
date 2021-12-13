@@ -162,7 +162,7 @@ class AverageMeter(object):
 def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
     
-    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else Q_list = [23]
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
     for Q in Q_list:
         data = []
         ba_loss_module = AverageMeter()
@@ -385,7 +385,7 @@ def x26x_server(args, data,Q,width=256,height=256):
 def dynamic_simulation_x26x(args, test_dataset):
     ds_size = len(test_dataset)
     
-    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else Q_list = [23]
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
     for Q in Q_list:
         data = []
         psnr_module = AverageMeter()
