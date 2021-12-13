@@ -369,7 +369,7 @@ def x26x_server(args, data,Q,width=256,height=256):
             break
 
         # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
-        frame = np.frombuffer(raw_frame, np.uint8)
+        frame = np.fromstring(raw_frame, np.uint8)
         frame = frame.reshape((height, width, 3))
         
         # process metrics
