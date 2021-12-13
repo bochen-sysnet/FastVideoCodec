@@ -628,6 +628,140 @@ def streaming_SPVC(name, test_dataset):
         
     test_dataset.reset()
     
+def RLVC_DVC_client(model, data):
+    # start a process to pipe data to netcat
+    cmd = f'nc localhost 8888'
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    for i in range(L):
+        p = i%GoP
+        # wait for 1/30. or 1/60.
+        if p > fP:
+            # compress forward
+            x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
+                model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
+            # send frame type
+            bytes_send = struct.pack('B',2) # 0:iframe;1:backward;2 forward
+            process.stdin.write(bytes_send)
+            # send strings
+            send_strings_to_process(process, [mv_string,res_string], useXZ=False)
+            x_ref = x_ref.detach()
+        elif p == fP or i == L-1:
+            # get current GoP 
+            x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
+            x_b = torch.flip(x_GoP[:fP+1],[0])
+            B,_,H,W = x_b.size()
+            com_hidden = model.init_hidden(H,W)
+            com_mv_prior_latent = com_res_prior_latent = None
+            # send this compressed I frame
+            x_ref = x_b[:1]
+            # send frame type
+            bytes_send = struct.pack('B',0) # 0:iframe;1:backward;2 forward
+            process.stdin.write(bytes_send)
+            # compress backward
+            for j in range(1,B):
+                x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
+                    model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
+                x_ref = x_ref.detach()
+                # send frame type
+                bytes_send = struct.pack('B',1) # 0:iframe;1:backward;2 forward
+                process.stdin.write(bytes_send)
+                # send strings
+                send_strings_to_process(process, [mv_string,res_string], useXZ=False)
+            # init some states for forward compression
+            com_hidden = model.init_hidden(H,W)
+            com_mv_prior_latent = com_res_prior_latent = None
+            x_ref = x_b[:1]
+        else:
+            # collect frames for current GoP
+            pass
+    # Close and flush stdin
+    process.stdin.close()
+    # Wait for sub-process to finish
+    process.wait()
+    # Terminate the sub-process
+    process.terminate()
+
+def RLVC_DVC_server(model,data,useThreading=True):
+    # Beginning time of streaming
+    t_0 = time.perf_counter()
+    # create a pipe for listening from netcat
+    cmd = f'nc -l 8888'
+    process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+    # Start a thread that streams data
+    if useThreading:
+        threading.Thread(target=RLVC_DVC_client, args=(model,data,)).start() 
+    psnr_list = []
+    stream_iter = tqdm(range(L))
+    for i in range(L):
+        p = i%GoP
+        # wait for 1/30. or 1/60.
+        if p > fP:
+            # [B=1] receive frame type
+            bytes_recv = process.stdout.read(1)
+            frame_type = struct.unpack('B',bytes_recv)[0]
+            # receive strings
+            mv_string = recv_strings_from_process(process, 1, useXZ=False)
+            res_string = recv_strings_from_process(process, 1, useXZ=False)
+            # decompress forward
+            x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
+                model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
+            x_ref = x_ref.detach()
+            psnr_list += [PSNR(data[i:i+1], x_ref)]
+            # Count time
+            total_time = time.perf_counter() - t_0
+            fps = i/total_time
+            # show result
+            stream_iter.set_description(
+                f"{i:3}. "
+                f"FPS: {fps:.2f}. "
+                f"PSNR: {float(psnr_list[-1]):.2f}. "
+                f"Total: {total_time:.3f}. ")
+        elif p == fP or i == L-1:
+            # get current GoP 
+            x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
+            x_b = torch.flip(x_GoP[:fP+1],[0])
+            B,_,H,W = x_b.size()
+            decom_hidden = model.init_hidden(H,W)
+            decom_mv_prior_latent = decom_res_prior_latent = None
+            # get compressed I frame
+            # [B=1] receive frame type
+            bytes_recv = process.stdout.read(1)
+            frame_type = struct.unpack('B',bytes_recv)[0]
+            x_ref = x_b[:1]
+            # decompress backward
+            psnr_list1 = []
+            for j in range(1,B):
+                # [B=1] receive frame type
+                bytes_recv = process.stdout.read(1)
+                frame_type = struct.unpack('B',bytes_recv)[0]
+                # receive strings
+                mv_string = recv_strings_from_process(process, 1, useXZ=False)
+                res_string = recv_strings_from_process(process, 1, useXZ=False)
+                x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
+                    model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
+                x_ref = x_ref.detach()
+                psnr_list1 += [PSNR(x_b[j:j+1], x_ref)]
+                # Count time
+                total_time = time.perf_counter() - t_0
+                fps = i/total_time
+                # show result
+                stream_iter.set_description(
+                    f"{i:3}. "
+                    f"FPS: {fps:.2f}. "
+                    f"PSNR: {float(psnr_list1[-1]):.2f}. "
+                    f"Total: {total_time:.3f}. ")
+            psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
+            decom_hidden = model.init_hidden(H,W)
+            decom_mv_prior_latent = decom_res_prior_latent = None
+            x_ref = x_b[:1]
+    # Close and flush stdin
+    process.stdout.close()
+    # Wait for sub-process to finish
+    process.wait()
+    # Terminate the sub-process
+    process.terminate()    
+    return psnr_list
+
 def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
     ####### Load model
     model = LoadModel(name)
@@ -648,135 +782,8 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
             data = data.cuda()
         L = data.size(0)
         
-        def client(data):
-            # start a process to pipe data to netcat
-            cmd = f'nc localhost 8888'
-            process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-            for i in range(L):
-                p = i%GoP
-                # wait for 1/30. or 1/60.
-                if p > fP:
-                    # compress forward
-                    x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
-                        model.compress(x_ref, data[i:i+1], com_hidden, p>fP+1, com_mv_prior_latent, com_res_prior_latent)
-                    # send frame type
-                    bytes_send = struct.pack('B',2) # 0:iframe;1:backward;2 forward
-                    process.stdin.write(bytes_send)
-                    # send strings
-                    send_strings_to_process(process, [mv_string,res_string], useXZ=False)
-                    x_ref = x_ref.detach()
-                elif p == fP or i == L-1:
-                    # get current GoP 
-                    x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
-                    x_b = torch.flip(x_GoP[:fP+1],[0])
-                    B,_,H,W = x_b.size()
-                    com_hidden = model.init_hidden(H,W)
-                    com_mv_prior_latent = com_res_prior_latent = None
-                    # send this compressed I frame
-                    x_ref = x_b[:1]
-                    # send frame type
-                    bytes_send = struct.pack('B',0) # 0:iframe;1:backward;2 forward
-                    process.stdin.write(bytes_send)
-                    # compress backward
-                    for j in range(1,B):
-                        x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
-                            model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
-                        x_ref = x_ref.detach()
-                        # send frame type
-                        bytes_send = struct.pack('B',1) # 0:iframe;1:backward;2 forward
-                        process.stdin.write(bytes_send)
-                        # send strings
-                        send_strings_to_process(process, [mv_string,res_string], useXZ=False)
-                    # init some states for forward compression
-                    com_hidden = model.init_hidden(H,W)
-                    com_mv_prior_latent = com_res_prior_latent = None
-                    x_ref = x_b[:1]
-                else:
-                    # collect frames for current GoP
-                    pass
-        
-        def server(data):
-            # Beginning time of streaming
-            t_0 = time.perf_counter()
-            # create a pipe for listening from netcat
-            cmd = f'nc -l 8888'
-            process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-            # Start a thread that streams data
-            threading.Thread(target=client, args=(data,)).start() 
-            psnr_list = []
-            stream_iter = tqdm(range(L))
-            for i in range(L):
-                p = i%GoP
-                # wait for 1/30. or 1/60.
-                if p > fP:
-                    # [B=1] receive frame type
-                    bytes_recv = process.stdout.read(1)
-                    frame_type = struct.unpack('B',bytes_recv)[0]
-                    # receive strings
-                    mv_string = recv_strings_from_process(process, 1, useXZ=False)
-                    res_string = recv_strings_from_process(process, 1, useXZ=False)
-                    # decompress forward
-                    x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                        model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
-                    x_ref = x_ref.detach()
-                    psnr_list += [PSNR(data[i:i+1], x_ref)]
-                    # Count time
-                    total_time = time.perf_counter() - t_0
-                    fps = i/total_time
-                    # show result
-                    stream_iter.set_description(
-                        f"{i:3}. "
-                        f"FPS: {fps:.2f}. "
-                        f"PSNR: {float(psnr_list[-1]):.2f}. "
-                        f"Total: {total_time:.3f}. ")
-                elif p == fP or i == L-1:
-                    # get current GoP 
-                    x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
-                    x_b = torch.flip(x_GoP[:fP+1],[0])
-                    B,_,H,W = x_b.size()
-                    decom_hidden = model.init_hidden(H,W)
-                    decom_mv_prior_latent = decom_res_prior_latent = None
-                    # get compressed I frame
-                    # [B=1] receive frame type
-                    bytes_recv = process.stdout.read(1)
-                    frame_type = struct.unpack('B',bytes_recv)[0]
-                    x_ref = x_b[:1]
-                    # decompress backward
-                    psnr_list1 = []
-                    for j in range(1,B):
-                        # [B=1] receive frame type
-                        bytes_recv = process.stdout.read(1)
-                        frame_type = struct.unpack('B',bytes_recv)[0]
-                        # receive strings
-                        mv_string = recv_strings_from_process(process, 1, useXZ=False)
-                        res_string = recv_strings_from_process(process, 1, useXZ=False)
-                        x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
-                            model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
-                        x_ref = x_ref.detach()
-                        psnr_list1 += [PSNR(x_b[j:j+1], x_ref)]
-                        # Count time
-                        total_time = time.perf_counter() - t_0
-                        fps = i/total_time
-                        # show result
-                        stream_iter.set_description(
-                            f"{i:3}. "
-                            f"FPS: {fps:.2f}. "
-                            f"PSNR: {float(psnr_list1[-1]):.2f}. "
-                            f"Total: {total_time:.3f}. ")
-                    psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
-                    decom_hidden = model.init_hidden(H,W)
-                    decom_mv_prior_latent = decom_res_prior_latent = None
-                    x_ref = x_b[:1]
-            # Close and flush stdin
-            process.stdout.close()
-            # Wait for sub-process to finish
-            process.wait()
-            # Terminate the sub-process
-            process.terminate()    
-            return psnr_list
-        
         with torch.no_grad():
-            psnr_list = server(data)
+            psnr_list = RLVC_DVC_server(model,data)
             
         # aggregate loss
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -797,6 +804,7 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
     
     enc,dec = showTimer(model)
     
+    
 def streaming_AE3D(model, test_dataset, use_gpu=True):
     pass
 # todo: a protocol to send strings of compressed frames
@@ -808,7 +816,7 @@ def streaming_AE3D(model, test_dataset, use_gpu=True):
         
 ####### Load dataset
 #test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-#test_dataset = VideoDataset('UVG', frame_size=(256,256))
+
 
 # try x265,x264 streaming with Gstreamer
 #static_simulation_model(model, test_dataset)
@@ -823,4 +831,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='Server', help='Server or Client')
     args = parser.parse_args()
-    print(args.role)
+    
+    test_dataset = VideoDataset('UVG', frame_size=(256,256))
+    streaming_RLVC_DVC('RLVC', test_dataset)
