@@ -628,7 +628,8 @@ def streaming_SPVC(name, test_dataset):
         
     test_dataset.reset()
     
-def RLVC_DVC_client(model, data):
+def RLVC_DVC_client(model,data,fP=6,bP=6):
+    GoP = fP+bP+1
     # start a process to pipe data to netcat
     cmd = f'nc localhost 8888'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
@@ -682,7 +683,8 @@ def RLVC_DVC_client(model, data):
     # Terminate the sub-process
     process.terminate()
 
-def RLVC_DVC_server(model,data,useThreading=True):
+def RLVC_DVC_server(model,data,useThreading=True,fP=6,bP=6):
+    GoP = fP+bP+1
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
@@ -770,8 +772,6 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
     psnr_module = AverageMeter()
     ds_size = len(test_dataset)
     model.eval()
-    fP,bP = 6,6
-    GoP = fP+bP+1
     data = []
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
