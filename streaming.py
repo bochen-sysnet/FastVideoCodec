@@ -633,15 +633,15 @@ def RLVC_DVC_client(model,data,fP=6,bP=6):
     # SYNC using TCP
     time.sleep(3)
     TCP_IP = '127.0.0.1'
-    TCP_PORT = 8008
+    TCP_PORT = 8888
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
-        try:
-            s.connect((TCP_IP, TCP_PORT))
-            print('Connection built')
+        result = s.connect_ex((TCP_IP,TCP_PORT))
+        if result == 0:
+            print('port OPEN')
             break
-        except socket.error as exc:
-            print(exc)
+        else:
+            print('port CLOSED, connect_ex returned: '+str(result))
         time.sleep(0.5)
     s.close()
     ######################
@@ -710,16 +710,6 @@ def RLVC_DVC_server(model,data,fP=6,bP=6):
     cmd = f'nc -lkp 8888'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     print('Server is ready')
-    # TELL client it is ready
-    TCP_IP = '127.0.0.1'
-    TCP_PORT = 8008
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((TCP_IP, TCP_PORT))
-    s.listen(1)
-    conn, addr = s.accept()
-    print('Connection address:', addr)
-    conn.close()
-    #####################
     psnr_list = []
     L = data.size(0)
     stream_iter = tqdm(range(L))
