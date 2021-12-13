@@ -528,15 +528,11 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
         if t_warmup is None:
             t_warmup = time.perf_counter() - t_0
             
-        if args.use_psnr:
-            for com in x_hat:
-                com = com.cuda().unsqueeze(0)
-                raw = data[i].cuda().unsqueeze(0)
-                psnr_list += [PSNR(raw, com)]
-                i += 1
-        else:
-            psnr_list += [0 for _ in x_hat]
-            i += x_hat.size(0)
+        for com in x_hat:
+            com = com.cuda().unsqueeze(0)
+            raw = data[i].cuda().unsqueeze(0)
+            psnr_list += [PSNR(raw, com)]
+            i += 1
         # Count time
         total_time = time.perf_counter() - t_0
         fps = i/total_time
