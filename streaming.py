@@ -24,6 +24,7 @@ import shlex
 import struct
 import socket
 import argparse
+from datetime import datetime
 
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
@@ -571,6 +572,9 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
             # send frame type
             bytes_send = struct.pack('B',2) # 0:iframe;1:backward;2 forward
             process.stdin.write(bytes_send)
+            # send time stamp
+            bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+            process.stdin.write(bytes_send)
             # send strings
             send_strings_to_process(process, [mv_string,res_string], useXZ=False)
             x_ref = x_ref.detach()
@@ -583,9 +587,6 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
             com_mv_prior_latent = com_res_prior_latent = None
             # send this compressed I frame
             x_ref = x_b[:1]
-            # send frame type
-            bytes_send = struct.pack('B',0) # 0:iframe;1:backward;2 forward
-            process.stdin.write(bytes_send)
             # compress backward
             for j in range(1,B):
                 x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
@@ -593,6 +594,9 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
                 x_ref = x_ref.detach()
                 # send frame type
                 bytes_send = struct.pack('B',1) # 0:iframe;1:backward;2 forward
+                process.stdin.write(bytes_send)
+                # send time stamp
+                bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
                 process.stdin.write(bytes_send)
                 # send strings
                 send_strings_to_process(process, [mv_string,res_string], useXZ=False)
@@ -617,8 +621,8 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    psnr_list = []
-    t_warmup = None
+    latency_module = AverageMeter()
+    psnr_module = AverageMeter()
     L = data.size(0)
     stream_iter = tqdm(range(L))
     for i in stream_iter:
@@ -628,14 +632,20 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
             # [B=1] receive frame type
             bytes_recv = process.stdout.read(1)
             frame_type = struct.unpack('B',bytes_recv)[0]
+            # receive timestamp
+            bytes_recv = process.stdout.read(29)
+            sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
             # receive strings
             mv_string = recv_strings_from_process(process, 1, useXZ=False)
             res_string = recv_strings_from_process(process, 1, useXZ=False)
             # decompress forward
             x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                 model.decompress(x_ref, mv_string, res_string, decom_hidden, p>fP+1, decom_mv_prior_latent, decom_res_prior_latent)
+            # record time
+            recv_ts = datetime.now()
+            latency_module.update((recv_ts-sent_ts).total_seconds())
             x_ref = x_ref.detach()
-            psnr_list += [PSNR(data[i:i+1], x_ref)]
+            psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
             # Count time
             total_time = time.perf_counter() - t_0
             fps = i/total_time
@@ -643,7 +653,8 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
             stream_iter.set_description(
                 f"{i:3}. "
                 f"FPS: {fps:.2f}. "
-                f"PSNR: {float(psnr_list[-1]):.2f}. "
+                f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
+                f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"Total: {total_time:.3f}. ")
         elif p == fP or i == L-1:
             # get current GoP 
@@ -652,26 +663,26 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
             B,_,H,W = x_b.size()
             decom_hidden = model.init_hidden(H,W)
             decom_mv_prior_latent = decom_res_prior_latent = None
-            # [B=1] receive frame type
-            bytes_recv = process.stdout.read(1)
-            frame_type = struct.unpack('B',bytes_recv)[0]
             x_ref = x_b[:1]
             # get compressed I frame
-            if t_warmup is None:
-                t_warmup = time.perf_counter() - t_0
             # decompress backward
-            psnr_list1 = []
             for j in range(1,B):
                 # [B=1] receive frame type
                 bytes_recv = process.stdout.read(1)
                 frame_type = struct.unpack('B',bytes_recv)[0]
+                # receive timestamp
+                bytes_recv = process.stdout.read(29)
+                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 # receive strings
                 mv_string = recv_strings_from_process(process, 1, useXZ=False)
                 res_string = recv_strings_from_process(process, 1, useXZ=False)
                 x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
+                # record time
+                recv_ts = datetime.now()
+                latency_module.update((recv_ts-sent_ts).total_seconds())
                 x_ref = x_ref.detach()
-                psnr_list1 += [PSNR(x_b[j:j+1], x_ref)]
+                psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
                 # Count time
                 total_time = time.perf_counter() - t_0
                 fps = i/total_time
@@ -679,9 +690,9 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
                 stream_iter.set_description(
                     f"{i:3}. "
                     f"FPS: {fps:.2f}. "
-                    f"PSNR: {float(psnr_list1[-1]):.2f}. "
+                    f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
+                    f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                     f"Total: {total_time:.3f}. ")
-            psnr_list += psnr_list1[::-1] + [torch.FloatTensor([40]).squeeze(0).to(data.device)]
             decom_hidden = model.init_hidden(H,W)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
@@ -689,7 +700,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_list,fps,t_warmup
+    return psnr_module.avg,fps,latency_module.avg
         
 def dynamic_simulation(args, test_dataset):
     # get server and client simulator
@@ -718,6 +729,8 @@ def dynamic_simulation(args, test_dataset):
         ##################
         data = []
         psnr_module = AverageMeter()
+        latency_module = AverageMeter()
+        fps_module = AverageMeter()
         test_iter = tqdm(range(ds_size))
         for data_idx in test_iter:
             frame,eof = test_dataset[data_idx]
@@ -735,28 +748,27 @@ def dynamic_simulation(args, test_dataset):
             with torch.no_grad():
                 if args.role == 'Standalone':
                     threading.Thread(target=client_sim, args=(args,data,model,Q)).start() 
-                    psnr_list,fps,t_warmup = server_sim(args,data,model=model,Q=Q)
+                    psnr,fps,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'Server':
-                    psnr_list,fps,t_warmup = server_sim(args,data,model=model,Q=Q)
+                    psnr,fps,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'Client':
                     client_sim(args,data,model=model,Q=Q)
                 else:
                     print('Unexpected role:',args.role)
                     exit(1)
             
-            # aggregate loss
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            
             # record loss
-            psnr_module.update(psnr.cpu().data.item())
+            psnr_module.update(psnr)
+            latency_module.update(latency)
+            fps_module.update(fps)
             
             # show result
             if args.role == 'Standalone' or args.role == 'Server':
                 test_iter.set_description(
                     f"L:{com_level}. "
                     f"{data_idx:6}. "
-                    f"FPS: {fps:.2f}. "
-                    f"Warmup: {t_warmup:.2f}. "
+                    f"FPS: {fps_module.val:.2f} ({fps_module.avg:.2f}). "
+                    f"Latency : {latency_module.val:.2f} ({latency_module.avg:.2f}). "
                     f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
                 
             # clear input
