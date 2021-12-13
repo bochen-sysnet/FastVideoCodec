@@ -792,7 +792,7 @@ def streaming_RLVC_DVC(name, test_dataset, use_gpu=True):
         test_iter.set_description(
             f"{data_idx:6}. "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"I: {float(max(psnr_list)):.2f}")
+            f"I: {float(psnr_list.mean()):.2f}")
         
         # clear input
         data = []
@@ -810,6 +810,7 @@ def streaming_AE3D(model, test_dataset, use_gpu=True):
 # then test throughput(fps) and rate-distortion on different devices and different losses
 # need to add time measurement in parallel compression/decompress
 # THROUGHPUT
+# use locks 
         
 ####### Load dataset
 #test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
@@ -837,3 +838,7 @@ if __name__ == '__main__':
         
     if args.role == 'Standalone':
         streaming_RLVC_DVC('RLVC', test_dataset)
+    elif args.role == 'Server':
+        pass
+    elif args.role == 'Client':
+        pass
