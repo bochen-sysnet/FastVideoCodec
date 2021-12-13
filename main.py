@@ -127,6 +127,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset()   
             
         if batch_idx % 5000 == 0 and batch_idx>0:
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+            save_checkpoint(state, False, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
