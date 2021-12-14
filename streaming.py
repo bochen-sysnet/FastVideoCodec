@@ -428,7 +428,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         frame = frame.reshape((height, width, 3))
         
         # receive timestamp
-        bytes_recv = process.stdout.read(29)
+        bytes_recv = process_nc.stdout.read(29)
         sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
         recv_ts = datetime.now()
         latency_module.update((recv_ts-sent_ts).total_seconds())
