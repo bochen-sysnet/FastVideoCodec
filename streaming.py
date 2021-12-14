@@ -366,11 +366,12 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
         # read data
         # wait for 1/30. or 1/60.
         img = np.array(img)
-        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+        #while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
         t_0 = time.perf_counter()
         # send time stamp
         bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
         process_nc.stdin.write(bytes_send)
+        # send image
         process.stdin.write(img.tobytes())
     # Close and flush stdin
     process.stdin.close()
