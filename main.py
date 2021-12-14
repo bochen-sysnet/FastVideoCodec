@@ -26,11 +26,11 @@ from dataset import VideoDataset, FrameDataset
 
 # OPTION
 BACKUP_DIR = 'backup'
-CODEC_NAME = 'SPVC'
+CODEC_NAME = 'RLVC'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
 #RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-RESUME_CODEC_PATH = 'backup/SPVC/SPVC-vimeo-2P_best.pth'
+RESUME_CODEC_PATH = 'backup/RLVC/RLVC-2P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
