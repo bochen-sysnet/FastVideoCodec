@@ -839,7 +839,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='Standalone', help='Server or Client or Standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
-    parser.add_argument('--server_ip', type=str, default='localhost', help='Server IP')
+    parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='Server IP')
     parser.add_argument('--server_port', type=str, default='8087', help='Server port')
     parser.add_argument('--probe_port', type=str, default='8086', help='Port to check if server is ready')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
