@@ -298,101 +298,6 @@ def block_until_open(ip_addr,port):
             time.sleep(0.1)
     s.close()
     
-def x26x_client(args,data,model=None,Q=None,width=256,height=256):
-    fps = 25
-    GOP = 13
-    if args.task == 'x265':
-        cmd = f'/usr/bin/ffmpeg -hide_banner -loglevel error -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
-                f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
-                f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
-    elif args.task == 'x264':
-        cmd = f'/usr/bin/ffmpeg -hide_banner -loglevel error -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
-                f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
-                f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.server_port}/live'
-    else:
-        print('Codec not supported')
-        exit(1)
-    block_until_open(args.server_ip,args.probe_port)
-    # create a rtsp track
-    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-    t_0 = None
-    for idx,img in enumerate(data):
-        # read data
-        # wait for 1/30. or 1/60.
-        img = np.array(img)
-        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
-        t_0 = time.perf_counter()
-        process.stdin.write(img.tobytes())
-    # Close and flush stdin
-    process.stdin.close()
-    # Wait for sub-process to finish
-    process.wait()
-    # Terminate the sub-process
-    process.terminate()
-    
-# how to direct rtsp traffic?
-def x26x_server(args,data,model=None,Q=None,width=256,height=256):
-    # create a rtsp server or listener
-    # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
-    # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
-    command = ['/usr/bin/ffmpeg',
-        '-hide_banner', '-loglevel', 'error',
-        '-rtsp_flags', 'listen',
-        '-i', f'rtsp://{args.server_ip}:{args.server_port}/live?tcp?',
-        '-f', 'image2pipe',    # Use image2pipe demuxer
-        '-pix_fmt', 'bgr24',   # Set BGR pixel format
-        '-vcodec', 'rawvideo', # Get rawvideo output format.
-        '-']
-        
-    # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
-    process = sp.Popen(command, stdout=sp.PIPE)
-    # Probe port (server port in rtsp cannot be probed)
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((args.server_ip, int(args.probe_port)))
-    s.listen(1)
-    conn, addr = s.accept()
-    # Beginning time of streaming
-    t_0 = time.perf_counter()
-    latency_module = AverageMeter()
-    psnr_module = AverageMeter()
-    i = 0
-    stream_iter = tqdm(range(len(data)))
-    while True:
-        # read width*height*3 bytes from stdout (1 frame)
-        raw_frame = process.stdout.read(width*height*3)
-
-        if len(raw_frame) != (width*height*3):
-            #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
-            break
-
-        # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
-        frame = np.fromstring(raw_frame, np.uint8)
-        frame = frame.reshape((height, width, 3))
-        
-        # process metrics
-        com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
-        raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
-        psnr_module.update(PSNR(com, raw).cpu().data.item())
-        i += 1
-        
-        # Count time
-        total_time = time.perf_counter() - t_0
-        fps = i/total_time
-    
-        # show result
-        stream_iter.set_description(
-            f"{i:3}. "
-            f"FPS: {fps:.2f}. "
-            f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
-            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"Total: {total_time:.3f}. ")
-    conn.close()
-    # Close and flush stdin
-    process.stdout.close()
-    # Terminate the sub-process
-    process.terminate()
-    return psnr_module.avg,fps,latency_module.avg
-    
 def send_strings_to_process(process, strings, useXZ=True):
     for string_list in strings:
         if useXZ:
@@ -435,13 +340,133 @@ def recv_strings_from_process(process, strings_to_recv, useXZ=True):
             z_string_list += [z_string]
     strings = (x_string_list,z_string_list) if useXZ else x_string_list
     return strings
+    
+def x26x_client(args,data,model=None,Q=None,width=256,height=256):
+    fps = 25
+    GOP = 13
+    if args.task == 'x265':
+        cmd = f'/usr/bin/ffmpeg -hide_banner -loglevel error -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p '+\
+                f'-preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" '+\
+                f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.stream_port}/live'
+    elif args.task == 'x264':
+        cmd = f'/usr/bin/ffmpeg -hide_banner -loglevel error -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p '+\
+                f'-preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug '+\
+                f'-rtsp_transport tcp -f rtsp rtsp://{args.server_ip}:{args.stream_port}/live'
+    else:
+        print('Codec not supported')
+        exit(1)
+    block_until_open(args.server_ip,args.probe_port)
+    # create a rtsp pipe
+    process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+    # start a netcat pipe
+    cmd = f'nc {args.server_ip} {args.msg_port}'
+    process_nc = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
+    t_0 = None
+    for idx,img in enumerate(data):
+        # read data
+        # wait for 1/30. or 1/60.
+        img = np.array(img)
+        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+        t_0 = time.perf_counter()
+        # send time stamp
+        bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
+        process_nc.stdin.write(bytes_send)
+        process.stdin.write(img.tobytes())
+    # Close and flush stdin
+    process.stdin.close()
+    # Wait for sub-process to finish
+    process.wait()
+    # Terminate the sub-process
+    process.terminate()
+    # Close and flush stdin
+    process_nc.stdin.close()
+    # Wait for sub-process to finish
+    process_nc.wait()
+    # Terminate the sub-process
+    process_nc.terminate()
+    
+# how to direct rtsp traffic?
+def x26x_server(args,data,model=None,Q=None,width=256,height=256):
+    # create a rtsp server or listener
+    # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
+    # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
+    command = ['/usr/bin/ffmpeg',
+        '-hide_banner', '-loglevel', 'error',
+        '-rtsp_flags', 'listen',
+        '-i', f'rtsp://{args.server_ip}:{args.stream_port}/live?tcp?',
+        '-f', 'image2pipe',    # Use image2pipe demuxer
+        '-pix_fmt', 'bgr24',   # Set BGR pixel format
+        '-vcodec', 'rawvideo', # Get rawvideo output format.
+        '-']
+        
+    # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
+    process = sp.Popen(command, stdout=sp.PIPE)
+    # create a pipe for listening from netcat
+    cmd = f'nc -vlkp {args.msg_port}'
+    process_nc = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+    # Probe port (server port in rtsp cannot be probed)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((args.server_ip, int(args.probe_port)))
+    s.listen(1)
+    conn, addr = s.accept()
+    # Beginning time of streaming
+    t_0 = time.perf_counter()
+    latency_module = AverageMeter()
+    psnr_module = AverageMeter()
+    i = 0
+    stream_iter = tqdm(range(len(data)))
+    while True:
+        # read width*height*3 bytes from stdout (1 frame)
+        raw_frame = process.stdout.read(width*height*3)
+
+        if len(raw_frame) != (width*height*3):
+            #print('Error reading frame!!!')  # Break the loop in case of an error (too few bytes were read).
+            break
+
+        # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
+        frame = np.fromstring(raw_frame, np.uint8)
+        frame = frame.reshape((height, width, 3))
+        
+        # receive timestamp
+        bytes_recv = process.stdout.read(29)
+        sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
+        recv_ts = datetime.now()
+        latency_module.update((recv_ts-sent_ts).total_seconds())
+        
+        # process metrics
+        com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
+        raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
+        psnr_module.update(PSNR(com, raw).cpu().data.item())
+        i += 1
+        
+        # Count time
+        total_time = time.perf_counter() - t_0
+        fps = i/total_time
+    
+        # show result
+        stream_iter.set_description(
+            f"{i:3}. "
+            f"FPS: {fps:.2f}. "
+            f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"Total: {total_time:.3f}. ")
+    conn.close()
+    # Close and flush stdin
+    process.stdout.close()
+    # Terminate the sub-process
+    process.terminate()
+    # Close and flush stdin
+    process_nc.stdout.close()
+    # Terminate the sub-process
+    process_nc.terminate()
+    return psnr_module.avg,fps,latency_module.avg
             
 def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
-    block_until_open(args.server_ip,args.server_port)
+    block_until_open(args.server_ip,args.stream_port)
     GoP = fP+bP+1
     L = data.size(0)
     # start a process to pipe data to netcat
-    cmd = f'nc {args.server_ip} {args.server_port}'
+    cmd = f'nc {args.server_ip} {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     t_0 = None
     for begin in range(0,L,GoP):
@@ -503,7 +528,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
 def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # create a pipe for listening from netcat
-    cmd = f'nc -vlkp {args.server_port}'
+    cmd = f'nc -vlkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Beginning time of streaming
     t_0 = time.perf_counter()
@@ -600,11 +625,11 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     return psnr_module.avg,fps,latency_module.avg
     
 def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
-    block_until_open(args.server_ip,args.server_port)
+    block_until_open(args.server_ip,args.stream_port)
     GoP = fP+bP+1
     # cannot connect before server is started
     # start a process to pipe data to netcat
-    cmd = f'nc {args.server_ip} {args.server_port}'
+    cmd = f'nc {args.server_ip} {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     L = data.size(0)
     t_0 = None
@@ -672,7 +697,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -vlkp {args.server_port}'
+    cmd = f'nc -vlkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     latency_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -834,6 +859,7 @@ def dynamic_simulation(args, test_dataset):
 # then test throughput(fps) and rate-distortion on different devices and different losses
 # THROUGHPUT,avg latency [frame becomes available,frame decoded] do this for x26x using tcp
 # maybe just 1080/2080 to 2070 and changing packet loss
+# need a script for running client/server codes and adjust packet loss using tc
 
 
 if __name__ == '__main__':
@@ -841,14 +867,15 @@ if __name__ == '__main__':
     parser.add_argument('--role', type=str, default='Standalone', help='Server or Client or Standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='Server IP')
-    parser.add_argument('--server_port', type=str, default='8087', help='Server port')
-    parser.add_argument('--probe_port', type=str, default='8086', help='Port to check if server is ready')
+    parser.add_argument('--stream_port', type=str, default='8008', help='RTSP port')
+    parser.add_argument('--msg_port', type=str, default='8007', help='Message port')
+    parser.add_argument('--probe_port', type=str, default='8006', help='Port to check if server is ready')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
-    parser.set_defaults(use_split=True)
+    parser.set_defaults(use_split=False)
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
