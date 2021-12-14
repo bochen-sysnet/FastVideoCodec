@@ -856,12 +856,12 @@ def dynamic_simulation(args, test_dataset):
         test_dataset.reset()
         if args.task in ['RLVC','DVC','SPVC','AE3D']:
             enc,dec = showTimer(model)
-# todo: a protocol to send strings of compressed frames
-# complete I frame comrpession
-# then test throughput(fps) and rate-distortion on different devices and different losses
-# THROUGHPUT,avg latency [frame becomes available,frame decoded] do this for x26x using tcp
+            
 # maybe just 1080/2080 to 2070 and changing packet loss
 # need a script for running client/server codes and adjust packet loss using tc
+# put model on one gpu, larger size of images
+# create a log file
+# two server test
 
 
 if __name__ == '__main__':
