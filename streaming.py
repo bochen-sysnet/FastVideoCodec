@@ -833,6 +833,7 @@ def dynamic_simulation(args, test_dataset):
 # complete I frame comrpession
 # then test throughput(fps) and rate-distortion on different devices and different losses
 # THROUGHPUT,avg latency [frame becomes available,frame decoded] do this for x26x using tcp
+# maybe just 1080/2080 to 2070 and changing packet loss
 
 
 if __name__ == '__main__':
