@@ -30,7 +30,7 @@ from models import get_codec_model,parallel_compression,update_training,compress
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
-def LoadModel(CODEC_NAME,compression_level = 2,use_cuda=True):
+def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
     loss_type = 'P'
     if CODEC_NAME == 'SPVC':
         RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best_best.pth'
@@ -38,7 +38,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_cuda=True):
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
-    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level,use_cuda=use_cuda)
+    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -775,7 +775,7 @@ def dynamic_simulation(args, test_dataset):
     for com_level,Q in zip(com_level_list,Q_list):
         ####### Load model
         if args.task in ['RLVC','DVC','SPVC','AE3D']:
-            model = LoadModel(args.task,compression_level=com_level,use_cuda=args.use_cuda)
+            model = LoadModel(args.task,compression_level=com_level,use_split=args.use_split)
             model.eval()
         else:
             model = None
@@ -795,8 +795,7 @@ def dynamic_simulation(args, test_dataset):
                 continue
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 data = torch.stack(data, dim=0)
-                if args.use_cuda:
-                    data = data.cuda()
+                data = data.cuda()
             
             with torch.no_grad():
                 if args.role == 'Standalone':
@@ -846,9 +845,9 @@ if __name__ == '__main__':
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='Dynamic', help='Dynamic or static simulation')
-    parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
-    parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
-    parser.set_defaults(use_cuda=True)
+    parser.add_argument('--use_split', dest='use_split', action='store_true')
+    parser.add_argument('--no-use_split', dest='use_split', action='store_false')
+    parser.set_defaults(use_split=True)
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
@@ -856,7 +855,7 @@ if __name__ == '__main__':
     
     # check gpu
     if not torch.cuda.is_available() or torch.cuda.device_count()<2:
-        args.use_cuda = False
+        args.use_split = False
         
     print(args)
     

@@ -25,15 +25,15 @@ from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
 
-def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_cuda=True):
+def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True):
     if name in ['RLVC','DVC','RAW']:
-        model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_cuda=use_cuda)
+        model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif 'SPVC' in name:
-        model_codec = SPVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_cuda=use_cuda)
+        model_codec = SPVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif name in ['SCVC']:
         model_codec = SCVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure)
     elif name in ['AE3D']:
-        model_codec = AE3D(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_cuda=use_cuda)
+        model_codec = AE3D(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif name in ['x264','x265']:
         model_codec = StandardVideoCodecs(name)
     else:
@@ -1035,7 +1035,7 @@ def generate_graph(graph_type='default'):
 # Need to measure time and implement decompression for demo
 # cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
 class IterPredVideoCodecs(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2,use_cuda=True):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2,use_split=True):
         super(IterPredVideoCodecs, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
@@ -1050,8 +1050,8 @@ class IterPredVideoCodecs(nn.Module):
         self.epoch = -1
         self.noMeasure = noMeasure
         
-        self.use_cuda = use_cuda
-        if self.use_cuda:
+        self.use_split = use_split
+        if self.use_split:
             self.split()
 
     def split(self):
@@ -1089,7 +1089,7 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_cuda else mv_hat)
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1142,7 +1142,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,_ = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_cuda else mv_hat)
+        Y1_MC,_ = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
         # compress residual
@@ -1168,7 +1168,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,x_ref,mv_hat.cuda(1) if self.use_cuda else mv_hat)
+        Y1_MC,Y1_warp = motion_compensation(self.MC_network,x_ref,mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
@@ -1193,14 +1193,14 @@ class IterPredVideoCodecs(nn.Module):
         rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
         rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
         rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
-        if self.use_cuda:
+        if self.use_split:
             rae_mv_hidden = rae_mv_hidden.cuda()
             rae_res_hidden = rae_res_hidden.cuda()
             rpm_mv_hidden = rpm_mv_hidden.cuda()
             rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
-def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_cuda):
+def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split):
     MC_frame_list = [None for _ in range(bs)]
     warped_frame_list = [None for _ in range(bs)]
     # for layers in graph
@@ -1213,7 +1213,7 @@ def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_cuda):
             if tar>bs:continue
             parent = parents[tar]
             ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-            diff += [mv_hat[tar-1:tar].cuda(1) if use_cuda else mv_hat[tar-1:tar]] # motion needed for this id
+            diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
         if ref:
             ref = torch.cat(ref,dim=0)
             diff = torch.cat(diff,dim=0)
@@ -1251,7 +1251,7 @@ def refidx_from_graph(g,bs):
     return ref_index
            
 class SPVC(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2, use_cuda=True):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2, use_split=True):
         super(SPVC, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
@@ -1269,8 +1269,8 @@ class SPVC(nn.Module):
         self.compression_level=compression_level
         self.use_psnr = loss_type=='P'
         init_training_params(self)
-        self.use_cuda = use_cuda
-        if self.use_cuda:
+        self.use_split = use_split
+        if self.use_split:
             self.split()
         self.noMeasure = noMeasure
 
@@ -1299,7 +1299,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_cuda)
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
         
@@ -1328,7 +1328,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x_ref,bs,mv_hat,layers,parents,self.use_cuda)
+        MC_frames,warped_frames = TFE(self.MC_network,x_ref,bs,mv_hat,layers,parents,self.use_split)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         
@@ -1370,7 +1370,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_cuda)
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1578,7 +1578,7 @@ class SCVC(nn.Module):
         return None
         
 class AE3D(nn.Module):
-    def __init__(self, name, noMeasure=True, loss_type='P', compression_level=2, use_cuda=True):
+    def __init__(self, name, noMeasure=True, loss_type='P', compression_level=2, use_split=True):
         super(AE3D, self).__init__()
         self.name = name 
         self.conv1 = nn.Sequential(
@@ -1628,8 +1628,8 @@ class AE3D(nn.Module):
         self.compression_level=compression_level
         self.use_psnr = loss_type=='P'
         init_training_params(self)
-        self.use_cuda = use_cuda
-        if use_cuda:
+        self.use_split = use_split
+        if use_split:
             self.split()
         self.noMeasure = noMeasure
 
@@ -1669,7 +1669,7 @@ class AE3D(nn.Module):
         
         # decoder
         t_0 = time.perf_counter()
-        x3 = self.deconv1(latent_hat.cuda(1) if self.use_cuda else latent_hat)
+        x3 = self.deconv1(latent_hat.cuda(1) if self.use_split else latent_hat)
         x4 = self.deconv2(x3) + x3
         x_hat = self.deconv3(x4)
         
