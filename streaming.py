@@ -503,7 +503,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
 def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # create a pipe for listening from netcat
-    cmd = f'nc -lkp {args.server_port}'
+    cmd = f'nc -vlkp {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Beginning time of streaming
     t_0 = time.perf_counter()
@@ -672,7 +672,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -lkp {args.server_port}'
+    cmd = f'nc -vlkp {args.server_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     latency_module = AverageMeter()
     psnr_module = AverageMeter()
