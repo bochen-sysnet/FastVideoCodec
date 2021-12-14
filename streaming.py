@@ -366,7 +366,7 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
         # read data
         # wait for 1/30. or 1/60.
         img = np.array(img)
-        while t_0 is not None and time.perf_counter() - t_0 < 1.:time.sleep(0.01)
+        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.001)
         t_0 = time.perf_counter()
         # send time stamp
         bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
@@ -403,7 +403,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
     process = sp.Popen(command, stdout=sp.PIPE)
     # create a pipe for listening from netcat
-    cmd = f'nc -vlkp {args.msg_port}'
+    cmd = f'nc -lkp {args.msg_port}'
     process_nc = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Probe port (server port in rtsp cannot be probed)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
