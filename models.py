@@ -225,7 +225,8 @@ def parallel_compression(model, data, compressI=False):
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []
     
     if compressI:
-        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=model.name)
+        name = f"{model.name}-{model.compression_level}-{model.loss_type}"
+        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=name)
         img_loss_list += [img_loss.to(data.device)]
         aux_loss_list += [aux_loss.to(data.device)]
         bpp_est_list += [bpp_est.to(data.device)]
