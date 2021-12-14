@@ -1053,6 +1053,8 @@ class IterPredVideoCodecs(nn.Module):
         self.use_split = use_split
         if self.use_split:
             self.split()
+        else:
+            self = self.cuda()
 
     def split(self):
         self.optical_flow.cuda(0)
@@ -1193,11 +1195,10 @@ class IterPredVideoCodecs(nn.Module):
         rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
         rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
         rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
-        if self.use_split:
-            rae_mv_hidden = rae_mv_hidden.cuda()
-            rae_res_hidden = rae_res_hidden.cuda()
-            rpm_mv_hidden = rpm_mv_hidden.cuda()
-            rpm_res_hidden = rpm_res_hidden.cuda()
+        rae_mv_hidden = rae_mv_hidden.cuda()
+        rae_res_hidden = rae_res_hidden.cuda()
+        rpm_mv_hidden = rpm_mv_hidden.cuda()
+        rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
 def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split):
@@ -1272,6 +1273,8 @@ class SPVC(nn.Module):
         self.use_split = use_split
         if self.use_split:
             self.split()
+        else:
+            self = self.cuda()
         self.noMeasure = noMeasure
 
     def split(self):
@@ -1631,6 +1634,8 @@ class AE3D(nn.Module):
         self.use_split = use_split
         if use_split:
             self.split()
+        else:
+            self = self.cuda()
         self.noMeasure = noMeasure
 
     def split(self):
