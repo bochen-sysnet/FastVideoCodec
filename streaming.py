@@ -55,7 +55,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
         print("Cannot load model codec", CODEC_NAME)
         #exit(1)
     print("===================================================================")
-    return model
+    return model.cuda()
     
 class VideoDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
