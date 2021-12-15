@@ -56,7 +56,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset):
+def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -138,6 +138,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
             save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
             model.train()
+            
+            test(epoch, model, test_dataset2)
     
 def test(epoch, model, test_dataset):
     aux_loss_module = AverageMeter()
@@ -401,7 +403,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
     if USE_VIMEO:
-        train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
+        train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2)
     else:
         train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
     
