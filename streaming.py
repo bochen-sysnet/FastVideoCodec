@@ -863,6 +863,7 @@ def dynamic_simulation(args, test_dataset):
 # create a log file
 # two server test
 # MV/RES big difference in live test and random test of SPVC
+# need to speed up MV/RES
 
 
 if __name__ == '__main__':
