@@ -463,7 +463,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     return psnr_module.avg,fps,latency_module.avg
             
 def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
-    #block_until_open(args.server_ip,args.stream_port)
+    block_until_open(args.server_ip,args.stream_port)
     GoP = fP+bP+1
     L = data.size(0)
     # start a process to pipe data to netcat
@@ -626,7 +626,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     return psnr_module.avg,fps,latency_module.avg
     
 def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
-    #block_until_open(args.server_ip,args.stream_port)
+    block_until_open(args.server_ip,args.stream_port)
     GoP = fP+bP+1
     # cannot connect before server is started
     # start a process to pipe data to netcat
@@ -863,7 +863,7 @@ def dynamic_simulation(args, test_dataset):
 # create a log file
 # two server test
 # MV/RES big difference in live test and random test of SPVC
-# need to speed up MV/RES
+# need to speed up MV/RES, how runtime of entropy bottleneck is related to the input size?
 
 
 if __name__ == '__main__':
