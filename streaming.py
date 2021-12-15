@@ -366,7 +366,7 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
         # read data
         # wait for 1/30. or 1/60.
         img = np.array(img)
-        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.001)
+        while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
         t_0 = time.perf_counter()
         # send time stamp
         bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
@@ -480,7 +480,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
             x_b = torch.flip(x_GoP[:fP+1],[0])
             # wait
             for k in range(x_b.size(0)):
-                while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+                while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
                 t_0 = time.perf_counter()
                 if k<x_b.size(0)-1:
                     # send time stamp
@@ -494,7 +494,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
             x_f = x_GoP[fP:]
             # wait
             for k in range(x_f.size(0)-1):
-                while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+                while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
                 t_0 = time.perf_counter()
                 # send time stamp
                 bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
@@ -509,7 +509,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
             x_f = x_GoP
             # wait
             for k in range(GoP_size):
-                while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.01)
+                while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
                 t_0 = time.perf_counter()
                 if k<x_f.size(0)-1:
                     # send time stamp
@@ -529,10 +529,10 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
 def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # create a pipe for listening from netcat
-    cmd = f'nc -l {args.stream_port}'
+    cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    # Beginning time of streaming
-    t_0 = time.perf_counter()
+    # First time to receive a frame
+    t_0 = None
     # initialize
     latency_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -549,35 +549,35 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
         # receive strings based on gop size
         if GoP_size>fP+1:
             ###############################################################
-            strings_to_recv = fP
+            bs = fP
             # receive timestamp
             sent_timestamps = []
-            for _ in range(strings_to_recv):
+            for _ in range(bs):
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 sent_timestamps += [sent_ts]
             # receive the first two strings
-            mv_string1 = recv_strings_from_process(process, strings_to_recv)
-            res_string1 = recv_strings_from_process(process, strings_to_recv)
+            mv_string1 = recv_strings_from_process(process, 1)
+            res_string1 = recv_strings_from_process(process, 1)
             # decompress backward
-            x_b_hat = model.decompress(x_ref,mv_string1,res_string1)
+            x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
             # record time
             for sent_ts in sent_timestamps:
                 recv_ts = datetime.now()
                 latency_module.update((recv_ts-sent_ts).total_seconds())
             ###############################################################
-            strings_to_recv = GoP_size-1-fP
+            bs = GoP_size-1-fP
             # receive timestamp
             sent_timestamps = []
-            for _ in range(strings_to_recv):
+            for _ in range(bs):
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 sent_timestamps += [sent_ts]
             # receive the second two strings
-            mv_string2 = recv_strings_from_process(process, strings_to_recv)
-            res_string2 = recv_strings_from_process(process, strings_to_recv)
+            mv_string2 = recv_strings_from_process(process, 1)
+            res_string2 = recv_strings_from_process(process, 1)
             # decompress forward
-            x_f_hat = model.decompress(x_ref,mv_string2,res_string2)
+            x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
             # record time
             for sent_ts in sent_timestamps:
                 recv_ts = datetime.now()
@@ -585,18 +585,18 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
         else:
-            strings_to_recv = GoP_size-1
+            bs = GoP_size-1
             # receive timestamp
             sent_timestamps = []
-            for _ in range(strings_to_recv):
+            for _ in range(bs):
                 bytes_recv = process.stdout.read(29)
                 sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 sent_timestamps += [sent_ts]
             # receive two strings
-            mv_string = recv_strings_from_process(process, strings_to_recv)
-            res_string = recv_strings_from_process(process, strings_to_recv)
+            mv_string = recv_strings_from_process(process, 1)
+            res_string = recv_strings_from_process(process, 1)
             # decompress backward
-            x_f_hat = model.decompress(x_ref,mv_string,res_string)
+            x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
             # record time
             for sent_ts in sent_timestamps:
                 recv_ts = datetime.now()
@@ -604,14 +604,21 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
             # concate
             x_hat = torch.cat((x_ref,x_f_hat),dim=0)
             
+        # Count time
+        if t_0 is None:
+            t_0 = time.perf_counter()
+            fps = total_time = 0
+        else:
+            total_time = time.perf_counter() - t_0
+            fps = i/total_time
+
+        # measure metrics
         for com in x_hat:
             com = com.unsqueeze(0)
             raw = data[i].unsqueeze(0)
             psnr_module.update(PSNR(com, raw).cpu().data.item())
             i += 1
-        # Count time
-        total_time = time.perf_counter() - t_0
-        fps = i/total_time
+
         # show result
         stream_iter.set_description(
             f"{i:3}. "
@@ -638,8 +645,8 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
     for i in range(L):
         # read data
         # wait for 1/30. or 1/60.
-        while t_0 is not None and time.perf_counter() - t_0 < 1/60.:
-            time.sleep(1/60.)
+        while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:
+            time.sleep(0.001)
         t_0 = time.perf_counter()
         p = i%GoP
         if p > fP:
@@ -696,9 +703,9 @@ def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
 def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # Beginning time of streaming
-    t_0 = time.perf_counter()
+    t_0 = None
     # create a pipe for listening from netcat
-    cmd = f'nc -l {args.stream_port}'
+    cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     latency_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -763,8 +770,12 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
                 x_ref = x_ref.detach()
                 psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
                 # Count time
-                total_time = time.perf_counter() - t_0
-                fps = i/total_time
+                if t_0 is None:
+                    t_0 = time.perf_counter()
+                    total_time = fps = 0
+                else:
+                    total_time = time.perf_counter() - t_0
+                    fps = i/total_time
                 # show result
                 stream_iter.set_description(
                     f"{i:3}. "
@@ -852,18 +863,24 @@ def dynamic_simulation(args, test_dataset):
                 
             # clear input
             data = []
-            
-        test_dataset.reset()
+
+        # write results
         if args.task in ['RLVC','DVC','SPVC','AE3D']:
             enc,dec = showTimer(model)
+        with open(args.role + '._log','a+') as f:
+            outstr = f'{com_level} {args.task} {fps_module.avg} {latency_module.avg}\n'
+            f.write(outstr)
+            
+        test_dataset.reset()
+# print com time components on a single server
             
 # maybe just 1080/2080 to 2070 and changing packet loss
-# need a script for running client/server codes and adjust packet loss using tc
+
 # put model on one gpu, larger size of images
-# create a log file
 # two server test
-# MV/RES big difference in live test and random test of SPVC
-# need to speed up MV/RES, how runtime of entropy bottleneck is related to the input size?
+# delay: sudo tc qdisc add dev lo root netem delay 100ms 10ms
+# loss: sudo tc qdisc add dev lo root netem loss 10%
+# remove: sudo tc qdisc del dev lo root
 
 
 if __name__ == '__main__':
@@ -883,11 +900,18 @@ if __name__ == '__main__':
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
+    parser.add_argument('--rate_option', type=str, default='Low', help='Low or High')
     args = parser.parse_args()
     
     # check gpu
     if not torch.cuda.is_available() or torch.cuda.device_count()<2:
         args.use_split = False
+
+    # set fps
+    if args.rate_option == 'Low':
+        args.fps = 30.
+    else:
+        args.fps = 60.
         
     print(args)
     

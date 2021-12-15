@@ -93,7 +93,7 @@ class RecProbModel(CompressionModel):
     def compress_slow(self, x, rpm_hidden, prior_latent):
         # shouldnt be used together with forward()
         # otherwise rpm_hidden will be messed up
-        self.eAC_t = self.enet_t = 0
+        self.eAC_t = self.eNet_t = 0
         shape = x.size()[-2:]
         if self.RPM_flag:
             assert prior_latent is not None, 'prior latent is none!'
@@ -102,7 +102,7 @@ class RecProbModel(CompressionModel):
             sigma, mu, rpm_hidden = self.RPM(prior_latent, rpm_hidden.to(prior_latent.device))
             sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
             sigma = torch.exp(sigma)/10
-            self.enet_t += time.perf_counter() - t_0
+            self.eNet_t += time.perf_counter() - t_0
             # ac part
             t_0 = time.perf_counter()
             indexes = self.gaussian_conditional.build_indexes(sigma)
@@ -113,10 +113,10 @@ class RecProbModel(CompressionModel):
             t_0 = time.perf_counter()
             string = self.entropy_bottleneck.compress(x)
             x_hat,_ = self.entropy_bottleneck(x,training=self.training)
-            self.enet_t += 0
+            self.eNet_t += 0
             self.eAC_t += time.perf_counter() - t_0
         prior_latent = torch.round(x_hat).detach()
-        self.enc_t = self.enet_t + self.eAC_t
+        self.enc_t = self.eNet_t + self.eAC_t
         return x_hat, string, rpm_hidden.detach(), prior_latent
         
     def decompress_slow(self, string, shape, rpm_hidden, prior_latent):
@@ -279,7 +279,7 @@ class MeanScaleHyperPriors(CompressionModel):
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, decode=False):
         # shouldnt be used together with forward()
-        self.eAC_t = self.enet_t = 0
+        self.eAC_t = self.eNet_t = 0
         # NET
         t_0 = time.perf_counter()
         B,C,H,W = x.size()
@@ -287,10 +287,9 @@ class MeanScaleHyperPriors(CompressionModel):
         if self.useAttention:
             z = st_attention(z,self.s_attn_a,self.t_attn_a)
         z = self.h_a2(z)
-        self.enet_t += time.perf_counter() - t_0
+        self.eNet_t += time.perf_counter() - t_0
         # AC
         t_0 = time.perf_counter()
-        z_string = self.entropy_bottleneck.compress(z)
         z_hat, _ = self.entropy_bottleneck(z,training=self.training)
         self.eAC_t += time.perf_counter() - t_0
         # NET
@@ -302,24 +301,35 @@ class MeanScaleHyperPriors(CompressionModel):
         sigma, mu = torch.split(gaussian_params, self.channels, dim=1) # for fast compression
         sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(x.device))
         sigma = torch.exp(sigma)
-        self.enet_t += time.perf_counter() - t_0
+        self.eNet_t += time.perf_counter() - t_0
         # AC
         t_0 = time.perf_counter()
-        indexes = self.gaussian_conditional.build_indexes(sigma)
-        x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
         if decode:
             x_hat,_ = self.gaussian_conditional(x, sigma, means=mu, training=self.training)
         else:
             x_hat = None
+        # AC
+        z = z.permute(1,0,2,3).unsqueeze(0).contiguous()
+        z_string = self.entropy_bottleneck.compress(z)
+
+        indexes = self.gaussian_conditional.build_indexes(sigma)
+        # reshape
+        x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
+        indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
+        mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
+        x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
+
         self.eAC_t += time.perf_counter() - t_0
-        self.enc_t = self.enet_t + self.eAC_t
+        self.enc_t = self.eNet_t + self.eAC_t
         return x_hat, (x_string, z_string), x.size()[-2:]
         
     def decompress_slow(self, string, shape):
+        # shape?
         self.dAC_t = self.dnet_t = 0
         # AC
         t_0 = time.perf_counter()
         z_hat = self.entropy_bottleneck.decompress(string[1], shape)
+        z_hat = z_hat.squeeze(0).permute(1,0,2,3).contiguous()
         self.dAC_t += time.perf_counter() - t_0
         # NET
         t_0 = time.perf_counter()
@@ -334,7 +344,11 @@ class MeanScaleHyperPriors(CompressionModel):
         # AC
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
+        # reshape
+        indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
+        mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
         x_hat = self.gaussian_conditional.decompress(string[0], indexes, means=mu)
+        x_hat = x_hat.squeeze(0).permute(1,0,2,3).contiguous()
         self.dAC_t += time.perf_counter() - t_0
         self.dec_t = self.dnet_t + self.dAC_t
         return x_hat
@@ -459,12 +473,12 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
     # we should only use one hidden from compression or decompression
     def compress_slow(self, x, ctx_params, decode=False):
         # shouldnt be used together with forward()
-        self.enet_t = self.eAC_t = 0
+        self.eNet_t = self.eAC_t = 0
         # NET
         t_0 = time.perf_counter()
         bs,c,h,w = x.size()
         z = self.h_a(x)
-        self.enet_t += time.perf_counter() - t_0
+        self.eNet_t += time.perf_counter() - t_0
         # AC
         t_0 = time.perf_counter()
         z_string = self.entropy_bottleneck.compress(z)
@@ -480,7 +494,7 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
         sigma, mu = torch.split(gaussian_params, self.channels, dim=1) # for fast compression
         sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(x.device))
         sigma = torch.exp(sigma)
-        self.enet_t += time.perf_counter() - t_0
+        self.eNet_t += time.perf_counter() - t_0
         # AC
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
@@ -490,7 +504,7 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
         else:
             x_hat = None
         self.eAC_t += time.perf_counter() - t_0
-        self.enc_t = self.enet_t + self.eAC_t
+        self.enc_t = self.eNet_t + self.eAC_t
         return x_hat,(x_string, z_string), x.size()
         
     def decompress_slow(self, string, shape, ctx_params):
@@ -698,6 +712,3 @@ def test(name = 'Joint'):
                 f"MSE2: {float(mse2):.4f}. "
                 f"ENC: {float(duration_e):.3f}. "
                 f"DEC: {float(duration_d):.3f}. ")
-    
-if __name__ == '__main__':
-    test()

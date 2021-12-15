@@ -714,7 +714,7 @@ class Coder2D(nn.Module):
             latent_string = self.entropy_bottleneck.compress(latent)
             if decodeLatent:
                 latent_hat, _ = self.entropy_bottleneck(latent, training=self.training)
-            self.entropy_bottleneck.enet_t = 0
+            self.entropy_bottleneck.eNet_t = 0
             self.entropy_bottleneck.eAC_t = time.perf_counter() - t_0
             latentSize = latent.size()[-2:]
         elif self.entropy_type == 'mshp':
@@ -726,7 +726,7 @@ class Coder2D(nn.Module):
             latent_hat, latent_string, rpm_hidden, prior_latent = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent)
             latentSize = latent.size()[-2:]
             
-        self.net_t += self.entropy_bottleneck.enet_t
+        self.net_t += self.entropy_bottleneck.eNet_t
         self.AC_t += self.entropy_bottleneck.eAC_t
         # if decodeLatent and self.entropy_type != 'rpm':
         #     self.net_t += self.entropy_bottleneck.dnet_t
@@ -1311,9 +1311,8 @@ class SPVC(nn.Module):
         
         return mv_string,res_string,bpp_act
         
-    def decompress(self, x_ref, mv_string,res_string):
-        bs = len(mv_string[0])
-        latent_size = torch.Size([16,16])
+    def decompress(self, x_ref, mv_string,res_string,bs):
+        latent_size = torch.Size([bs,16,16])
         # BATCH motion decode
         mv_hat,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
