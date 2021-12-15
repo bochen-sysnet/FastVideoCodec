@@ -45,7 +45,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
     ####### Load codec model 
     if os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-        checkpoint = torch.load(RESUME_CODEC_PATH)
+        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:0'))
         BEGIN_EPOCH = checkpoint['epoch'] + 1
         best_codec_score = checkpoint['score'][1:4]
         load_state_dict_all(model, checkpoint['state_dict'])
@@ -367,7 +367,6 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
         # wait for 1/30. or 1/60.
         img = np.array(img)
         while t_0 is not None and time.perf_counter() - t_0 < 1/60.:time.sleep(0.001)
-        if t_0 is not None:print(time.perf_counter()-t_0)
         t_0 = time.perf_counter()
         # send time stamp
         bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
@@ -404,7 +403,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
     process = sp.Popen(command, stdout=sp.PIPE)
     # create a pipe for listening from netcat
-    cmd = f'nc -lkp {args.msg_port}'
+    cmd = f'nc -l {args.msg_port}'
     process_nc = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Probe port (server port in rtsp cannot be probed)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -464,7 +463,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     return psnr_module.avg,fps,latency_module.avg
             
 def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
-    block_until_open(args.server_ip,args.stream_port)
+    #block_until_open(args.server_ip,args.stream_port)
     GoP = fP+bP+1
     L = data.size(0)
     # start a process to pipe data to netcat
@@ -530,7 +529,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None,fP=6,bP=6):
 def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     GoP = fP+bP+1
     # create a pipe for listening from netcat
-    cmd = f'nc -vlkp {args.stream_port}'
+    cmd = f'nc -l {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Beginning time of streaming
     t_0 = time.perf_counter()
@@ -627,7 +626,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None,fP=6,bP=6):
     return psnr_module.avg,fps,latency_module.avg
     
 def RLVC_DVC_client(args,data,model=None,Q=None,fP=6,bP=6):
-    block_until_open(args.server_ip,args.stream_port)
+    #block_until_open(args.server_ip,args.stream_port)
     GoP = fP+bP+1
     # cannot connect before server is started
     # start a process to pipe data to netcat
@@ -699,7 +698,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None,fP=6,bP=6):
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a pipe for listening from netcat
-    cmd = f'nc -vlkp {args.stream_port}'
+    cmd = f'nc -l {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     latency_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -837,9 +836,10 @@ def dynamic_simulation(args, test_dataset):
                     exit(1)
             
             # record loss
-            psnr_module.update(psnr)
-            latency_module.update(latency)
-            fps_module.update(fps)
+            if args.role == 'Standalone' or args.role == 'Server':
+                psnr_module.update(psnr)
+                latency_module.update(latency)
+                fps_module.update(fps)
             
             # show result
             if args.role == 'Standalone' or args.role == 'Server':
@@ -862,6 +862,7 @@ def dynamic_simulation(args, test_dataset):
 # put model on one gpu, larger size of images
 # create a log file
 # two server test
+# MV/RES big difference in live test and random test of SPVC
 
 
 if __name__ == '__main__':
@@ -890,7 +891,7 @@ if __name__ == '__main__':
     print(args)
     
     if args.dataset == 'UVG':
-        test_dataset = VideoDataset('UVG', frame_size=(256,256))
+        test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
     else:
         test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
         

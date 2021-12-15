@@ -712,23 +712,15 @@ class Coder2D(nn.Module):
             # encoding
             t_0 = time.perf_counter()
             latent_string = self.entropy_bottleneck.compress(latent)
+            if decodeLatent:
+                latent_hat, _ = self.entropy_bottleneck(latent, training=self.training)
             self.entropy_bottleneck.enet_t = 0
             self.entropy_bottleneck.eAC_t = time.perf_counter() - t_0
-            # decoding
-            if decodeLatent:
-                t_0 = time.perf_counter()
-                latent_hat = self.entropy_bottleneck.decompress(latent_string, latent.size()[-2:])
-                self.entropy_bottleneck.dnet_t = 0
-                self.entropy_bottleneck.dAC_t = time.perf_counter() - t_0
             latentSize = latent.size()[-2:]
         elif self.entropy_type == 'mshp':
-            latent_string, latentSize = self.entropy_bottleneck.compress_slow(latent)
-            if decodeLatent:
-                latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize)
+            latent_hat, latent_string, latentSize = self.entropy_bottleneck.compress_slow(latent,decode=decodeLatent)
         elif self.entropy_type == 'joint':
-            latent_string,latentSize = self.entropy_bottleneck.compress_slow(latent, prior)
-            if decodeLatent:
-                latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
+            latent_hat, latent_string,latentSize = self.entropy_bottleneck.compress_slow(latent, prior, decode=decodeLatent)     
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
             latent_hat, latent_string, rpm_hidden, prior_latent = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent)
@@ -736,9 +728,9 @@ class Coder2D(nn.Module):
             
         self.net_t += self.entropy_bottleneck.enet_t
         self.AC_t += self.entropy_bottleneck.eAC_t
-        if decodeLatent and self.entropy_type != 'rpm':
-            self.net_t += self.entropy_bottleneck.dnet_t
-            self.AC_t += self.entropy_bottleneck.dAC_t
+        # if decodeLatent and self.entropy_type != 'rpm':
+        #     self.net_t += self.entropy_bottleneck.dnet_t
+        #     self.AC_t += self.entropy_bottleneck.dAC_t
             
         if decodeLatent:
             t_0 = time.perf_counter()
@@ -1765,11 +1757,11 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
     channels = 64
     x = torch.randn(batch_size,3,h,w).cuda()
     if 'SPVC' in name:
-        model = SPVC(name,channels,noMeasure=False)
+        model = SPVC(name,channels,noMeasure=False,use_split=False)
     elif name == 'SCVC':
         model = SCVC(name,channels,noMeasure=False)
     elif name == 'AE3D':
-        model = AE3D(name,noMeasure=False)
+        model = AE3D(name,noMeasure=False,use_split=False)
     elif name == 'SVC':
         model = SVC(name,channels)
     else:
@@ -1810,7 +1802,7 @@ def test_seq_proc(name='RLVC'):
     batch_size = 1
     h = w = 224
     x = torch.rand(batch_size,3,h,w).cuda()
-    model = IterPredVideoCodecs(name,noMeasure=False)
+    model = IterPredVideoCodecs(name,noMeasure=False,use_split=False)
     import torch.optim as optim
     from tqdm import tqdm
     parameters = set(p for n, p in model.named_parameters())

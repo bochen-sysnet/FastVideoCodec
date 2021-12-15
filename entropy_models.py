@@ -107,12 +107,12 @@ class RecProbModel(CompressionModel):
             t_0 = time.perf_counter()
             indexes = self.gaussian_conditional.build_indexes(sigma)
             string = self.gaussian_conditional.compress(x, indexes, means=mu)
-            x_hat = self.gaussian_conditional.decompress(string, indexes, means=mu)
+            x_hat,_ = self.gaussian_conditional(x, sigma, means=mu, training=self.training)
             self.eAC_t += time.perf_counter() - t_0
         else:
             t_0 = time.perf_counter()
             string = self.entropy_bottleneck.compress(x)
-            x_hat = self.entropy_bottleneck.decompress(string, shape)
+            x_hat,_ = self.entropy_bottleneck(x,training=self.training)
             self.enet_t += 0
             self.eAC_t += time.perf_counter() - t_0
         prior_latent = torch.round(x_hat).detach()
@@ -277,7 +277,7 @@ class MeanScaleHyperPriors(CompressionModel):
         return x_hat
         
     # we should only use one hidden from compression or decompression
-    def compress_slow(self, x):
+    def compress_slow(self, x, decode=False):
         # shouldnt be used together with forward()
         self.eAC_t = self.enet_t = 0
         # NET
@@ -291,9 +291,8 @@ class MeanScaleHyperPriors(CompressionModel):
         # AC
         t_0 = time.perf_counter()
         z_string = self.entropy_bottleneck.compress(z)
-        z_hat = self.entropy_bottleneck.decompress(z_string, z.size()[-2:])
+        z_hat, _ = self.entropy_bottleneck(z,training=self.training)
         self.eAC_t += time.perf_counter() - t_0
-        
         # NET
         t_0 = time.perf_counter()
         g = self.h_s1(z_hat)
@@ -308,9 +307,13 @@ class MeanScaleHyperPriors(CompressionModel):
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
         x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
+        if decode:
+            x_hat,_ = self.gaussian_conditional(x, sigma, means=mu, training=self.training)
+        else:
+            x_hat = None
         self.eAC_t += time.perf_counter() - t_0
         self.enc_t = self.enet_t + self.eAC_t
-        return (x_string, z_string), x.size()[-2:]
+        return x_hat, (x_string, z_string), x.size()[-2:]
         
     def decompress_slow(self, string, shape):
         self.dAC_t = self.dnet_t = 0
@@ -454,7 +457,7 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
         return x_hat
         
     # we should only use one hidden from compression or decompression
-    def compress_slow(self, x, ctx_params):
+    def compress_slow(self, x, ctx_params, decode=False):
         # shouldnt be used together with forward()
         self.enet_t = self.eAC_t = 0
         # NET
@@ -482,9 +485,13 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
         x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
+        if decode:
+            x_hat,_ = self.gaussian_conditional(x, sigma, means=mu, training=self.training)
+        else:
+            x_hat = None
         self.eAC_t += time.perf_counter() - t_0
         self.enc_t = self.enet_t + self.eAC_t
-        return (x_string, z_string), x.size()
+        return x_hat,(x_string, z_string), x.size()
         
     def decompress_slow(self, string, shape, ctx_params):
         print('Warning! shape might need to be recalcullated')
