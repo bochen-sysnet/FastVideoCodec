@@ -26,10 +26,10 @@ from dataset import VideoDataset, FrameDataset
 
 # OPTION
 BACKUP_DIR = 'backup'
-CODEC_NAME = 'AE3D'
+CODEC_NAME = 'RLVC'
 loss_type = 'P'
-compression_level = 2 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+compression_level = 3 # 0,1,2,3
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 #RESUME_CODEC_PATH = 'backup/DVC/DVC-2P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
