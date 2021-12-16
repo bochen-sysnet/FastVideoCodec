@@ -964,7 +964,7 @@ class Coder2D(nn.Module):
         bs,c,h,w = x.size()
         x_est = torch.tensor([0 for _ in x], requires_grad=True).cuda()
         x_act = torch.tensor([0 for _ in x], requires_grad=True).cuda()
-        x_aux = torch.tensor([0 for _ in x], requires_grad=True).cuda()
+        x_aux = torch.tensor(0, requires_grad=True).cuda()
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
         else:
@@ -986,7 +986,7 @@ class Coder2D(nn.Module):
             x_act[frame_idx] += x_act_i.cuda()
             
             # aux
-            x_aux[frame_idx] += x_aux_i.cuda()
+            x_aux += x_aux_i.cuda()
             
             if not self.noMeasure:
                 enc_t += self.enc_t
@@ -994,7 +994,7 @@ class Coder2D(nn.Module):
         x_hat = torch.stack(x_hat_list, dim=0)
         if not self.noMeasure:
             self.enc_t,self.dec_t = enc_t,dec_t
-        return x_hat,x_act,x_est,x_aux
+        return x_hat,x_act,x_est,x_aux/bs
     
 def generate_graph(graph_type='default'):
     # 7 nodes, 6 edges
@@ -1672,10 +1672,13 @@ class AE3D(nn.Module):
             self.meters['D-NET'].update(time.perf_counter() - t_0)
         
         # estimated bits
-        bpp_est = [bpp/(h * w) for bpp in latent_est]
+        bpp_est = latent_est/(h * w)
         
         # actual bits
-        bpp_act = [bpp/(h * w) for bpp in latent_act]
+        bpp_act = latent_act/(h * w)
+        
+        # aux loss
+        aux_loss = aux_loss.repeat(bs)
         
         # calculate metrics/loss
         psnr = PSNR(x, x_hat, use_list=True)
