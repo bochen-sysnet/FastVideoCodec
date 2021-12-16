@@ -60,23 +60,26 @@ def init_training_params(model):
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
     print('MSE/MSSSIM multiplier:',model.r,'. BPG level:',model.I_level)
     
-    model.fmt_enc_str = "FL:{0:.4f}\tMV:{1:.4f}({6:.4f})\tMC:{2:.4f}\tRES:{3:.4f}({7:.4f})\tNET:{4:.4f}\tALL:{5:.4f}"
-    model.fmt_dec_str = "MV:{0:.4f}({6:.4f})\tMC:{1:.4f}\tRES:{2:.4f}({7:.4f})\tREC:{3:.4f}\tNET:{4:.4f}\tALL:{5:.4f}"
+    model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f} {6:.3f}"
+    model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
     model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
-                    'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),'E-NET':AverageMeter(),
+                    'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),
+                    'E-NET':AverageMeter(),
                     'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
-                    'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-REC':AverageMeter(),'D-NET':AverageMeter()}
+                    'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
     
 def showTimer(model):
     enc = sum([val.avg if 'E-' in key else 0 for key,val in model.meters.items()])
     dec = sum([val.avg if 'D-' in key else 0 for key,val in model.meters.items()])
-    print(model.fmt_enc_str.format(model.meters['E-FL'].avg,model.meters['E-MV'].avg,
+    enc_str = model.fmt_enc_str.format(model.meters['E-FL'].avg,model.meters['E-MV'].avg,
         model.meters['E-MC'].avg,model.meters['E-RES'].avg,model.meters['E-NET'].avg,
-        enc,model.meters['eEMV'].avg,model.meters['eERES'].avg))
-    print(model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,
-        model.meters["D-RES"].avg,model.meters["D-REC"].avg,model.meters["D-NET"].avg,
-        dec,model.meters['eDMV'].avg,model.meters['eDRES'].avg))
-    return enc,dec
+        model.meters['eEMV'].avg,model.meters['eERES'].avg)
+    dec_str = model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,
+        model.meters["D-RES"].avg,model.meters["D-NET"].avg,
+        model.meters['eDMV'].avg,model.meters['eDRES'].avg)
+    print(enc,enc_str)
+    print(dec,dec_str)
+    return enc_str,dec_str
     
 def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # warmup with all gamma set to 1
@@ -1101,10 +1104,7 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
             self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
-        t_0 = time.perf_counter()
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
-        if not self.noMeasure:
-            self.meters['D-REC'].update(time.perf_counter() - t_0)
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est + res_est.to(mv_est.device))/(Height * Width * batch_size)
@@ -1171,9 +1171,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
         self.meters['eDRES'].update(self.res_codec.AC_t)
         # reconstruction
-        t_0 = time.perf_counter()
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1).to(x_ref.device)
-        self.meters['D-REC'].update(time.perf_counter() - t_0)
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
             
@@ -1335,9 +1333,7 @@ class SPVC(nn.Module):
         self.meters['eDRES'].update(self.res_codec.AC_t)
         
         # reconstruction
-        t_0 = time.perf_counter()
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x_ref.device)
-        self.meters['D-REC'].update(time.perf_counter() - t_0)
         
         return com_frames
         
@@ -1385,10 +1381,7 @@ class SPVC(nn.Module):
             self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
             self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
-        t_0 = time.perf_counter()
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
-        if not self.noMeasure:
-            self.meters['D-REC'].update(time.perf_counter() - t_0)
             
         ##### compute bits
         # estimated bits

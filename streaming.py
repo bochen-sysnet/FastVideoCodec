@@ -865,22 +865,26 @@ def dynamic_simulation(args, test_dataset):
             data = []
 
         # write results
-        if args.task in ['RLVC','DVC','SPVC','AE3D']:
-            enc,dec = showTimer(model)
-        with open(args.role + '._log','a+') as f:
-            outstr = f'{com_level} {args.task} {fps_module.avg} {latency_module.avg}\n'
-            f.write(outstr)
+        with open(args.role + '.log','a+') as f:
+            if args.role == 'Standalone' or args.role == 'Server':
+                outstr = f'{com_level} {args.task} {fps_module.avg:.2f} {latency_module.avg:.2f}\n'
+                f.write(outstr)
+            if args.task in ['RLVC','DVC','SPVC','AE3D']:
+                enc_str,dec_str = showTimer(model)
+                if args.role == 'Standalone' or args.role == 'Client':
+                    f.write(enc_str+'\n')
+                if args.role == 'Standalone' or args.role == 'Server':
+                    f.write(dec_str+'\n')
             
         test_dataset.reset()
 # print com time components on a single server
             
 # maybe just 1080/2080 to 2070 and changing packet loss
-
-# put model on one gpu, larger size of images
 # two server test
 # delay: sudo tc qdisc add dev lo root netem delay 100ms 10ms
 # loss: sudo tc qdisc add dev lo root netem loss 10%
 # remove: sudo tc qdisc del dev lo root
+# rebuffering ratio/time/rate?
 
 
 if __name__ == '__main__':
@@ -900,7 +904,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
-    parser.add_argument('--rate_option', type=str, default='Low', help='Low or High')
+    parser.add_argument('--rate_option', type=str, default='High', help='Low or High')
     args = parser.parse_args()
     
     # check gpu

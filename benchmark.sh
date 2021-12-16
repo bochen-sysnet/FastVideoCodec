@@ -1,18 +1,20 @@
 #!/bin/bash
 
-# no packet loss
-# why not work?
-# invoke remote server
-python3 streaming.py --task x264 --role Server &
-# invoke local client
-python3 streaming.py --task x264 --role Client &
+echo "No loss test"
+# python streaming.py --task x264 --role Client &
+# python streaming.py --task x264 --role Server
   
-# python3 streaming.py --task x265 
+# python streaming.py --task x265 --role Client &
+# python streaming.py --task x265 --role Server
 
-# python3 streaming.py --task RLVC
+# python streaming.py --task RLVC --role Client &
+# python streaming.py --task RLVC --role Server
   
-# python3 streaming.py --task DVC
+# python streaming.py --task DVC --role Client &
+# python streaming.py --task DVC --role Server
 
+python streaming.py --task SPVC --role Client &
+python streaming.py --task SPVC --role Server
 
 # 10% packet loss
 # sudo tc qdisc add dev lo root netem loss 10%
