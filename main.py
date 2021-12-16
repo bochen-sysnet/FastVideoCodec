@@ -25,11 +25,11 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-BACKUP_DIR = 'backup'
 CODEC_NAME = 'SPVC64'
+SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 2 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 #RESUME_CODEC_PATH = 'backup/DVC/DVC-2P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
@@ -75,7 +75,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        if batch_idx<=40000 and epoch==1:continue
         data = data[0].cuda()
         l = data.size(0)-1
         
@@ -128,7 +127,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             
         if batch_idx % 5000 == 0 and batch_idx>0:
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-            save_checkpoint(state, False, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
+            save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
@@ -137,7 +136,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
                 best_codec_score = score
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-            save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
+            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
             model.train()
             
             test(epoch, model, test_dataset2)
@@ -229,108 +228,16 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
     return r
-    
-def train_ucf(epoch, model_codec, train_dataset, optimizer, best_codec_score):
-    t0 = time.time()
-    aux_loss_module = AverageMeter()
-    img_loss_module = AverageMeter()
-    be_loss_module = AverageMeter()
-    psnr_module = AverageMeter()
-    msssim_module = AverageMeter()
-    all_loss_module = AverageMeter()
-    scaler = torch.cuda.amp.GradScaler(enabled=True)
-    batch_size = 4
-    l_loader = len(train_dataset)//batch_size
-
-    model_codec.train()
-    # get instructions on training
-    update_training(model_codec,epoch,warmup_epoch=WARMUP_EPOCH)
-    train_iter = tqdm(range(0,l_loader*batch_size,batch_size))
-    frame_idx = []; data = []; target = []; img_loss_list = []; aux_loss_list = []
-    bpp_est_list = []; psnr_list = []; msssim_list = []
-    for batch_idx,_ in enumerate(train_iter):
-        # align batches
-        for j in range(batch_size):
-            data_idx = batch_idx*batch_size+j
-            # compress one batch of the data
-            train_dataset.preprocess(data_idx, model_codec)
-            # read one clip
-            f,d,t,additional = train_dataset[data_idx]
-            frame_idx.append(f-1)
-            data.append(d)
-            target.append(t)
-            bpp_est_list.append(additional['bpp_est'])
-            aux_loss_list.append(additional['aux_loss'])
-            img_loss_list.append(additional['img_loss'])
-            psnr_list.append(additional['psnr'])
-            msssim_list.append(additional['msssim'])
-            if train_dataset.last_frame or additional['end_of_batch']:
-                # we split if the batch of compression ends or if the video ends or if its a i frame
-                # if is the end of a video
-                data = torch.stack(data, dim=0).cuda()
-                target = torch.stack(target, dim=0)
-                l = len(frame_idx)
-                with autocast():
-                    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-                    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-                    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-                    loss = model_codec.loss(img_loss,be_loss,aux_loss)
-                    psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-                    msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-                    aux_loss_module.update(aux_loss.cpu().data.item(), l)
-                    img_loss_module.update(img_loss.cpu().data.item(), l)
-                    be_loss_module.update(be_loss.cpu().data.item(), l)
-                    all_loss_module.update(loss.cpu().data.item(), l)
-                    psnr_module.update(psnr.cpu().data.item(),l)
-                    msssim_module.update(msssim.cpu().data.item(), l)
-                # backward prop
-                if loss.requires_grad:
-                    scaler.scale(loss).backward()
-                # update model after compress each video
-                if train_dataset.last_frame:
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad()
-                # init batch
-                frame_idx = []; data = []; target = []; img_loss_list = []; aux_loss_list = []
-                bpp_est_list = []; psnr_list = []; msssim_list = []
-
-        # show result
-        train_iter.set_description(
-            f"Batch: {batch_idx:6}. "
-            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
-            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
-            
-        # save result every 1000 batches
-        if batch_idx % 10000 == 0: # From time to time, reset averagemeters to see improvements
-            print('')
-            img_loss_module.reset()
-            aux_loss_module.reset()
-            be_loss_module.reset()
-            all_loss_module.reset()
-            psnr_module.reset()
-            msssim_module.reset()
-
-    t1 = time.time()
-    print('trained with %f samples/s' % (len(train_dataset)/(t1-t0)))
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level):
     import shutil
-    torch.save(state, f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
+    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
     if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
-                        f'{directory}/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
-                        
-#benchmarking()
-
-####### Check backup directory, create if necessary
-# ---------------------------------------------------------------
-if not os.path.exists(BACKUP_DIR):
-    os.makedirs(BACKUP_DIR)
+        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
+                        f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
+                   
+if not os.path.exists(SAVE_DIR):
+    os.makedirs(SAVE_DIR)
 
 ####### Create model
 #seed = int(time.time())
@@ -379,22 +286,7 @@ else:
     print("Cannot load model codec", RESUME_CODEC_PATH)
 print("===================================================================")
     
-####### Load dataset
-import sys
-sys.path.append('../YOWO')
-from datasets import list_dataset
-BASE_PTH = "../dataset/ucf24"
-TRAIN_FILE = "../dataset/ucf24/trainlist.txt"
-TRAIN_CROP_SIZE = 224
-NUM_FRAMES = 16
-SAMPLING_RATE = 1
-if USE_VIMEO:
-    train_dataset = FrameDataset('../dataset/vimeo') # this dataset might not work?
-else:
-    train_dataset = list_dataset.UCF_JHMDB_Dataset_codec(BASE_PTH, TRAIN_FILE, dataset='ucf24',
-                           shape=(TRAIN_CROP_SIZE, TRAIN_CROP_SIZE),
-                           transform=transforms.Compose([transforms.ToTensor()]), 
-                           train=True, clip_duration=NUM_FRAMES, sampling_rate=SAMPLING_RATE)
+train_dataset = FrameDataset('../dataset/vimeo') 
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
@@ -403,10 +295,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    if USE_VIMEO:
-        train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2)
-    else:
-        train_ucf(epoch, model, train_dataset, optimizer, best_codec_score)
+    train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
@@ -416,7 +305,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-    save_checkpoint(state, is_best, BACKUP_DIR, CODEC_NAME, loss_type, compression_level)
-    print('Weights are saved to backup directory: %s' % (BACKUP_DIR), 'score:',score)
+    save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+    print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
     
     test(epoch, model, test_dataset2)
