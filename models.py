@@ -1194,7 +1194,7 @@ class IterPredVideoCodecs(nn.Module):
         rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
             
-def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split):
+def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     MC_frame_list = [None for _ in range(bs)]
     warped_frame_list = [None for _ in range(bs)]
     # for layers in graph
@@ -1210,6 +1210,8 @@ def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split):
             diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
         if ref:
             ref = torch.cat(ref,dim=0)
+            if detach:
+                ref = ref.detach()
             diff = torch.cat(diff,dim=0)
             MC_frame,warped_frame = motion_compensation(MC_network,ref,diff)
             for i,tar in enumerate(layer):
@@ -1365,7 +1367,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split)
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=(self.name == 'SPVC-D'))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
