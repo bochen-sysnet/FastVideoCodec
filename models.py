@@ -58,7 +58,7 @@ def init_training_params(model):
     I_lvl_list = [37,32,27,22]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
-    print('MSE/MSSSIM multiplier:',model.r,'. BPG level:',model.I_level)
+    print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
     
     model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f} {6:.3f}"
     model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
@@ -1250,6 +1250,10 @@ class SPVC(nn.Module):
         self.name = name 
         self.optical_flow = OpticalFlowNet()
         self.MC_network = MCNet()
+        if '96' in self.name:
+            channels = 96
+        elif '64' in self.name:
+            channels = 64
         if '-R' not in self.name:
             # use attention in encoder and entropy model
             self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
@@ -1751,7 +1755,7 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
     print('------------',name,'------------')
     
     h = w = 256
-    channels = 64
+    channels = 96
     x = torch.randn(batch_size,3,h,w).cuda()
     if 'SPVC' in name:
         model = SPVC(name,channels,noMeasure=False,use_split=False)
@@ -1768,7 +1772,7 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
         bs = x.size(0)-1
         t_0 = time.perf_counter()
         mv_string,res_string,bpp_act = model.compress(x)
-        x_hat = model.decompress(x[:1],mv_string,res_string,bs)
+        # x_hat = model.decompress(x[:1],mv_string,res_string,bs)
         # com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, sim = model(x)
         d = (time.perf_counter() - t_0)/bs
         timer.update(d)
@@ -1776,7 +1780,7 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
         usage = torch.cuda.memory_allocated()/1024**3
         
         train_iter.set_description(
-            f"Batch: {i:4}. "
+            f"{batch_size}: {i:4}. "
             f"bits_act: {float(bpp_act[-1]):.2f}. "
             f"duration: {timer.avg:.3f}. "
             f"gpu usage: {usage:.3f}. ")
@@ -1843,7 +1847,7 @@ if __name__ == '__main__':
     # rlvc_e,_ = test_seq_proc('RLVC')
     # spvc_e,_ = test_batch_proc('SPVC',15)
     result = []
-    for B in [2,3,7,15]:
+    for B in range(2,16):
        spvc_e,_ = test_batch_proc('SPVC', B)
        tpt = spvc_e/(B-1)
        result += [tpt]
