@@ -994,7 +994,7 @@ class Coder2D(nn.Module):
         x_hat = torch.stack(x_hat_list, dim=0)
         if not self.noMeasure:
             self.enc_t,self.dec_t = enc_t,dec_t
-        return x_hat,torch.FloatTensor(x_act),torch.FloatTensor(x_est),x_aux
+        return x_hat,x_act,x_est,x_aux
     
 def generate_graph(graph_type='default'):
     # 7 nodes, 6 edges
@@ -1672,10 +1672,10 @@ class AE3D(nn.Module):
             self.meters['D-NET'].update(time.perf_counter() - t_0)
         
         # estimated bits
-        bpp_est = latent_est/(h * w)
+        bpp_est = [bpp/(h * w) for bpp in latent_est]
         
         # actual bits
-        bpp_act = latent_act/(h * w)
+        bpp_act = [bpp/(h * w) for bpp in latent_act]
         
         # calculate metrics/loss
         psnr = PSNR(x, x_hat, use_list=True)
