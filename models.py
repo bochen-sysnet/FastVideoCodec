@@ -1287,7 +1287,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
@@ -1323,7 +1323,7 @@ class SPVC(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         
         # graph
-        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
@@ -1348,7 +1348,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=(self.name == 'SPVC-L'))
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         if not self.noMeasure:
@@ -1367,7 +1367,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=(self.name == 'SPVC-D'))
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
