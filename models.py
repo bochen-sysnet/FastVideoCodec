@@ -962,9 +962,9 @@ class Coder2D(nn.Module):
             
     def compress_sequence(self,x):
         bs,c,h,w = x.size()
-        x_est = []
-        x_act = []
-        x_aux = []
+        x_est = torch.tensor([0 for _ in x], requires_grad=True).cuda()
+        x_act = torch.tensor([0 for _ in x], requires_grad=True).cuda()
+        x_aux = torch.tensor([0 for _ in x], requires_grad=True).cuda()
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
         else:
@@ -980,13 +980,13 @@ class Coder2D(nn.Module):
             x_hat_list.append(x_hat_i.squeeze(0))
             
             # calculate bpp (estimated) if it is training else it will be set to 0
-            x_est += [x_est_i.cuda()]
+            x_est[frame_idx] += x_est_i.cuda()
             
             # calculate bpp (actual)
-            x_act += [x_act_i.cuda()]
+            x_act[frame_idx] += x_act_i.cuda()
             
             # aux
-            x_aux += [x_aux_i.cuda()]
+            x_aux[frame_idx] += x_aux_i.cuda()
             
             if not self.noMeasure:
                 enc_t += self.enc_t
