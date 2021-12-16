@@ -79,7 +79,7 @@ def showTimer(model):
         model.meters['eDMV'].avg,model.meters['eDRES'].avg)
     print(enc,enc_str)
     print(dec,dec_str)
-    return enc_str,dec_str
+    return enc_str,dec_str,enc,dec
     
 def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # warmup with all gamma set to 1
@@ -886,7 +886,7 @@ class Coder2D(nn.Module):
                 if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
-                latent_string, shape = self.entropy_bottleneck.compress_slow(latent)
+                _,latent_string, shape = self.entropy_bottleneck.compress_slow(latent, decode=True)
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape)
         elif self.entropy_type == 'joint':
             if self.noMeasure:
@@ -894,7 +894,7 @@ class Coder2D(nn.Module):
                 if self.realCom:
                     latent_string = self.entropy_bottleneck.compress(latent)
             else:
-                latent_string,shape = self.entropy_bottleneck.compress_slow(latent, prior)
+                _,latent_string,shape = self.entropy_bottleneck.compress_slow(latent, prior, decode=True)
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape, prior)
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
@@ -1750,48 +1750,37 @@ class AverageMeter(object):
 def test_batch_proc(name = 'SPVC',batch_size = 7):
     print('------------',name,'------------')
     
-    h = w = 224
+    h = w = 256
     channels = 64
     x = torch.randn(batch_size,3,h,w).cuda()
     if 'SPVC' in name:
         model = SPVC(name,channels,noMeasure=False,use_split=False)
-    elif name == 'SCVC':
-        model = SCVC(name,channels,noMeasure=False)
     elif name == 'AE3D':
         model = AE3D(name,noMeasure=False,use_split=False)
-    elif name == 'SVC':
-        model = SVC(name,channels)
     else:
         print('Not implemented.')
-    import torch.optim as optim
     from tqdm import tqdm
-    parameters = set(p for n, p in model.named_parameters())
-    optimizer = optim.Adam(parameters, lr=1e-4)
     timer = AverageMeter()
-    train_iter = tqdm(range(0,5))
+    train_iter = tqdm(range(0,2))
     model.eval()
     for i,_ in enumerate(train_iter):
-        optimizer.zero_grad()
-        
         # measure start
+        bs = x.size(0)-1
         t_0 = time.perf_counter()
-        com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, sim = model(x)
-        d = time.perf_counter() - t_0
+        mv_string,res_string,bpp_act = model.compress(x)
+        x_hat = model.decompress(x[:1],mv_string,res_string,bs)
+        # com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, sim = model(x)
+        d = (time.perf_counter() - t_0)/bs
         timer.update(d)
         # measure end
-        loss = model.loss(img_loss[0],torch.mean(bpp_est),aux_loss[0])
-        loss.backward()
-        optimizer.step()
+        usage = torch.cuda.memory_allocated()/1024**3
         
         train_iter.set_description(
             f"Batch: {i:4}. "
-            f"loss: {float(loss):.2f}. "
-            f"img_loss: {float(img_loss[0]):.2f}. "
-            f"bits_est: {float(bpp_est[0]):.2f}. "
-            f"bits_act: {float(bpp_act[0]):.2f}. "
-            f"aux_loss: {float(aux_loss[0]):.2f}. "
-            f"duration: {timer.avg:.3f}. ")
-    enc,dec = showTimer(model)
+            f"bits_act: {float(bpp_act[-1]):.2f}. "
+            f"duration: {timer.avg:.3f}. "
+            f"gpu usage: {usage:.3f}. ")
+    _,_,enc,dec = showTimer(model)
     return enc,dec
             
 def test_seq_proc(name='RLVC'):
@@ -1835,7 +1824,7 @@ def test_seq_proc(name='RLVC'):
             f"aux_loss: {float(aux_loss):.2f}. "
             f"psnr: {float(p):.2f}. "
             f"duration: {timer.avg:.3f}. ")
-    enc,dec = showTimer(model)
+    _,_,enc,dec = showTimer(model)
     return enc,dec
             
 # integrate all codec models
@@ -1850,16 +1839,16 @@ def test_seq_proc(name='RLVC'):
 # update CNN alternatively?
     
 if __name__ == '__main__':
-    test_seq_proc('DVC')
-    rlvc_e,_ = test_seq_proc('RLVC')
-    spvc_e,_ = test_batch_proc('SPVC')
-    #result = []
-    #for B in range(2,16):
-    #    spvc_e,_ = test_batch_proc('SPVC', B)
-    #    tpt = rlvc_e*(B-1)/spvc_e
-    #    result += [tpt]
-    #print(result)
+    # test_seq_proc('DVC')
+    # rlvc_e,_ = test_seq_proc('RLVC')
+    # spvc_e,_ = test_batch_proc('SPVC',15)
+    result = []
+    for B in [2,3,7,15]:
+       spvc_e,_ = test_batch_proc('SPVC', B)
+       tpt = spvc_e/(B-1)
+       result += [tpt]
+    print(result)
+    # test_batch_proc('AE3D')
     #test_batch_proc('SPVC-L')
     #test_batch_proc('SPVC-R')
-    test_batch_proc('AE3D')
     #test_batch_proc('SCVC')

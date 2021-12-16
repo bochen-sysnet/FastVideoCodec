@@ -310,6 +310,7 @@ class MeanScaleHyperPriors(CompressionModel):
             x_hat = None
         # AC
         z = z.permute(1,0,2,3).unsqueeze(0).contiguous()
+        z_size = z.size()[-3:]
         z_string = self.entropy_bottleneck.compress(z)
 
         indexes = self.gaussian_conditional.build_indexes(sigma)
@@ -321,7 +322,7 @@ class MeanScaleHyperPriors(CompressionModel):
 
         self.eAC_t += time.perf_counter() - t_0
         self.enc_t = self.eNet_t + self.eAC_t
-        return x_hat, (x_string, z_string), x.size()[-2:]
+        return x_hat, (x_string, z_string), z_size
         
     def decompress_slow(self, string, shape):
         # shape?
