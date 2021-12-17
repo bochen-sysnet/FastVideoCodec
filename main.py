@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'DVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -74,7 +74,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        if batch_size<=5000 and epoch==1:continue
         data = data[0].cuda()
         l = data.size(0)-1
         
