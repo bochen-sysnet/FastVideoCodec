@@ -55,7 +55,7 @@ plt.legend(loc='best',fontsize = lfsize)
 plt.tight_layout()
 fig.savefig('images/rate-distortion.eps',bbox_inches='tight')
 
-com_speeds_avg = [56.96,57.35,19.31,27.90,26.84]
+com_speeds_avg = [56.96,57.35,19.31,27.90,32.89] # 27.07,32.89,36.83
 com_speeds_std = [1.96,1.35,1.31,1.90,1.84]
 N = len(com_speeds_avg)
 
@@ -70,7 +70,7 @@ ax.bar(ind, com_speeds_avg, width, color=colors[1], \
 ax.set_ylabel('Speed (fps)', fontsize = labelsize)
 ax.set_xticks(ind)
 ax.set_xticklabels(labels)
-plt.yticks( np.arange(0,70,20) )
+plt.yticks( np.arange(0,70,15) )
 
 xleft, xright = ax.get_xlim()
 ybottom, ytop = ax.get_ylim()

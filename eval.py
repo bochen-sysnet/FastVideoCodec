@@ -356,33 +356,30 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
     block_until_open(args.server_ip,args.probe_port)
     # create a rtsp pipe
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-    # start a netcat pipe
-    cmd = f'nc {args.server_ip} {args.msg_port}'
-    process_nc = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-    t_0 = None
-    for idx,img in enumerate(data):
+    t_0 = time.perf_counter()
+    encoder_iter = tqdm(range(len(data)))
+    for i in encoder_iter:
         # read data
         # wait for 1/30. or 1/60.
-        img = np.array(img)
-        # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
-        t_0 = time.perf_counter()
-        # send time stamp
-        bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-        process_nc.stdin.write(bytes_send)
+        img = np.array(data[i])
+        while time.perf_counter() < t_0 + i/args.fps:time.sleep(0.001)
         # send image
         process.stdin.write(img.tobytes())
+        # Count time
+        total_time = time.perf_counter() - t_0
+        fps = (i+1)/total_time
+        # progress bar
+        encoder_iter.set_description(
+            f"Encoder: {i:3}. "
+            f"FPS: {fps:.2f}. "
+            f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
     process.wait()
     # Terminate the sub-process
     process.terminate()
-    # Close and flush stdin
-    process_nc.stdin.close()
-    # Wait for sub-process to finish
-    process_nc.wait()
-    # Terminate the sub-process
-    process_nc.terminate()
+    return fps
     
 # how to direct rtsp traffic?
 def x26x_server(args,data,model=None,Q=None,width=256,height=256):
@@ -400,9 +397,6 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
     process = sp.Popen(command, stdout=sp.PIPE)
-    # create a pipe for listening from netcat
-    cmd = f'nc -l {args.msg_port}'
-    process_nc = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # Probe port (server port in rtsp cannot be probed)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((args.server_ip, int(args.probe_port)))
@@ -410,7 +404,6 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     conn, addr = s.accept()
     # Beginning time of streaming
     t_0 = time.perf_counter()
-    latency_module = AverageMeter()
     psnr_module = AverageMeter()
     i = 0
     stream_iter = tqdm(range(len(data)))
@@ -426,12 +419,6 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         frame = np.fromstring(raw_frame, np.uint8)
         frame = frame.reshape((height, width, 3))
         
-        # receive timestamp
-        bytes_recv = process_nc.stdout.read(29)
-        sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
-        recv_ts = datetime.now()
-        latency_module.update((recv_ts-sent_ts).total_seconds())
-        
         # process metrics
         com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
         raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
@@ -444,9 +431,8 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     
         # show result
         stream_iter.set_description(
-            f"{i:3}. "
+            f"Decoder {i:3}. "
             f"FPS: {fps:.2f}. "
-            f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
             f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     conn.close()
@@ -454,11 +440,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    # Close and flush stdin
-    process_nc.stdout.close()
-    # Terminate the sub-process
-    process_nc.terminate()
-    return psnr_module.avg,fps,latency_module.avg
+    return psnr_module.avg,fps
             
 def SPVC_AE3D_client(args,data,model=None,Q=None):
     # start a process to pipe data to netcat
@@ -466,11 +448,11 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
         block_until_open(args.server_ip,args.stream_port)
         cmd = f'nc {args.server_ip} {args.stream_port}'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
-    t_0 = t_encode = None
+    t_0 = time.perf_counter()
     GoP = args.fP + args.bP +1
     L = data.size(0)
-    encoder_iter = tqdm(range(L))
-    for i in range(0,L,GoP):
+    encoder_iter = tqdm(range(0,L,GoP))
+    for i in encoder_iter:
         x_GoP = data[i:i+GoP]
         GoP_size = x_GoP.size(0)
         # Send compressed I frame (todo)
@@ -478,28 +460,16 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             # compress I
             # compress backward
             x_b = torch.flip(x_GoP[:args.fP+1],[0])
-            # wait
-            for k in range(x_b.size(0)):
-                # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
-                t_0 = time.perf_counter()
-                if k<x_b.size(0)-1 and not args.encoder_test:
-                    # send time stamp
-                    bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                    process.stdin.write(bytes_send)
+            # wait for I and backward
+            while time.perf_counter() - t_0 < (i+args.fP+1)/args.fps:time.sleep(0.001)
             mv_string1,res_string1,_ = model.compress(x_b)
             # Send strings in order
             if not args.encoder_test:
                 send_strings_to_process(process, [mv_string1,res_string1])
             # compress forward
             x_f = x_GoP[args.fP:]
-            # wait
-            for k in range(x_f.size(0)-1):
-                # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
-                t_0 = time.perf_counter()
-                # send time stamp
-                if not args.encoder_test:
-                    bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                    process.stdin.write(bytes_send)
+            # wait for forward
+            while time.perf_counter() - t_0 < (i+GoP_size)/args.fps:time.sleep(0.001)
             # ready
             mv_string2,res_string2,_ = model.compress(x_f)
             # Send strings in order
@@ -509,27 +479,16 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             # compress I
             # compress backward
             x_f = x_GoP
-            # wait
-            for k in range(GoP_size):
-                # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
-                t_0 = time.perf_counter()
-                if k<x_f.size(0)-1 and not args.encoder_test:
-                    # send time stamp
-                    bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                    process.stdin.write(bytes_send)
+            # wait for backward
+            while time.perf_counter() - t_0 < (i+GoP_size)/args.fps:time.sleep(0.001)
             # ready
             mv_string,res_string,bpp_act_list = model.compress(x_f)
             # Send strings in order
             if not args.encoder_test:
                 send_strings_to_process(process, [mv_string,res_string])
         # Count time
-        if t_encode is None:
-            t_encode = time.perf_counter()
-            fps = total_time = total_frames = 0
-        else:
-            total_frames += GoP_size
-            total_time = time.perf_counter() - t_encode
-            fps = total_frames/total_time
+        total_time = time.perf_counter() - t_0
+        fps = (i+GoP_size)/total_time
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
@@ -542,6 +501,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
         process.wait()
         # Terminate the sub-process
         process.terminate()
+    return fps
     
 def SPVC_AE3D_server(args,data,model=None,Q=None):
     GoP = args.fP + args.bP +1
@@ -549,85 +509,47 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # First time to receive a frame
-    t_0 = None
+    t_0 = time.perf_counter()
     # initialize
-    latency_module = AverageMeter()
     psnr_module = AverageMeter()
     i = 0
-    t_warmup = None
     L = data.size(0)
-    stream_iter = tqdm(range(L))
+    stream_iter = tqdm(range(0,L,GoP))
     # start listening
-    for begin in range(0,L,GoP):
+    for begin in stream_iter:
         # decompress I frame
         x_GoP = data[begin:begin+GoP]
         x_ref = x_GoP[args.fP:args.fP+1] if x_GoP.size(0)>args.fP+1 else x_GoP[:1]
         GoP_size = x_GoP.size(0)
         # receive strings based on gop size
         if GoP_size>args.fP+1:
-            ###############################################################
             bs = args.fP
-            # receive timestamp
-            sent_timestamps = []
-            for _ in range(bs):
-                bytes_recv = process.stdout.read(29)
-                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
-                sent_timestamps += [sent_ts]
             # receive the first two strings
             mv_string1 = recv_strings_from_process(process, 1)
             res_string1 = recv_strings_from_process(process, 1)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
-            # record time
-            for sent_ts in sent_timestamps:
-                recv_ts = datetime.now()
-                latency_module.update((recv_ts-sent_ts).total_seconds())
-            ###############################################################
             bs = GoP_size-1-args.fP
-            # receive timestamp
-            sent_timestamps = []
-            for _ in range(bs):
-                bytes_recv = process.stdout.read(29)
-                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
-                sent_timestamps += [sent_ts]
             # receive the second two strings
             mv_string2 = recv_strings_from_process(process, 1)
             res_string2 = recv_strings_from_process(process, 1)
             # decompress forward
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
-            # record time
-            for sent_ts in sent_timestamps:
-                recv_ts = datetime.now()
-                latency_module.update((recv_ts-sent_ts).total_seconds())
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
         else:
             bs = GoP_size-1
-            # receive timestamp
-            sent_timestamps = []
-            for _ in range(bs):
-                bytes_recv = process.stdout.read(29)
-                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
-                sent_timestamps += [sent_ts]
             # receive two strings
             mv_string = recv_strings_from_process(process, 1)
             res_string = recv_strings_from_process(process, 1)
             # decompress backward
             x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
-            # record time
-            for sent_ts in sent_timestamps:
-                recv_ts = datetime.now()
-                latency_module.update((recv_ts-sent_ts).total_seconds())
             # concate
             x_hat = torch.cat((x_ref,x_f_hat),dim=0)
             
         # Count time
-        if t_0 is None:
-            t_0 = time.perf_counter()
-            fps = total_time = 0
-        else:
-            total_time = time.perf_counter() - t_0
-            fps = i/total_time
+        total_time = time.perf_counter() - t_0
+        fps = (i+1)/total_time
 
         # measure metrics
         for com in x_hat:
@@ -640,14 +562,13 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         stream_iter.set_description(
             f"Decoder: {i:3}. "
             f"FPS: {fps:.2f}. "
-            f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
             f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,latency_module.avg
+    return psnr_module.avg,fps
     
 def RLVC_DVC_client(args,data,model=None,Q=None):
     if not args.encoder_test:
@@ -658,20 +579,13 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     GoP = args.fP + args.bP +1
     L = data.size(0)
-    t_0 = t_encode = None
-    sent_timestamps = []
+    t_0 = time.perf_counter()
     encoder_iter = tqdm(range(L))
-    for i in range(L):
-        # read data
+    for i in encoder_iter:
         # wait for 1/30. or 1/60.
-        # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
-        t_0 = time.perf_counter()
+        while time.perf_counter() < t_0 + i/args.fps:time.sleep(0.001)
         p = i%GoP
         if p > args.fP:
-            # send time stamp
-            if not args.encoder_test:
-                bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                process.stdin.write(bytes_send)
             # compress forward
             x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                 model.compress(x_ref, data[i:i+1], com_hidden, p>args.fP+1, com_mv_prior_latent, com_res_prior_latent)
@@ -690,10 +604,6 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
             x_ref = x_b[:1]
             # compress backward
             for j in range(1,B):
-                # send time stamp
-                if not args.encoder_test:
-                    bytes_send = bytes(sent_timestamps[j-1].strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
-                    process.stdin.write(bytes_send)
                 # compress
                 x_ref,mv_string,res_string,com_hidden,com_mv_prior_latent,com_res_prior_latent = \
                     model.compress(x_ref, x_b[j:j+1], com_hidden, j>1, com_mv_prior_latent, com_res_prior_latent)
@@ -705,19 +615,10 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
             com_hidden = model.init_hidden(H,W)
             com_mv_prior_latent = com_res_prior_latent = None
             x_ref = x_b[:1]
-            sent_timestamps = []
-        else:
-            # collect frames for current GoP
-            sent_timestamps += [datetime.now()]
 
         # Count time
-        if t_encode is None:
-            t_encode = time.perf_counter()
-            fps = total_time = total_frames = 0
-        else:
-            total_frames += 1
-            total_time = time.perf_counter() - t_encode
-            fps = total_frames/total_time
+        total_time = time.perf_counter() - t_0
+        fps = (i+1)/total_time
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
@@ -730,15 +631,15 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
         process.wait()
         # Terminate the sub-process
         process.terminate()
+    return fps
 
 def RLVC_DVC_server(args,data,model=None,Q=None):
     GoP = args.fP+args.bP+1
     # Beginning time of streaming
-    t_0 = None
+    t_0 = time.perf_counter()
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    latency_module = AverageMeter()
     psnr_module = AverageMeter()
     L = data.size(0)
     stream_iter = tqdm(range(L))
@@ -746,28 +647,22 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
         p = i%GoP
         # wait for 1/30. or 1/60.
         if p > args.fP:
-            # receive timestamp
-            bytes_recv = process.stdout.read(29)
-            sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
             # receive strings
             mv_string = recv_strings_from_process(process, 1, useXZ=False)
             res_string = recv_strings_from_process(process, 1, useXZ=False)
             # decompress forward
             x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                 model.decompress(x_ref, mv_string, res_string, decom_hidden, p>args.fP+1, decom_mv_prior_latent, decom_res_prior_latent)
-            # record time
-            recv_ts = datetime.now()
-            latency_module.update((recv_ts-sent_ts).total_seconds())
+           
             x_ref = x_ref.detach()
             psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
             # Count time
             total_time = time.perf_counter() - t_0
-            fps = i/total_time
+            fps = (i+1)/total_time
             # show result
             stream_iter.set_description(
                 f"Decoder: {i:3}. "
                 f"FPS: {fps:.2f}. "
-                f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
                 f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"Total: {total_time:.3f}. ")
         elif p == args.fP or i == L-1:
@@ -781,31 +676,21 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             # get compressed I frame
             # decompress backward
             for j in range(1,B):
-                # receive timestamp
-                bytes_recv = process.stdout.read(29)
-                sent_ts = datetime.strptime(bytes_recv.decode('utf-8'),"%d-%b-%Y (%H:%M:%S.%f)")
                 # receive strings
                 mv_string = recv_strings_from_process(process, 1, useXZ=False)
                 res_string = recv_strings_from_process(process, 1, useXZ=False)
                 x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                 # record time
-                recv_ts = datetime.now()
-                latency_module.update((recv_ts-sent_ts).total_seconds())
                 x_ref = x_ref.detach()
                 psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
                 # Count time
-                if t_0 is None:
-                    t_0 = time.perf_counter()
-                    total_time = fps = 0
-                else:
-                    total_time = time.perf_counter() - t_0
-                    fps = i/total_time
+                total_time = time.perf_counter() - t_0
+                fps = (i+1)/total_time
                 # show result
                 stream_iter.set_description(
                     f"Decoder: {i:3}. "
                     f"FPS: {fps:.2f}. "
-                    f"Latency: {latency_module.val:.2f} ({latency_module.avg:.2f}). "
                     f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                     f"Total: {total_time:.3f}. ")
             decom_hidden = model.init_hidden(H,W)
@@ -815,7 +700,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,latency_module.avg
+    return psnr_module.avg,fps
         
 def dynamic_simulation(args, test_dataset):
     # get server and client simulator
@@ -862,19 +747,17 @@ def dynamic_simulation(args, test_dataset):
             with torch.no_grad():
                 if args.role == 'standalone':
                     threading.Thread(target=client_sim, args=(args,data,model,Q)).start() 
-                    psnr,fps,latency = server_sim(args,data,model=model,Q=Q)
+                    psnr,fps = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'server':
-                    psnr,fps,latency = server_sim(args,data,model=model,Q=Q)
+                    psnr,fps = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'client' or args.encoder_test:
-                    client_sim(args,data,model=model,Q=Q)
+                    fps = client_sim(args,data,model=model,Q=Q)
                 else:
                     print('Unexpected role:',args.role)
                     exit(1)
             
             # record loss
-            if args.role == 'standalone' or args.role == 'server':
-                latency_module.update(latency)
-                fps_module.update(fps)
+            fps_module.update(fps)
 
             # clear input
             data = []
@@ -882,10 +765,7 @@ def dynamic_simulation(args, test_dataset):
         # write results
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
-            if args.role == 'standalone' or args.role == 'server':
-                outstr = f'{com_level} {args.task} {fps_module.avg:.2f} {latency_module.avg:.2f} {time_str}\n'
-            else:
-                outstr = f'{com_level} {args.task} {time_str}\n'
+            outstr = f'{com_level} {args.task} {fps_module.avg:.2f} {time_str}\n'
             f.write(outstr)
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 enc_str,dec_str,_,_ = showTimer(model)
