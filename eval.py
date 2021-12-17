@@ -765,7 +765,7 @@ def dynamic_simulation(args, test_dataset):
         # write results
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
-            outstr = f'{com_level} {args.task} {fps_module.avg:.2f} {time_str}\n'
+            outstr = f'{time_str} {args.task} {com_level} {fps_module.avg:.2f}\n'
             f.write(outstr)
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 enc_str,dec_str,_,_ = showTimer(model)
@@ -783,8 +783,11 @@ def dynamic_simulation(args, test_dataset):
 # loss: sudo tc qdisc add dev lo root netem loss 10%
 # remove: sudo tc qdisc del dev lo root
 # rebuffering ratio/time/rate?
-# drawing
-
+# latency (loading/seeking time) and throughput (bitrate), a target speed (frame rate)
+# two different size dimensions (bitrate and resolution), video quality.
+# playback failures, startup time, rebuffering, and video quality.
+# Rebuffering ratio is the ratio between the rebuffering duration and the actual duration of video that played (rebuffering duration / playback duration)
+# Rebuffering duration is the total time that playback was stalled.
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
