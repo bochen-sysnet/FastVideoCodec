@@ -253,7 +253,7 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 # ---------------------------------------------------------------
 parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
 aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 1000*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
 best_codec_score = [1,0,0]
 
@@ -263,7 +263,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['DVC']:
+elif CODEC_NAME in ['DVC','RLVC']:
     # load what exists
     pretrained_model_path = "backup/RLVC/RLVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
