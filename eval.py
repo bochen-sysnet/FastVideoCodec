@@ -894,7 +894,7 @@ def dynamic_simulation(args, test_dataset):
                     f.write(dec_str+'\n')
             
         test_dataset.reset()
-        
+
             
 # maybe just 1080/2080 to 2070 and changing packet loss
 # two server test
@@ -902,6 +902,7 @@ def dynamic_simulation(args, test_dataset):
 # loss: sudo tc qdisc add dev lo root netem loss 10%
 # remove: sudo tc qdisc del dev lo root
 # rebuffering ratio/time/rate?
+# drawing
 
 
 if __name__ == '__main__':
