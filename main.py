@@ -113,7 +113,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
             f"I: {float(psnr_list[0]):.2f}")
 
         # clear result every 1000 batches
