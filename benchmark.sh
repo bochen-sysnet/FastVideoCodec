@@ -2,7 +2,7 @@
 
 # echo "Local encoder test"
 
-# python eval.py --task x264
+python eval.py --task x264
 
 # python eval.py --task x265
 
@@ -15,8 +15,10 @@
 ##############################################
 
 echo "No loss remote test on 130.126.136.154"
-ssh monet@130.126.136.154 "/home/monet/anaconda3/bin/activate yolov5;cd research/FastVideoCodec;python eval.py --task x264 --role client" &
-python eval.py --task x264 --role server
+# ssh monet@130.126.136.154 ". ~/.bashrc;/home/monet/anaconda3/bin/activate yolov5;\
+# 							cd research/FastVideoCodec;\
+# 							python3 eval.py --task x264 --role client" &
+# python eval.py --task x264 --role server
   
 # python eval.py --task x265 --role client &
 # python eval.py --task x265 --role server
