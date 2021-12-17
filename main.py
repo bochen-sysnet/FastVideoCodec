@@ -265,7 +265,7 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['DVC','RLVC']:
     # load what exists
-    pretrained_model_path = "backup/RLVC/RLVC-2P_best.pth"
+    pretrained_model_path = "backup/DVC/DVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
