@@ -46,7 +46,6 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
     if os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
         checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:0'))
-        BEGIN_EPOCH = checkpoint['epoch'] + 1
         best_codec_score = checkpoint['score'][1:4]
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model codec score: ", checkpoint['score'])
@@ -365,7 +364,7 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
         # read data
         # wait for 1/30. or 1/60.
         img = np.array(img)
-        while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
+        # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
         t_0 = time.perf_counter()
         # send time stamp
         bytes_send = bytes(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)"),'utf-8')
@@ -481,7 +480,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             x_b = torch.flip(x_GoP[:args.fP+1],[0])
             # wait
             for k in range(x_b.size(0)):
-                while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
+                # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
                 t_0 = time.perf_counter()
                 if k<x_b.size(0)-1 and not args.encoder_test:
                     # send time stamp
@@ -495,7 +494,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             x_f = x_GoP[args.fP:]
             # wait
             for k in range(x_f.size(0)-1):
-                while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
+                # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
                 t_0 = time.perf_counter()
                 # send time stamp
                 if not args.encoder_test:
@@ -512,7 +511,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             x_f = x_GoP
             # wait
             for k in range(GoP_size):
-                while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
+                # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
                 t_0 = time.perf_counter()
                 if k<x_f.size(0)-1 and not args.encoder_test:
                     # send time stamp
@@ -665,8 +664,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
     for i in range(L):
         # read data
         # wait for 1/30. or 1/60.
-        while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:
-            time.sleep(0.001)
+        # while t_0 is not None and time.perf_counter() - t_0 < 1/args.fps:time.sleep(0.001)
         t_0 = time.perf_counter()
         p = i%GoP
         if p > args.fP:
@@ -839,7 +837,9 @@ def dynamic_simulation(args, test_dataset):
     for com_level,Q in zip(com_level_list,Q_list):
         ####### Load model
         if args.task in ['RLVC','DVC','SPVC','AE3D']:
-            model = LoadModel(args.task,compression_level=com_level,use_split=args.use_split)
+            codec_name = args.task
+            if args.channels != 128: codec_name += str(args.channels)
+            model = LoadModel(codec_name,compression_level=com_level,use_split=args.use_split)
             model.eval()
         else:
             model = None
@@ -881,10 +881,11 @@ def dynamic_simulation(args, test_dataset):
 
         # write results
         with open(args.role + '.log','a+') as f:
+            time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
             if args.role == 'standalone' or args.role == 'server':
-                outstr = f'{com_level} {args.task} {fps_module.avg:.2f} {latency_module.avg:.2f}\n'
+                outstr = f'{com_level} {args.task} {fps_module.avg:.2f} {latency_module.avg:.2f} {time_str}\n'
             else:
-                outstr = f'{com_level} {args.task}\n'
+                outstr = f'{com_level} {args.task} {time_str}\n'
             f.write(outstr)
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 enc_str,dec_str,_,_ = showTimer(model)
@@ -928,6 +929,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
     parser.add_argument('--no-encoder_test', dest='use_psnr', action='store_false')
     parser.set_defaults(encoder_test=False)
+    parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
     args = parser.parse_args()
     
     # check gpu
@@ -936,7 +938,7 @@ if __name__ == '__main__':
 
     # check if test encoder
     if args.encoder_test:
-        assert args.role == 'client', 'Encoder test must be used with the client role'
+        args.role = 'client'
 
     # set fps
     if args.rate_option == 'low':

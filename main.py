@@ -30,7 +30,7 @@ SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
 #RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-RESUME_CODEC_PATH = 'backup/DVC/DVC-2P_best.pth'
+RESUME_CODEC_PATH = '../YOWO/backup/ucf24/yowo_ucf24_16f_DVC_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -125,8 +125,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset()   
             
         if batch_idx % 5000 == 0 and batch_idx>0:
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-            save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
@@ -136,9 +134,9 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 best_codec_score = score
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
             save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
-            model.train()
             
             test(epoch, model, test_dataset2)
+            model.train()
     
 def test(epoch, model, test_dataset):
     aux_loss_module = AverageMeter()
@@ -277,7 +275,7 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
     BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
+    # best_codec_score = checkpoint['score']
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
