@@ -2,7 +2,7 @@
 
 # echo "Local encoder test"
 
-python eval.py --task x264
+# python eval.py --task x264
 
 # python eval.py --task x265
 
@@ -14,24 +14,19 @@ python eval.py --task x264
 
 ##############################################
 
-echo "No loss remote test on 130.126.136.154"
-# ssh monet@130.126.136.154 ". ~/.bashrc;/home/monet/anaconda3/bin/activate yolov5;\
-# 							cd research/FastVideoCodec;\
-# 							python3 eval.py --task x264 --role client" &
-# python eval.py --task x264 --role server
-  
-# python eval.py --task x265 --role client &
-# python eval.py --task x265 --role server
+echo "No loss remote test"
+for i in {1..2}
+do
+	python eval.py --task x264 --role $1 --server_ip $2
+	  
+	# python eval.py --task x265 --role $1 --server_ip $2
 
-# python eval.py --task RLVC --role client &
-# python eval.py --task RLVC --role server
-  
-# python eval.py --task DVC --role client &
-# python eval.py --task DVC --role server
+	# python eval.py --task RLVC --role $1 --server_ip $2
+	  
+	# python eval.py --task  DVC --role $1 --server_ip $2
 
-# python eval.py --task SPVC --role client &
-# python eval.py --task SPVC --role server
-
+	# python eval.py --task SPVC --role $1 --server_ip $2
+done
 echo "Loss: 10%"
 # sudo tc qdisc add dev lo root netem loss 10%
 
@@ -39,4 +34,4 @@ echo "Loss: 10%"
 
 ##############################################
 
-echo "No loss remote test on 10.251.114.121"
+echo "No loss remote test"
