@@ -28,9 +28,9 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'RLVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
-RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-# RESUME_CODEC_PATH = f'{SAVE_DIR}/RLVC-2P_best.pth'
+compression_level = 3 # 0,1,2,3
+# RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+RESUME_CODEC_PATH = f'{SAVE_DIR}/RLVC-0P_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -75,7 +75,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        if batch_idx<=5000 and epoch==1:continue
         data = data[0].cuda()
         l = data.size(0)-1
         
