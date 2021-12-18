@@ -436,6 +436,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
             f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     conn.close()
+    s.close()
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
@@ -788,14 +789,16 @@ def dynamic_simulation(args, test_dataset):
 # playback failures, startup time, rebuffering, and video quality.
 # Rebuffering ratio is the ratio between the rebuffering duration and the actual duration of video that played (rebuffering duration / playback duration)
 # Rebuffering duration is the total time that playback was stalled.
+# sudo ufw allow 53
+# sudo ufw status verbose
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='standalone', help='server or client or standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='server IP')
-    parser.add_argument('--stream_port', type=str, default='8048', help='RTSP port')
-    parser.add_argument('--probe_port', type=str, default='8000', help='Port to check if server is ready')
+    parser.add_argument('--stream_port', type=str, default='8846', help='RTSP port')
+    parser.add_argument('--probe_port', type=str, default='8847', help='Port to check if server is ready')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='dynamic', help='dynamic or static simulation')
