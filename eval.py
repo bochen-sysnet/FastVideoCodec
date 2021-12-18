@@ -383,6 +383,8 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
     
 # how to direct rtsp traffic?
 def x26x_server(args,data,model=None,Q=None,width=256,height=256):
+    # Beginning time of streaming
+    t_0 = t_replay = time.perf_counter()
     # create a rtsp server or listener
     # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
     # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
@@ -394,7 +396,6 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         '-pix_fmt', 'bgr24',   # Set BGR pixel format
         '-vcodec', 'rawvideo', # Get rawvideo output format.
         '-']
-        
     # Open sub-process that gets in_stream as input and uses stdout as an output PIPE.
     process = sp.Popen(command, stdout=sp.PIPE)
     # Probe port (server port in rtsp cannot be probed)
@@ -402,10 +403,10 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     s.bind((args.server_ip, int(args.probe_port)))
     s.listen(1)
     conn, addr = s.accept()
-    # Beginning time of streaming
-    t_0 = time.perf_counter()
     psnr_module = AverageMeter()
     i = 0
+    t_startup = None
+    t_rebuffer_total = 0
     stream_iter = tqdm(range(len(data)))
     while True:
         # read width*height*3 bytes from stdout (1 frame)
@@ -418,10 +419,21 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
         frame = np.fromstring(raw_frame, np.uint8)
         frame = frame.reshape((height, width, 3))
+
+        if t_startup is None:
+            t_startup = time.perf_counter()-t_0
+            print('Start-up latency:',t_startup)
+
+        # replay
+        t_rebuffer = time.perf_counter() - t_replay
+        t_rebuffer = max(t_rebuffer,0)
+        t_replay = time.perf_counter() + 1/args.target_rate
+        t_rebuffer_total += t_rebuffer
         
         # process metrics
         com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
-        raw = transforms.ToTensor()(data[i]).cuda().unsqueeze(0)
+        raw = data[i+1] if args.task == 'x264' else data[i]
+        raw = transforms.ToTensor()(raw).cuda().unsqueeze(0)
         psnr_module.update(PSNR(com, raw).cpu().data.item())
         i += 1
         
@@ -433,6 +445,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         stream_iter.set_description(
             f"Decoder {i:3}. "
             f"FPS: {fps:.2f}. "
+            f"Rebuffer: {t_rebuffer_total:.2f}. "
             f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     conn.close()
@@ -505,15 +518,17 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
     return fps
     
 def SPVC_AE3D_server(args,data,model=None,Q=None):
+    t_0 = t_replay = time.perf_counter()
     GoP = args.fP + args.bP +1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     # First time to receive a frame
-    t_0 = time.perf_counter()
+    t_startup = None
     # initialize
     psnr_module = AverageMeter()
     i = 0
+    t_rebuffer_total = 0
     L = data.size(0)
     stream_iter = tqdm(range(0,L,GoP))
     # start listening
@@ -530,6 +545,15 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             res_string1 = recv_strings_from_process(process, 1)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
+            if t_startup is None:
+                t_startup = time.perf_counter()-t_0
+                print('Start-up latency:',t_startup)
+            # replay
+            t_rebuffer = time.perf_counter() - t_replay
+            t_rebuffer = max(t_rebuffer,0)
+            t_rebuffer_total += t_rebuffer
+            t_replay = time.perf_counter() + (bs+1)/args.target_rate
+            # current batch
             bs = GoP_size-1-args.fP
             # receive the second two strings
             mv_string2 = recv_strings_from_process(process, 1)
@@ -538,6 +562,11 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
+            # replay
+            t_rebuffer = time.perf_counter() - t_replay
+            t_rebuffer = max(t_rebuffer,0)
+            t_rebuffer_total += t_rebuffer
+            t_replay = time.perf_counter() + bs/args.target_rate
         else:
             bs = GoP_size-1
             # receive two strings
@@ -547,6 +576,11 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
             # concate
             x_hat = torch.cat((x_ref,x_f_hat),dim=0)
+            # replay
+            t_rebuffer = time.perf_counter() - t_replay
+            t_rebuffer = max(t_rebuffer,0)
+            t_rebuffer_total += t_rebuffer
+            t_replay = time.perf_counter() + bs/args.target_rate
             
         # Count time
         total_time = time.perf_counter() - t_0
@@ -563,6 +597,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         stream_iter.set_description(
             f"Decoder: {i:3}. "
             f"FPS: {fps:.2f}. "
+            f"Rebuffer: {t_rebuffer_total:.2f}. "
             f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
@@ -635,14 +670,16 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
     return fps
 
 def RLVC_DVC_server(args,data,model=None,Q=None):
-    GoP = args.fP+args.bP+1
     # Beginning time of streaming
-    t_0 = time.perf_counter()
+    t_0 = t_replay = time.perf_counter()
+    GoP = args.fP+args.bP+1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     psnr_module = AverageMeter()
     L = data.size(0)
+    t_rebuffer_total = 0
+    t_startup = None
     stream_iter = tqdm(range(L))
     for i in stream_iter:
         p = i%GoP
@@ -654,7 +691,12 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             # decompress forward
             x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                 model.decompress(x_ref, mv_string, res_string, decom_hidden, p>args.fP+1, decom_mv_prior_latent, decom_res_prior_latent)
-           
+            # replay
+            t_rebuffer = time.perf_counter() - t_replay
+            t_rebuffer = max(t_rebuffer,0)
+            t_replay = time.perf_counter() + 1/args.target_rate
+            t_rebuffer_total += t_rebuffer 
+
             x_ref = x_ref.detach()
             psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
             # Count time
@@ -664,6 +706,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             stream_iter.set_description(
                 f"Decoder: {i:3}. "
                 f"FPS: {fps:.2f}. "
+                f"Rebuffer: {t_rebuffer_total:.2f}. "
                 f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"Total: {total_time:.3f}. ")
         elif p == args.fP or i == L-1:
@@ -682,6 +725,14 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 res_string = recv_strings_from_process(process, 1, useXZ=False)
                 x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
+                if t_startup is None:
+                    t_startup = time.perf_counter()-t_0
+                    print('Start-up latency:',t_startup)
+                # replay
+                t_rebuffer = time.perf_counter() - t_replay
+                t_rebuffer = max(t_rebuffer,0)
+                t_replay = time.perf_counter() + 1/args.target_rate
+                t_rebuffer_total += t_rebuffer 
                 # record time
                 x_ref = x_ref.detach()
                 psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
@@ -692,11 +743,13 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 stream_iter.set_description(
                     f"Decoder: {i:3}. "
                     f"FPS: {fps:.2f}. "
+                    f"Rebuffer: {t_rebuffer_total:.2f}. "
                     f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                     f"Total: {total_time:.3f}. ")
             decom_hidden = model.init_hidden(H,W)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
+            t_replay += 1/args.target_rate
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
@@ -733,7 +786,8 @@ def dynamic_simulation(args, test_dataset):
         data = []
         latency_module = AverageMeter()
         fps_module = AverageMeter()
-        for data_idx in range(ds_size):
+        load_iter = tqdm(range(ds_size))
+        for data_idx in load_iter:
             frame,eof = test_dataset[data_idx]
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 data.append(transforms.ToTensor()(frame))
@@ -783,12 +837,8 @@ def dynamic_simulation(args, test_dataset):
 # delay: sudo tc qdisc add dev lo root netem delay 100ms 10ms
 # loss: sudo tc qdisc add dev lo root netem loss 10%
 # remove: sudo tc qdisc del dev lo root
-# rebuffering ratio/time/rate?
-# latency (loading/seeking time) and throughput (bitrate), a target speed (frame rate)
-# two different size dimensions (bitrate and resolution), video quality.
-# playback failures, startup time, rebuffering, and video quality.
+# startup time, rebuffering, and video quality.
 # Rebuffering ratio is the ratio between the rebuffering duration and the actual duration of video that played (rebuffering duration / playback duration)
-# Rebuffering duration is the total time that playback was stalled.
 # sudo ufw allow 53
 # sudo ufw status verbose
 
@@ -808,13 +858,14 @@ if __name__ == '__main__':
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
-    parser.add_argument('--rate_option', type=str, default='high', help='low or high')
+    parser.add_argument('--fps', type=float, default=60., help='frame rate of sender')
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
     parser.add_argument('--no-encoder_test', dest='use_psnr', action='store_false')
     parser.set_defaults(encoder_test=False)
     parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
+    parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
     args = parser.parse_args()
     
     # check gpu
@@ -825,11 +876,8 @@ if __name__ == '__main__':
     if args.encoder_test:
         args.role = 'client'
 
-    # set fps
-    if args.rate_option == 'low':
-        args.fps = 30.
-    else:
-        args.fps = 60.
+    # setup streaming parameters
+
         
     print(args)
     

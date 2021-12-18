@@ -14,10 +14,10 @@
 
 ##############################################
 
-echo "No loss remote test"
-for i in {1..2}
+for i in 1 2 3 4 5
 do
-	python eval.py --task x264 --role $1 --server_ip $2 
+	echo "No loss test $i"	
+	# python eval.py --task x264 --role $1 --server_ip $2 
 	  
 	# python eval.py --task x265 --role $1 --server_ip $2
 
