@@ -38,6 +38,56 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 USE_VIMEO = True
 
+if not os.path.exists(SAVE_DIR):
+    os.makedirs(SAVE_DIR)
+
+####### Create model
+#seed = int(time.time())
+seed = int(0)
+torch.manual_seed(seed)
+use_cuda = True
+if use_cuda:
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
+    torch.cuda.manual_seed(seed)
+
+# codec model .
+model = get_codec_model(CODEC_NAME, loss_type=loss_type, compression_level=compression_level)
+pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
+
+####### Create optimizer
+# ---------------------------------------------------------------
+parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
+aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
+optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+# initialize best score
+best_codec_score = [1,0,0]
+
+####### Load yowo model
+# ---------------------------------------------------------------
+# try to load codec model 
+if CODEC_NAME in ['x265', 'x264', 'RAW']:
+    # nothing to load
+    print("No need to load for ", CODEC_NAME)
+elif CODEC_NAME in []:
+    # load what exists
+    pretrained_model_path = "backup/DVC/DVC-2P_best.pth"
+    checkpoint = torch.load(pretrained_model_path)
+    load_state_dict_whatever(model, checkpoint['state_dict'])
+    del checkpoint
+    print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path)
+elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH)
+    BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score']
+    load_state_dict_all(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'])
+    del checkpoint
+else:
+    print("Cannot load model codec", RESUME_CODEC_PATH)
+print("===================================================================")
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -128,7 +178,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
-            is_best = isinstance(best_codec_score,list) and (score[0] <= best_codec_score[0]) and (score[1] >= best_codec_score[1])
+            is_best = score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1]
             if is_best:
                 print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
                 best_codec_score = score
@@ -232,57 +282,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
-                   
-if not os.path.exists(SAVE_DIR):
-    os.makedirs(SAVE_DIR)
-
-####### Create model
-#seed = int(time.time())
-seed = int(0)
-torch.manual_seed(seed)
-use_cuda = True
-if use_cuda:
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
-    torch.cuda.manual_seed(seed)
-
-# codec model .
-model = get_codec_model(CODEC_NAME, loss_type=loss_type, compression_level=compression_level)
-pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-
-####### Create optimizer
-# ---------------------------------------------------------------
-parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
-aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-# initialize best score
-best_codec_score = [1,0,0]
-
-####### Load yowo model
-# ---------------------------------------------------------------
-# try to load codec model 
-if CODEC_NAME in ['x265', 'x264', 'RAW']:
-    # nothing to load
-    print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
-    # load what exists
-    pretrained_model_path = "backup/DVC/DVC-2P_best.pth"
-    checkpoint = torch.load(pretrained_model_path)
-    load_state_dict_whatever(model, checkpoint['state_dict'])
-    del checkpoint
-    print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path)
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
-    # best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
-else:
-    print("Cannot load model codec", RESUME_CODEC_PATH)
-print("===================================================================")
-    
+          
 train_dataset = FrameDataset('../dataset/vimeo') 
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
@@ -297,7 +297,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
     
-    is_best = isinstance(best_codec_score,list) and (score[0] <= best_codec_score[0]) and (score[1] >= best_codec_score[1])
+    is_best = score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1]
     if is_best:
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score
