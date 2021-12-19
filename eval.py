@@ -454,7 +454,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps
+    return psnr_module.avg,fps,t_rebuffer_total/total_time
             
 def SPVC_AE3D_client(args,data,model=None,Q=None):
     # start a process to pipe data to netcat
@@ -604,7 +604,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps
+    return psnr_module.avg,fps,t_rebuffer_total/total_time
     
 def RLVC_DVC_client(args,data,model=None,Q=None):
     if not args.encoder_test:
@@ -754,7 +754,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps
+    return psnr_module.avg,fps,t_rebuffer_total/total_time
         
 def dynamic_simulation(args, test_dataset):
     # get server and client simulator
@@ -786,6 +786,7 @@ def dynamic_simulation(args, test_dataset):
         data = []
         latency_module = AverageMeter()
         fps_module = AverageMeter()
+        rbr_module = AverageMeter()
         load_iter = tqdm(range(ds_size))
         for data_idx in load_iter:
             frame,eof = test_dataset[data_idx]
@@ -802,9 +803,9 @@ def dynamic_simulation(args, test_dataset):
             with torch.no_grad():
                 if args.role == 'standalone':
                     threading.Thread(target=client_sim, args=(args,data,model,Q)).start() 
-                    psnr,fps = server_sim(args,data,model=model,Q=Q)
+                    psnr,fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'server':
-                    psnr,fps = server_sim(args,data,model=model,Q=Q)
+                    psnr,fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'client' or args.encoder_test:
                     fps = client_sim(args,data,model=model,Q=Q)
                 else:
@@ -813,6 +814,8 @@ def dynamic_simulation(args, test_dataset):
             
             # record loss
             fps_module.update(fps)
+            rbr_module.update(rebuffer_rate)
+            latency_module.update(latency)
 
             # clear input
             data = []
@@ -820,7 +823,8 @@ def dynamic_simulation(args, test_dataset):
         # write results
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
-            outstr = f'{time_str} {args.task} {com_level} {fps_module.avg:.2f}\n'
+            outstr = f'{time_str} {args.task} {com_level} '
+                    f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
                 enc_str,dec_str,_,_ = showTimer(model)

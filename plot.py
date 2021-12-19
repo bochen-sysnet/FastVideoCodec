@@ -53,29 +53,44 @@ plt.legend(loc='best',fontsize = lfsize)
 # plt.ylim((-40,90))
 
 plt.tight_layout()
-fig.savefig('images/rate-distortion.eps',bbox_inches='tight')
+fig.savefig('/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion.eps',bbox_inches='tight')
+
+
+def bar_plot(avg,std,path,color,ylabel,yticks=None):
+	N = len(avg)
+	ind = np.arange(N)  # the x locations for the groups
+	width = 0.5       # the width of the bars
+	fig, ax = plt.subplots()
+	ax.grid(zorder=0)
+	ax.set_axisbelow(True)
+	ax.bar(ind, avg, width, color=color, \
+		yerr=std, error_kw=dict(lw=1, capsize=1, capthick=1))
+	ax.set_ylabel(ylabel, fontsize = labelsize)
+	ax.set_xticks(ind)
+	ax.set_xticklabels(labels)
+	if yticks is not None:
+		plt.yticks( yticks )
+	xleft, xright = ax.get_xlim()
+	ybottom, ytop = ax.get_ylim()
+	ratio = 0.3
+	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
+	plt.tight_layout()
+	fig.savefig(path,bbox_inches='tight')
 
 com_speeds_avg = [56.96,57.35,19.31,27.90,32.89] # 27.07,32.89,36.83
 com_speeds_std = [1.96,1.35,1.31,1.90,1.84]
-N = len(com_speeds_avg)
+bar_plot(com_speeds_avg,com_speeds_std,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
+		colors[1],'Speed (fps)',yticks=np.arange(0,70,15))
 
-ind = np.arange(N)  # the x locations for the groups
-width = 0.5       # the width of the bars
-fig, ax = plt.subplots()
-ax.grid(zorder=0)
-ax.set_axisbelow(True)
-ax.bar(ind, com_speeds_avg, width, color=colors[1], \
-	yerr=com_speeds_std, error_kw=dict(lw=1, capsize=1, capthick=1))
+rbr_avg = [0.28,0.29,0.58,0.46,0.37]
+rbr_std = [0.08,0.09,0.08,0.06,0.07]
+bar_plot(rbr_avg,rbr_std,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
+		colors[2],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
 
-ax.set_ylabel('Speed (fps)', fontsize = labelsize)
-ax.set_xticks(ind)
-ax.set_xticklabels(labels)
-plt.yticks( np.arange(0,70,15) )
-
-xleft, xright = ax.get_xlim()
-ybottom, ytop = ax.get_ylim()
-ratio = 0.3
-ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
-
-plt.tight_layout()
-fig.savefig('images/speed.eps',bbox_inches='tight')
+latency_avg = [0.575,0.593,0.706,0.576,0.963]
+latency_std = [0.075,0.093,0.01,0.076,0.063]
+bar_plot(latency_avg,latency_std,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
+		colors[3],'Start-up Latency',yticks=np.arange(0,1,0.2))
