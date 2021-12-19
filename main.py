@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'DVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -71,15 +71,16 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['DVC','RLVC']:
     # load what exists
-    pretrained_model_path = "backup/RLVC/RLVC-0P_best.pth"
+    pretrained_model_path = "backup/RLVC/DVC-2P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
+    best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
-    BEGIN_EPOCH = 1#checkpoint['epoch'] + 1
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
