@@ -1023,6 +1023,18 @@ def generate_graph(graph_type='default'):
         g = {0:[1,8],1:[2,5],8:[9,12],2:[3,4],5:[6,7],9:[10,11],12:[13,14]}
         layers = [[1,8],[2,5,9,12],[3,4,6,7,10,11,13,14]] # elements in layers
         parents = {1:0,8:0,2:1,5:1,9:8,12:8,3:2,4:2,6:5,7:5,10:9,11:9,13:12,14:12}
+    elif graph_type == '5layers':
+        # 0
+        # 1                   16
+        # 2       9           17          24
+        # 3   6   10    13    18    21    25    28
+        # 4 5 7 8 11 12 14 15 19 20 22 23 26 27 29 30
+        g = {0:[1,16],1:[2,9],16:[17,24],2:[3,6],9:[10,13],17:[18,21],24:[25,28],
+            3:[4,5],6:[7,8],10:[11,12],13:[14,15],18:[19,20],21:[22,23],25:[26,27],28:[29,30]}
+        layers = [[1,16],[2,9,17,24],[3,6,10,13,18,21,25,28],
+                [4,5,7,8,11,12,14,15,19,20,22,23,26,27,29,30]]
+        parents = {1:0,16:0,2:1,9:1,17:16,24:16,3:2,6:2,10:9,13:9,18:17,21:17,25:24,28:24,
+                4:3,5:3,7:6,8:6,11:10,12:10,14:13,15:13,19:18,20:18,22:21,23:21,26:25,27:25,29:28,30:28}
     else:
         print('Undefined graph type:',graph_type)
         exit(1)
@@ -1232,6 +1244,8 @@ def graph_from_batch(bs,isLinear=False):
             g,layers,parents = generate_graph('3layers')
         elif bs <=14:
             g,layers,parents = generate_graph('4layers')
+        elif bs <=30:
+            g,layers,parents = generate_graph('5layers')
         else:
             print('Batch size not supported yet:',bs)
     return g,layers,parents
@@ -1752,12 +1766,12 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def test_batch_proc(name = 'SPVC',batch_size = 7):
+def test_batch_proc(name = 'SPVC',batch_size = 6):
     print('------------',name,'------------')
     
     h = w = 256
     channels = 96
-    x = torch.randn(batch_size,3,h,w).cuda()
+    x = torch.randn(batch_size+1,3,h,w).cuda()
     if 'SPVC' in name:
         model = SPVC(name,channels,noMeasure=False,use_split=False)
     elif name == 'AE3D':
@@ -1766,8 +1780,10 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
         print('Not implemented.')
     from tqdm import tqdm
     timer = AverageMeter()
-    train_iter = tqdm(range(0,2))
+    train_iter = tqdm(range(0,1))
     model.eval()
+    # warmup
+    mv_string,res_string,bpp_act = model.compress(x)
     for i,_ in enumerate(train_iter):
         # measure start
         bs = x.size(0)-1
@@ -1775,62 +1791,51 @@ def test_batch_proc(name = 'SPVC',batch_size = 7):
         mv_string,res_string,bpp_act = model.compress(x)
         # x_hat = model.decompress(x[:1],mv_string,res_string,bs)
         # com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, sim = model(x)
-        d = (time.perf_counter() - t_0)/bs
+        d = (time.perf_counter() - t_0)
         timer.update(d)
         # measure end
-        usage = torch.cuda.memory_allocated()/1024**3
+        usage = torch.cuda.memory_allocated()/(1024**3)
         
         train_iter.set_description(
             f"{batch_size}: {i:4}. "
             f"bits_act: {float(bpp_act[-1]):.2f}. "
-            f"duration: {timer.avg:.3f}. "
+            f"duration: {timer.sum:.3f}. "
             f"gpu usage: {usage:.3f}. ")
     _,_,enc,dec = showTimer(model)
-    return enc,dec
+    return timer.sum
             
-def test_seq_proc(name='RLVC'):
+def test_seq_proc(name='RLVC',batch_size = 13):
     print('------------',name,'------------')
-    batch_size = 1
     h = w = 224
-    x = torch.rand(batch_size,3,h,w).cuda()
+    x = torch.rand(1,3,h,w).cuda()
     model = IterPredVideoCodecs(name,noMeasure=False,use_split=False)
-    import torch.optim as optim
     from tqdm import tqdm
-    parameters = set(p for n, p in model.named_parameters())
-    optimizer = optim.Adam(parameters, lr=1e-4)
     timer = AverageMeter()
     hidden_states = model.init_hidden(h,w)
-    train_iter = tqdm(range(0,13))
+    train_iter = tqdm(range(0,batch_size))
     model.eval()
     x_hat_prev = x
     mv_prior_latent=res_prior_latent=None
+    # warm-up
+    x_hat,mv_string,res_string,hidden_states,mv_prior_latent,res_prior_latent = \
+        model.compress(x, x_hat_prev, hidden_states, False, mv_prior_latent, res_prior_latent)
     for i,_ in enumerate(train_iter):
-        optimizer.zero_grad()
-        
         # measure start
         t_0 = time.perf_counter()
-        x_hat, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, p,m,mv_prior_latent, res_prior_latent = model(x, x_hat_prev, hidden_states, i%13!=0,mv_prior_latent,res_prior_latent)
+        x_hat,mv_string,res_string,hidden_states,mv_prior_latent,res_prior_latent = \
+            model.compress(x, x_hat_prev, hidden_states, i!=0, mv_prior_latent, res_prior_latent)
         d = time.perf_counter() - t_0
         timer.update(d)
         # measure end
-        
         x_hat_prev = x_hat.detach()
-        
-        loss = model.loss(img_loss,bpp_est,aux_loss)
-        loss.backward()
-        optimizer.step()
+        usage = torch.cuda.memory_allocated()/(1024**3)
         
         train_iter.set_description(
             f"Batch: {i:4}. "
-            f"loss: {float(loss):.2f}. "
-            f"img_loss: {float(img_loss):.2f}. "
-            f"bpp_est: {float(bpp_est):.2f}. "
-            f"bpp_act: {float(bpp_act):.2f}. "
-            f"aux_loss: {float(aux_loss):.2f}. "
-            f"psnr: {float(p):.2f}. "
-            f"duration: {timer.avg:.3f}. ")
+            f"duration: {timer.sum:.3f}. "
+            f"gpu usage: {usage:.3f}. ")
     _,_,enc,dec = showTimer(model)
-    return enc,dec
+    return timer.sum
             
 # integrate all codec models
 # measure the speed of all codecs
@@ -1844,15 +1849,19 @@ def test_seq_proc(name='RLVC'):
 # update CNN alternatively?
     
 if __name__ == '__main__':
-    # test_seq_proc('DVC')
-    # rlvc_e,_ = test_seq_proc('RLVC')
-    # spvc_e,_ = test_batch_proc('SPVC',15)
-    result = []
-    for B in range(2,16):
-       spvc_e,_ = test_batch_proc('SPVC', B)
-       tpt = spvc_e/(B-1)
-       result += [tpt]
-    print(result)
+    result_dvc = []
+    result_rlvc = []
+    result_spvc = []
+    for B in range(1,15):
+        dvc_t = test_seq_proc('DVC',B)
+        rlvc_t = test_seq_proc('RLVC',B)
+        spvc_t = test_batch_proc('SPVC', B)
+        result_dvc += [dvc_t]
+        result_rlvc += [rlvc_t]
+        result_spvc += [spvc_t]
+    print(result_dvc)
+    print(result_rlvc)
+    print(result_spvc)
     # test_batch_proc('AE3D')
     #test_batch_proc('SPVC-L')
     #test_batch_proc('SPVC-R')

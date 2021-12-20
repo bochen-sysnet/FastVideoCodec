@@ -13,15 +13,26 @@ plt.rcParams['xtick.labelsize'] = 20
 plt.rcParams['ytick.labelsize'] = 20
 plt.rcParams["font.family"] = "Times New Roman"
 
-# from matplotlib import rc,rcParams
-# # activate latex text rendering
-# rc('text', usetex=True)
-# rc('axes', linewidth=2)
-# rc('font', weight='bold')
-# rcParams['text.latex.preamble'] = [r'\usepackage{sfmath} \boldmath']
+colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB']
+labels = ['H.264','H.265','RLVC','DVC','LSVC']
+markers = ['p','s','o','>','v']
 
-
-colors = ['#08A720','#86A8E7','#9D5FFB','#E09C1A','#D00C0E']
+def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
+	fig, ax = plt.subplots()
+	ax.grid(zorder=0)
+	for i in range(len(XX)):
+		xx,yy = XX[i],YY[i]
+		plt.plot(xx, yy, color = colors[i], marker = markers[i], label = labels[i], linewidth=2)
+	plt.xlabel(xlabel, fontsize = labelsize)
+	plt.ylabel(ylabel, fontsize = labelsize)
+	if xticks is not None:
+		plt.xticks( xticks )
+	plt.tight_layout()
+	plt.legend(loc='best',fontsize = lfsize)
+	# plt.xlim((0.8,3.2))
+	# plt.ylim((-40,90))
+	plt.tight_layout()
+	fig.savefig(path,bbox_inches='tight')
 
 bpps = [[0.14,0.21,0.33,0.5],
 		[0.16,0.25,0.39,0.59],
@@ -33,28 +44,23 @@ PSNRs = [[28.37,29.96,31.31,32.38],
 		[26.19,30.82],
 		[25.81,29.45],
 		[28.98,30.54,31.54,32.24]]
-labels = ['H.264','H.265','RLVC','DVC','LSVC']
-markers = ['p','s','o','>','v']
+line_plot(bpps,PSNRs,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion.eps',
+		'bpp','PSNR (dB)')
+# 96
+# [0.053132872000105635, 0.07760241199980555, 0.10680426199996873, 0.1364419829999406, 0.16576214699989578, 0.19565956099995674, 0.24735311800009185, 0.2696788140001445, 0.30823042800011535, 0.32221825099986745, 0.35182066400011536, 0.35663595400001213, 0.3842096920000131, 0.4138117239999701]
+# 64
+# [0.04606491999993523, 0.06779569900027127, 0.09685762100025386, 0.12219671000002563, 0.14586037300023236, 0.1700412850000248, 0.21632630700014488, 0.23113141200019527, 0.2638085839998894, 0.2760139719998733, 0.3001248149998901, 0.30320839800015165, 0.32136949599998843, 0.3438082170000598]
 
-fig, ax = plt.subplots()
-ax.grid(zorder=0)
-for i in range(len(bpps)):
-	bpp,PSNR = bpps[i],PSNRs[i]
-	plt.plot(bpp, PSNR, color = colors[i], marker = markers[i], label = labels[i], linewidth=2)
-plt.xlabel('bpp', fontsize = labelsize)
-plt.ylabel('PSNR (dB)', fontsize = labelsize)
-# plt.xticks( np.arange(4) )
-plt.tight_layout()
-plt.legend(loc='best',fontsize = lfsize)
-# ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), fontsize = 13,
-#           fancybox=False, shadow=False, ncol=3)
-# plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.,fontsize = lfsize)
-# plt.xlim((0.8,3.2))
-# plt.ylim((-40,90))
-
-plt.tight_layout()
-fig.savefig('/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion.eps',bbox_inches='tight')
-
+ml_labels = ['RLVC','DVC','LSVC']
+com_t = [[0.031189141000140808, 0.061611389999825406, 0.08575277299974005, 0.11296145900018928, 0.14397867699995004, 0.1720223359998272, 0.20626382000023114, 0.23150906300020324, 0.262774699999909, 0.29222327299953577, 0.32226526900012686, 0.3528986520000217, 0.38183643099978326, 0.41159681199997067],
+[0.03548506700008147, 0.07703001000004406, 0.11634391000029609, 0.1602356679998138, 0.20212238199974308, 0.24543897899980038, 0.28723739499992007, 0.33600276399988616, 0.3826641949999612, 0.42505351599993446, 0.4697764459995142, 0.5151504109999223, 0.5607268250005291, 0.6026666810003007],
+[0.04606491999993523, 0.06779569900027127, 0.09685762100025386, 0.12219671000002563, 0.14586037300023236, 0.1700412850000248, 0.21632630700014488, 0.23113141200019527, 0.2638085839998894, 0.2760139719998733, 0.3001248149998901, 0.30320839800015165, 0.32136949599998843, 0.3438082170000598]
+]
+image_nums = [range(1,15) for _ in range(3)]
+line_plot(image_nums,com_t,ml_labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability.eps',
+		'Number of images','Time (s)',xticks=[0,5,10,15])
 
 def bar_plot(avg,std,path,color,ylabel,yticks=None):
 	N = len(avg)
@@ -87,7 +93,7 @@ rbr_avg = [0.28,0.29,0.58,0.46,0.37]
 rbr_std = [0.08,0.09,0.08,0.06,0.07]
 bar_plot(rbr_avg,rbr_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
-		colors[2],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
+		colors[4],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
 
 latency_avg = [0.575,0.593,0.706,0.576,0.963]
 latency_std = [0.075,0.093,0.01,0.076,0.063]
