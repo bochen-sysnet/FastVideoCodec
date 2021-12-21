@@ -309,6 +309,7 @@ class MeanScaleHyperPriors(CompressionModel):
         else:
             x_hat = None
         # AC
+        # reshape
         z = z.permute(1,0,2,3).unsqueeze(0).contiguous()
         z_size = z.size()[-3:]
         z_string = self.entropy_bottleneck.compress(z)
@@ -713,3 +714,14 @@ def test(name = 'Joint'):
                 f"MSE2: {float(mse2):.4f}. "
                 f"ENC: {float(duration_e):.3f}. "
                 f"DEC: {float(duration_d):.3f}. ")
+
+if __name__ == '__main__':
+    net = EntropyBottleneck(96)
+    print(net.entropy_coder.name)
+    net.update(force=True)
+
+    for i in range(14):
+        t_0 = time.perf_counter()
+        x = torch.rand(1,96,1+i,16,16)
+        string = net.compress(x)
+        print(time.perf_counter()-t_0)

@@ -1849,18 +1849,18 @@ def test_seq_proc(name='RLVC',batch_size = 13):
 # update CNN alternatively?
     
 if __name__ == '__main__':
-    result_dvc = []
-    result_rlvc = []
+    # result_dvc = []
+    # result_rlvc = []
     result_spvc = []
     for B in range(1,15):
-        dvc_t = test_seq_proc('DVC',B)
-        rlvc_t = test_seq_proc('RLVC',B)
+        # dvc_t = test_seq_proc('DVC',B)
+        # rlvc_t = test_seq_proc('RLVC',B)
         spvc_t = test_batch_proc('SPVC', B)
-        result_dvc += [dvc_t]
-        result_rlvc += [rlvc_t]
+        # result_dvc += [dvc_t]
+        # result_rlvc += [rlvc_t]
         result_spvc += [spvc_t]
-    print(result_dvc)
-    print(result_rlvc)
+    # print(result_dvc)
+    # print(result_rlvc)
     print(result_spvc)
     # test_batch_proc('AE3D')
     #test_batch_proc('SPVC-L')
