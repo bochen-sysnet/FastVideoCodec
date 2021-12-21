@@ -1105,8 +1105,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), self.r, True)
-        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), self.r, True)
+        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), 1024, True)
+        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), 1024, True)
         # compress residual
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
