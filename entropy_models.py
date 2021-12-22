@@ -220,17 +220,27 @@ class MeanScaleHyperPriors(CompressionModel):
             self.t_attn_s = Attention(channels)
 
         # create workers for parallelization
-        self.num_workers = 10
-        def worker(in_q,out_q):
+        self.num_workers = 14
+        def ans_coder_worker(in_q,out_q):
+            model0 = self.entropy_bottleneck
+            model1 = self.gaussian_conditional
             while True:
-                latent = in_q.get()
-                if latent is None:break
-                string = self.entropy_bottleneck.compress(latent)
-                out_q.put(string)
+                ret = in_q.get()
+                if ret is None:break
+                i,symbols,indexes,choice = ret
+                model = model0 if choice==0 else model1
+                rv = model.entropy_coder.encode_with_indexes(
+                    symbols.reshape(-1).int().tolist(),
+                    indexes.reshape(-1).int().tolist(),
+                    model._quantized_cdf.tolist(),
+                    model._cdf_length.reshape(-1).int().tolist(),
+                    model._offset.reshape(-1).int().tolist(),
+                )
+                out_q.put((i,rv))
         self.in_q = queue.Queue()
         self.out_q = queue.Queue()
         for i in range(self.num_workers):
-            threading.Thread(target=worker, args=(self.in_q,self.out_q,)).start() 
+            threading.Thread(target=ans_coder_worker, args=(self.in_q,self.out_q,)).start() 
 
     def destroy(self):
         for _ in range(self.num_workers):
@@ -328,11 +338,20 @@ class MeanScaleHyperPriors(CompressionModel):
         else:
             x_hat = None
         # AC
-        z_size = z.size()[-2:]
+        # reshape
+        z = z.permute(1,0,2,3).unsqueeze(0).contiguous()
+        z_size = z.size()[-3:]
+        # z_string = self.entropy_bottleneck.compress(z)
         z_string = EB_compress(self.entropy_bottleneck,z,in_q=self.in_q,out_q=self.out_q)
 
+        # reshape
         indexes = self.gaussian_conditional.build_indexes(sigma)
-        x_string = compress_with_indexes(self.gaussian_conditional,x, indexes, means=mu,in_q=self.in_q,out_q=self.out_q)
+        x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
+        indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
+        mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
+        # x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
+        x_string = compress_with_indexes(self.gaussian_conditional,x, indexes, 
+                means=mu,in_q=self.in_q,out_q=self.out_q,choice=1)
 
         self.eAC_t += time.perf_counter() - t_0
         self.enc_t = self.eNet_t + self.eAC_t
@@ -344,6 +363,7 @@ class MeanScaleHyperPriors(CompressionModel):
         # AC
         t_0 = time.perf_counter()
         z_hat = self.entropy_bottleneck.decompress(string[1], shape)
+        z_hat = z_hat.squeeze(0).permute(1,0,2,3).contiguous()
         self.dAC_t += time.perf_counter() - t_0
         # NET
         t_0 = time.perf_counter()
@@ -358,7 +378,11 @@ class MeanScaleHyperPriors(CompressionModel):
         # AC
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
+        # reshape
+        indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
+        mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
         x_hat = self.gaussian_conditional.decompress(string[0], indexes, means=mu)
+        x_hat = x_hat.squeeze(0).permute(1,0,2,3).contiguous()
         self.dAC_t += time.perf_counter() - t_0
         self.dec_t = self.dnet_t + self.dAC_t
         return x_hat
@@ -369,9 +393,9 @@ def EB_compress(model, x, in_q=None, out_q=None):
     spatial_dims = len(x.size()) - 2
     medians = model._extend_ndims(medians, spatial_dims)
     medians = medians.expand(x.size(0), *([-1] * (spatial_dims + 1)))
-    return compress_with_indexes(model, x, indexes, medians, in_q=in_q, out_q=out_q)
+    return compress_with_indexes(model, x, indexes, medians, in_q=in_q, out_q=out_q, choice=0)
 
-def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=None):
+def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=None, choice=0):
     """
     Compress input tensors to char strings.
     Args:
@@ -379,7 +403,6 @@ def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=N
         indexes (torch.IntTensor): tensors CDF indexes
         means (torch.Tensor, optional): optional tensor means
     """
-    t0 = time.perf_counter()
     symbols = model.quantize(inputs, "symbols", means)
 
     if len(inputs.size()) < 2:
@@ -393,12 +416,10 @@ def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=N
     model._check_cdf_size()
     model._check_cdf_length()
     model._check_offsets_size()
-    print('check',time.perf_counter()-t0)
 
     strings = []
-    t0 = time.perf_counter()
     for i in range(symbols.size(0)):
-        t1 = time.perf_counter()
+        t0=time.perf_counter()
         rv = model.entropy_coder.encode_with_indexes(
             symbols[i].reshape(-1).int().tolist(),
             indexes[i].reshape(-1).int().tolist(),
@@ -407,8 +428,13 @@ def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=N
             model._offset.reshape(-1).int().tolist(),
         )
         strings.append(rv)
-        print(i,time.perf_counter()-t1)
-    print(symbols.size(),time.perf_counter()-t0)
+        print(i,time.perf_counter()-t0)
+    # for i in range(symbols.size(0)):
+    #     in_q.put((i,symbols[i],indexes[i],choice))
+    # strings = [None for _ in symbols]
+    # for _ in range(symbols.size(0)):
+    #     i,rv = out_q.get()
+    #     strings[i] = rv
     return strings
         
 def st_attention(x, s_attn, t_attn):
@@ -772,28 +798,27 @@ def test(name = 'Joint'):
                 f"DEC: {float(duration_d):.3f}. ")
 
 if __name__ == '__main__':
-    net = EntropyBottleneck(128)
+    seq_len = 14
+    channels = 128
+    net = EntropyBottleneck(channels)
     net.update(force=True)
 
-    seq_len = 6
-    latent = torch.rand(seq_len,128,16,16)
+    latent = torch.rand(seq_len,channels,16,16)
 
     import threading
     import queue
     num_workers = 14
-    def worker(in_q,out_q,name):
+    def ans_coder_worker(in_q,out_q):
         while True:
             out = in_q.get()
             if out is None:break
-            n,x = out
-            t_0 = time.perf_counter()
+            i,x = out
             string = net.compress(x)
-            print(name,n,time.perf_counter()-t_0)
-            out_q.put(name+'-'+str(n))
+            out_q.put((i,string))
     in_q = queue.Queue()
     out_q = queue.Queue()
     for i in range(num_workers):
-        threading.Thread(target=worker, args=(in_q,out_q,'w'+str(i),)).start() 
+        threading.Thread(target=ans_coder_worker, args=(in_q,out_q,)).start() 
 
     t_0 = time.perf_counter()
     for i in range(seq_len):
@@ -802,9 +827,27 @@ if __name__ == '__main__':
 
     for _ in range(seq_len):
         s = out_q.get()
-        print('Out:',s)
-
-    print(time.perf_counter()-t_0)
+    print('-------',time.perf_counter()-t_0)
 
     for i in range(num_workers): 
         in_q.put(None) 
+
+    latent = torch.rand(seq_len,channels,16,16)
+    t_0 = time.perf_counter()
+    for i in range(seq_len):
+        string = EB_compress(net,latent[i:i+1])
+    print('-------',time.perf_counter()-t_0)
+
+    t_0 = time.perf_counter()
+    string = EB_compress(net,latent)
+    print('-------',time.perf_counter()-t_0)
+
+    t_0 = time.perf_counter()
+    latent = torch.rand(1,channels,seq_len,16,16)
+    string = EB_compress(net,latent)
+    print('-------',time.perf_counter()-t_0)
+
+    t_0 = time.perf_counter()
+    latent = torch.rand(1,channels,seq_len*16,16)
+    string = EB_compress(net,latent)
+    print('-------',time.perf_counter()-t_0)
