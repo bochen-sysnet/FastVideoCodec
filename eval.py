@@ -540,8 +540,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         if GoP_size>args.fP+1:
             bs = args.fP
             # receive the first two strings
-            mv_string1 = recv_strings_from_process(process, 1)
-            res_string1 = recv_strings_from_process(process, 1)
+            n_str = 1 if model.entropy_trick else bs
+            mv_string1 = recv_strings_from_process(process, n_str)
+            res_string1 = recv_strings_from_process(process, n_str)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
             if t_startup is None:
@@ -554,8 +555,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             # current batch
             bs = GoP_size-1-args.fP
             # receive the second two strings
-            mv_string2 = recv_strings_from_process(process, 1)
-            res_string2 = recv_strings_from_process(process, 1)
+            n_str = 1 if model.entropy_trick else bs
+            mv_string2 = recv_strings_from_process(process, n_str)
+            res_string2 = recv_strings_from_process(process, n_str)
             # decompress forward
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
             # concate
@@ -568,8 +570,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         else:
             bs = GoP_size-1
             # receive two strings
-            mv_string = recv_strings_from_process(process, 1)
-            res_string = recv_strings_from_process(process, 1)
+            n_str = 1 if model.entropy_trick else bs
+            mv_string = recv_strings_from_process(process, n_str)
+            res_string = recv_strings_from_process(process, n_str)
             # decompress backward
             x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
             # concate

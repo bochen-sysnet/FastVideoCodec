@@ -151,6 +151,7 @@ class MeanScaleHyperPriors(CompressionModel):
         self,
         channels,
         useAttention=False,
+        entropy_trick=True,
     ):
         super().__init__(channels)
 
@@ -219,32 +220,35 @@ class MeanScaleHyperPriors(CompressionModel):
             self.t_attn_a = Attention(channels)
             self.t_attn_s = Attention(channels)
 
+        self.entropy_trick = entropy_trick
+
         # create workers for parallelization
-        self.num_workers = 14
-        def ans_coder_worker(in_q,out_q):
-            model0 = self.entropy_bottleneck
-            model1 = self.gaussian_conditional
-            while True:
-                ret = in_q.get()
-                if ret is None:break
-                i,symbols,indexes,choice = ret
-                model = model0 if choice==0 else model1
-                rv = model.entropy_coder.encode_with_indexes(
-                    symbols.reshape(-1).int().tolist(),
-                    indexes.reshape(-1).int().tolist(),
-                    model._quantized_cdf.tolist(),
-                    model._cdf_length.reshape(-1).int().tolist(),
-                    model._offset.reshape(-1).int().tolist(),
-                )
-                out_q.put((i,rv))
-        self.in_q = queue.Queue()
-        self.out_q = queue.Queue()
-        for i in range(self.num_workers):
-            threading.Thread(target=ans_coder_worker, args=(self.in_q,self.out_q,)).start() 
+        # self.num_workers = 14
+        # def ans_coder_worker(in_q,out_q):
+        #     model0 = self.entropy_bottleneck
+        #     model1 = self.gaussian_conditional
+        #     while True:
+        #         ret = in_q.get()
+        #         if ret is None:break
+        #         i,symbols,indexes,choice = ret
+        #         model = model0 if choice==0 else model1
+        #         rv = model.entropy_coder.encode_with_indexes(
+        #             symbols.reshape(-1).int().tolist(),
+        #             indexes.reshape(-1).int().tolist(),
+        #             model._quantized_cdf.tolist(),
+        #             model._cdf_length.reshape(-1).int().tolist(),
+        #             model._offset.reshape(-1).int().tolist(),
+        #         )
+        #         out_q.put((i,rv))
+        # self.in_q = queue.Queue()
+        # self.out_q = queue.Queue()
+        # for i in range(self.num_workers):
+        #     threading.Thread(target=ans_coder_worker, args=(self.in_q,self.out_q,)).start() 
 
     def destroy(self):
-        for _ in range(self.num_workers):
-            self.in_q.put(None)
+        pass
+        # for _ in range(self.num_workers):
+        #     self.in_q.put(None)
         
     def update(self, scale_table=None, force=False):
         updated = self.gaussian_conditional.update_scale_table(self.scale_table, force=force)
@@ -338,20 +342,22 @@ class MeanScaleHyperPriors(CompressionModel):
         else:
             x_hat = None
         # AC
-        # reshape
-        z = z.permute(1,0,2,3).unsqueeze(0).contiguous()
-        z_size = z.size()[-3:]
-        # z_string = self.entropy_bottleneck.compress(z)
-        z_string = EB_compress(self.entropy_bottleneck,z,in_q=self.in_q,out_q=self.out_q)
+        if self.entropy_trick:
+            z = z.permute(1,0,2,3).unsqueeze(0).contiguous()
+            z_size = z.size()[-3:]
+        else:
+            z_size = z.size()[-2:]
+        z_string = self.entropy_bottleneck.compress(z)
+        # z_string = EB_compress(self.entropy_bottleneck,z,in_q=self.in_q,out_q=self.out_q)
 
-        # reshape
         indexes = self.gaussian_conditional.build_indexes(sigma)
-        x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
-        indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
-        mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
-        # x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
-        x_string = compress_with_indexes(self.gaussian_conditional,x, indexes, 
-                means=mu,in_q=self.in_q,out_q=self.out_q,choice=1)
+        if self.entropy_trick:
+            x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
+            indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
+            mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
+        x_string = self.gaussian_conditional.compress(x, indexes, means=mu)
+        # x_string = compress_with_indexes(self.gaussian_conditional,x, indexes, 
+        #         means=mu,in_q=self.in_q,out_q=self.out_q,choice=1)
 
         self.eAC_t += time.perf_counter() - t_0
         self.enc_t = self.eNet_t + self.eAC_t
@@ -363,7 +369,8 @@ class MeanScaleHyperPriors(CompressionModel):
         # AC
         t_0 = time.perf_counter()
         z_hat = self.entropy_bottleneck.decompress(string[1], shape)
-        z_hat = z_hat.squeeze(0).permute(1,0,2,3).contiguous()
+        if self.entropy_trick:
+            z_hat = z_hat.squeeze(0).permute(1,0,2,3).contiguous()
         self.dAC_t += time.perf_counter() - t_0
         # NET
         t_0 = time.perf_counter()
@@ -378,11 +385,12 @@ class MeanScaleHyperPriors(CompressionModel):
         # AC
         t_0 = time.perf_counter()
         indexes = self.gaussian_conditional.build_indexes(sigma)
-        # reshape
-        indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
-        mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
+        if self.entropy_trick:
+            indexes = indexes.permute(1,0,2,3).unsqueeze(0).contiguous()
+            mu = mu.permute(1,0,2,3).unsqueeze(0).contiguous()
         x_hat = self.gaussian_conditional.decompress(string[0], indexes, means=mu)
-        x_hat = x_hat.squeeze(0).permute(1,0,2,3).contiguous()
+        if self.entropy_trick:
+            x_hat = x_hat.squeeze(0).permute(1,0,2,3).contiguous()
         self.dAC_t += time.perf_counter() - t_0
         self.dec_t = self.dnet_t + self.dAC_t
         return x_hat
@@ -417,24 +425,25 @@ def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=N
     model._check_cdf_length()
     model._check_offsets_size()
 
-    strings = []
-    for i in range(symbols.size(0)):
-        t0=time.perf_counter()
-        rv = model.entropy_coder.encode_with_indexes(
-            symbols[i].reshape(-1).int().tolist(),
-            indexes[i].reshape(-1).int().tolist(),
-            model._quantized_cdf.tolist(),
-            model._cdf_length.reshape(-1).int().tolist(),
-            model._offset.reshape(-1).int().tolist(),
-        )
-        strings.append(rv)
-        print(i,time.perf_counter()-t0)
-    # for i in range(symbols.size(0)):
-    #     in_q.put((i,symbols[i],indexes[i],choice))
-    # strings = [None for _ in symbols]
-    # for _ in range(symbols.size(0)):
-    #     i,rv = out_q.get()
-    #     strings[i] = rv
+    if in_q is None and out_q is None:
+        strings = []
+        for i in range(symbols.size(0)):
+            rv = model.entropy_coder.encode_with_indexes(
+                symbols[i].reshape(-1).int().tolist(),
+                indexes[i].reshape(-1).int().tolist(),
+                model._quantized_cdf.tolist(),
+                model._cdf_length.reshape(-1).int().tolist(),
+                model._offset.reshape(-1).int().tolist(),
+            )
+            strings.append(rv)
+    else:
+        # CPU bound, negligible improvement by parallelization
+        for i in range(symbols.size(0)):
+            in_q.put((i,symbols[i],indexes[i],choice))
+        strings = [None for _ in symbols]
+        for _ in range(symbols.size(0)):
+            i,rv = out_q.get()
+            strings[i] = rv
     return strings
         
 def st_attention(x, s_attn, t_attn):
@@ -798,8 +807,9 @@ def test(name = 'Joint'):
                 f"DEC: {float(duration_d):.3f}. ")
 
 if __name__ == '__main__':
-    seq_len = 14
+    seq_len = 2
     channels = 128
+    num_workers = 2
     net = EntropyBottleneck(channels)
     net.update(force=True)
 
@@ -807,47 +817,45 @@ if __name__ == '__main__':
 
     import threading
     import queue
-    num_workers = 14
     def ans_coder_worker(in_q,out_q):
         while True:
-            out = in_q.get()
-            if out is None:break
-            i,x = out
-            string = net.compress(x)
-            out_q.put((i,string))
+            ret = in_q.get()
+            if ret is None:break
+            i,symbols,indexes,_ = ret
+            t_0 = time.perf_counter()
+            rv = net.entropy_coder.encode_with_indexes(
+                symbols.reshape(-1).int().tolist(),
+                indexes.reshape(-1).int().tolist(),
+                net._quantized_cdf.tolist(),
+                net._cdf_length.reshape(-1).int().tolist(),
+                net._offset.reshape(-1).int().tolist(),
+            )
+            print(i,time.perf_counter()-t_0)
+            out_q.put((i,rv))
     in_q = queue.Queue()
     out_q = queue.Queue()
     for i in range(num_workers):
         threading.Thread(target=ans_coder_worker, args=(in_q,out_q,)).start() 
 
-    t_0 = time.perf_counter()
-    for i in range(seq_len):
-        x = latent[i:i+1]
-        in_q.put((i,x))
-
-    for _ in range(seq_len):
-        s = out_q.get()
-    print('-------',time.perf_counter()-t_0)
-
-    for i in range(num_workers): 
-        in_q.put(None) 
-
     latent = torch.rand(seq_len,channels,16,16)
+
     t_0 = time.perf_counter()
     for i in range(seq_len):
         string = EB_compress(net,latent[i:i+1])
-    print('-------',time.perf_counter()-t_0)
+    print('seq',time.perf_counter()-t_0)
 
     t_0 = time.perf_counter()
     string = EB_compress(net,latent)
-    print('-------',time.perf_counter()-t_0)
+    print('seq2',time.perf_counter()-t_0)
 
     t_0 = time.perf_counter()
-    latent = torch.rand(1,channels,seq_len,16,16)
-    string = EB_compress(net,latent)
-    print('-------',time.perf_counter()-t_0)
+    latent2 = latent.permute(1,0,2,3).unsqueeze(0)
+    string = EB_compress(net,latent2)
+    print('one',time.perf_counter()-t_0)
 
     t_0 = time.perf_counter()
-    latent = torch.rand(1,channels,seq_len*16,16)
-    string = EB_compress(net,latent)
-    print('-------',time.perf_counter()-t_0)
+    string = EB_compress(net,latent,in_q=in_q,out_q=out_q)
+    print('para',time.perf_counter()-t_0)
+
+    for i in range(num_workers):
+        in_q.put(None)

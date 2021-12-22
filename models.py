@@ -606,7 +606,8 @@ def get_estimate_bits(self, likelihoods):
     return bits_est
 
 class Coder2D(nn.Module):
-    def __init__(self, keyword, in_channels=2, channels=128, kernel=3, padding=1, noMeasure=True, downsample=True):
+    def __init__(self, keyword, in_channels=2, channels=128, kernel=3, padding=1, 
+                noMeasure=True, downsample=True, entropy_trick=True):
         super(Coder2D, self).__init__()
         if downsample:
             self.enc_conv1 = nn.Conv2d(in_channels, channels, kernel_size=kernel, stride=2, padding=padding)
@@ -630,12 +631,12 @@ class Coder2D(nn.Module):
             self.entropy_type = 'rpm'
         elif keyword in ['attn']:
             # for batch model
-            self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=True)
+            self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=True,entropy_trick=entropy_trick)
             self.conv_type = 'attn'
             self.entropy_type = 'mshp'
         elif keyword in ['mshp']:
             # for image codec, single frame
-            self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=False)
+            self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=False,entropy_trick=entropy_trick)
             self.conv_type = 'non-rec' # not need for single image compression
             self.entropy_type = 'mshp'
         elif keyword in ['DVC','base','DCVC','DCVC_v2']:
@@ -1260,7 +1261,8 @@ def refidx_from_graph(g,bs):
     return ref_index
            
 class SPVC(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', compression_level=2, use_split=True):
+    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', 
+            compression_level=2, use_split=True, entropy_trick=True):
         super(SPVC, self).__init__()
         self.name = name 
         self.optical_flow = OpticalFlowNet()
@@ -1271,12 +1273,12 @@ class SPVC(nn.Module):
             channels = 64
         if '-R' not in self.name:
             # use attention in encoder and entropy model
-            self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
-            self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
+            self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
+            self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
         else:
             # use rpm for encoder and entropy
-            self.mv_codec = Coder2D('rpm', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
-            self.res_codec = Coder2D('rpm', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
+            self.mv_codec = Coder2D('rpm', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
+            self.res_codec = Coder2D('rpm', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
         self.channels = channels
         self.loss_type=loss_type
         self.compression_level=compression_level
@@ -1288,6 +1290,7 @@ class SPVC(nn.Module):
         else:
             self = self.cuda()
         self.noMeasure = noMeasure
+        self.entropy_trick = entropy_trick
 
     def destroy(self):
         self.mv_codec.entropy_bottleneck.destroy()
@@ -1335,7 +1338,7 @@ class SPVC(nn.Module):
         return mv_string,res_string,bpp_act
         
     def decompress(self, x_ref, mv_string,res_string,bs):
-        latent_size = torch.Size([bs,16,16])
+        latent_size = torch.Size([bs,16,16]) if self.entropy_trick else torch.Size([16,16])
         # BATCH motion decode
         mv_hat,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
         self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
