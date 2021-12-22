@@ -422,7 +422,6 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
 
         if t_startup is None:
             t_startup = time.perf_counter()-t_0
-            print('Start-up latency:',t_startup)
 
         # replay
         t_rebuffer = time.perf_counter() - t_replay
@@ -454,7 +453,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,t_rebuffer_total/total_time
+    return psnr_module.avg,fps,t_rebuffer_total/total_time,t_startup
             
 def SPVC_AE3D_client(args,data,model=None,Q=None):
     # start a process to pipe data to netcat
@@ -541,13 +540,12 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         if GoP_size>args.fP+1:
             bs = args.fP
             # receive the first two strings
-            mv_string1 = recv_strings_from_process(process, 1)
-            res_string1 = recv_strings_from_process(process, 1)
+            mv_string1 = recv_strings_from_process(process, bs)
+            res_string1 = recv_strings_from_process(process, bs)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
             if t_startup is None:
                 t_startup = time.perf_counter()-t_0
-                print('Start-up latency:',t_startup)
             # replay
             t_rebuffer = time.perf_counter() - t_replay
             t_rebuffer = max(t_rebuffer,0)
@@ -556,8 +554,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             # current batch
             bs = GoP_size-1-args.fP
             # receive the second two strings
-            mv_string2 = recv_strings_from_process(process, 1)
-            res_string2 = recv_strings_from_process(process, 1)
+            mv_string2 = recv_strings_from_process(process, bs)
+            res_string2 = recv_strings_from_process(process, bs)
             # decompress forward
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
             # concate
@@ -570,8 +568,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         else:
             bs = GoP_size-1
             # receive two strings
-            mv_string = recv_strings_from_process(process, 1)
-            res_string = recv_strings_from_process(process, 1)
+            mv_string = recv_strings_from_process(process, bs)
+            res_string = recv_strings_from_process(process, bs)
             # decompress backward
             x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
             # concate
@@ -604,7 +602,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,t_rebuffer_total/total_time
+    return psnr_module.avg,fps,t_rebuffer_total/total_time,t_startup
     
 def RLVC_DVC_client(args,data,model=None,Q=None):
     if not args.encoder_test:
@@ -727,7 +725,6 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                 if t_startup is None:
                     t_startup = time.perf_counter()-t_0
-                    print('Start-up latency:',t_startup)
                 # replay
                 t_rebuffer = time.perf_counter() - t_replay
                 t_rebuffer = max(t_rebuffer,0)
@@ -754,7 +751,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,t_rebuffer_total/total_time
+    return psnr_module.avg,fps,t_rebuffer_total/total_time,t_startup
         
 def dynamic_simulation(args, test_dataset):
     # get server and client simulator
@@ -820,10 +817,14 @@ def dynamic_simulation(args, test_dataset):
             # clear input
             data = []
 
+        # destroy model
+        if args.task in ['SPVC']:
+            model.destroy()
+
         # write results
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
-            outstr = f'{time_str} {args.task} {com_level} '
+            outstr = f'{time_str} {args.task} {com_level} ' +\
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
             if args.task in ['RLVC','DVC','SPVC','AE3D']:
