@@ -37,7 +37,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif name in ['x264','x265']:
         model_codec = StandardVideoCodecs(name)
     elif name in ['DVC-pretrained']:
-        model_codec = get_DVC_pretrained()
+        model_codec = get_DVC_pretrained(compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -1860,7 +1860,7 @@ def test_seq_proc(name='RLVC',batch_size = 13):
     _,_,enc,dec = showTimer(model)
     return timer.sum
 
-def get_DVC_pretrained(level = 3):
+def get_DVC_pretrained(level):
     from DVC.net import VideoCompressor, load_model
     model = VideoCompressor()
     model.name = 'DVC-pretrained'
