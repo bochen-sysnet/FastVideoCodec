@@ -13,6 +13,7 @@ import sys, os, math, time
 sys.path.append('..')
 import threading
 import queue
+import torchac
         
 SCALES_MIN = 0.11
 SCALES_MAX = 256
@@ -424,6 +425,9 @@ def compress_with_indexes(model, inputs, indexes, means=None, in_q=None, out_q=N
     model._check_cdf_size()
     model._check_cdf_length()
     model._check_offsets_size()
+    # for cdf,l in zip(model._quantized_cdf.tolist(),model._cdf_length.tolist()):
+    #     print(l,cdf)
+    # print(model._quantized_cdf.size(),model._cdf_length.size(),model._offset.size())
 
     if in_q is None and out_q is None:
         strings = []
@@ -807,55 +811,28 @@ def test(name = 'Joint'):
                 f"DEC: {float(duration_d):.3f}. ")
 
 if __name__ == '__main__':
-    seq_len = 2
+    seq_len = 6
     channels = 128
     num_workers = 2
-    net = EntropyBottleneck(channels)
+    h = w = 16
+    net = EntropyBottleneck(channels).cuda()
     net.update(force=True)
 
-    latent = torch.rand(seq_len,channels,16,16)
+    for seq_len in range(1,15):
+        print('seq len=',seq_len)
+        latent = torch.rand(seq_len,channels,h,w).cuda()
 
-    import threading
-    import queue
-    def ans_coder_worker(in_q,out_q):
-        while True:
-            ret = in_q.get()
-            if ret is None:break
-            i,symbols,indexes,_ = ret
-            t_0 = time.perf_counter()
-            rv = net.entropy_coder.encode_with_indexes(
-                symbols.reshape(-1).int().tolist(),
-                indexes.reshape(-1).int().tolist(),
-                net._quantized_cdf.tolist(),
-                net._cdf_length.reshape(-1).int().tolist(),
-                net._offset.reshape(-1).int().tolist(),
-            )
-            print(i,time.perf_counter()-t_0)
-            out_q.put((i,rv))
-    in_q = queue.Queue()
-    out_q = queue.Queue()
-    for i in range(num_workers):
-        threading.Thread(target=ans_coder_worker, args=(in_q,out_q,)).start() 
+        t_0 = time.perf_counter()
+        string = EB_compress(net,latent)
+        print('seq2',len(b''.join(string)),time.perf_counter()-t_0)
 
-    latent = torch.rand(seq_len,channels,16,16)
+        cdf = net._quantized_cdf
+        # cdf_length = net._cdf_length
+        # cdf_offset = net._offset
+        l = cdf.size(1)
+        t_0 = time.perf_counter()
+        cdfs = cdf.view(1, channels, 1, 1, l).repeat(seq_len, 1, h, w, 1)
+        byte_stream = torchac.encode_int16_normalized_cdf(cdfs.cpu().to(torch.int16), 
+                latent.cpu().to(torch.int16))
+        print('tac',len(byte_stream),time.perf_counter()-t_0)
 
-    t_0 = time.perf_counter()
-    for i in range(seq_len):
-        string = EB_compress(net,latent[i:i+1])
-    print('seq',time.perf_counter()-t_0)
-
-    t_0 = time.perf_counter()
-    string = EB_compress(net,latent)
-    print('seq2',time.perf_counter()-t_0)
-
-    t_0 = time.perf_counter()
-    latent2 = latent.permute(1,0,2,3).unsqueeze(0)
-    string = EB_compress(net,latent2)
-    print('one',time.perf_counter()-t_0)
-
-    t_0 = time.perf_counter()
-    string = EB_compress(net,latent,in_q=in_q,out_q=out_q)
-    print('para',time.perf_counter()-t_0)
-
-    for i in range(num_workers):
-        in_q.put(None)
