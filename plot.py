@@ -14,7 +14,7 @@ plt.rcParams['ytick.labelsize'] = 20
 plt.rcParams["font.family"] = "Times New Roman"
 
 colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB']
-labels = ['H.264','H.265','RLVC','DVC','LSVC']
+labels = ['H.264','H.265','DVC','RLVC','LSVC']
 markers = ['p','s','o','>','v']
 
 def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
@@ -36,18 +36,32 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 
 bpps = [[0.14,0.21,0.33,0.5],
 		[0.16,0.25,0.39,0.59],
-		[0.09,0.142,0.187],
 		[0.10,0.15,0.23,0.33],
+		[0.09,0.142,0.187],
 		[0.123,0.181,0.284,0.3925]
 		]
 PSNRs = [[28.37,29.96,31.31,32.38],
 		[29.56,30.90,31.96,32.82],
-		[26.13,27.32,30.82],
 		[27.6,29.18,30.11,30.67],
+		[26.13,27.32,30.82],
 		[28.98,30.54,31.54,32.24]]
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion.eps',
 		'bpp','PSNR (dB)')
+
+bpps = [[0.16,0.26,0.43,0.7],
+		[0.17,0.28,0.45,0.72],
+		[0.1,0.16,0.23,0.32],
+		]
+PSNRs = [[30.57,32.27,33.85,35.20],
+		[31.54,33.12,34.5,35.62],
+		[30.02,31.69,32.86,33.58],
+		]
+
+line_plot(bpps,PSNRs,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion2.eps',
+		'bpp','PSNR (dB)')
+
 # 96
 # [0.053132872000105635, 0.07760241199980555, 0.10680426199996873, 0.1364419829999406, 0.16576214699989578, 0.19565956099995674, 0.24735311800009185, 0.2696788140001445, 0.30823042800011535, 0.32221825099986745, 0.35182066400011536, 0.35663595400001213, 0.3842096920000131, 0.4138117239999701]
 # 64
@@ -84,19 +98,19 @@ def bar_plot(avg,std,path,color,ylabel,yticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
-com_speeds_avg = [56.96,57.35,19.31,27.90]#,32.89] # 27.07,32.89,36.83
-com_speeds_std = [1.96,1.35,1.31,1.90]#,1.84]
+com_speeds_avg = [56.96,57.35,27.90,19.31]#,32.89] # 27.07,32.89,36.83
+com_speeds_std = [1.96,1.35,1.90,1.31]#,1.84]
 bar_plot(com_speeds_avg,com_speeds_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
 		colors[1],'Speed (fps)',yticks=np.arange(0,70,15))
 
-rbr_avg = [0.28,0.29,0.58,0.46,0.37]
-rbr_std = [0.08,0.09,0.08,0.06,0.07]
+rbr_avg = [0.28,0.29,0.46,0.58,0.37]
+rbr_std = [0.08,0.09,0.06,0.08,0.07]
 bar_plot(rbr_avg,rbr_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
 		colors[4],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
 
-latency_avg = [0.575,0.593,0.706,0.576,0.963]
+latency_avg = [0.575,0.593,0.576,0.706,0.963]
 latency_std = [0.075,0.093,0.01,0.076,0.063]
 bar_plot(latency_avg,latency_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
