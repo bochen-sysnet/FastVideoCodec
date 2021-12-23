@@ -42,6 +42,9 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
+    if model.name == 'DVC-pretrained':
+        return model
+
     ####### Load codec model 
     if os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
@@ -113,7 +116,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-            break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -211,77 +213,78 @@ def static_bench_x26x():
     exit(0)
     
 def static_simulation_model(args, test_dataset):
-    aux_loss_module = AverageMeter()
-    img_loss_module = AverageMeter()
-    ba_loss_module = AverageMeter()
-    be_loss_module = AverageMeter()
-    psnr_module = AverageMeter()
-    msssim_module = AverageMeter()
-    all_loss_module = AverageMeter()
-    ds_size = len(test_dataset)
-    model = LoadModel(args.task)
-    model.eval()
-    GoP = args.fP + args.bP +1
-    data = []
-    test_iter = tqdm(range(ds_size))
-    for data_idx,_ in enumerate(test_iter):
-        frame,eof = test_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
-        if len(data) < GoP and not eof:
-            continue
-            
-        with torch.no_grad():
-            data = torch.stack(data, dim=0).cuda()
-            l = data.size(0)
-            
-            # compress GoP
-            if l>fP+1:
-                com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
-                data[fP:fP+1] = com_imgs[0:1]
-                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[fP:],False)
-                img_loss_list = img_loss_list1[::-1] + img_loss_list2
-                aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
-                psnr_list = psnr_list1[::-1] + psnr_list2
-                msssim_list = msssim_list1[::-1] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
-                bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
-            else:
-                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
-                
-            # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-            aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-            img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            loss = model.loss(img_loss,ba_loss,aux_loss)
-            
-            # record loss
-            aux_loss_module.update(aux_loss.cpu().data.item(), l)
-            img_loss_module.update(img_loss.cpu().data.item(), l)
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
-            be_loss_module.update(ba_loss.cpu().data.item(), l)
-            psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
-            all_loss_module.update(loss.cpu().data.item(), l)
-        
-        # show result
-        test_iter.set_description(
-            f"{data_idx:6}. "
-            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
-            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
-            f"I: {float(max(psnr_list)):.2f}")
-            
-        # clear input
+    for lvl in range(4):
+        model = LoadModel(args.task,compression_level=lvl)
+        model.eval()
+        aux_loss_module = AverageMeter()
+        img_loss_module = AverageMeter()
+        ba_loss_module = AverageMeter()
+        be_loss_module = AverageMeter()
+        psnr_module = AverageMeter()
+        msssim_module = AverageMeter()
+        all_loss_module = AverageMeter()
+        ds_size = len(test_dataset)
+        GoP = args.fP + args.bP +1
         data = []
-        
-    test_dataset.reset()
+        test_iter = tqdm(range(ds_size))
+        for data_idx,_ in enumerate(test_iter):
+            frame,eof = test_dataset[data_idx]
+            data.append(transforms.ToTensor()(frame))
+            if len(data) < GoP and not eof:
+                continue
+                
+            with torch.no_grad():
+                data = torch.stack(data, dim=0).cuda()
+                l = data.size(0)
+                
+                # compress GoP
+                if l>args.fP+1:
+                    com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:args.fP+1],[0]),True)
+                    data[args.fP:args.fP+1] = com_imgs[0:1]
+                    _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[args.fP:],False)
+                    img_loss_list = img_loss_list1[::-1] + img_loss_list2
+                    aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
+                    psnr_list = psnr_list1[::-1] + psnr_list2
+                    msssim_list = msssim_list1[::-1] + msssim_list2
+                    bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
+                    bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
+                else:
+                    _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list = parallel_compression(model,torch.flip(data,[0]),True)
+                    
+                # aggregate loss
+                ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+                be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+                aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+                img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+                psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+                msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+                loss = model.loss(img_loss,ba_loss,aux_loss)
+                
+                # record loss
+                aux_loss_module.update(aux_loss.cpu().data.item(), l)
+                img_loss_module.update(img_loss.cpu().data.item(), l)
+                ba_loss_module.update(ba_loss.cpu().data.item(), l)
+                be_loss_module.update(ba_loss.cpu().data.item(), l)
+                psnr_module.update(psnr.cpu().data.item(),l)
+                msssim_module.update(msssim.cpu().data.item(), l)
+                all_loss_module.update(loss.cpu().data.item(), l)
+            
+            # show result
+            test_iter.set_description(
+                f"{data_idx:6}. "
+                f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+                f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+                f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+                f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+                f"I: {float(max(psnr_list)):.2f}")
+                
+            # clear input
+            data = []
+            
+        test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def block_until_open(ip_addr,port):
@@ -899,5 +902,5 @@ if __name__ == '__main__':
     else:
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','DVC','SPVC','AE3D']:
+        elif args.task in ['RLVC','DVC','SPVC','AE3D','DVC-pretrained']:
             static_simulation_model(args, test_dataset)

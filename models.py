@@ -36,6 +36,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = AE3D(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif name in ['x264','x265']:
         model_codec = StandardVideoCodecs(name)
+    elif name in ['DVC-pretrained']:
+        model_codec = get_DVC_pretrained()
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -250,7 +252,7 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp_act[pos].to(data.device)]
                 psnr_list += [psnr[pos].to(data.device)]
                 msssim_list += [msssim[pos].to(data.device)]
-        elif model.name in ['DVC','RLVC','DCVC']:
+        elif model.name in ['DVC','RLVC']:
             B,_,H,W = data.size()
             hidden = model.init_hidden(H,W)
             mv_prior_latent = res_prior_latent = None
@@ -264,6 +266,20 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp_act.to(data.device)]
                 psnr_list += [psnr.to(data.device)]
                 msssim_list += [msssim.to(data.device)]
+        elif model.name in ['DVC-pretrained']:
+            B,_,H,W = data.size()
+            x_hat = data[0:1]
+            for i in range(1,B):
+                x_hat, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
+                    model(data[i:i+1],x_hat)
+                img_loss = mse_loss + warploss + interloss
+                x_hat = x_hat.detach()
+                img_loss_list += [img_loss.to(data.device)]
+                aux_loss_list += [torch.FloatTensor([0]).squeeze(0).to(data.device)]
+                bpp_est_list += [bpp.to(data.device)]
+                bpp_act_list += [bpp.to(data.device)]
+                psnr_list += [PSNR(data[i:i+1], x_hat.to(data.device))]
+                msssim_list += [MSSSIM(data[i:i+1], x_hat.to(data.device))]
     
     return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
@@ -1843,6 +1859,22 @@ def test_seq_proc(name='RLVC',batch_size = 13):
             f"gpu usage: {usage:.3f}. ")
     _,_,enc,dec = showTimer(model)
     return timer.sum
+
+def get_DVC_pretrained(level = 3):
+    from DVC.net import VideoCompressor, load_model
+    model = VideoCompressor()
+    model.name = 'DVC-pretrained'
+    model.compression_level = level
+    model.loss_type = 'P'
+    ratio_list = [256,512,1024,2048]
+    I_lvl_list = [37,32,27,22]
+    model.I_level = I_lvl_list[level]
+    def loss(pix_loss, bpp_loss, aux_loss):
+        return pix_loss + bpp_loss + aux_loss
+    model.loss = loss
+    global_step = load_model(model, f'DVC/snapshot/{ratio_list[level]}.model')
+    net = model.cuda()
+    return net
             
 # integrate all codec models
 # measure the speed of all codecs
@@ -1856,18 +1888,18 @@ def test_seq_proc(name='RLVC',batch_size = 13):
 # update CNN alternatively?
     
 if __name__ == '__main__':
-    # result_dvc = []
-    # result_rlvc = []
+    result_dvc = []
+    result_rlvc = []
     result_spvc = []
     for B in range(1,15):
-        # dvc_t = test_seq_proc('DVC',B)
-        # rlvc_t = test_seq_proc('RLVC',B)
+        dvc_t = test_seq_proc('DVC',B)
+        rlvc_t = test_seq_proc('RLVC',B)
         spvc_t = test_batch_proc('SPVC', B)
-        # result_dvc += [dvc_t]
-        # result_rlvc += [rlvc_t]
+        result_dvc += [dvc_t]
+        result_rlvc += [rlvc_t]
         result_spvc += [spvc_t]
-    # print(result_dvc)
-    # print(result_rlvc)
+    print(result_dvc)
+    print(result_rlvc)
     print(result_spvc)
     # test_batch_proc('AE3D')
     #test_batch_proc('SPVC-L')
