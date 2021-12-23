@@ -214,7 +214,6 @@ def static_bench_x26x():
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(4):
-        if lvl<3:continue
         model = LoadModel(args.task,compression_level=lvl)
         model.eval()
         aux_loss_module = AverageMeter()
