@@ -1208,7 +1208,7 @@ class IterPredVideoCodecs(nn.Module):
         return Y1_com,hidden_states, mv_prior_latent, res_prior_latent
         
     def loss(self, pix_loss, bpp_loss, aux_loss):
-        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss.cuda(0)
+        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
         return loss
     
     def init_hidden(self, h, w):
