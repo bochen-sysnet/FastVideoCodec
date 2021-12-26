@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'SPVC96-R'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 1 # 0,1,2,3
 RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'{SAVE_DIR}/DVC-2P_tmp.pth'
 LEARNING_RATE = 0.0001
@@ -37,7 +37,7 @@ BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
 USE_VIMEO = True
-device = 0
+device = 1
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
