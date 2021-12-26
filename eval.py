@@ -891,11 +891,8 @@ if __name__ == '__main__':
 
         
     print(args)
-    
-    if args.dataset == 'UVG':
-        test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-    else:
-        test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+    assert args.dataset in ['UVG','MCL-JCV','Xiph','Xiph2']
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
         
     if args.mode == 'dynamic':
         dynamic_simulation(args, test_dataset)

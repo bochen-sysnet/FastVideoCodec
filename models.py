@@ -1287,6 +1287,8 @@ class SPVC(nn.Module):
             channels = 96
         elif '64' in self.name:
             channels = 64
+        if '-L' in self.name:
+            entropy_trick = False
         if '-R' not in self.name:
             # use attention in encoder and entropy model
             self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)

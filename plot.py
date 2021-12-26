@@ -13,9 +13,9 @@ plt.rcParams['xtick.labelsize'] = 20
 plt.rcParams['ytick.labelsize'] = 20
 plt.rcParams["font.family"] = "Times New Roman"
 
-colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB']
+colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB','#D65780']
 labels = ['H.264','H.265','DVC','RLVC','LSVC']
-markers = ['p','s','o','>','v']
+markers = ['p','s','o','>','v','^']
 
 def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	fig, ax = plt.subplots()
@@ -33,9 +33,6 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	# plt.ylim((-40,90))
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
-
-# [0.123,0.181,0.284,0.3925]
-# [28.98,30.54,31.54,32.24]
 
 bpps = [[0.14,0.21,0.33,0.5],
 		[0.16,0.25,0.39,0.59],
@@ -102,6 +99,25 @@ PSNRs = [[30.79,32.35,33.77,34.85],
 
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-Xiph2.eps',
+		'bpp','PSNR (dB)')
+
+ab_labels = ['Base','C64','C128','Recurrent','Detach','Linear']
+bpps = [[0.102,0.174,0.264,0.3889],
+		[0.418],
+		[0.123,0.181,0.284,0.3925],
+		[0.25],
+		[],
+		[]
+		]
+PSNRs = [[28.84,30.41,31.46,32.09],
+		[30.93],
+		[28.98,30.54,31.54,32.24],
+		[30.83],
+		[],
+		[]
+		]
+line_plot(bpps,PSNRs,ab_labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation-UVG.eps',
 		'bpp','PSNR (dB)')
 
 # 96
