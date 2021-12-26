@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'SPVC96'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 1 # 0,1,2,3
 RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'{SAVE_DIR}/DVC-2P_tmp.pth'
 LEARNING_RATE = 0.0001
@@ -37,6 +37,7 @@ BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 0
 USE_VIMEO = True
+device = 1
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -55,7 +56,7 @@ model = get_codec_model(CODEC_NAME,
                         loss_type=loss_type, 
                         compression_level=compression_level, 
                         use_split=False)
-model = model.cuda(0)
+model = model.cuda(device)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -130,7 +131,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        data = data[0].cuda()
+        data = data[0].cuda(device)
         l = data.size(0)-1
         
         # run model
@@ -218,7 +219,7 @@ def test(epoch, model, test_dataset):
             continue
             
         with torch.no_grad():
-            data = torch.stack(data, dim=0).cuda()
+            data = torch.stack(data, dim=0).cuda(device)
             l = data.size(0)
             
             # compress GoP
