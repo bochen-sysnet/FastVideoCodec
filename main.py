@@ -25,17 +25,17 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'SPVC64'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 1 # 0,1,2,3
-# RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
-RESUME_CODEC_PATH = f'{SAVE_DIR}/DVC-2P_tmp.pth'
+compression_level = 0 # 0,1,2,3
+RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+# RESUME_CODEC_PATH = f'{SAVE_DIR}/DVC-2P_tmp.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 5
+WARMUP_EPOCH = 0
 USE_VIMEO = True
 
 if not os.path.exists(SAVE_DIR):
@@ -107,7 +107,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset):
+def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset,test_dataset2):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -186,7 +186,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
             save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
             
-            # test(epoch, model, test_dataset2)
+            test(epoch, model, test_dataset2)
             model.train()
     return best_codec_score
     
@@ -271,7 +271,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = []
+    STEPS = [0]
     steps = [s for s in STEPS if s<0] if epoch<0 else [s for s in STEPS if s>=0]
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
     for param_group in optimizer.param_groups:
@@ -294,7 +294,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
+    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)

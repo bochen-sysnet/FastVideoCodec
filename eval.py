@@ -38,7 +38,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
         RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
-    model = get_codec_model(CODEC_NAME,noMeasure=False,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
+    model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -902,5 +902,5 @@ if __name__ == '__main__':
     else:
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','DVC','SPVC','AE3D','DVC-pretrained']:
+        elif args.task in ['RLVC','DVC','SPVC96','SPVC','AE3D','DVC-pretrained']:
             static_simulation_model(args, test_dataset)

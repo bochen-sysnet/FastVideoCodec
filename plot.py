@@ -34,32 +34,57 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
+# [0.123,0.181,0.284,0.3925]
+# [28.98,30.54,31.54,32.24]
+
 bpps = [[0.14,0.21,0.33,0.5],
 		[0.16,0.25,0.39,0.59],
 		[0.10,0.15,0.23,0.33],
 		[0.09,0.142,0.187],
-		[0.123,0.181,0.284,0.3925]
+		[0.102,0.174,0.264,0.3889]
 		]
 PSNRs = [[28.37,29.96,31.31,32.38],
 		[29.56,30.90,31.96,32.82],
 		[27.6,29.18,30.11,30.67],
 		[26.13,27.32,30.82],
-		[28.98,30.54,31.54,32.24]]
+		[28.84,30.41,31.46,32.09]
+		]
 line_plot(bpps,PSNRs,labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
 		'bpp','PSNR (dB)')
 
 bpps = [[0.16,0.26,0.43,0.7],
 		[0.17,0.28,0.45,0.72],
 		[0.1,0.16,0.23,0.32],
+		[],
+		[0.17,0.24,0.32,0.43]
 		]
 PSNRs = [[30.57,32.27,33.85,35.20],
 		[31.54,33.12,34.5,35.62],
 		[30.02,31.69,32.86,33.58],
+		[],
+		[30.1,31.64,32.66,33.44]
 		]
 
 line_plot(bpps,PSNRs,labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion2.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-MCL.eps',
+		'bpp','PSNR (dB)')
+
+bpps = [[0.09,0.14,0.23,0.4],
+		[0.1,0.17,0.28,0.47],
+		[0.06,0.1,0.15,0.22],
+		[],
+		[]
+		]
+PSNRs = [[31.10,32.67,34,34.98],
+		[32.19,33.57,34.62,35.35],
+		[30.28,32.26,33.52,34.27],
+		[],
+		[]
+		]
+
+line_plot(bpps,PSNRs,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-Xiph.eps',
 		'bpp','PSNR (dB)')
 
 # 96
