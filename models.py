@@ -980,9 +980,9 @@ class Coder2D(nn.Module):
             
     def compress_sequence(self,x):
         bs,c,h,w = x.size()
-        x_est = torch.tensor([0 for _ in x], requires_grad=True).cuda()
-        x_act = torch.tensor([0 for _ in x], requires_grad=True).cuda()
-        x_aux = torch.tensor(0, requires_grad=True).cuda()
+        x_est = torch.FloatTensor([0 for _ in x]).cuda()
+        x_act = torch.FloatTensor([0 for _ in x]).cuda()
+        x_aux = torch.FloatTensor([0]).cuda()
         if not self.downsample:
             rpm_hidden = torch.zeros(1,self.channels*2,h,w)
         else:
