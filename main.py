@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'SPVC96'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 1 # 0,1,2,3
+compression_level = 0 # 0,1,2,3
 RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'{SAVE_DIR}/DVC-2P_tmp.pth'
 LEARNING_RATE = 0.0001
@@ -276,7 +276,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = [0]
+    STEPS = []
     steps = [s for s in STEPS if s<0] if epoch<0 else [s for s in STEPS if s>=0]
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
     for param_group in optimizer.param_groups:

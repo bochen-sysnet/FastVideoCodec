@@ -136,7 +136,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         # Capture frame-by-frame
         ret, img = cap.read()
         if ret != True:break
-        clip.append(transforms.ToTensor()(img).cuda())
+        clip.append(transforms.ToTensor()(img))
     # When everything done, release the video capture object
     cap.release()
     assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
@@ -144,7 +144,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     psnr_list = [];msssim_list = [];bpp_act_list = []
     bpp = video_size*1.0/len(clip)/(height*width)
     for i in range(len(clip)):
-        Y1_raw = transforms.ToTensor()(raw_clip[i]).cuda().unsqueeze(0)
+        Y1_raw = transforms.ToTensor()(raw_clip[i]).unsqueeze(0)
         Y1_com = clip[i].unsqueeze(0)
         psnr_list += [PSNR(Y1_raw, Y1_com)]
         msssim_list += [MSSSIM(Y1_raw, Y1_com)]
