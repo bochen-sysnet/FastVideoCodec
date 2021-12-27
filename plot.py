@@ -53,13 +53,13 @@ line_plot(bpps,PSNRs,labels,
 bpps = [[0.16,0.26,0.43,0.7],
 		[0.17,0.28,0.45,0.72],
 		[0.1,0.16,0.23,0.32],
-		[],
+		[0.2,0.21,0.23,0.31],
 		[0.17,0.24,0.32,0.43]
 		]
 PSNRs = [[30.57,32.27,33.85,35.20],
 		[31.54,33.12,34.5,35.62],
 		[30.02,31.69,32.86,33.58],
-		[],
+		[29.65,31.45,31.84,32.46],
 		[30.1,31.64,32.66,33.44]
 		]
 
@@ -156,8 +156,8 @@ def bar_plot(avg,std,path,color,ylabel,yticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
-com_speeds_avg = [56.96,57.35,27.90,19.31]#,32.89] # 27.07,32.89,36.83
-com_speeds_std = [1.96,1.35,1.90,1.31]#,1.84]
+com_speeds_avg = [56.96,57.35,27.90,19.31,32.89] # 27.07,32.89,36.83
+com_speeds_std = [1.96,1.35,1.90,1.31,1.84]
 bar_plot(com_speeds_avg,com_speeds_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
 		colors[1],'Speed (fps)',yticks=np.arange(0,70,15))
