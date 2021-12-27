@@ -25,12 +25,12 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'SPVC64'
+CODEC_NAME = 'DVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 3 # 0,1,2,3
 #RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
-RESUME_CODEC_PATH = f'{SAVE_DIR}/SPVC64-2P_best.pth'
+RESUME_CODEC_PATH = f'{SAVE_DIR}/x.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -53,9 +53,8 @@ if use_cuda:
 # codec model .
 model = get_codec_model(CODEC_NAME, 
                         loss_type=loss_type, 
-                        compression_level=compression_level,
-                        use_split=False)
-model = model.cuda(device)
+                        compression_level=compression_level)
+#model = model.cuda(device)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -179,7 +178,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             psnr_module.reset()
             msssim_module.reset()   
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 15000 == 0 and batch_idx>0:
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
