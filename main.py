@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'DVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -53,8 +53,9 @@ if use_cuda:
 # codec model .
 model = get_codec_model(CODEC_NAME, 
                         loss_type=loss_type, 
-                        compression_level=compression_level)
-#model = model.cuda(device)
+                        compression_level=compression_level,
+                        use_split=False)
+model = model.cuda(device)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
