@@ -42,8 +42,8 @@ if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 ####### Create model
-#seed = int(time.time())
-seed = int(0)
+seed = int(time.time())
+#seed = int(0)
 torch.manual_seed(seed)
 use_cuda = True
 if use_cuda:
@@ -73,9 +73,9 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
+elif CODEC_NAME in ['DVC','RLVC']:
     # load what exists
-    pretrained_model_path = "backup/SPVC96-R/SPVC96-R-0P_best.pth"
+    pretrained_model_path = "backup/RLVC/RLVC-3P_best.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
