@@ -387,7 +387,7 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
 # how to direct rtsp traffic?
 def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     # Beginning time of streaming
-    t_0 = t_replay = time.perf_counter()
+    t_0 = time.perf_counter()
     # create a rtsp server or listener
     # ssh -R [REMOTE:]REMOTE_PORT:DESTINATION:DESTINATION_PORT [USER@]SSH_SERVER
     # ssh -R 8555:localhost:8555 uiuc@192.168.251.195
@@ -425,12 +425,12 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
 
         if t_startup is None:
             t_startup = time.perf_counter()-t_0
-
-        # replay
-        t_rebuffer = time.perf_counter() - t_replay
-        t_rebuffer = max(t_rebuffer,0)
+        else:
+            # replay
+            t_rebuffer = time.perf_counter() - t_replay
+            t_rebuffer = max(t_rebuffer,0)
+            t_rebuffer_total += t_rebuffer
         t_replay = time.perf_counter() + 1/args.target_rate
-        t_rebuffer_total += t_rebuffer
         
         # process metrics
         com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
@@ -520,7 +520,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
     return fps
     
 def SPVC_AE3D_server(args,data,model=None,Q=None):
-    t_0 = t_replay = time.perf_counter()
+    t_0 = time.perf_counter()
     GoP = args.fP + args.bP +1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
@@ -550,10 +550,11 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
             if t_startup is None:
                 t_startup = time.perf_counter()-t_0
-            # replay
-            t_rebuffer = time.perf_counter() - t_replay
-            t_rebuffer = max(t_rebuffer,0)
-            t_rebuffer_total += t_rebuffer
+            else:
+                # replay
+                t_rebuffer = time.perf_counter() - t_replay
+                t_rebuffer = max(t_rebuffer,0)
+                t_rebuffer_total += t_rebuffer
             t_replay = time.perf_counter() + (bs+1)/args.target_rate
             # current batch
             bs = GoP_size-1-args.fP
@@ -675,7 +676,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
 
 def RLVC_DVC_server(args,data,model=None,Q=None):
     # Beginning time of streaming
-    t_0 = t_replay = time.perf_counter()
+    t_0 = time.perf_counter()
     GoP = args.fP+args.bP+1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
@@ -731,11 +732,12 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                 if t_startup is None:
                     t_startup = time.perf_counter()-t_0
-                # replay
-                t_rebuffer = time.perf_counter() - t_replay
-                t_rebuffer = max(t_rebuffer,0)
+                else:
+                    # replay
+                    t_rebuffer = time.perf_counter() - t_replay
+                    t_rebuffer = max(t_rebuffer,0)
+                    t_rebuffer_total += t_rebuffer 
                 t_replay = time.perf_counter() + 1/args.target_rate
-                t_rebuffer_total += t_rebuffer 
                 # record time
                 x_ref = x_ref.detach()
                 psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
