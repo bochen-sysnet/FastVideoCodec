@@ -32,10 +32,7 @@ from models import PSNR,MSSSIM
 
 def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
     loss_type = 'P'
-    if CODEC_NAME == 'SPVC':
-        RESUME_CODEC_PATH = f'backup/SPVC/SPVC-{compression_level}{loss_type}_best_best.pth'
-    else:
-        RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
     model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
@@ -116,6 +113,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -408,7 +406,9 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     conn, addr = s.accept()
     psnr_module = AverageMeter()
     i = 0
+    GoP = 1+args.fP+args.bP
     t_startup = None
+    frame_count = 0
     t_rebuffer_total = 0
     stream_iter = tqdm(range(len(data)))
     while True:
@@ -424,13 +424,22 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         frame = frame.reshape((height, width, 3))
 
         if t_startup is None:
-            t_startup = time.perf_counter()-t_0
+            if i==GoP:
+                t_startup = time.perf_counter()-t_0
+                t_replay = time.perf_counter()
+                t_cache = GoP/args.target_rate
         else:
-            # replay
-            t_rebuffer = time.perf_counter() - t_replay
-            t_rebuffer = max(t_rebuffer,0)
-            t_rebuffer_total += t_rebuffer
-        t_replay = time.perf_counter() + 1/args.target_rate
+            t_ready = time.perf_counter()
+            if t_ready > t_replay + 1/args.target_rate:
+                # remove frame from cache
+                t_cache -= t_ready - (t_replay + 1/args.target_rate)
+            t_replay = t_replay + 1/args.target_rate # time when this frame finishes
+            if t_cache < 0:
+                t_rebuffer = -t_cache
+                t_replay += t_rebuffer
+                t_rebuffer_total += t_rebuffer
+                t_cache = 0
+            frame_count += 1
         
         # process metrics
         com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
@@ -442,6 +451,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         # Count time
         total_time = time.perf_counter() - t_0
         fps = i/total_time
+        # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
     
         # show result
         stream_iter.set_description(
@@ -465,6 +475,8 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
         cmd = f'nc {args.server_ip} {args.stream_port}'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
     t_0 = time.perf_counter()
+    t_first = None
+    frame_count = 0
     GoP = args.fP + args.bP +1
     L = data.size(0)
     encoder_iter = tqdm(range(0,L,GoP))
@@ -503,8 +515,12 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             if not args.encoder_test:
                 send_strings_to_process(process, [mv_string,res_string])
         # Count time
+        if t_first is not None:
+            frame_count += GoP_size
+        else:
+            t_first = time.perf_counter() - t_0
         total_time = time.perf_counter() - t_0
-        fps = (i+GoP_size)/total_time
+        fps = frame_count/(total_time-t_first)
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
@@ -525,9 +541,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    # First time to receive a frame
-    t_startup = None
     # initialize
+    t_startup = None # duration to receive the first frame
+    frame_count = 0
     psnr_module = AverageMeter()
     i = 0
     t_rebuffer_total = 0
@@ -548,14 +564,19 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             res_string1 = recv_strings_from_process(process, n_str)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
-            if t_startup is None:
-                t_startup = time.perf_counter()-t_0
-            else:
-                # replay
-                t_rebuffer = time.perf_counter() - t_replay
-                t_rebuffer = max(t_rebuffer,0)
-                t_rebuffer_total += t_rebuffer
-            t_replay = time.perf_counter() + (bs+1)/args.target_rate
+            # rebuffer
+            if t_startup is not None:
+                # count rebuffer time
+                t_ready = time.perf_counter()
+                if t_ready > t_replay + bs/args.target_rate:
+                    # remove frame from cache
+                    t_cache -= t_ready - (t_replay + bs/args.target_rate)
+                t_replay = t_replay + bs/args.target_rate # time when this frame finishes
+                if t_cache < 0:
+                    t_rebuffer = -t_cache
+                    t_replay += t_rebuffer
+                    t_rebuffer_total += t_rebuffer
+                    t_cache = 0
             # current batch
             bs = GoP_size-1-args.fP
             # receive the second two strings
@@ -566,11 +587,6 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
-            # replay
-            t_rebuffer = time.perf_counter() - t_replay
-            t_rebuffer = max(t_rebuffer,0)
-            t_rebuffer_total += t_rebuffer
-            t_replay = time.perf_counter() + bs/args.target_rate
         else:
             bs = GoP_size-1
             # receive two strings
@@ -581,15 +597,28 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
             # concate
             x_hat = torch.cat((x_ref,x_f_hat),dim=0)
-            # replay
-            t_rebuffer = time.perf_counter() - t_replay
-            t_rebuffer = max(t_rebuffer,0)
-            t_rebuffer_total += t_rebuffer
-            t_replay = time.perf_counter() + bs/args.target_rate
-            
-        # Count time
+
+        # start rebuffering after receiving a gop
+        if t_startup is None:
+            t_startup = time.perf_counter() - t_0
+            t_replay = time.perf_counter()
+            t_cache = GoP/args.target_rate
+        else:
+            # count rebuffer time
+            t_ready = time.perf_counter()
+            if t_ready > t_replay + bs/args.target_rate:
+                # remove frame from cache
+                t_cache -= t_ready - (t_replay + bs/args.target_rate)
+            t_replay = t_replay + (bs+1)/args.target_rate # time when this frame finishes
+            if t_cache < 0:
+                t_rebuffer = -t_cache
+                t_replay += t_rebuffer
+                t_rebuffer_total += t_rebuffer
+                t_cache = 0
+        frame_count += GoP_size
+
         total_time = time.perf_counter() - t_0
-        fps = (i+1)/total_time
+        fps = frame_count/total_time
 
         # measure metrics
         for com in x_hat:
@@ -601,8 +630,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
         # show result
         stream_iter.set_description(
             f"Decoder: {i:3}. "
-            f"FPS: {fps:.2f}. "
             f"Rebuffer: {t_rebuffer_total:.2f}. "
+            f"FPS: {fps:.2f}. "
             f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
@@ -659,7 +688,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
 
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = (i+1)/total_time
+        fps = (i)/(total_time)
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
@@ -697,23 +726,24 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                 model.decompress(x_ref, mv_string, res_string, decom_hidden, p>args.fP+1, decom_mv_prior_latent, decom_res_prior_latent)
             # replay
-            t_rebuffer = time.perf_counter() - t_replay
-            t_rebuffer = max(t_rebuffer,0)
-            t_replay = time.perf_counter() + 1/args.target_rate
-            t_rebuffer_total += t_rebuffer 
-
+            if t_startup is None:
+                if (p==GoP-1 or i==L-1):
+                    t_startup = time.perf_counter()-t_0
+                    t_replay = time.perf_counter()
+                    t_cache = GoP/args.target_rate
+            else:
+                t_ready = time.perf_counter()
+                if t_ready > t_replay + 1/args.target_rate:
+                    # remove frame from cache
+                    t_cache -= t_ready - (t_replay + 1/args.target_rate)
+                t_replay = t_replay + 1/args.target_rate # time when this frame finishes
+                if t_cache < 0:
+                    t_rebuffer = -t_cache
+                    t_replay += t_rebuffer
+                    t_rebuffer_total += t_rebuffer
+                    t_cache = 0
             x_ref = x_ref.detach()
             psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
-            # Count time
-            total_time = time.perf_counter() - t_0
-            fps = (i+1)/total_time
-            # show result
-            stream_iter.set_description(
-                f"Decoder: {i:3}. "
-                f"FPS: {fps:.2f}. "
-                f"Rebuffer: {t_rebuffer_total:.2f}. "
-                f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"Total: {total_time:.3f}. ")
         elif p == args.fP or i == L-1:
             # get current GoP 
             x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
@@ -730,31 +760,33 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 res_string = recv_strings_from_process(process, 1, useXZ=False)
                 x_ref,decom_hidden,decom_mv_prior_latent,decom_res_prior_latent = \
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
-                if t_startup is None:
-                    t_startup = time.perf_counter()-t_0
-                else:
-                    # replay
-                    t_rebuffer = time.perf_counter() - t_replay
-                    t_rebuffer = max(t_rebuffer,0)
-                    t_rebuffer_total += t_rebuffer 
-                t_replay = time.perf_counter() + 1/args.target_rate
                 # record time
                 x_ref = x_ref.detach()
                 psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
-                # Count time
-                total_time = time.perf_counter() - t_0
-                fps = (i+1)/total_time
-                # show result
-                stream_iter.set_description(
-                    f"Decoder: {i:3}. "
-                    f"FPS: {fps:.2f}. "
-                    f"Rebuffer: {t_rebuffer_total:.2f}. "
-                    f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                    f"Total: {total_time:.3f}. ")
             decom_hidden = model.init_hidden(H,W)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
-            t_replay += 1/args.target_rate
+            if t_startup is not None:
+                t_ready = time.perf_counter()
+                if t_ready > t_replay + args.fP/args.target_rate:
+                    # remove frame from cache
+                    t_cache -= t_ready - (t_replay + args.fP/args.target_rate)
+                t_replay = t_replay + (args.fP+1)/args.target_rate # time when this frame finishes
+                if t_cache < 0:
+                    t_rebuffer = -t_cache
+                    t_replay += t_rebuffer
+                    t_rebuffer_total += t_rebuffer
+                    t_cache = 0
+        # Count time
+        total_time = time.perf_counter() - t_0
+        fps = (i+1)/total_time
+        # show result
+        stream_iter.set_description(
+            f"Decoder: {i:3}. "
+            f"Rebuffer: {t_rebuffer_total:.2f}. "
+            f"FPS: {fps:.2f}. "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
@@ -766,7 +798,7 @@ def dynamic_simulation(args, test_dataset):
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
         client_sim = RLVC_DVC_client
-    elif args.task in ['SPVC','AE3D']:
+    elif args.task in ['AE3D'] or 'SPVC' in args.task:
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
     elif args.task in ['x264','x265']:
@@ -780,10 +812,8 @@ def dynamic_simulation(args, test_dataset):
     com_level_list = [0,1,2,3] if args.Q_option == 'Slow' else [2]
     for com_level,Q in zip(com_level_list,Q_list):
         ####### Load model
-        if args.task in ['RLVC','DVC','SPVC','AE3D']:
-            codec_name = args.task
-            if args.channels != 128: codec_name += str(args.channels)
-            model = LoadModel(codec_name,compression_level=com_level,use_split=args.use_split)
+        if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+            model = LoadModel(args.task,compression_level=com_level,use_split=args.use_split)
             model.eval()
         else:
             model = None
@@ -795,13 +825,13 @@ def dynamic_simulation(args, test_dataset):
         load_iter = tqdm(range(ds_size))
         for data_idx in load_iter:
             frame,eof = test_dataset[data_idx]
-            if args.task in ['RLVC','DVC','SPVC','AE3D']:
+            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
                 data.append(transforms.ToTensor()(frame))
             else:
                 data.append(frame)
             if not eof:
                 continue
-            if args.task in ['RLVC','DVC','SPVC','AE3D']:
+            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
                 data = torch.stack(data, dim=0)
                 data = data.cuda()
             
@@ -819,14 +849,15 @@ def dynamic_simulation(args, test_dataset):
             
             # record loss
             fps_module.update(fps)
-            rbr_module.update(rebuffer_rate)
-            latency_module.update(latency)
+            if args.role == 'standalone' or args.role == 'server':
+                rbr_module.update(rebuffer_rate)
+                latency_module.update(latency)
 
             # clear input
             data = []
 
         # destroy model
-        if args.task in ['SPVC']:
+        if 'SPVC' in args.task:
             model.destroy()
 
         # write results
@@ -835,7 +866,7 @@ def dynamic_simulation(args, test_dataset):
             outstr = f'{time_str} {args.task} {com_level} ' +\
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
-            if args.task in ['RLVC','DVC','SPVC','AE3D']:
+            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
                 enc_str,dec_str,_,_ = showTimer(model)
                 if args.role == 'standalone' or args.role == 'client':
                     f.write(enc_str+'\n')
@@ -871,13 +902,13 @@ if __name__ == '__main__':
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
-    parser.add_argument('--fps', type=float, default=60., help='frame rate of sender')
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
     parser.add_argument('--no-encoder_test', dest='use_psnr', action='store_false')
     parser.set_defaults(encoder_test=False)
     parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
+    parser.add_argument('--fps', type=float, default=30., help='frame rate of sender')
     parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
     args = parser.parse_args()
     

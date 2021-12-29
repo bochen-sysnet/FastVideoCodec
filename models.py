@@ -79,8 +79,8 @@ def showTimer(model):
     dec_str = model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,
         model.meters["D-RES"].avg,model.meters["D-NET"].avg,
         model.meters['eDMV'].avg,model.meters['eDRES'].avg)
-    print(enc,enc_str)
-    print(dec,dec_str)
+    # print(enc,enc_str)
+    # print(dec,dec_str)
     return enc_str,dec_str,enc,dec
     
 def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
