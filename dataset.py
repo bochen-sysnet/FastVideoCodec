@@ -55,6 +55,7 @@ class VideoDataset(Dataset):
             if (cap.isOpened()== False):
                 print("Error opening video stream or file")
             # Read until video is completed
+            self._clip = []
             while(cap.isOpened()):
                 # Capture frame-by-frame
                 ret, img = cap.read()

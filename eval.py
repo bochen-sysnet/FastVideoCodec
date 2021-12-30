@@ -89,6 +89,7 @@ class VideoDataset(Dataset):
             if (cap.isOpened()== False):
                 print("Error opening video stream or file")
             # Read until video is completed
+            self._clip = []
             while(cap.isOpened()):
                 # Capture frame-by-frame
                 ret, img = cap.read()
@@ -113,7 +114,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -138,7 +138,7 @@ class VideoDataset(Dataset):
                 self._total_frames+=1
             # When everything done, release the video capture object
             cap.release()
-        #print("[log] Total frames: ", self._total_frames)
+        print("[log] Total frames: ", self._total_frames)
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -863,15 +863,15 @@ def dynamic_simulation(args, test_dataset):
         # write results
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
-            outstr = f'{time_str} {args.task} {com_level} ' +\
+            outstr = f'{args.task} {args.fps} {com_level} ' +\
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
-            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-                enc_str,dec_str,_,_ = showTimer(model)
-                if args.role == 'standalone' or args.role == 'client':
-                    f.write(enc_str+'\n')
-                if args.role == 'standalone' or args.role == 'server':
-                    f.write(dec_str+'\n')
+            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+            #     enc_str,dec_str,_,_ = showTimer(model)
+            #     if args.role == 'standalone' or args.role == 'client':
+            #         f.write(enc_str+'\n')
+            #     if args.role == 'standalone' or args.role == 'server':
+            #         f.write(dec_str+'\n')
             
         test_dataset.reset()
 
