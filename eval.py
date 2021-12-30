@@ -191,7 +191,7 @@ def static_simulation_x26x(args,test_dataset):
             test_iter.set_description(
                 f"Q:{Q}"
                 f"{data_idx:6}. "
-                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
+                f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
                 
@@ -271,10 +271,7 @@ def static_simulation_model(args, test_dataset):
             test_iter.set_description(
                 f"{data_idx:6}. "
                 f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-                f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-                f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
-                f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-                f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+                f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
                 f"I: {float(max(psnr_list)):.2f}")
