@@ -741,6 +741,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_replay += t_rebuffer
                     t_rebuffer_total += t_rebuffer
                     t_cache = 0
+                frame_count += 1
             x_ref = x_ref.detach()
             psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
         elif p == args.fP or i == L-1:
@@ -776,10 +777,10 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_replay += t_rebuffer
                     t_rebuffer_total += t_rebuffer
                     t_cache = 0
+                frame_count += 1
         # Count time
         total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
-        frame_count += GoP
         # show result
         stream_iter.set_description(
             f"Decoder: {i:3}. "
