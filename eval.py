@@ -777,7 +777,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_replay += t_rebuffer
                     t_rebuffer_total += t_rebuffer
                     t_cache = 0
-                frame_count += 1
+                frame_count += B
         # Count time
         total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
