@@ -864,12 +864,12 @@ def dynamic_simulation(args, test_dataset):
             outstr = f'{args.task} {args.fps} {com_level} ' +\
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
-            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-            #     enc_str,dec_str,_,_ = showTimer(model)
-            #     if args.role == 'standalone' or args.role == 'client':
-            #         f.write(enc_str+'\n')
-            #     if args.role == 'standalone' or args.role == 'server':
-            #         f.write(dec_str+'\n')
+            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+                enc_str,dec_str,_,_ = showTimer(model)
+                if args.role == 'standalone' or args.role == 'client':
+                    f.write(enc_str+'\n')
+                if args.role == 'standalone' or args.role == 'server':
+                    f.write(dec_str+'\n')
             
         test_dataset.reset()
 
