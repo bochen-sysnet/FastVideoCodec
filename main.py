@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'DVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 0
-device = 1
+device = 0
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -275,7 +275,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = [-1]
+    STEPS = [0]
     steps = [s for s in STEPS if s<0] if epoch<0 else [s for s in STEPS if s>=0]
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
     for param_group in optimizer.param_groups:
