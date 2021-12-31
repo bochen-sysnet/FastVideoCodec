@@ -778,7 +778,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_cache = 0
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = frame_count/(total_time - t_startup) if t_startup is not None
+        fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
         frame_count += GoP
         # show result
         stream_iter.set_description(
