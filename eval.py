@@ -712,6 +712,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
     L = data.size(0)
     t_rebuffer_total = 0
     t_startup = None
+    frame_count = 0
     stream_iter = tqdm(range(L))
     for i in stream_iter:
         p = i%GoP
@@ -777,7 +778,8 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_cache = 0
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = (i+1)/total_time
+        fps = frame_count/(total_time - t_startup)
+        frame_count += GoP
         # show result
         stream_iter.set_description(
             f"Decoder: {i:3}. "
@@ -864,12 +866,12 @@ def dynamic_simulation(args, test_dataset):
             outstr = f'{args.task} {args.fps} {com_level} ' +\
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
-            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-                enc_str,dec_str,_,_ = showTimer(model)
-                if args.role == 'standalone' or args.role == 'client':
-                    f.write(enc_str+'\n')
-                if args.role == 'standalone' or args.role == 'server':
-                    f.write(dec_str+'\n')
+            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+            #     enc_str,dec_str,_,_ = showTimer(model)
+            #     if args.role == 'standalone' or args.role == 'client':
+            #         f.write(enc_str+'\n')
+            #     if args.role == 'standalone' or args.role == 'server':
+            #         f.write(dec_str+'\n')
             
         test_dataset.reset()
 
