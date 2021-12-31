@@ -1,6 +1,6 @@
 #!/bin/bash
  
-for lr in 0% 5% # 0-25%
+for lr in 0% 5% 15%# 0-25%
 do
 	if [ $1 == 'client' ] | [ $1 == 'standalone' ]
 	then
