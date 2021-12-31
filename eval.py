@@ -613,10 +613,10 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                 t_replay += t_rebuffer
                 t_rebuffer_total += t_rebuffer
                 t_cache = 0
-        frame_count += GoP_size
+            frame_count += GoP_size
 
         total_time = time.perf_counter() - t_0
-        fps = frame_count/total_time
+        fps = frame_count/(total_time - t_startup)
 
         # measure metrics
         for com in x_hat:
