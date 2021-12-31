@@ -448,8 +448,8 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = i/total_time
-        # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        # fps = i/total_time
+        fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
     
         # show result
         stream_iter.set_description(
@@ -778,7 +778,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_cache = 0
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = frame_count/(total_time - t_startup)
+        fps = frame_count/(total_time - t_startup) if t_startup is not None
         frame_count += GoP
         # show result
         stream_iter.set_description(
