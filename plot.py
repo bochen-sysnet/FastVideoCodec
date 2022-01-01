@@ -173,3 +173,35 @@ latency_std = [0.075,0.093,0.01,0.076,0.063]
 bar_plot(latency_avg,latency_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
 		colors[3],'Start-up Latency',yticks=np.arange(0,1,0.2))
+
+fps_arr = [[] for _ in range(5)]
+rbf_arr = [[] for _ in range(5)]
+with open('server.log','r') as f:
+	count = 0
+	for line in f.readlines():
+		line = line.strip()
+		line = line.split(' ')
+		fps = float(line[3])
+		rbf = float(line[4])
+		pos = count%5
+		if pos==2:
+			pos=3
+		elif pos==3:
+			pos=2
+		fps_arr[pos] += [fps]
+		rbf_arr[pos] += [rbf]
+		count += 1
+	# switch 2,3
+fps_arr = np.array(fps_arr)
+rbf_arr = np.array(rbf_arr)
+
+fps_avg = np.mean(fps_arr,1)
+fps_std = np.std(fps_arr,1)
+rbf_avg = np.mean(rbf_arr,1)
+rbf_std = np.std(rbf_arr,1)
+bar_plot(fps_avg,fps_std,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed2.jpg',
+		colors[1],'Speed (fps)',yticks=np.arange(0,45,15))
+bar_plot(rbf_avg,rbf_std,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer2.jpg',
+		colors[3],'Rebuffer Rate',yticks=np.arange(0,0.3,0.1))
