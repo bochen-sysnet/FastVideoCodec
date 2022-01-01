@@ -379,12 +379,9 @@ def load_state_dict_whatever(model, state_dict):
     for name, param in state_dict.items():
         if name.endswith("._offset") or name.endswith("._quantized_cdf") or name.endswith("._cdf_length") or name.endswith(".scale_table"):
              continue
-        if 'entropy_bottleneck' in name:
-            print(name)
-            continue
+        if 'entropy_bottleneck.entropy_bottleneck' in name:continue
         if name in own_state and own_state[name].size() == param.size():
             own_state[name].copy_(param)
-    exit(0)
             
 def load_state_dict_all(model, state_dict):
     own_state = model.state_dict()
