@@ -29,13 +29,13 @@ CODEC_NAME = 'RLVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
-RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 #RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-3{loss_type}_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 0
+WARMUP_EPOCH = 5
 device = 1
 
 if not os.path.exists(SAVE_DIR):
@@ -179,7 +179,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             psnr_module.reset()
             msssim_module.reset()   
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 1000 == 0 and batch_idx>0:
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
@@ -191,7 +191,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
             #state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
             #save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
-            test(epoch, model, test_dataset2)
+            #test(epoch, model, test_dataset2)
             model.train()
     return best_codec_score
     
