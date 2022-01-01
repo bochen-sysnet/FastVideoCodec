@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC'
+CODEC_NAME = 'DVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -35,8 +35,8 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 0
-device = 1
+WARMUP_EPOCH = 5
+device = 0
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -73,7 +73,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
+elif CODEC_NAME in ['DVC','RLVC']:
     # load what exists
     pretrained_model_path = "backup/DVC/DVC-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
@@ -275,9 +275,8 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = [0]
-    steps = [s for s in STEPS if s<0] if epoch<0 else [s for s in STEPS if s>=0]
-    r = (LR_DECAY_RATE ** (sum(epoch >= np.array(steps))))
+    STEPS = []
+    r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
     return r
