@@ -73,7 +73,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['DVC','RLVC']:
+elif CODEC_NAME in []:
     # load what exists
     pretrained_model_path = "backup/RLVC/RLVC-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
@@ -171,7 +171,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"I: {float(psnr_list[0]):.2f}")
 
         # clear result every 1000 batches
-        if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 500 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
@@ -179,7 +179,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             psnr_module.reset()
             msssim_module.reset()   
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 500 == 0 and batch_idx>0:
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
