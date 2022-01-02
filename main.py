@@ -29,8 +29,8 @@ CODEC_NAME = 'SPVC96'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
-RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
-#RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-3{loss_type}_ckpt.pth'
+#RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-2{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -73,7 +73,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SPVC96']:
+elif CODEC_NAME in []:
     # load what exists
     pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_tmp.pth"
     checkpoint = torch.load(pretrained_model_path)
@@ -180,7 +180,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset()   
             
         if batch_idx % 1000 == 0 and batch_idx>0:
-            #print('testing at batch_idx %d' % (batch_idx))
+            print('testing at batch_idx %d' % (batch_idx))
             #score = test(epoch, model, test_dataset)
             
             #is_best = score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1]
