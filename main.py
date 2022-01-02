@@ -179,7 +179,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             psnr_module.reset()
             msssim_module.reset()   
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0 and batch_idx>0:
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
@@ -276,7 +276,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = []
+    STEPS = [0]
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
