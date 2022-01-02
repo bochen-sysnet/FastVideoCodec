@@ -35,7 +35,7 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 5
+WARMUP_EPOCH = 0
 device = 0
 
 if not os.path.exists(SAVE_DIR):
@@ -276,7 +276,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
-    STEPS = [0,0]
+    STEPS = []
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
