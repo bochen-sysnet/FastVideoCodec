@@ -115,8 +115,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
+    be_res_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     msssim_module = AverageMeter()
+    I_module = AverageMeter()
     all_loss_module = AverageMeter()
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     batch_size = 7
@@ -134,10 +136,11 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+        be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
         aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -148,9 +151,11 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
         img_loss_module.update(img_loss.cpu().data.item(), l)
         be_loss_module.update(be_loss.cpu().data.item(), l)
+        be_res_loss_module.update(be_res_loss.cpu().data.item(), l)
         psnr_module.update(psnr.cpu().data.item(),l)
         msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
+        I_module.update(float(psnr_list[0]))
         
         # backward
         scaler.scale(loss).backward()
@@ -165,21 +170,24 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"{batch_idx:6}. "
             f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
             f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+            f"BR: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
             f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"I: {float(psnr_list[0]):.2f}")
+            f"I: {I_module.avg:.2f}")
 
         # clear result every 1000 batches
         if batch_idx % 500 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
+            be_res_loss_module.reset()
             all_loss_module.reset()
             psnr_module.reset()
-            msssim_module.reset()   
+            msssim_module.reset() 
+            I_module.reset()    
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 5000 == 0:# and batch_idx>0:
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             

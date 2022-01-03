@@ -229,7 +229,7 @@ def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
     # we can record PSNR wrt the distance to I-frame to show error propagation)
         
 def parallel_compression(model, data, compressI=False):
-    img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []
+    img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     
     if compressI:
         name = f"{model.name}-{model.compression_level}-{model.loss_type}"
@@ -245,12 +245,17 @@ def parallel_compression(model, data, compressI=False):
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if 'SPVC' in model.name or 'AE3D' in model.name:
-            _, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
+        if 'SPVC' in model.name:
+            if model.training:
+                _, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
+            else:
+                _, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
             for pos in range(data.size(0)-1):
                 img_loss_list += [img_loss[pos].to(data.device)]
                 aux_loss_list += [aux_loss[pos].to(data.device)]
                 bpp_est_list += [bpp_est[pos].to(data.device)]
+                if model.training:
+                    bpp_res_est_list += [bpp_res_est[pos].to(data.device)]
                 bpp_act_list += [bpp_act[pos].to(data.device)]
                 psnr_list += [psnr[pos].to(data.device)]
                 msssim_list += [msssim[pos].to(data.device)]
@@ -283,7 +288,10 @@ def parallel_compression(model, data, compressI=False):
                 psnr_list += [PSNR(data[i:i+1], x_hat.to(data.device))]
                 msssim_list += [MSSSIM(data[i:i+1], x_hat.to(data.device))]
     
-    return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+    if model.training:
+        return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+    else:
+        return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
 def write_image(x, prefix):
     for j in range(x.size(0)):
@@ -1432,6 +1440,7 @@ class SPVC(nn.Module):
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(h * w)
+        bpp_res_est = res_est.to(mv_est.device)*self.r_res/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
@@ -1448,10 +1457,12 @@ class SPVC(nn.Module):
                     self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
                     self.r_flow*flow_loss)
-        print(flow_loss,warp_loss,mc_loss,rec_loss,mv_est,res_est)
         img_loss = img_loss.repeat(bs)
         
-        return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
+        if self.training:
+            return com_frames, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim
+        else:
+            return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
     def loss(self, pix_loss, bpp_loss, aux_loss):
         loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
