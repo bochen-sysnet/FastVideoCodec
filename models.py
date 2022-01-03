@@ -1452,7 +1452,6 @@ class SPVC(nn.Module):
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(h * w)
         bpp_res_est = res_est.to(mv_est.device)/(h * w)
-        print(bpp_est,bpp_res_est)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
