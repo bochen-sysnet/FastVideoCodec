@@ -92,8 +92,8 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
-        model.r_mv, model.r_res = 1, 1
+        model.r_rec, model.r_flow, model.r_warp, model.r_mc = 0,0,1,0
+        model.r_mv, model.r_res = 1, 0
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
@@ -1451,7 +1451,7 @@ class SPVC(nn.Module):
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(h * w)
-        bpp_res_est = (mv_est)/(h * w)
+        bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
@@ -1459,7 +1459,7 @@ class SPVC(nn.Module):
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
-        msssim = PSNR(x_tar, MC_frames, use_list=True)
+        msssim = PSNR(x_tar, warped_frames, use_list=True)
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
