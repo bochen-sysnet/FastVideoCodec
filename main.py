@@ -152,10 +152,11 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         img_loss_module.update(img_loss.cpu().data.item(), l)
         be_loss_module.update(be_loss.cpu().data.item(), l)
         be_res_loss_module.update(be_res_loss.cpu().data.item(), l)
-        psnr_module.update(psnr.cpu().data.item(),l)
+        if not torch.isinf(psnr):
+            psnr_module.update(psnr.cpu().data.item(),l)
+            I_module.update(float(psnr_list[0]))
         msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
-        I_module.update(float(psnr_list[0]))
         
         # backward
         scaler.scale(loss).backward()
