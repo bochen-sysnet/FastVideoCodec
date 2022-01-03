@@ -93,7 +93,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
-        model.r_mv, model.r_res = 0, 1
+        model.r_mv, model.r_res = 1, 1
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
