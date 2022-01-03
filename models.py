@@ -1433,7 +1433,7 @@ class SPVC(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        MC_frames = MC_frames.detach()
+        
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         if '-R' not in self.name:
@@ -1451,7 +1451,7 @@ class SPVC(nn.Module):
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(h * w)
-        bpp_res_est = res_est.to(mv_est.device)/(h * w)
+        bpp_res_est = (mv_est+res_est.to(mv_est.device))/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
