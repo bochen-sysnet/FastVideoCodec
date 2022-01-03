@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     
     # setup training weights
     if epoch <= warmup_epoch:
-        model.r_img, model.r_bpp, model.r_aux = 1,0,0
+        model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,1,1,1
         model.r_mv, model.r_res = 1, 0
     else:
@@ -99,7 +99,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
     
     model.epoch = epoch
-    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.r_rec, model.r_flow, model.r_warp, model.r_mc)
+    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.r_rec, model.r_flow, model.r_warp, model.r_mc, model.r_mv, model.r_res)
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     imgByteArr = io.BytesIO()
@@ -1141,7 +1141,7 @@ class IterPredVideoCodecs(nn.Module):
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(Height * Width * batch_size)
         # actual bits
-        bpp_act = (mv_act*self.r_mv + res_act.to(mv_act.device)*self.r_res)/(Height * Width * batch_size)
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
         aux_loss = (mv_aux + res_aux.to(mv_aux.device))
         # calculate metrics/loss
@@ -1433,7 +1433,7 @@ class SPVC(nn.Module):
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(h * w)
         # actual bits
-        bpp_act = (mv_act*self.r_mv + res_act.to(mv_act.device)*self.r_res)/(h * w)
+        bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
         aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
         aux_loss = aux_loss.repeat(bs)
