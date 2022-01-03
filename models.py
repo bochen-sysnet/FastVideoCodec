@@ -92,8 +92,8 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.r_rec, model.r_flow, model.r_warp, model.r_mc = 0,0,0,1
-        model.r_mv, model.r_res = 1, 0
+        model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
+        model.r_mv, model.r_res = 1, 1
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
@@ -1168,7 +1168,10 @@ class IterPredVideoCodecs(nn.Module):
         img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-        return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
+        if self.training:
+            return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
+        else:
+            return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
         
     def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag, mv_prior_latent, res_prior_latent):
         bs, c, h, w = Y1_raw[1:].size()
@@ -1430,7 +1433,7 @@ class SPVC(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        
+        MC_frames = MC_frames.detach()# test
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         if '-R' not in self.name:
