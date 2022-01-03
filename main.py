@@ -141,7 +141,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
         be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
-        print(be_loss,be_res_loss)
         aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
