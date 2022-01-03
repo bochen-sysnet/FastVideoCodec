@@ -289,6 +289,7 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [MSSSIM(data[i:i+1], x_hat.to(data.device))]
     
     if model.training:
+        print(bpp_res_est_list)
         return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     else:
         return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
