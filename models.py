@@ -1162,7 +1162,7 @@ class IterPredVideoCodecs(nn.Module):
         aux_loss = (mv_aux*self.r_mv + res_aux.to(mv_aux.device)*self.r_res)
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
-        msssim = MSSSIM(Y1_raw, Y1_com.to(Y1_raw.device))
+        msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
         rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
         img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
         img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
@@ -1451,7 +1451,7 @@ class SPVC(nn.Module):
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(h * w)
-        bpp_res_est = (mv_est+res_est.to(mv_est.device))/(h * w)
+        bpp_res_est = (mv_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
