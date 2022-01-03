@@ -1433,7 +1433,7 @@ class SPVC(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        MC_frames = MC_frames.detach()# test
+        
         # BATCH:compress residual
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         if '-R' not in self.name:
