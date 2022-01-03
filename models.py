@@ -1155,7 +1155,7 @@ class IterPredVideoCodecs(nn.Module):
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(Height * Width * batch_size)
-        bpp_res_est = res_est.to(mv_est.device)/(Height * Width * batch_size)
+        bpp_res_est = mv_est/(Height * Width * batch_size)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
