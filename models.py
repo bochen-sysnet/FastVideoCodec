@@ -265,7 +265,12 @@ def parallel_compression(model, data, compressI=False):
             mv_prior_latent = res_prior_latent = None
             x_hat = data[0:1]
             for i in range(1,B):
-                x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = model(x_hat, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
+                if model.training:
+                    x_hat,hidden,bpp_est,bpp_res_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                        model(x_hat, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
+                else:
+                    x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                        model(x_hat, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 x_hat = x_hat.detach()
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
@@ -273,6 +278,8 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp_act.to(data.device)]
                 psnr_list += [psnr.to(data.device)]
                 msssim_list += [msssim.to(data.device)]
+                if model.training:
+                    bpp_res_est_list += [bpp_res_est.to(data.device)]
         elif model.name in ['DVC-pretrained']:
             B,_,H,W = data.size()
             x_hat = data[0:1]
@@ -1148,6 +1155,7 @@ class IterPredVideoCodecs(nn.Module):
         ##### compute bits
         # estimated bits
         bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(Height * Width * batch_size)
+        bpp_res_est = res_est.to(mv_est.device)/(Height * Width * batch_size)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
@@ -1160,7 +1168,7 @@ class IterPredVideoCodecs(nn.Module):
         img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-        return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
+        return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
         
     def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag, mv_prior_latent, res_prior_latent):
         bs, c, h, w = Y1_raw[1:].size()
