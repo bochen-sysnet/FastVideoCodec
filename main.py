@@ -35,7 +35,7 @@ LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
-WARMUP_EPOCH = 0
+WARMUP_EPOCH = 5
 device = 0
 
 if not os.path.exists(SAVE_DIR):
@@ -73,9 +73,9 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
+elif CODEC_NAME in ['SPVC96']:
     # load what exists
-    pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_tmp.pth"
+    pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
@@ -183,7 +183,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
-            is_best = score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1]
+            is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
             if is_best:
                 print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
                 best_codec_score = score
