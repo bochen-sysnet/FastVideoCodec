@@ -187,13 +187,13 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 5000 == 0:# and batch_idx>0:
+        if batch_idx % 5000 == 0 and batch_idx>0:
             print('testing at batch_idx %d' % (batch_idx))
             score = test(epoch, model, test_dataset)
             
             is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
             if is_best:
-                print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
+                print("New best score: ", score, ". Previous: ", best_codec_score)
                 best_codec_score = score
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
             save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
