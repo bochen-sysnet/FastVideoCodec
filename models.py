@@ -1469,7 +1469,7 @@ class SPVC(nn.Module):
                     self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
                     self.r_flow*flow_loss)
-        img_loss = warp_loss
+        img_loss = warp_loss+flow_loss
         img_loss = img_loss.repeat(bs)
         
         if self.training:
