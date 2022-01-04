@@ -73,14 +73,18 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
+elif CODEC_NAME in ['SPVC96']:
     # load what exists
-    pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-0{loss_type}_ckpt.pth"
+    pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-3{loss_type}_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
+    with open(f'DVC/snapshot/2048.model', 'rb') as f:
+        pretrained_dict = torch.load(f)
+        model_dict = model.state_dict()
+        load_state_dict_only(model, model_dict, 'warpnet')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
