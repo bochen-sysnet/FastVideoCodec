@@ -1317,8 +1317,10 @@ class SPVC(nn.Module):
             compression_level=2, use_split=True, entropy_trick=True):
         super(SPVC, self).__init__()
         self.name = name 
-        self.opticFlow = OpticalFlowNet()
-        self.warpnet = MCNet()
+        #self.opticFlow = OpticalFlowNet()
+        #self.warpnet = MCNet()
+        self.opticFlow = ME_Spynet()
+        self.warpnet = Warp_net()
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
