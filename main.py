@@ -85,6 +85,7 @@ elif CODEC_NAME in ['SPVC96']:
         pretrained_dict = torch.load(f)
         model_dict = model.state_dict()
         load_state_dict_only(model, model_dict, 'warpnet')
+        load_state_dict_only(model, model_dict, 'opticFlow')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
