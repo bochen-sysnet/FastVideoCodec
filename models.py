@@ -1428,7 +1428,8 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_tensors,layers,parents,self.use_split,detach=('-D' in self.name))
+        #MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1468,6 +1469,7 @@ class SPVC(nn.Module):
                     self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
                     self.r_flow*flow_loss)
+        img_loss = warped_frames
         img_loss = img_loss.repeat(bs)
         
         if self.training:
@@ -1476,7 +1478,7 @@ class SPVC(nn.Module):
             return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
     def loss(self, pix_loss, bpp_loss, aux_loss):
-        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
+        loss = self.r_img*pix_loss#.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
         return loss
         
     def init_hidden(self, h, w):
