@@ -396,7 +396,6 @@ def load_state_dict_whatever(model, state_dict):
     for name, param in state_dict.items():
         if name.endswith("._offset") or name.endswith("._quantized_cdf") or name.endswith("._cdf_length") or name.endswith(".scale_table"):
              continue
-        if 'entropy_bottleneck' in name:continue
         if name in own_state and own_state[name].size() == param.size():
             own_state[name].copy_(param)
             
@@ -1248,7 +1247,8 @@ class IterPredVideoCodecs(nn.Module):
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # estimate optical flow
         t_0 = time.perf_counter()
-        mv_tensor, l0, l1, l2, l3, l4 = self.opticFlow(Y0_com, Y1_raw)
+        #mv_tensor, l0, l1, l2, l3, l4 = self.opticFlow(Y0_com, Y1_raw)
+        mv_tensor = self.opticFlow(Y1_raw, Y0_com)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
         mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size,mv_prior_latent = \
@@ -1257,7 +1257,8 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,_ = motion_compensation(self.warpnet,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
+        #Y1_MC,_ = motion_compensation(self.warpnet,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
+        Y1_MC, _ = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
         # compress residual
@@ -1283,7 +1284,8 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.warpnet,x_ref,mv_hat.cuda(1) if self.use_split else mv_hat)
+        #Y1_MC,Y1_warp = motion_compensation(self.warpnet,x_ref,mv_hat.cuda(1) if self.use_split else mv_hat)
+        Y1_MC,Y1_warp = motioncompensation(self.warpnet, x_ref, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
