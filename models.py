@@ -1428,8 +1428,8 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_tensors,layers,parents,self.use_split,detach=('-D' in self.name))
-        #MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        #MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_tensors,layers,parents,self.use_split,detach=('-D' in self.name))
+        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1464,7 +1464,7 @@ class SPVC(nn.Module):
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        flow_loss = (l0+l1+l2+l3+l4)/5*1024
+        flow_loss = (l0+l1+l2+l3+l4)*1024
         img_loss = (self.r_rec*rec_loss + \
                     self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
