@@ -1073,7 +1073,68 @@ def generate_graph(graph_type='default'):
         print('Undefined graph type:',graph_type)
         exit(1)
     return g,layers,parents
+
+            
+def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
+    MC_frame_list = [None for _ in range(bs)]
+    warped_frame_list = [None for _ in range(bs)]
+    # for layers in graph
+    # get elements of this layers
+    # get parents of all elements above
+    for layer in layers:
+        ref = [] # reference frame
+        diff = [] # motion
+        for tar in layer: # id of frames in this layer
+            if tar>bs:continue
+            parent = parents[tar]
+            ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+            diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
+        if ref:
+            ref = torch.cat(ref,dim=0)
+            if detach:
+                ref = ref.detach()
+            diff = torch.cat(diff,dim=0)
+            MC_frame,warped_frame = motion_compensation(MC_network,ref,diff)
+            for i,tar in enumerate(layer):
+                if tar>bs:continue
+                MC_frame_list[tar-1] = MC_frame[i:i+1]
+                warped_frame_list[tar-1] = warped_frame[i:i+1]
+    MC_frames = torch.cat(MC_frame_list,dim=0)
+    warped_frames = torch.cat(warped_frame_list,dim=0)
+    return MC_frames,warped_frames
     
+def graph_from_batch(bs,isLinear=False):
+    if isLinear:
+        g,layers,parents = generate_graph('default')
+    else:
+        # I frame is the only first layer
+        if bs <=2:
+            g,layers,parents = generate_graph('2layers')
+        elif bs <=6:
+            g,layers,parents = generate_graph('3layers')
+        elif bs <=14:
+            g,layers,parents = generate_graph('4layers')
+        elif bs <=30:
+            g,layers,parents = generate_graph('5layers')
+        else:
+            print('Batch size not supported yet:',bs)
+    return g,layers,parents
+    
+def refidx_from_graph(g,bs):
+    ref_index = [-1 for _ in range(bs)]
+    for start in g:
+        if start>bs:continue
+        for k in g[start]:
+            if k>bs:continue
+            ref_index[k-1] = start
+    return ref_index
+    
+def motioncompensation(ref, mv):
+    warpframe = flow_warp(ref, mv)
+    inputfeature = torch.cat((warpframe, ref), 1)
+    prediction = self.warpnet(inputfeature) + warpframe
+    return prediction, warpframe
+        
 # DVC,RLVC,MLVC
 # Need to measure time and implement decompression for demo
 # cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
@@ -1081,8 +1142,11 @@ class IterPredVideoCodecs(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2,use_split=True):
         super(IterPredVideoCodecs, self).__init__()
         self.name = name 
-        self.optical_flow = OpticalFlowNet()
-        self.MC_network = MCNet()
+        #self.optical_flow = OpticalFlowNet()
+        #self.MC_network = MCNet()
+        from DVC.subnet import ME_Spynet,Warp_net
+        self.optical_flow = ME_Spynet
+        self.MC_network = Warp_net()
         self.mv_codec = Coder2D(self.name, in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
         self.res_codec = Coder2D(self.name, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
         self.channels = channels
@@ -1121,7 +1185,10 @@ class IterPredVideoCodecs(nn.Module):
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # estimate optical flow
         t_0 = time.perf_counter()
-        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        # replace
+        # mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        mv_tensor = self.opticFlow(Y1_raw, Y0_com)
+        mv_tensor = mv_tensor.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
@@ -1134,7 +1201,9 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
+        # replace
+        # Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
+        Y1_MC, Y1_warp = motioncompensation(Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1165,7 +1234,7 @@ class IterPredVideoCodecs(nn.Module):
         msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
         rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
         img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
-        img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
+        #img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         if self.training:
@@ -1242,61 +1311,7 @@ class IterPredVideoCodecs(nn.Module):
         rpm_mv_hidden = rpm_mv_hidden.cuda()
         rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
-            
-def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
-    MC_frame_list = [None for _ in range(bs)]
-    warped_frame_list = [None for _ in range(bs)]
-    # for layers in graph
-    # get elements of this layers
-    # get parents of all elements above
-    for layer in layers:
-        ref = [] # reference frame
-        diff = [] # motion
-        for tar in layer: # id of frames in this layer
-            if tar>bs:continue
-            parent = parents[tar]
-            ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
-            diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
-        if ref:
-            ref = torch.cat(ref,dim=0)
-            if detach:
-                ref = ref.detach()
-            diff = torch.cat(diff,dim=0)
-            MC_frame,warped_frame = motion_compensation(MC_network,ref,diff)
-            for i,tar in enumerate(layer):
-                if tar>bs:continue
-                MC_frame_list[tar-1] = MC_frame[i:i+1]
-                warped_frame_list[tar-1] = warped_frame[i:i+1]
-    MC_frames = torch.cat(MC_frame_list,dim=0)
-    warped_frames = torch.cat(warped_frame_list,dim=0)
-    return MC_frames,warped_frames
-    
-def graph_from_batch(bs,isLinear=False):
-    if isLinear:
-        g,layers,parents = generate_graph('default')
-    else:
-        # I frame is the only first layer
-        if bs <=2:
-            g,layers,parents = generate_graph('2layers')
-        elif bs <=6:
-            g,layers,parents = generate_graph('3layers')
-        elif bs <=14:
-            g,layers,parents = generate_graph('4layers')
-        elif bs <=30:
-            g,layers,parents = generate_graph('5layers')
-        else:
-            print('Batch size not supported yet:',bs)
-    return g,layers,parents
-    
-def refidx_from_graph(g,bs):
-    ref_index = [-1 for _ in range(bs)]
-    for start in g:
-        if start>bs:continue
-        for k in g[start]:
-            if k>bs:continue
-            ref_index[k-1] = start
-    return ref_index
-           
+        
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P', 
             compression_level=2, use_split=True, entropy_trick=True):
@@ -1477,7 +1492,7 @@ class SPVC(nn.Module):
             return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
     def loss(self, pix_loss, bpp_loss, aux_loss):
-        loss = self.r_img*pix_loss#.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
+        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
         return loss
         
     def init_hidden(self, h, w):
