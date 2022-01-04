@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     
     # setup training weights
     if epoch <= warmup_epoch:
-        model.r_img, model.r_bpp, model.r_aux = 1,0,0
+        model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_flow, model.r_warp, model.r_mc = 0,0,1,0
         model.r_mv, model.r_res = 1,0
     else:
@@ -1414,7 +1414,7 @@ class SPVC(nn.Module):
         mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
-        
+        mv_tensors = mv_tensors.detach()
         # BATCH:compress optical flow
         if '-R' not in self.name:
             mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
@@ -1428,7 +1428,6 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        #MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_tensors,layers,parents,self.use_split,detach=('-D' in self.name))
         MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
@@ -1469,7 +1468,7 @@ class SPVC(nn.Module):
                     self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
                     self.r_flow*flow_loss)
-        img_loss = flow_loss
+        img_loss = warp_loss
         img_loss = img_loss.repeat(bs)
         
         if self.training:
