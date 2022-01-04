@@ -1434,7 +1434,7 @@ class SPVC(nn.Module):
         mv_tensors = mv_tensors.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
-        #mv_tensors = mv_tensors.detach()
+        mv_tensors = mv_tensors.detach()
         # BATCH:compress optical flow
         if '-R' not in self.name:
             mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
