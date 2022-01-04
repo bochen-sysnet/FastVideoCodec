@@ -1074,8 +1074,15 @@ def generate_graph(graph_type='default'):
         exit(1)
     return g,layers,parents
 
+from DVC.subnet import ME_Spynet,Warp_net,flow_warp
+    
+def motioncompensation(warpnet, ref, mv):
+    warpframe = flow_warp(ref, mv)
+    inputfeature = torch.cat((warpframe, ref), 1)
+    prediction = warpnet(inputfeature) + warpframe
+    return prediction, warpframe
             
-def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
+def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     MC_frame_list = [None for _ in range(bs)]
     warped_frame_list = [None for _ in range(bs)]
     # for layers in graph
@@ -1094,7 +1101,8 @@ def TFE(MC_network,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
             if detach:
                 ref = ref.detach()
             diff = torch.cat(diff,dim=0)
-            MC_frame,warped_frame = motion_compensation(MC_network,ref,diff)
+            MC_frame,warped_frame = motioncompensation(warpnet, ref, diff)
+            #MC_frame,warped_frame = motion_compensation(warpnet,ref,diff)
             for i,tar in enumerate(layer):
                 if tar>bs:continue
                 MC_frame_list[tar-1] = MC_frame[i:i+1]
@@ -1128,12 +1136,6 @@ def refidx_from_graph(g,bs):
             if k>bs:continue
             ref_index[k-1] = start
     return ref_index
-    
-def motioncompensation(ref, mv):
-    warpframe = flow_warp(ref, mv)
-    inputfeature = torch.cat((warpframe, ref), 1)
-    prediction = self.warpnet(inputfeature) + warpframe
-    return prediction, warpframe
         
 # DVC,RLVC,MLVC
 # Need to measure time and implement decompression for demo
@@ -1142,11 +1144,10 @@ class IterPredVideoCodecs(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P',compression_level=2,use_split=True):
         super(IterPredVideoCodecs, self).__init__()
         self.name = name 
-        #self.optical_flow = OpticalFlowNet()
-        #self.MC_network = MCNet()
-        from DVC.subnet import ME_Spynet,Warp_net
-        self.optical_flow = ME_Spynet
-        self.MC_network = Warp_net()
+        #self.opticFlow = OpticalFlowNet()
+        #self.warpnet = MCNet()
+        self.opticFlow = ME_Spynet()
+        self.warpnet = Warp_net()
         self.mv_codec = Coder2D(self.name, in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
         self.res_codec = Coder2D(self.name, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure)
         self.channels = channels
@@ -1164,9 +1165,9 @@ class IterPredVideoCodecs(nn.Module):
             self = self.cuda()
 
     def split(self):
-        self.optical_flow.cuda(0)
+        self.opticFlow.cuda(0)
         self.mv_codec.cuda(0)
-        self.MC_network.cuda(1)
+        self.warpnet.cuda(1)
         self.res_codec.cuda(1)
 
     def forward(self, Y0_com, Y1_raw, hidden_states, RPM_flag,mv_prior_latent,res_prior_latent):
@@ -1186,9 +1187,8 @@ class IterPredVideoCodecs(nn.Module):
         # estimate optical flow
         t_0 = time.perf_counter()
         # replace
-        # mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        # mv_tensor, l0, l1, l2, l3, l4 = self.opticFlow(Y0_com, Y1_raw)
         mv_tensor = self.opticFlow(Y1_raw, Y0_com)
-        mv_tensor = mv_tensor.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
@@ -1202,8 +1202,8 @@ class IterPredVideoCodecs(nn.Module):
         # motion compensation
         t_0 = time.perf_counter()
         # replace
-        # Y1_MC,Y1_warp = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
-        Y1_MC, Y1_warp = motioncompensation(Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
+        # Y1_MC,Y1_warp = motion_compensation(self.warpnet,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
+        Y1_MC, Y1_warp = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1248,7 +1248,7 @@ class IterPredVideoCodecs(nn.Module):
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # estimate optical flow
         t_0 = time.perf_counter()
-        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        mv_tensor, l0, l1, l2, l3, l4 = self.opticFlow(Y0_com, Y1_raw)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
         mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size,mv_prior_latent = \
@@ -1257,7 +1257,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,_ = motion_compensation(self.MC_network,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
+        Y1_MC,_ = motion_compensation(self.warpnet,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
         # compress residual
@@ -1283,7 +1283,7 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motion_compensation(self.MC_network,x_ref,mv_hat.cuda(1) if self.use_split else mv_hat)
+        Y1_MC,Y1_warp = motion_compensation(self.warpnet,x_ref,mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         # compress residual
@@ -1317,8 +1317,8 @@ class SPVC(nn.Module):
             compression_level=2, use_split=True, entropy_trick=True):
         super(SPVC, self).__init__()
         self.name = name 
-        self.optical_flow = OpticalFlowNet()
-        self.MC_network = MCNet()
+        self.opticFlow = OpticalFlowNet()
+        self.warpnet = MCNet()
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
@@ -1351,9 +1351,9 @@ class SPVC(nn.Module):
         self.res_codec.entropy_bottleneck.destroy()
 
     def split(self):
-        self.optical_flow.cuda(0)
+        self.opticFlow.cuda(0)
         self.mv_codec.cuda(0)
-        self.MC_network.cuda(1)
+        self.warpnet.cuda(1)
         self.res_codec.cuda(1)
         
     def compress(self, x):
@@ -1365,7 +1365,7 @@ class SPVC(nn.Module):
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
-        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
+        mv_tensors, = self.opticFlow(x_tar,x[ref_index])
         self.meters['E-FL'].update(time.perf_counter() - t_0)
             
         # BATCH motion compression
@@ -1375,7 +1375,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split)
+        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
         
@@ -1403,7 +1403,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x_ref,bs,mv_hat,layers,parents,self.use_split)
+        MC_frames,warped_frames = TFE(self.warpnet,x_ref,bs,mv_hat,layers,parents,self.use_split)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
         
@@ -1426,7 +1426,8 @@ class SPVC(nn.Module):
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
-        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
+        mv_tensors, = self.opticFlow(x_tar,x[ref_index])
+        mv_tensors = mv_tensors.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         mv_tensors = mv_tensors.detach()
@@ -1443,7 +1444,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.MC_network,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1478,12 +1479,9 @@ class SPVC(nn.Module):
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        flow_loss = (l0+l1+l2+l3+l4)*1024
         img_loss = (self.r_rec*rec_loss + \
                     self.r_warp*warp_loss + \
-                    self.r_mc*mc_loss + \
-                    self.r_flow*flow_loss)
-        img_loss = warp_loss
+                    self.r_mc*mc_loss)
         img_loss = img_loss.repeat(bs)
         
         if self.training:
@@ -1504,9 +1502,9 @@ class SCVC(nn.Module):
         super(SCVC, self).__init__()
         self.name = name 
         device = torch.device('cuda')
-        self.optical_flow = OpticalFlowNet()
+        self.opticFlow = OpticalFlowNet()
         self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
-        self.MC_network = MCNet()
+        self.warpnet = MCNet()
         self.ctx_encoder = nn.Sequential(nn.Conv2d(3+channels, channels, kernel_size=5, stride=2, padding=2),
                                         GDN(channels),
                                         ResidualBlock(channels,channels),
@@ -1554,10 +1552,10 @@ class SCVC(nn.Module):
         self.noMeasure = noMeasure
 
     def split(self):
-        self.optical_flow.cuda(0)
+        self.opticFlow.cuda(0)
         self.mv_codec.cuda(0)
         self.feature_extract.cuda(0)
-        self.MC_network.cuda(0)
+        self.warpnet.cuda(0)
         self.tmp_prior_encoder.cuda(1)
         self.ctx_encoder.cuda(1)
         self.latent_codec.cuda(1)
@@ -1572,7 +1570,7 @@ class SCVC(nn.Module):
         
         # BATCH:compute optical flow
         t_0 = time.perf_counter()
-        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[:-1], x[1:])
+        mv_tensors, l0, l1, l2, l3, l4 = self.opticFlow(x[:-1], x[1:])
         t_flow = time.perf_counter() - t_0
         #print('Flow:',t_flow)
         
@@ -1587,7 +1585,7 @@ class SCVC(nn.Module):
         MC_frame_list = []
         warped_frame_list = []
         for i in range(x.size(0)-1):
-            MC_frame,warped_frame = motion_compensation(self.MC_network,ref_frame,mv_hat[i:i+1])
+            MC_frame,warped_frame = motion_compensation(self.warpnet,ref_frame,mv_hat[i:i+1])
             ref_frame = MC_frame.detach()
             MC_frame_list.append(MC_frame)
             warped_frame_list.append(warped_frame)
