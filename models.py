@@ -1434,7 +1434,7 @@ class SPVC(nn.Module):
         mv_tensors = mv_tensors.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
-        mv_tensors = mv_tensors.detach()
+        #mv_tensors = mv_tensors.detach()
         # BATCH:compress optical flow
         if '-R' not in self.name:
             mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
@@ -1470,12 +1470,14 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
+        #bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
+        bpp_est = (mv_est)/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
+        #aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
+        aux_loss = (mv_aux)
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
