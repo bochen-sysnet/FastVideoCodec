@@ -75,7 +75,7 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in []:
     # load what exists
-    pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-0{loss_type}_best.pth"
+    pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-0{loss_type}_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
