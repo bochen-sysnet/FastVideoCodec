@@ -1430,7 +1430,6 @@ class SPVC(nn.Module):
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
-        #mv_tensors, l0, l1, l2, l3, l4 = self.opticFlow(x[ref_index], x_tar)
         mv_tensors = self.opticFlow(x_tar,x[ref_index])
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
@@ -1470,14 +1469,15 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        #bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
-        bpp_est = (mv_est)/(h * w)
+        bpp_est = (mv_est if self.r_mv else mv_est.detach() + \
+                    res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach())/(h * w)
+        #bpp_est = (mv_est)/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        #aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
-        aux_loss = (mv_aux)
+        aux_loss = (mv_aux if self.r_mv else mv_aux.detach() + \
+                    res_aux.to(mv_aux.device) if self.r_res else res_aux.to(mv_aux.device).detach())/2
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
@@ -1485,9 +1485,8 @@ class SPVC(nn.Module):
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        img_loss = (self.r_rec*rec_loss + \
-                    self.r_warp*warp_loss + \
-                    self.r_mc*mc_loss)
+        #img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
+        img_loss = mc_loss
         img_loss = img_loss.repeat(bs)
         
         if self.training:
