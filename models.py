@@ -286,6 +286,7 @@ def parallel_compression(model, data, compressI=False):
             for i in range(1,B):
                 x_hat, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
                     model(data[i:i+1],x_hat)
+                print(bpp)
                 img_loss = mse_loss + warploss + interloss
                 x_hat = x_hat.detach()
                 img_loss_list += [img_loss.to(data.device)]
