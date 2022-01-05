@@ -1431,7 +1431,7 @@ class SPVC(nn.Module):
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
         mv_tensors = self.opticFlow(x_tar,x[ref_index])
-        mv_tensors = mv_tensors.detach()
+        #mv_tensors = mv_tensors.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         mv_tensors = mv_tensors.detach()
