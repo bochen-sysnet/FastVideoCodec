@@ -390,6 +390,7 @@ def load_state_dict_only(model, state_dict, keyword):
         if keyword not in name: continue
         if name in own_state:
             own_state[name].copy_(param)
+            print('Loading',name)
     
 def load_state_dict_whatever(model, state_dict):
     own_state = model.state_dict()
@@ -398,6 +399,8 @@ def load_state_dict_whatever(model, state_dict):
              continue
         if name in own_state and own_state[name].size() == param.size():
             own_state[name].copy_(param)
+        else:
+            print('Not loading',name)
             
 def load_state_dict_all(model, state_dict):
     own_state = model.state_dict()
@@ -1319,10 +1322,10 @@ class SPVC(nn.Module):
             compression_level=2, use_split=True, entropy_trick=True):
         super(SPVC, self).__init__()
         self.name = name 
-        self.opticFlow = OpticalFlowNet()
-        self.warpnet = MCNet()
-        #self.opticFlow = ME_Spynet()
-        #self.warpnet = Warp_net()
+        #self.opticFlow = OpticalFlowNet()
+        #self.warpnet = MCNet()
+        self.opticFlow = ME_Spynet()
+        self.warpnet = Warp_net()
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
