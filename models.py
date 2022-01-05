@@ -1103,8 +1103,8 @@ def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
             if detach:
                 ref = ref.detach()
             diff = torch.cat(diff,dim=0)
-            #MC_frame,warped_frame = motioncompensation(warpnet, ref, diff)
-            MC_frame,warped_frame = motion_compensation(warpnet,ref,diff)
+            MC_frame,warped_frame = motioncompensation(warpnet, ref, diff)
+            #MC_frame,warped_frame = motion_compensation(warpnet,ref,diff)
             for i,tar in enumerate(layer):
                 if tar>bs:continue
                 MC_frame_list[tar-1] = MC_frame[i:i+1]
