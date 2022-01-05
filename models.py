@@ -1431,10 +1431,9 @@ class SPVC(nn.Module):
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
         mv_tensors = self.opticFlow(x_tar,x[ref_index])
-        #mv_tensors = mv_tensors.detach()
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
-        mv_tensors = mv_tensors.detach()
+        #mv_tensors = mv_tensors.detach()
         # BATCH:compress optical flow
         if '-R' not in self.name:
             mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
