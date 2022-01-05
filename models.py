@@ -1470,9 +1470,7 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est if self.r_mv else mv_est.detach() + \
-                    res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach())/(h * w)
-        print(mv_est/(h * w),(res_est)/(h * w))
+        bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
