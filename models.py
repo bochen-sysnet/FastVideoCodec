@@ -1471,14 +1471,14 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
-        #bpp_est = (mv_est)/(h * w)
+        #bpp_est = (mv_est + res_est.to(mv_est.device))/(h * w)
+        bpp_est = (mv_est)/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
-        #aux_loss = (mv_aux)
+        #aux_loss = (mv_aux + res_aux.to(mv_aux.device))/2
+        aux_loss = (mv_aux)
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)

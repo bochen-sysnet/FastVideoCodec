@@ -78,7 +78,7 @@ elif CODEC_NAME in ['SPVC96']:
     pretrained_model_path = f"{SAVE_DIR}/{CODEC_NAME}-3{loss_type}_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
-    load_state_dict_whatever(model, checkpoint['state_dict'])
+    #load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
     with open(f'DVC/snapshot/2048.model', 'rb') as f:
