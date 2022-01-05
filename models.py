@@ -53,8 +53,6 @@ def compress_video(model, frame_idx, cache, startNewClip):
             
 def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
-    model.r_app, model.r_rec, model.r_warp, model.r_mc = 1,1,1,1
-    model.r_res = model.r_mv = 1
     
     psnr_list = [256,512,1024,2048]
     msssim_list = [8,16,32,64]
@@ -92,15 +90,12 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.r_rec, model.r_warp, model.r_mc = 0,0,1
-        model.r_mv, model.r_res = 1,0
         model.stage = 'MC' # 'REC'
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.r_rec, model.r_warp, model.r_mc = 1,0,0
     
     model.epoch = epoch
-    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.r_rec, model.r_warp, model.r_mc, model.r_mv, model.r_res)
+    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.stage)
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     imgByteArr = io.BytesIO()
@@ -1209,8 +1204,6 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), 1024, True)
-        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), 1024, True)
         # compress residual
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
@@ -1224,17 +1217,19 @@ class IterPredVideoCodecs(nn.Module):
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est*self.r_mv + res_est.to(mv_est.device)*self.r_res)/(Height * Width * batch_size)
-        bpp_res_est = mv_est/(Height * Width * batch_size)
+        bpp_est = (mv_est + (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(Height * Width * batch_size)
+        bpp_res_est = (res_est)/(Height * Width * batch_size)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
-        aux_loss = (mv_aux*self.r_mv + res_aux.to(mv_aux.device)*self.r_res)
+        aux_loss = mv_aux + (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())/2
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
         msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
+        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), 1024, True)
+        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), 1024, True)
         rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
-        img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
+        img_loss = mc_loss if self.stage == 'MC' else rec_loss
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         if self.training:
@@ -1469,15 +1464,15 @@ class SPVC(nn.Module):
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
             
         ##### compute bits
+        # auxilary loss
+        aux_loss = mv_aux + (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())
         # estimated bits
-        bpp_est = ((mv_est if self.r_mv else mv_est.detach()) + \
-                    (res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach()))/(h * w)
+        bpp_est = (mv_est + (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = ((mv_aux if self.r_mv else mv_aux.detach()) + \
-                    (res_aux.to(mv_aux.device) if self.r_res else res_aux.to(mv_aux.device).detach()))/2
+        aux_loss = mv_aux + (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
@@ -1485,7 +1480,6 @@ class SPVC(nn.Module):
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        #img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
         img_loss = mc_loss if self.stage == 'MC' else rec_loss
         img_loss = img_loss.repeat(bs)
         
@@ -1638,9 +1632,7 @@ class SCVC(nn.Module):
         warp_loss = calc_loss(x[1:], warped_frames, self.r, True)
         rec_loss = calc_loss(x[1:], com_frames, self.r, self.use_psnr)
         flow_loss = (l0+l1+l2+l3+l4).cuda(0)/5*1024
-        img_loss = self.r_warp*warp_loss + \
-                    self.r_mc*mc_loss + \
-                    self.r_rec*rec_loss
+        img_loss = self.r_rec*rec_loss
         img_loss = img_loss.repeat(bs)
         
         return x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
