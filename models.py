@@ -1481,7 +1481,7 @@ class SPVC(nn.Module):
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
-        msssim = PSNR(x_tar, warped_frames, use_list=True)
+        msssim = PSNR(x_tar, MC_frames, use_list=True)
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
