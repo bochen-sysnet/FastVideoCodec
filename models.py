@@ -52,7 +52,7 @@ def compress_video(model, frame_idx, cache, startNewClip):
         compress_video_batch(model, frame_idx, cache, startNewClip)
             
 def init_training_params(model):
-    model.r_img, model.r_bpp, model.r_aux = 1,1,1,1
+    model.r_img, model.r_bpp, model.r_aux = 1,1,1
     model.r_app, model.r_rec, model.r_warp, model.r_mc = 1,1,1,1
     model.r_res = model.r_mv = 1
     
