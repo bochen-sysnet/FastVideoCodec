@@ -1486,7 +1486,7 @@ class SPVC(nn.Module):
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
         #img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
-        img_loss = mc_loss if model.stage == 'MC' else rec_loss
+        img_loss = mc_loss if self.stage == 'MC' else rec_loss
         img_loss = img_loss.repeat(bs)
         
         if self.training:
