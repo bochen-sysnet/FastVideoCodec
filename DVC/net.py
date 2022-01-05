@@ -75,7 +75,7 @@ class VideoCompressor(nn.Module):
             quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
 
-        prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+        prediction, warpframe = self.motioncompensation(referframe, estmv)
 
         input_residual = input_image - prediction
 
