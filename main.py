@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'DVC-pretrained'
+CODEC_NAME = 'SPVC96'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -83,9 +83,8 @@ elif CODEC_NAME in ['SPVC96']:
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
     with open(f'DVC/snapshot/2048.model', 'rb') as f:
         pretrained_dict = torch.load(f)
-        model_dict = model.state_dict()
-        load_state_dict_only(model, model_dict, 'warpnet')
-        load_state_dict_only(model, model_dict, 'opticFlow')
+        load_state_dict_only(model, pretrained_dict, 'warpnet')
+        load_state_dict_only(model, pretrained_dict, 'opticFlow')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
