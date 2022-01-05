@@ -142,9 +142,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
         if model.name == 'DVC-pretrained':
             _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        else:
+            _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
