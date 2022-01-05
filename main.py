@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'SPVC96'
+CODEC_NAME = 'DVC-pretrained'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -150,7 +150,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        loss = model.loss(img_loss,be_loss,aux_loss)
+        if model.name != 'DVC-pretrained':
+            loss = model.loss(img_loss,be_loss,aux_loss)
+        else:
+            loss = img_loss
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
