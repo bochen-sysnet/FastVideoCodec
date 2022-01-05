@@ -160,7 +160,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if not torch.isinf(psnr):
             psnr_module.update(psnr.cpu().data.item(),l)
             I_module.update(float(psnr_list[0]))
-        msssim_module.update(msssim.cpu().data.item(), l)
+            msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # backward
