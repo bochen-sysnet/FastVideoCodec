@@ -181,7 +181,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"PMC: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
-            f"I: {I_module.avg:.2f}")
+            f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
 
         # clear result every 1000 batches
         if batch_idx % 500 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
