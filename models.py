@@ -1470,16 +1470,14 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        print(self.r_mv,mv_est if self.r_mv else mv_est.detach())
-        print(self.r_res,res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach())
-        bpp_est = (mv_est if self.r_mv else mv_est.detach() + \
-                    res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach())/(h * w)
+        bpp_est = ((mv_est if self.r_mv else mv_est.detach()) + \
+                    (res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach()))/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux if self.r_mv else mv_aux.detach() + \
-                    res_aux.to(mv_aux.device) if self.r_res else res_aux.to(mv_aux.device).detach())/2
+        aux_loss = ((mv_aux if self.r_mv else mv_aux.detach()) + \
+                    (res_aux.to(mv_aux.device) if self.r_res else res_aux.to(mv_aux.device).detach()))/2
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
