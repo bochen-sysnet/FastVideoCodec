@@ -1464,8 +1464,6 @@ class SPVC(nn.Module):
         com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
             
         ##### compute bits
-        # auxilary loss
-        aux_loss = mv_aux + (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())
         # estimated bits
         bpp_est = (mv_est + (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(h * w)
         bpp_res_est = (res_est)/(h * w)
