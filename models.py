@@ -52,7 +52,7 @@ def compress_video(model, frame_idx, cache, startNewClip):
         compress_video_batch(model, frame_idx, cache, startNewClip)
             
 def init_training_params(model):
-    model.r_img, model.r_bpp, model.r_flow, model.r_aux = 1,1,1,1
+    model.r_img, model.r_bpp, model.r_aux = 1,1,1,1
     model.r_app, model.r_rec, model.r_warp, model.r_mc = 1,1,1,1
     model.r_res = model.r_mv = 1
     
@@ -92,14 +92,14 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,1,1,1
+        model.r_rec, model.r_warp, model.r_mc = 0,0,1
         model.r_mv, model.r_res = 1,1
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.r_rec, model.r_flow, model.r_warp, model.r_mc = 1,0,0,0
+        model.r_rec, model.r_warp, model.r_mc = 1,0,0
     
     model.epoch = epoch
-    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.r_rec, model.r_flow, model.r_warp, model.r_mc, model.r_mv, model.r_res)
+    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.r_rec, model.r_warp, model.r_mc, model.r_mv, model.r_res)
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     imgByteArr = io.BytesIO()
@@ -1234,7 +1234,6 @@ class IterPredVideoCodecs(nn.Module):
         msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
         rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
         img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
-        #img_loss += (l0+l1+l2+l3+l4)/5*1024*self.r_flow
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         if self.training:
@@ -1642,8 +1641,7 @@ class SCVC(nn.Module):
         flow_loss = (l0+l1+l2+l3+l4).cuda(0)/5*1024
         img_loss = self.r_warp*warp_loss + \
                     self.r_mc*mc_loss + \
-                    self.r_rec*rec_loss + \
-                    self.r_flow*flow_loss
+                    self.r_rec*rec_loss
         img_loss = img_loss.repeat(bs)
         
         return x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
