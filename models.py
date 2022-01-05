@@ -390,7 +390,6 @@ def load_state_dict_only(model, state_dict, keyword):
         if keyword not in name: continue
         if name in own_state:
             own_state[name].copy_(param)
-            print('Loading',name)
     
 def load_state_dict_whatever(model, state_dict):
     own_state = model.state_dict()
@@ -1451,7 +1450,8 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        #MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_tensors,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
