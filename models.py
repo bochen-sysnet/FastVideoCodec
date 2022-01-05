@@ -1186,13 +1186,13 @@ class IterPredVideoCodecs(nn.Module):
         # estimate optical flow
         t_0 = time.perf_counter()
         # replace
-        # mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
-        mv_tensor = self.optical_flow(Y1_raw, Y0_com)
+        # mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        mv_tensors = self.optical_flow(Y1_raw, Y0_com)
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
         mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux,mv_prior_latent = \
-            self.mv_codec(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag,prior_latent=mv_prior_latent)
+            self.mv_codec(mv_tensors, rae_mv_hidden, rpm_mv_hidden, RPM_flag,prior_latent=mv_prior_latent)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
@@ -1247,12 +1247,12 @@ class IterPredVideoCodecs(nn.Module):
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # estimate optical flow
         t_0 = time.perf_counter()
-        #mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
-        mv_tensor = self.optical_flow(Y1_raw, Y0_com)
+        #mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(Y0_com, Y1_raw)
+        mv_tensors = self.optical_flow(Y1_raw, Y0_com)
         self.meters['E-FL'].update(time.perf_counter() - t_0)
         # compress optical flow
         mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size,mv_prior_latent = \
-            self.mv_codec.compress(mv_tensor, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True, prior_latent=mv_prior_latent)
+            self.mv_codec.compress(mv_tensors, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True, prior_latent=mv_prior_latent)
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
@@ -1430,7 +1430,7 @@ class SPVC(nn.Module):
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         ref_index = refidx_from_graph(g,bs)
-        mv_tensor, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
+        mv_tensors, l0, l1, l2, l3, l4 = self.optical_flow(x[ref_index], x_tar)
         #mv_tensors = self.optical_flow(x_tar,x[ref_index])
         if not self.noMeasure:
             self.meters['E-FL'].update(time.perf_counter() - t_0)
