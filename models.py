@@ -94,6 +94,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_warp, model.r_mc = 0,0,1
         model.r_mv, model.r_res = 1,0
+        model.stage = 'MC' # 'REC'
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
         model.r_rec, model.r_warp, model.r_mc = 1,0,0
@@ -1471,7 +1472,6 @@ class SPVC(nn.Module):
         # estimated bits
         bpp_est = (mv_est if self.r_mv else mv_est.detach() + \
                     res_est.to(mv_est.device) if self.r_res else res_est.to(mv_est.device).detach())/(h * w)
-        #bpp_est = (mv_est)/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
@@ -1486,7 +1486,7 @@ class SPVC(nn.Module):
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
         #img_loss = (self.r_rec*rec_loss + self.r_warp*warp_loss + self.r_mc*mc_loss)
-        img_loss = mc_loss
+        img_loss = mc_loss if model.stage == 'MC' else rec_loss
         img_loss = img_loss.repeat(bs)
         
         if self.training:
