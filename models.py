@@ -1480,7 +1480,7 @@ class SPVC(nn.Module):
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
         msssim = PSNR(x_tar, MC_frames, use_list=True)
-        print(msssim)
+        print([float(m) for m in msssim])
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
