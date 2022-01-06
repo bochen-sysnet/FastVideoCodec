@@ -229,7 +229,7 @@ def parallel_compression(model, data, compressI=False):
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     
     if compressI:
-        name = f"{model.name}-{model.compression_level}-{model.loss_type}-"
+        name = f"{model.name}-{model.compression_level}-{model.loss_type}"
         x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=name)
         img_loss_list += [img_loss.to(data.device)]
         aux_loss_list += [aux_loss.to(data.device)]
@@ -1448,7 +1448,7 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_tensors,layers,parents,self.use_split,detach=('-D' in self.name))
+        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
