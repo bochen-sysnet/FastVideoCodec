@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC'
+        model.stage = 'MC'
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1032,10 +1032,14 @@ def generate_graph(graph_type='default'):
     # BFS or DFS?
     if graph_type == 'default':
         g = {}
-        for k in range(6):
+        for k in range(14):
             g[k] = [k+1]
         layers = [[i+1] for i in range(14)] # elements in layers
         parents = {i+1:i for i in range(14)}
+    elif graph_type == 'onehop':    
+        g = {0:[i+1 for i in range(14)]}
+        layers = [[i+1 for i in range(14)]]
+        parents = {i+1:0 for i in range(14)}
     elif graph_type == '2layers':
         g = {0:[1,2]}
         layers = [[1,2]] # elements in layers
@@ -1106,9 +1110,11 @@ def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     warped_frames = torch.cat(warped_frame_list,dim=0)
     return MC_frames,warped_frames
     
-def graph_from_batch(bs,isLinear=False):
+def graph_from_batch(bs,isLinear=False,isOnehop=False):
     if isLinear:
         g,layers,parents = generate_graph('default')
+    elif isOnehop:
+        g,layers,parents = generate_graph('onehop')
     else:
         # I frame is the only first layer
         if bs <=2:
@@ -1362,7 +1368,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name)) # or one-hop?
         ref_index = refidx_from_graph(g,bs)
         mv_tensors, = self.opticFlow(x_tar,x[ref_index])
         self.meters['E-FL'].update(time.perf_counter() - t_0)
@@ -1423,7 +1429,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         ref_index = refidx_from_graph(g,bs)
         mv_tensors = self.opticFlow(x_tar,x[ref_index])
         if not self.noMeasure:
