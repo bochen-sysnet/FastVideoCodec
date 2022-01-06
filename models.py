@@ -53,6 +53,7 @@ def compress_video(model, frame_idx, cache, startNewClip):
             
 def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
+    model.stage = 'REC'
     
     psnr_list = [256,512,1024,2048]
     msssim_list = [8,16,32,64]
@@ -90,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'MC' # 'REC'
+        model.stage = 'REC'
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -393,8 +394,6 @@ def load_state_dict_whatever(model, state_dict):
              continue
         if name in own_state and own_state[name].size() == param.size():
             own_state[name].copy_(param)
-        else:
-            print('Not loading',name)
             
 def load_state_dict_all(model, state_dict):
     own_state = model.state_dict()
