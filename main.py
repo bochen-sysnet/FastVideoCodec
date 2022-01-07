@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'SPVC96-L'
+CODEC_NAME = 'SPVC96-G-L'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1
+device = 0
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -75,16 +75,16 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['SPVC96-R','SPVC96','SPVC96-G-L','SPVC96-G']:
     # load what exists
-    pretrained_model_path = f"backup/SPVC96/SPVC96-2P_best.pth"
+    pretrained_model_path = f"backup/SPVC96-L/SPVC96-L-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-    with open(f'DVC/snapshot/2048.model', 'rb') as f:
-        pretrained_dict = torch.load(f)
-        load_state_dict_only(model, pretrained_dict, 'warpnet')
-        load_state_dict_only(model, pretrained_dict, 'opticFlow')
+    #with open(f'DVC/snapshot/2048.model', 'rb') as f:
+    #    pretrained_dict = torch.load(f)
+    #    load_state_dict_only(model, pretrained_dict, 'warpnet')
+    #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
