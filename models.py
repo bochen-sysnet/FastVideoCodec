@@ -1507,7 +1507,7 @@ class SPVC(nn.Module):
         self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
         if '-G' in self.name:
-            self.globalnet = Warp_net(in_channels=3*6,out_channels=3*6)
+            self.globalnet = Warp_net(in_channels=5*6,out_channels=3*6)
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
@@ -1635,14 +1635,18 @@ class SPVC(nn.Module):
         MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
         # BATCH:global compensation
         if '-G' in self.name:
+            # cat motions as well?
             if bs<6:
                 pad = 6-bs
-                inputfeature = torch.cat((MC_frames, MC_frames[-1].repeat(pad,1,1,1)), 0)
+                inputframes = torch.cat((MC_frames, MC_frames[-1].repeat(pad,1,1,1)), 0)
+                inputmotions = torch.cat((mv_hat, mv_hat[-1].repeat(pad,1,1,1)), 0)
             else:
-                inputfeature = MC_frames
-            inputfeature = inputfeature.view(1,6*c,h,w)
-            prediction = self.globalnet(inputfeature) + inputfeature
-            prediction = prediction.view(6,c,h,w)
+                inputframes = MC_frames
+                inputmotions = mv_hat
+            inputfeature = torch.cat((inputframes,inputmotions),1) # 6,5,h,w
+            inputfeature = inputfeature.view(1,6*5,h,w)
+            prediction = self.globalnet(inputfeature)
+            prediction = prediction.view(6,c,h,w) + inputframes
             MC_frames = prediction[:bs]
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
