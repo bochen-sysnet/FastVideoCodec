@@ -1507,8 +1507,8 @@ class SPVC(nn.Module):
         self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
         if '-G' in self.name:
-            self.globalnet = nn.Sequential(AttentionBlock(channels),
-                                            Attention(channels))
+            self.globalnet = nn.Sequential(AttentionBlock(3),
+                                            Attention(3))
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
