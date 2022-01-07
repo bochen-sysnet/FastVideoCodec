@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC'
+        model.stage = 'MC'
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1507,8 +1507,25 @@ class SPVC(nn.Module):
         self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
         if '-G' in self.name:
-            self.globalnet = nn.Sequential(AttentionBlock(3),
-                                            Attention(3))
+            kernel = 3; padding = 1
+            self.globalnet = nn.Sequential(
+                                nn.Conv2d(3, channels, kernel_size=kernel, stride=2, padding=padding),
+                                GDN(channels),
+                                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding),
+                                GDN(channels),
+                                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding),
+                                GDN(channels),
+                                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, bias=False),
+                                AttentionBlock(channels),
+                                Attention(channels),
+                                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                                GDN(channels, inverse=True),
+                                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                                GDN(channels, inverse=True),
+                                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                                GDN(channels, inverse=True),
+                                nn.ConvTranspose2d(channels, 3, kernel_size=kernel, stride=2, padding=padding, output_padding=1)
+                                )
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
