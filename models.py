@@ -1405,12 +1405,14 @@ class IterPredVideoCodecs(nn.Module):
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est + (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(Height * Width * batch_size)
+        bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
+                (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(Height * Width * batch_size)
         bpp_res_est = (res_est)/(Height * Width * batch_size)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
-        aux_loss = mv_aux + (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())/2
+        aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
+                    (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())/2
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
         msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
@@ -1684,12 +1686,14 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        bpp_est = (mv_est + (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(h * w)
+        bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
+                (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = mv_aux + (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())
+        aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
+                    (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
