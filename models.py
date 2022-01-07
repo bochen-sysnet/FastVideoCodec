@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC'
+        model.stage = 'REC' # MC->REC->REFINE RES
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1392,6 +1392,7 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
         # compress residual
+        if self.stage == 'RES': Y1_MC = Y1_MC.detach()
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
             self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag,prior_latent=res_prior_latent)
@@ -1667,6 +1668,7 @@ class SPVC(nn.Module):
             self.meters['D-MC'].update(t_comp)
         
         # BATCH:compress residual
+        if self.stage == 'RES': MC_frames = MC_frames.detach()
         res_tensors = x_tar.to(MC_frames.device) - MC_frames
         if '-R' not in self.name:
             res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
