@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # MC->REC->REFINE RES
+        model.stage = 'RES' # MC->REC->REFINE RES
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1412,7 +1412,7 @@ class IterPredVideoCodecs(nn.Module):
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
         # auxilary loss
         aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
-                    (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())/2
+                    (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))/2
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
         msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
@@ -1693,7 +1693,7 @@ class SPVC(nn.Module):
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
         aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
-                    (res_aux.to(mv_aux.device) if self.stage == 'MC' else res_aux.to(mv_aux.device).detach())
+                    (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
