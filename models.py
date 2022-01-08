@@ -1316,6 +1316,7 @@ def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split):
     if bs<6:
         pad = 6-bs
         warped_frames = torch.cat((warped_frames, warped_frames[-1].repeat(pad,1,1,1)), 0)
+        mv_hat = torch.cat((mv_hat, mv_hat[-1].repeat(pad,1,1,1)), 0)
     _,_,h,w = mv_hat.size()
     inputfeature = torch.cat((warped_frames, mv_hat), 1)
     prediction = warpnet(inputfeature.view(1,30,h,w)) + warped_frames.view(1,18,h,w)
