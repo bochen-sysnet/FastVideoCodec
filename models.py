@@ -1512,22 +1512,8 @@ class SPVC(nn.Module):
         if '-G' in self.name:
             kernel = 3; padding = 1
             self.globalnet = nn.Sequential(
-                                nn.Conv2d(3, channels, kernel_size=kernel, stride=2, padding=padding),
-                                GDN(channels),
-                                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding),
-                                GDN(channels),
-                                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding),
-                                GDN(channels),
-                                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, bias=False),
                                 AttentionBlock(channels),
-                                Attention(channels),
-                                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
-                                GDN(channels, inverse=True),
-                                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
-                                GDN(channels, inverse=True),
-                                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
-                                GDN(channels, inverse=True),
-                                nn.ConvTranspose2d(channels, 3, kernel_size=kernel, stride=2, padding=padding, output_padding=1)
+                                Attention(channels)
                                 )
         if '96' in self.name:
             channels = 96
