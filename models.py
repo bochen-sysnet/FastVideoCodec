@@ -1303,7 +1303,7 @@ def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split):
         for tar in layer: # id of frames in this layer
             if tar>bs:continue
             parent = parents[tar]
-            ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+            ref += [x_ref if parent==0 else warped_frame_list[parent-1]] # ref needed for this id
             diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
         if ref:
             ref = torch.cat(ref,dim=0)
