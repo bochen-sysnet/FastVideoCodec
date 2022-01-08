@@ -1292,7 +1292,7 @@ def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     warped_frames = torch.cat(warped_frame_list,dim=0)
     return MC_frames,warped_frames
                 
-def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
+def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split):
     warped_frame_list = [None for _ in range(bs)]
     # for layers in graph
     # get elements of this layers
