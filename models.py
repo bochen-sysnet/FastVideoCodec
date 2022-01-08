@@ -1512,8 +1512,8 @@ class SPVC(nn.Module):
         if '-G' in self.name:
             kernel = 3; padding = 1
             self.globalnet = nn.Sequential(
-                                AttentionBlock(channels),
-                                Attention(channels)
+                                AttentionBlock(3),
+                                Attention(3)
                                 )
         if '96' in self.name:
             channels = 96
