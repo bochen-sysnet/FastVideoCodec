@@ -1291,6 +1291,38 @@ def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     MC_frames = torch.cat(MC_frame_list,dim=0)
     warped_frames = torch.cat(warped_frame_list,dim=0)
     return MC_frames,warped_frames
+                
+def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
+    warped_frame_list = [None for _ in range(bs)]
+    # for layers in graph
+    # get elements of this layers
+    # get parents of all elements above
+    for layer in layers:
+        ref = [] # reference frame
+        diff = [] # motion
+        for tar in layer: # id of frames in this layer
+            if tar>bs:continue
+            parent = parents[tar]
+            ref += [x_ref if parent==0 else MC_frame_list[parent-1]] # ref needed for this id
+            diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
+        if ref:
+            ref = torch.cat(ref,dim=0)
+            if detach:
+                ref = ref.detach()
+            diff = torch.cat(diff,dim=0)
+            warped_frame = flow_warp(ref, diff)
+            for i,tar in enumerate(layer):
+                if tar>bs:continue
+                warped_frame_list[tar-1] = warped_frame[i:i+1]
+    warped_frames = torch.cat(warped_frame_list,dim=0)
+    if bs<6:
+        pad = 6-bs
+        warped_frames = torch.cat((warped_frames, warped_frames[-1].repeat(pad,1,1,1)), 0)
+    _,_,h,w = mv_hat.size()
+    inputfeature = torch.cat((warped_frames, mv_hat), 1)
+    prediction = warpnet(inputfeature.view(1,30,h,w)) + warped_frames.view(1,18,h,w)
+    MC_frames = prediction.view(6,3,h,w)
+    return MC_frames[:bs],warped_frames[:bs]
     
 def graph_from_batch(bs,isLinear=False,isOnehop=False):
     if isLinear:
@@ -1508,9 +1540,11 @@ class SPVC(nn.Module):
         #self.opticFlow = OpticalFlowNet()
         #self.warpnet = MCNet()
         self.opticFlow = ME_Spynet()
-        self.warpnet = Warp_net()
+        if '-E' in self.name:
+            self.warpnet = Warp_net(in_channels=30,out_channels=18) # enhanced compensation
+        else:
+            self.warpnet = Warp_net()
         if '-G' in self.name:
-            kernel = 3; padding = 1
             self.globalnet = nn.Sequential(
                                 AttentionBlock(3),
                                 Attention(3)
@@ -1639,7 +1673,10 @@ class SPVC(nn.Module):
         
         # SEQ:motion compensation
         t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        if '-E' not in self.name:
+            MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
+        else:
+            MC_frames,warped_frames = TFE2(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
         # BATCH:global compensation
         if '-G' in self.name:
             # cat motions as well?
