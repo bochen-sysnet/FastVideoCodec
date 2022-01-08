@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'MC' # MC->REs->REC
+        model.stage = 'MC' # MC->RES->REC
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     

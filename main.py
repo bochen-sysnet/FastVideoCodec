@@ -73,7 +73,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SPVC96-R','SPVC96','SPVC96-G-L','SPVC96-E-L']:
+elif CODEC_NAME in ['SPVC96-R','SPVC96']:
     # load what exists
     pretrained_model_path = f"backup/SPVC96-L/SPVC96-L-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
@@ -201,8 +201,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 500 == 0 and batch_idx>0:
-            if False:
+        if batch_idx % 5000 == 0 and batch_idx>0:
+            if True:
                 print('testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
                 
