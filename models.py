@@ -1307,8 +1307,6 @@ def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split):
             diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
         if ref:
             ref = torch.cat(ref,dim=0)
-            if detach:
-                ref = ref.detach()
             diff = torch.cat(diff,dim=0)
             warped_frame = flow_warp(ref, diff)
             for i,tar in enumerate(layer):
