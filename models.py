@@ -1270,7 +1270,6 @@ def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
     com_frame_list = [None for _ in range(bs)]
     res_act_list = [None for _ in range(bs)]
     res_est_list = [None for _ in range(bs)]
-    res_aux_list = [None for _ in range(bs)]
     # for layers in graph
     # get elements of this layers
     # get parents of all elements above
@@ -1290,7 +1289,7 @@ def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
             target_frames = torch.cat(target,dim=0)
             MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
             res_tensors = target_frames - MC_frames
-            res_hat,_, _,res_act,res_est,res_aux,_ = res_codec(res_tensors)
+            res_hat,_, _,res_act,res_est,_,_ = res_codec(res_tensors)
             com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
             for i,tar in enumerate(layer):
                 if tar>bs:continue
@@ -1299,13 +1298,12 @@ def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
                 com_frame_list[tar-1] = com_frames[i:i+1]
                 res_act_list[tar-1] = res_act[i:i+1]
                 res_est_list[tar-1] = res_est[i:i+1]
-                res_aux_list[tar-1] = res_aux[i:i+1]
     MC_frames = torch.cat(MC_frame_list,dim=0)
     warped_frames = torch.cat(warped_frame_list,dim=0)
     com_frames = torch.cat(com_frame_list,dim=0)
     res_hat = torch.cat(res_hat,dim=0)
     res_act = torch.cat(res_act,dim=0)
-    res_aux = torch.cat(res_act,dim=0)
+    res_aux = res_codec.entropy_bottleneck.loss()
     return com_frames,MC_frames,warped_frames,res_act,res_est,res_aux
             
 def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
