@@ -1703,10 +1703,7 @@ class SPVC(nn.Module):
         if '-N' not in self.name:
             # SEQ:motion compensation
             t_0 = time.perf_counter()
-            if '-E' not in self.name:
-                MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
-            else:
-                MC_frames,warped_frames = TFE2(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
+            MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
             t_comp = time.perf_counter() - t_0
             if not self.noMeasure:
                 self.meters['E-MC'].update(t_comp)
