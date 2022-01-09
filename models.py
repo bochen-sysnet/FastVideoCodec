@@ -1721,10 +1721,6 @@ class SPVC(nn.Module):
                 self.meters['D-RES'].update(self.res_codec.dec_t)
                 self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
                 self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
-            # auxilary loss
-            aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
-                        (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
-            aux_loss = aux_loss.repeat(bs)
             # reconstruction
             com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         else:
@@ -1738,6 +1734,10 @@ class SPVC(nn.Module):
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
+        # auxilary loss
+        aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
+                    (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
+        aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
         msssim = PSNR(x_tar, MC_frames, use_list=True)
