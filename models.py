@@ -1262,6 +1262,51 @@ def motioncompensation(warpnet, ref, mv):
     inputfeature = torch.cat((warpframe, ref), 1)
     prediction = warpnet(inputfeature) + warpframe
     return prediction, warpframe
+    
+def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
+    x_tar = x[1:]
+    MC_frame_list = [None for _ in range(bs)]
+    warped_frame_list = [None for _ in range(bs)]
+    com_frame_list = [None for _ in range(bs)]
+    res_act_list = [None for _ in range(bs)]
+    res_est_list = [None for _ in range(bs)]
+    res_aux_list = [None for _ in range(bs)]
+    # for layers in graph
+    # get elements of this layers
+    # get parents of all elements above
+    for layer in layers:
+        ref = [] # reference frame
+        diff = [] # motion
+        target = [] # target frames
+        for tar in layer: # id of frames in this layer
+            if tar>bs:continue
+            parent = parents[tar]
+            ref += [x[:1] if parent==0 else com_frame_list[parent-1]] # ref needed for this id
+            diff += [mv_hat[tar-1:tar]] # motion needed for this id
+            target += [x_tar[tar-1:tar]]
+        if ref:
+            ref = torch.cat(ref,dim=0)
+            diff = torch.cat(diff,dim=0)
+            target_frames = torch.cat(target,dim=0)
+            MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
+            res_tensors = target_frames - MC_frames
+            res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
+            for i,tar in enumerate(layer):
+                if tar>bs:continue
+                MC_frame_list[tar-1] = MC_frames[i:i+1]
+                warped_frame_list[tar-1] = warped_frames[i:i+1]
+                com_frame_list[tar-1] = com_frames[i:i+1]
+                res_act_list[tar-1] = res_act[i:i+1]
+                res_est_list[tar-1] = res_est[i:i+1]
+                res_aux_list[tar-1] = res_aux[i:i+1]
+    MC_frames = torch.cat(MC_frame_list,dim=0)
+    warped_frames = torch.cat(warped_frame_list,dim=0)
+    com_frames = torch.cat(com_frame_list,dim=0)
+    res_hat = torch.cat(res_hat,dim=0)
+    res_act = torch.cat(res_act,dim=0)
+    res_aux = torch.cat(res_act,dim=0)
+    return com_frames,MC_frames,warped_frames,res_act,res_est,res_aux
             
 def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     MC_frame_list = [None for _ in range(bs)]
@@ -1543,25 +1588,15 @@ class SPVC(nn.Module):
             self.warpnet = Warp_net(in_channels=30,out_channels=18) # enhanced compensation
         else:
             self.warpnet = Warp_net()
-        if '-G' in self.name:
-            self.globalnet = nn.Sequential(
-                                AttentionBlock(3),
-                                Attention(3)
-                                )
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
             channels = 64
         if '-L' in self.name:
             entropy_trick = False
-        if '-R' not in self.name:
-            # use attention in encoder and entropy model
-            self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
-            self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
-        else:
-            # use rpm for encoder and entropy
-            self.mv_codec = Coder2D('rpm', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
-            self.res_codec = Coder2D('rpm', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
+        # use attention in encoder and entropy model
+        self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
+        self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
         self.channels = channels
         self.loss_type=loss_type
         self.compression_level=compression_level
@@ -1660,51 +1695,43 @@ class SPVC(nn.Module):
             self.meters['E-FL'].update(time.perf_counter() - t_0)
             
         # BATCH:compress optical flow
-        if '-R' not in self.name:
-            mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
-        else:
-            mv_hat,mv_act,mv_est,mv_aux = self.mv_codec.compress_sequence(mv_tensors)
+        mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
             self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         
-        # SEQ:motion compensation
-        t_0 = time.perf_counter()
-        if '-E' not in self.name:
-            MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
-        else:
-            MC_frames,warped_frames = TFE2(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
-        # BATCH:global compensation
-        if '-G' in self.name:
-            # cat motions as well?
-            if bs<6:
-                pad = 6-bs
-                inputframes = torch.cat((MC_frames, MC_frames[-1].repeat(pad,1,1,1)), 0)
+        if '-N' not in self.name:
+            # SEQ:motion compensation
+            t_0 = time.perf_counter()
+            if '-E' not in self.name:
+                MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name))
             else:
-                inputframes = MC_frames
-            prediction = self.globalnet(inputframes)
-            MC_frames = prediction[:bs]
-        t_comp = time.perf_counter() - t_0
-        if not self.noMeasure:
-            self.meters['E-MC'].update(t_comp)
-            self.meters['D-MC'].update(t_comp)
-        
-        # BATCH:compress residual
-        if self.stage == 'RES': MC_frames = MC_frames.detach()
-        res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        if '-R' not in self.name:
+                MC_frames,warped_frames = TFE2(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
+            t_comp = time.perf_counter() - t_0
+            if not self.noMeasure:
+                self.meters['E-MC'].update(t_comp)
+                self.meters['D-MC'].update(t_comp)
+            
+            # BATCH:compress residual
+            if self.stage == 'RES': MC_frames = MC_frames.detach()
+            res_tensors = x_tar.to(MC_frames.device) - MC_frames
             res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+            if not self.noMeasure:
+                self.meters['E-RES'].update(self.res_codec.enc_t)
+                self.meters['D-RES'].update(self.res_codec.dec_t)
+                self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+                self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
+            # auxilary loss
+            aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
+                        (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
+            aux_loss = aux_loss.repeat(bs)
+            # reconstruction
+            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         else:
-            res_hat,res_act,res_est,res_aux = self.res_codec.compress_sequence(res_tensors)
-        if not self.noMeasure:
-            self.meters['E-RES'].update(self.res_codec.enc_t)
-            self.meters['D-RES'].update(self.res_codec.dec_t)
-            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
-            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
-        # reconstruction
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
+            # new compression way
+            com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameRecon(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
             
         ##### compute bits
         # estimated bits
@@ -1713,10 +1740,6 @@ class SPVC(nn.Module):
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
-        # auxilary loss
-        aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
-                    (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
-        aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
         psnr = PSNR(x_tar, com_frames, use_list=True)
         msssim = PSNR(x_tar, MC_frames, use_list=True)
