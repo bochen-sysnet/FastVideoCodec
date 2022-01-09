@@ -1301,7 +1301,7 @@ def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
     MC_frames = torch.cat(MC_frame_list,dim=0)
     warped_frames = torch.cat(warped_frame_list,dim=0)
     com_frames = torch.cat(com_frame_list,dim=0)
-    res_hat = torch.cat(res_hat_list,dim=0)
+    res_est = torch.cat(res_est_list,dim=0)
     res_act = torch.cat(res_act_list,dim=0)
     res_aux = res_codec.entropy_bottleneck.loss()
     return com_frames,MC_frames,warped_frames,res_act,res_est,res_aux
