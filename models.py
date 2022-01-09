@@ -1825,7 +1825,8 @@ class SPVC(nn.Module):
         #print([float(m) for m in msssim])
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         #warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
-        eh_loss = calc_loss(x_tar, enhanced_frames, self.r, True)
+        if '-E' in self.name:
+            eh_loss = calc_loss(x_tar, enhanced_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
         if self.stage == 'MC':
             img_loss = mc_loss
