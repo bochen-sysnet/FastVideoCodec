@@ -1290,7 +1290,7 @@ def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
             target_frames = torch.cat(target,dim=0)
             MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
             res_tensors = target_frames - MC_frames
-            res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
+            res_hat,_, _,res_act,res_est,res_aux,_ = res_codec(res_tensors)
             com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
             for i,tar in enumerate(layer):
                 if tar>bs:continue
