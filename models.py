@@ -1262,50 +1262,7 @@ def motioncompensation(warpnet, ref, mv):
     inputfeature = torch.cat((warpframe, ref), 1)
     prediction = warpnet(inputfeature) + warpframe
     return prediction, warpframe
-    
-def TreeFrameRecon(warpnet,res_codec,x,bs,mv_hat,layers,parents):
-    x_tar = x[1:]
-    MC_frame_list = [None for _ in range(bs)]
-    warped_frame_list = [None for _ in range(bs)]
-    com_frame_list = [None for _ in range(bs)]
-    res_act_list = [None for _ in range(bs)]
-    res_est_list = [None for _ in range(bs)]
-    # for layers in graph
-    # get elements of this layers
-    # get parents of all elements above
-    for layer in layers:
-        ref = [] # reference frame
-        diff = [] # motion
-        target = [] # target frames
-        for tar in layer: # id of frames in this layer
-            if tar>bs:continue
-            parent = parents[tar]
-            ref += [x[:1] if parent==0 else com_frame_list[parent-1]] # ref needed for this id
-            diff += [mv_hat[tar-1:tar]] # motion needed for this id
-            target += [x_tar[tar-1:tar]]
-        if ref:
-            ref = torch.cat(ref,dim=0)
-            diff = torch.cat(diff,dim=0)
-            target_frames = torch.cat(target,dim=0)
-            MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
-            res_tensors = target_frames - MC_frames
-            res_hat,_, _,res_act,res_est,_,_ = res_codec(res_tensors)
-            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
-            for i,tar in enumerate(layer):
-                if tar>bs:continue
-                MC_frame_list[tar-1] = MC_frames[i:i+1]
-                warped_frame_list[tar-1] = warped_frames[i:i+1]
-                com_frame_list[tar-1] = com_frames[i:i+1]
-                res_act_list[tar-1] = res_act[i:i+1]
-                res_est_list[tar-1] = res_est[i:i+1]
-    MC_frames = torch.cat(MC_frame_list,dim=0)
-    warped_frames = torch.cat(warped_frame_list,dim=0)
-    com_frames = torch.cat(com_frame_list,dim=0)
-    res_est = torch.cat(res_est_list,dim=0)
-    res_act = torch.cat(res_act_list,dim=0)
-    res_aux = res_codec.entropy_bottleneck.loss()
-    return com_frames,MC_frames,warped_frames,res_act,res_est,res_aux
-            
+
 def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     MC_frame_list = [None for _ in range(bs)]
     warped_frame_list = [None for _ in range(bs)]
@@ -1574,6 +1531,117 @@ class IterPredVideoCodecs(nn.Module):
         rpm_res_hidden = rpm_res_hidden.cuda()
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
         
+def TreeFrameReconForward(warpnet,res_codec,x,bs,mv_hat,layers,parents,mode='forward'):
+    x_tar = x[1:]
+    MC_frame_list = [None for _ in range(bs)]
+    warped_frame_list = [None for _ in range(bs)]
+    com_frame_list = [None for _ in range(bs)]
+    res_act_list = [None for _ in range(bs)]
+    res_est_list = [None for _ in range(bs)]
+    res_string_list = []
+    # for layers in graph
+    # get elements of this layers
+    # get parents of all elements above
+    for layer in layers:
+        ref = [] # reference frame
+        diff = [] # motion
+        target = [] # target frames
+        for tar in layer: # id of frames in this layer
+            if tar>bs:continue
+            parent = parents[tar]
+            ref += [x[:1] if parent==0 else com_frame_list[parent-1]] # ref needed for this id
+            diff += [mv_hat[tar-1:tar]] # motion needed for this id
+            target += [x_tar[tar-1:tar]]
+        if ref:
+            ref = torch.cat(ref,dim=0)
+            diff = torch.cat(diff,dim=0)
+            target_frames = torch.cat(target,dim=0)
+            MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
+            res_tensors = target_frames - MC_frames
+            if mode == 'forward':
+                res_hat,_, _,res_act,res_est,_,_ = res_codec(res_tensors)
+            elif mode == 'compress':
+                res_string,_,_,res_act,_,_ = res_codec.compress(res_tensors,decodeLatent=False)
+                res_string_list.append(res_string)
+            elif mode == 'decompress':
+                res_hat,_,_,_ = res_codec.decompress(res_string, latentSize=latent_size)
+            else:
+                print('Mode:',mode,'not supported.')
+                exit(1)
+            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
+            for i,tar in enumerate(layer):
+                if tar>bs:continue
+                MC_frame_list[tar-1] = MC_frames[i:i+1]
+                warped_frame_list[tar-1] = warped_frames[i:i+1]
+                com_frame_list[tar-1] = com_frames[i:i+1]
+                res_act_list[tar-1] = res_act[i:i+1]
+                res_est_list[tar-1] = res_est[i:i+1]
+    MC_frames = torch.cat(MC_frame_list,dim=0)
+    warped_frames = torch.cat(warped_frame_list,dim=0)
+    com_frames = torch.cat(com_frame_list,dim=0)
+    res_est = torch.cat(res_est_list,dim=0)
+    res_act = torch.cat(res_act_list,dim=0)
+    res_aux = res_codec.entropy_bottleneck.loss()
+    return com_frames,MC_frames,warped_frames,res_act,res_est,res_aux
+                  
+def TreeFrameReconCompress(warpnet,res_codec,x,bs,mv_hat,layers,parents):
+    x_tar = x[1:]
+    com_frame_list = [None for _ in range(bs)]
+    res_act_list = [None for _ in range(bs)]
+    x_string_list = []
+    z_string_list = []
+    for layer in layers:
+        ref = [] # reference frame
+        diff = [] # motion
+        target = [] # target frames
+        for tar in layer: # id of frames in this layer
+            if tar>bs:continue
+            parent = parents[tar]
+            ref += [x[:1] if parent==0 else com_frame_list[parent-1]] # ref needed for this id
+            diff += [mv_hat[tar-1:tar]] # motion needed for this id
+            target += [x_tar[tar-1:tar]]
+        if ref:
+            ref = torch.cat(ref,dim=0)
+            diff = torch.cat(diff,dim=0)
+            target_frames = torch.cat(target,dim=0)
+            MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
+            res_tensors = target_frames - MC_frames
+            res_hat,res_string,_,_,res_act,res_size,_ = res_codec.compress(res_tensors,decodeLatent=True)
+            x_string_list += res_string[0]
+            z_string_list += res_string[1]
+            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
+            for i,tar in enumerate(layer):
+                if tar>bs:continue
+                com_frame_list[tar-1] = com_frames[i:i+1]
+                res_act_list[tar-1] = res_act[i:i+1]
+    res_act = torch.cat(res_act_list,dim=0)
+    return (x_string_list,z_string_list),res_act
+                              
+def TreeFrameReconDecompress(warpnet,res_codec,x_ref,res_string,bs,mv_hat,layers,parents):
+    com_frame_list = [None for _ in range(bs)]
+    x_string_list,z_string_list = res_string
+    for layer in layers:
+        ref = [] # reference frame
+        diff = [] # motion
+        for tar in layer: # id of frames in this layer
+            if tar>bs:continue
+            parent = parents[tar]
+            ref += [x_ref if parent==0 else com_frame_list[parent-1]] # ref needed for this id
+            diff += [mv_hat[tar-1:tar]] # motion needed for this id
+        if ref:
+            ref = torch.cat(ref,dim=0)
+            diff = torch.cat(diff,dim=0)
+            MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
+            res_string = ([x_string_list.pop(0)],[z_string_list.pop(0)])
+            latent_size = torch.Size([ref.size(0),16,16])
+            res_hat,_,_,_ = res_codec.decompress(res_string, latentSize=latent_size)
+            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
+            for i,tar in enumerate(layer):
+                if tar>bs:continue
+                com_frame_list[tar-1] = com_frames[i:i+1]
+    com_frames = torch.cat(com_frame_list,dim=0)
+    return com_frames
+
 class SPVC(nn.Module):
     def __init__(self, name, channels=128, noMeasure=True, loss_type='P', 
             compression_level=2, use_split=True, entropy_trick=True):
@@ -1627,7 +1695,7 @@ class SPVC(nn.Module):
         x_tar = x[1:]
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name)) # or one-hop?
         ref_index = refidx_from_graph(g,bs)
-        mv_tensors, = self.opticFlow(x_tar,x[ref_index])
+        mv_tensors = self.opticFlow(x_tar,x[ref_index])
         self.meters['E-FL'].update(time.perf_counter() - t_0)
             
         # BATCH motion compression
@@ -1635,17 +1703,20 @@ class SPVC(nn.Module):
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         
-        # SEQ:motion compensation
-        t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
-        t_comp = time.perf_counter() - t_0
-        self.meters['E-MC'].update(t_comp)
-        
-        # BATCH:compress residual
-        res_tensors = x_tar.to(MC_frames.device) - MC_frames
-        res_string,_,_,res_act,res_size,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
-        self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
-        self.meters['eERES'].update(self.res_codec.AC_t)
+        if '-N' not in self.name:
+            # SEQ:motion compensation
+            t_0 = time.perf_counter()
+            MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
+            t_comp = time.perf_counter() - t_0
+            self.meters['E-MC'].update(t_comp)
+            
+            # BATCH:compress residual
+            res_tensors = x_tar.to(MC_frames.device) - MC_frames
+            res_string,_,_,res_act,_,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
+            self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
+            self.meters['eERES'].update(self.res_codec.AC_t)
+        else:
+            res_string,res_act = TreeFrameReconCompress(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
         
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
@@ -1663,19 +1734,22 @@ class SPVC(nn.Module):
         # graph
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
         
-        # SEQ:motion compensation
-        t_0 = time.perf_counter()
-        MC_frames,warped_frames = TFE(self.warpnet,x_ref,bs,mv_hat,layers,parents,self.use_split)
-        t_comp = time.perf_counter() - t_0
-        self.meters['D-MC'].update(t_comp)
-        
-        # BATCH:compress residual
-        res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=latent_size)
-        self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
-        self.meters['eDRES'].update(self.res_codec.AC_t)
-        
-        # reconstruction
-        com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x_ref.device)
+        if '-N' not in self.name:
+            # SEQ:motion compensation
+            t_0 = time.perf_counter()
+            MC_frames,warped_frames = TFE(self.warpnet,x_ref,bs,mv_hat,layers,parents,self.use_split)
+            t_comp = time.perf_counter() - t_0
+            self.meters['D-MC'].update(t_comp)
+            
+            # BATCH:compress residual
+            res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=latent_size)
+            self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
+            self.meters['eDRES'].update(self.res_codec.AC_t)
+            
+            # reconstruction
+            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x_ref.device)
+        else:
+            com_frames = TreeFrameReconDecompress(self.warpnet,self.res_codec,x_ref,res_string,bs,mv_hat,layers,parents)
         
         return com_frames
         
@@ -1722,7 +1796,7 @@ class SPVC(nn.Module):
             com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
         else:
             # new compression way
-            com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameRecon(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
+            com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameReconForward(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
             
         ##### compute bits
         # estimated bits
