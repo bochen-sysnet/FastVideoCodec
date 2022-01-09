@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # MC->RES->REC
+        model.stage = 'MC' # MC->RES->REC
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1724,7 +1724,7 @@ class SPVC(nn.Module):
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        img_loss = mc_loss if self.stage == 'MC' else (rec_loss + mc_loss)
+        img_loss = mc_loss if self.stage == 'MC' else rec_loss
         img_loss = img_loss.repeat(bs)
         
         if self.training:
