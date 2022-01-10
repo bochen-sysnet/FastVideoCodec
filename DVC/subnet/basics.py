@@ -124,6 +124,18 @@ def conv2d_same_padding(input, weight, bias=None, stride=1, padding=0, dilation=
                   padding=(padding_rows // 2, padding_cols // 2),
                   dilation=dilation, groups=groups)
 
+def attention(q, k, v, d_model, dropout=None):
+    
+    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_model)
+        
+    scores = F.softmax(scores, dim=-1)
+    
+    if dropout is not None:
+        scores = dropout(scores)
+        
+    output = torch.matmul(scores, v)
+    return output
+        
 class TimeAttention(nn.Module):
     def __init__(self, d_model, dropout = 0.1):
         super().__init__()
