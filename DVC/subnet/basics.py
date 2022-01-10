@@ -16,7 +16,8 @@ from .GDN import GDN
 from torch.autograd import Variable
 import datetime
 from .flowlib import flow_to_image
-import compressai.layers.AttentionBlock as SpaceAttention
+import compressai.layers as layers
+SpaceAttention = layers.AttentionBlock
 
 out_channel_N = 64
 out_channel_M = 96
