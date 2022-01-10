@@ -1889,7 +1889,7 @@ class LSVC(nn.Module):
         self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
         self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
         self.bitEstimator_z = BitEstimator(out_channel_N)
-        self.bitEstimator_mv = BitEstimator(out_channel_mv)
+        self.bitEstimator_mv = BitEstimator(out_channel_M)
         self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = True
