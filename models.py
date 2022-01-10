@@ -2040,9 +2040,7 @@ class LSVC(nn.Module):
         warped_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
         total_bits_res = None
-        # for layers in graph
-        # get elements of this layers
-        # get parents of all elements above
+        x_tar = x[1:]
         for layer in layers:
             ref = [] # reference frame
             diff = [] # motion
