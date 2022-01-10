@@ -11,7 +11,7 @@ class Analysis_net(nn.Module):
     '''
     Compress residual
     '''
-    def __init__(self):
+    def __init__(self, useAttn=False):
         super(Analysis_net, self).__init__()
         self.conv1 = nn.Conv2d(3, out_channel_N, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (3 + out_channel_N) / (6))))
@@ -28,19 +28,17 @@ class Analysis_net(nn.Module):
         self.conv4 = nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (out_channel_M + out_channel_N) / (out_channel_N + out_channel_N))))
         torch.nn.init.constant_(self.conv4.bias.data, 0.01)
-        # self.resEncoder = nn.Sequential(
-        #     nn.Conv2d(3, out_channel_N, 5, stride=2, padding=2),# how to initialize ???
-        #     GDN(out_channel_N),
-        #     nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),# how to initialize ???
-        #     GDN(out_channel_N),
-        #     nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),# how to initialize ???
-        #     GDN(out_channel_N),
-        #     nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2),# how to initialize ???
-        # )
+        if useAttn:
+            self.s_attn = SpaceAttention(out_channel_N)
+            self.t_attn = TimeAttention(out_channel_N)
+        self.useAttn = useAttn
 
     def forward(self, x):
         x = self.gdn1(self.conv1(x))
         x = self.gdn2(self.conv2(x))
+        if self.useAttn:
+            x = self.s_attn(x)
+            x = self.t_attn(x)
         x = self.gdn3(self.conv3(x))
         return self.conv4(x)
 

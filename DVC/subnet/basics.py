@@ -16,6 +16,7 @@ from .GDN import GDN
 from torch.autograd import Variable
 import datetime
 from .flowlib import flow_to_image
+import compressai.layers.AttentionBlock as SpaceAttention
 
 out_channel_N = 64
 out_channel_M = 96
@@ -121,3 +122,34 @@ def conv2d_same_padding(input, weight, bias=None, stride=1, padding=0, dilation=
     return F.conv2d(input, weight, bias, stride,
                   padding=(padding_rows // 2, padding_cols // 2),
                   dilation=dilation, groups=groups)
+
+class TimeAttention(nn.Module):
+    def __init__(self, d_model, dropout = 0.1):
+        super().__init__()
+        
+        self.d_model = d_model
+        
+        self.q_linear = nn.Linear(d_model, d_model)
+        self.v_linear = nn.Linear(d_model, d_model)
+        self.k_linear = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+        self.out = nn.Linear(d_model, d_model)
+    
+    def forward(self, x):
+        bs,C,H,W = x.size()
+        x = x.view(bs,C,-1).permute(2,0,1).contiguous()
+        
+        # perform linear operation
+        
+        k = self.k_linear(x)
+        q = self.q_linear(x)
+        v = self.v_linear(x)
+        
+        # calculate attention using function we will define next
+        scores = attention(q, k, v, self.d_model, self.dropout)
+        
+        output = self.out(scores) # bs * sl * d_model
+        
+        output = output.permute(1,2,0).view(bs,C,H,W).contiguous()
+    
+        return output

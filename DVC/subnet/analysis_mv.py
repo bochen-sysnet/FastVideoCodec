@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self):
+    def __init__(self, useAttn=False):
         super(Analysis_mv_net, self).__init__()
         self.conv1 = nn.Conv2d(2, out_channel_mv, 3, stride=2, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (2 + out_channel_mv) / (4))))
@@ -42,12 +42,19 @@ class Analysis_mv_net(nn.Module):
         self.conv8 = nn.Conv2d(out_channel_mv, out_channel_mv, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
+        if useAttn:
+            self.s_attn = SpaceAttention(out_channel_mv)
+            self.t_attn = TimeAttention(out_channel_mv)
+        self.useAttn = useAttn
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
         x = self.relu2(self.conv2(x))
         x = self.relu3(self.conv3(x))
         x = self.relu4(self.conv4(x))
+        if self.useAttn:
+            x = self.s_attn(x)
+            x = self.t_attn(x)
         x = self.relu5(self.conv5(x))
         x = self.relu6(self.conv6(x))
         x = self.relu7(self.conv7(x))

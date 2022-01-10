@@ -11,7 +11,7 @@ class Analysis_prior_net(nn.Module):
     '''
     Compress residual prior
     '''
-    def __init__(self):
+    def __init__(self, useAttn=False):
         super(Analysis_prior_net, self).__init__()
         self.conv1 = nn.Conv2d(out_channel_M, out_channel_N, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (out_channel_M + out_channel_N) / (out_channel_M + out_channel_M))))
@@ -31,11 +31,17 @@ class Analysis_prior_net(nn.Module):
         #     nn.ReLU(),
         #     nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2)
         # )
-
+        if useAttn:
+            self.s_attn = SpaceAttention(out_channel_N)
+            self.t_attn = TimeAttention(out_channel_N)
+        self.useAttn = useAttn
 
     def forward(self, x):
         x = torch.abs(x)
         x = self.relu1(self.conv1(x))
+        if self.useAttn:
+            x = self.s_attn(x)
+            x = self.t_attn(x)
         x = self.relu2(self.conv2(x))
         return self.conv3(x)
 
