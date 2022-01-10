@@ -93,7 +93,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'WP' # WP->MC->RES->REC->EH
+        model.stage = 'MC' # WP->MC->RES->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -2072,16 +2072,13 @@ class LSVC(nn.Module):
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
 
-        ######################
-
-
-# distortion
         rec_loss = torch.mean((com_frames - input_image).pow(2))
         warp_loss = torch.mean((warped_frames - input_image).pow(2))
         mc_loss = torch.mean((MC_frames - input_image).pow(2))
         
         bpp_res = total_bits_res / (bs * h * w)
         bpp_mv = total_bits_mv / (bs * h * w)
+        if self.stage == 'MC': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
         
         return com_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
