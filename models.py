@@ -38,6 +38,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = StandardVideoCodecs(name)
     elif name in ['DVC-pretrained']:
         model_codec = get_DVC_pretrained(compression_level)
+    elif 'LSVC' in name:
+        model_codec = LSVC(loss_type=loss_type,compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
