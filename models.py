@@ -1835,7 +1835,7 @@ class SPVC(nn.Module):
         elif self.stage == 'REC':
             img_loss = rec_loss
         elif self.stage == 'EH':
-            img_loss = eh_loss
+            img_loss = eh_loss + rec_loss
             msssim = PSNR(x_tar, enhanced_frames, use_list=True)
         else:
             print('unknown stage')
