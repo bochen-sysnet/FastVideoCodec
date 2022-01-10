@@ -1894,7 +1894,7 @@ class LSVC(nn.Module):
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
-        self.calrealbits = True
+        self.calrealbits = False
         self.loss_type=loss_type
         self.channels = out_channel_mv
         self.compression_level=compression_level
@@ -1919,7 +1919,6 @@ class LSVC(nn.Module):
             x = x + self.mxrange
             n,c,h,w = x.shape
             for i in range(-self.mxrange, self.mxrange):
-                print(i)
                 cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
             cdfs = torch.cat(cdfs, 4).cpu().detach()
             
