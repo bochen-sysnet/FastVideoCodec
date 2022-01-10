@@ -1812,13 +1812,13 @@ class SPVC(nn.Module):
             
         ##### compute bits
         # estimated bits
-        bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
+        bpp_est = ((mv_est) + \
                 (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(h * w)
         bpp_res_est = (res_est)/(h * w)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         # auxilary loss
-        aux_loss = (mv_aux if self.stage != 'RES' else mv_aux.detach()) + \
+        aux_loss = (mv_aux) + \
                     (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
         aux_loss = aux_loss.repeat(bs)
         # calculate metrics/loss
