@@ -39,7 +39,7 @@ class Analysis_mv_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv7.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv7.bias.data, 0.01)
         self.relu7 = nn.LeakyReLU(negative_slope=0.1)
-        self.conv8 = nn.Conv2d(out_channel_mv, out_channel_mv, 3, stride=1, padding=1)
+        self.conv8 = nn.Conv2d(out_channel_mv, out_channel_M, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
         if useAttn:
