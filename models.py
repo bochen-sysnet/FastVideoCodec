@@ -93,7 +93,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'MC' # WP->MC->RES->REC->EH
+        model.stage = 'WP' # WP->MC->RES->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1995,7 +1995,7 @@ class LSVC(nn.Module):
 
         if self.training:
             half = float(0.5)
-            noise = torch.empty_like(inputs).uniform_(-half, half)
+            noise = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + noise
         else:
             compressed_z = torch.round(z)
@@ -2006,7 +2006,7 @@ class LSVC(nn.Module):
 
         if self.training:
             half = float(0.5)
-            noise = torch.empty_like(inputs).uniform_(-half, half)
+            noise = torch.empty_like(feature_renorm).uniform_(-half, half)
             compressed_feature_renorm = feature_renorm + noise
         else:
             compressed_feature_renorm = torch.round(feature_renorm)
@@ -2028,7 +2028,7 @@ class LSVC(nn.Module):
         mvfeature = self.mvEncoder(estmv)
         if self.training:
             half = float(0.5)
-            noise = torch.empty_like(inputs).uniform_(-half, half)
+            noise = torch.empty_like(mvfeature).uniform_(-half, half)
             quant_mv = mvfeature + noise
         else:
             quant_mv = torch.round(mvfeature)
