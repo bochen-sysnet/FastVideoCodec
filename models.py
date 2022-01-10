@@ -1987,7 +1987,7 @@ class LSVC(nn.Module):
 
         return total_bits, prob
 
-    def rec_codec(self,input_residual):
+    def res_codec(self,input_residual):
         feature = self.resEncoder(input_residual)
         batch_size = feature.size()[0]
 
