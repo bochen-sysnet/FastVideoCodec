@@ -39,7 +39,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif name in ['DVC-pretrained']:
         model_codec = get_DVC_pretrained(compression_level)
     elif 'LSVC' in name:
-        model_codec = LSVC(loss_type=loss_type,compression_level=compression_level)
+        model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -291,7 +291,7 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
-            _, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
+            x_hat, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
@@ -303,13 +303,13 @@ def parallel_compression(model, data, compressI=False):
                 exit(1)
             img_loss_list = [img_loss]
             N = B-1
+            psnr_list += PSNR(data[1:], x_hat, use_list=True)
             for pos in range(N):
                 bpp_est_list += [(bpp/N).to(data.device)]
                 if model.training:
                     bpp_res_est_list += [(bpp_res/N).to(data.device)]
                 bpp_act_list += [(bpp/N).to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/rec_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                psnr_list += [10.0*torch.log(1/rec_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 msssim_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
 
     if model.training:
@@ -1868,18 +1868,19 @@ class SPVC(nn.Module):
 from DVC.subnet import *
 
 class LSVC(nn.Module):
-    def __init__(self, loss_type='P', compression_level=3):
+    def __init__(self, name, loss_type='P', compression_level=3):
         super(LSVC, self).__init__()
-        self.name = 'LSVC' 
+        self.name = name
+        self.useAttn = True if '-A' in name else False
         self.opticFlow = ME_Spynet()
-        self.mvEncoder = Analysis_mv_net()
+        self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn)
         self.Q = None
-        self.mvDecoder = Synthesis_mv_net()
+        self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn)
         self.warpnet = Warp_net()
-        self.resEncoder = Analysis_net()
-        self.resDecoder = Synthesis_net()
-        self.respriorEncoder = Analysis_prior_net()
-        self.respriorDecoder = Synthesis_prior_net()
+        self.resEncoder = Analysis_net(useAttn=self.useAttn)
+        self.resDecoder = Synthesis_net(useAttn=self.useAttn)
+        self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
+        self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
