@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # MC->RES->REC->EH
+        model.stage = 'EH' # MC->RES->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1834,6 +1834,7 @@ class SPVC(nn.Module):
             img_loss = rec_loss
         elif self.stage == 'EH':
             img_loss = eh_loss
+            msssim = PSNR(x_tar, enhanced_frames, use_list=True)
         else:
             print('unknown stage')
             exit(1)
