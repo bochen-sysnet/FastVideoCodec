@@ -1901,7 +1901,7 @@ class LSVC(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def feature_probs_based_sigma(feature, sigma):
+    def feature_probs_based_sigma(self,feature, sigma):
             
         def getrealbitsg(x, gaussian):
             # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
@@ -1933,7 +1933,7 @@ class LSVC(nn.Module):
 
         return total_bits, probs
 
-    def iclr18_estrate_bits_z(z):
+    def iclr18_estrate_bits_z(self,z):
         
         def getrealbits(x):
             cdfs = []
@@ -1961,7 +1961,7 @@ class LSVC(nn.Module):
         return total_bits, prob
 
 
-    def iclr18_estrate_bits_mv(mv):
+    def iclr18_estrate_bits_mv(self,mv):
 
         def getrealbits(x):
             cdfs = []
@@ -1987,7 +1987,7 @@ class LSVC(nn.Module):
 
         return total_bits, prob
 
-    def rec_codec(input_residual):
+    def rec_codec(self,input_residual):
         feature = self.resEncoder(input_residual)
         batch_size = feature.size()[0]
 
