@@ -293,7 +293,7 @@ def parallel_compression(model, data, compressI=False):
             B,_,H,W = data.size()
             _, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
-                img_loss = mc_loss*,model.r
+                img_loss = mc_loss*model.r
             elif model.stage == 'REC':
                 img_loss = rec_loss*model.r
             elif model.stage == 'WP':
