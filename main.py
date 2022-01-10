@@ -73,18 +73,18 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SPVC96-N-E','SPVC96']:
+elif CODEC_NAME in ['LSVC']:
     # load what exists
-    pretrained_model_path = f"backup/SPVC96-N/SPVC96-N-3P_ckpt.pth"
+    pretrained_model_path = f"backup/SPVC96-E/SPVC96-E-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-    #with open(f'DVC/snapshot/2048.model', 'rb') as f:
-    #    pretrained_dict = torch.load(f)
-    #    load_state_dict_only(model, pretrained_dict, 'warpnet')
-    #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
+    with open(f'DVC/snapshot/2048.model', 'rb') as f:
+       pretrained_dict = torch.load(f)
+       load_state_dict_only(model, pretrained_dict, 'warpnet')
+       load_state_dict_only(model, pretrained_dict, 'opticFlow')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
@@ -154,10 +154,12 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        if model.name != 'DVC-pretrained':
-            loss = model.loss(img_loss,be_loss,aux_loss)
-        else:
+        if model.name == 'DVC-pretrained':
             loss = img_loss
+        elif 'LSVC' in model.name:
+            loss = img_loss + be_loss
+        else:
+            loss = model.loss(img_loss,be_loss,aux_loss)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
@@ -202,7 +204,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             I_module.reset()    
             
         if batch_idx % 5000 == 0 and batch_idx>0:
-            if True:
+            if False:
                 print('testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
                 
@@ -290,7 +292,7 @@ def test(epoch, model, test_dataset):
             f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+            f"M: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
             f"I: {float(max(psnr_list)):.2f}")
             
         # clear input

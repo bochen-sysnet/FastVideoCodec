@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'EH' # MC->RES->REC->EH
+        model.stage = 'MC' # WP->MC->RES->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -231,12 +231,9 @@ def parallel_compression(model, data, compressI=False):
     if compressI:
         name = f"{model.name}-{model.compression_level}-{model.loss_type}"
         x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=name)
-        img_loss_list += [img_loss.to(data.device)]
-        aux_loss_list += [aux_loss.to(data.device)]
         bpp_est_list += [bpp_est.to(data.device)]
         bpp_act_list += [bpp_act.to(data.device)]
         psnr_list += [psnr.to(data.device)]
-        msssim_list += [msssim.to(data.device)]
         data[0:1] = x_hat
     
     
@@ -290,7 +287,29 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp.to(data.device)]
                 psnr_list += [PSNR(data[i:i+1], x_hat.to(data.device))]
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-    
+        elif 'LSVC' in model.name:
+            B,_,H,W = data.size()
+            _, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
+            if model.stage == 'MC':
+                img_loss = mc_loss*self.r
+            elif model.stage == 'REC':
+                img_loss = rec_loss*self.r
+            elif model.stage == 'WP':
+                img_loss = warp_loss*self.r
+            else:
+                print('unknown stage')
+                exit(1)
+            img_loss_list = [img_loss]
+            N = B-1
+            for pos in range(N):
+                bpp_est_list += [(bpp/N).to(data.device)]
+                if model.training:
+                    bpp_res_est_list += [(bpp_res/N).to(data.device)]
+                bpp_act_list += [(bpp/N).to(data.device)]
+                aux_loss_list += [10.0*torch.log(1/rec_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                psnr_list += [10.0*torch.log(1/rec_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                msssim_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+
     if model.training:
         return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     else:
@@ -1538,7 +1557,6 @@ def TreeFrameReconForward(warpnet,res_codec,x,bs,mv_hat,layers,parents,mode='for
     com_frame_list = [None for _ in range(bs)]
     res_act_list = [None for _ in range(bs)]
     res_est_list = [None for _ in range(bs)]
-    res_string_list = []
     # for layers in graph
     # get elements of this layers
     # get parents of all elements above
@@ -1558,16 +1576,7 @@ def TreeFrameReconForward(warpnet,res_codec,x,bs,mv_hat,layers,parents,mode='for
             target_frames = torch.cat(target,dim=0)
             MC_frames,warped_frames = motioncompensation(warpnet, ref, diff)
             res_tensors = target_frames - MC_frames
-            if mode == 'forward':
-                res_hat,_, _,res_act,res_est,_,_ = res_codec(res_tensors)
-            elif mode == 'compress':
-                res_string,_,_,res_act,_,_ = res_codec.compress(res_tensors,decodeLatent=False)
-                res_string_list.append(res_string)
-            elif mode == 'decompress':
-                res_hat,_,_,_ = res_codec.decompress(res_string, latentSize=latent_size)
-            else:
-                print('Mode:',mode,'not supported.')
-                exit(1)
+            res_hat,_, _,res_act,res_est,_,_ = res_codec(res_tensors)
             com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
             for i,tar in enumerate(layer):
                 if tar>bs:continue
@@ -1853,6 +1862,230 @@ class SPVC(nn.Module):
         
     def init_hidden(self, h, w):
         return None
+
+from DVC.subnet import *
+
+class LSVC(nn.Module):
+    def __init__(self, loss_type='P', compression_level=3):
+        super(LSVC, self).__init__()
+        self.name = 'LSVC' 
+        self.opticFlow = ME_Spynet()
+        self.mvEncoder = Analysis_mv_net()
+        self.Q = None
+        self.mvDecoder = Synthesis_mv_net()
+        self.warpnet = Warp_net()
+        self.resEncoder = Analysis_net()
+        self.resDecoder = Synthesis_net()
+        self.respriorEncoder = Analysis_prior_net()
+        self.respriorDecoder = Synthesis_prior_net()
+        self.bitEstimator_z = BitEstimator(out_channel_N)
+        self.bitEstimator_mv = BitEstimator(out_channel_mv)
+        self.warp_weight = 0
+        self.mxrange = 150
+        self.calrealbits = True
+        self.loss_type=loss_type
+        self.channels = out_channel_mv
+        self.compression_level=compression_level
+        init_training_params(self)
+
+    def forwardFirstFrame(self, x):
+        output, bittrans = self.imageCompressor(x)
+        cost = self.bitEstimator(bittrans)
+        return output, cost
+
+    def motioncompensation(self, ref, mv):
+        warpframe = flow_warp(ref, mv)
+        inputfeature = torch.cat((warpframe, ref), 1)
+        prediction = self.warpnet(inputfeature) + warpframe
+        return prediction, warpframe
+
+    def feature_probs_based_sigma(feature, sigma):
+            
+        def getrealbitsg(x, gaussian):
+            # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
+            cdfs = []
+            x = x + self.mxrange
+            n,c,h,w = x.shape
+            for i in range(-self.mxrange, self.mxrange):
+                cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
+            cdfs = torch.cat(cdfs, 4).cpu().detach()
+            
+            byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+            real_bits = torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda()
+
+            sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+            return sym_out - self.mxrange, real_bits
+
+
+        mu = torch.zeros_like(sigma)
+        sigma = sigma.clamp(1e-5, 1e10)
+        gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+        probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+        total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+        
+        if self.calrealbits and not self.training:
+            decodedx, real_bits = getrealbitsg(feature, gaussian)
+            total_bits = real_bits
+
+        return total_bits, probs
+
+    def iclr18_estrate_bits_z(z):
+        
+        def getrealbits(x):
+            cdfs = []
+            x = x + self.mxrange
+            n,c,h,w = x.shape
+            for i in range(-self.mxrange, self.mxrange):
+                cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
+            cdfs = torch.cat(cdfs, 4).cpu().detach()
+            byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+            real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+            sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+            return sym_out - self.mxrange, real_bits
+
+        prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
+        total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+        if self.calrealbits and not self.training:
+            decodedx, real_bits = getrealbits(z)
+            total_bits = real_bits
+
+        return total_bits, prob
+
+
+    def iclr18_estrate_bits_mv(mv):
+
+        def getrealbits(x):
+            cdfs = []
+            x = x + self.mxrange
+            n,c,h,w = x.shape
+            for i in range(-self.mxrange, self.mxrange):
+                cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
+            cdfs = torch.cat(cdfs, 4).cpu().detach()
+            byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+            real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+            sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+            return sym_out - self.mxrange, real_bits
+
+        prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
+        total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+        if self.calrealbits and not self.training:
+            decodedx, real_bits = getrealbits(mv)
+            total_bits = real_bits
+
+        return total_bits, prob
+
+    def rec_codec(input_residual):
+        feature = self.resEncoder(input_residual)
+        batch_size = feature.size()[0]
+
+        z = self.respriorEncoder(feature)
+
+        if self.training:
+            half = float(0.5)
+            noise = torch.empty_like(inputs).uniform_(-half, half)
+            compressed_z = z + noise
+        else:
+            compressed_z = torch.round(z)
+
+        recon_sigma = self.respriorDecoder(compressed_z)
+
+        feature_renorm = feature
+
+        if self.training:
+            half = float(0.5)
+            noise = torch.empty_like(inputs).uniform_(-half, half)
+            compressed_feature_renorm = feature_renorm + noise
+        else:
+            compressed_feature_renorm = torch.round(feature_renorm)
+
+        recon_res = self.resDecoder(compressed_feature_renorm)
+
+        total_bits_feature, _ = self.feature_probs_based_sigma(compressed_feature_renorm, recon_sigma)
+        total_bits_z, _ = self.iclr18_estrate_bits_z(compressed_z)
+        total_bits = total_bits_feature+total_bits_z
+        return recon_res,total_bits
+
+    def forward(self, x):
+        input_image = x[1:]
+        bs,c,h,w = input_image.size()
+
+        g,layers,parents = graph_from_batch(bs)
+        ref_index = refidx_from_graph(g,bs)
+        estmv = self.opticFlow(input_image, x[ref_index])
+        mvfeature = self.mvEncoder(estmv)
+        if self.training:
+            half = float(0.5)
+            noise = torch.empty_like(inputs).uniform_(-half, half)
+            quant_mv = mvfeature + noise
+        else:
+            quant_mv = torch.round(mvfeature)
+        quant_mv_upsample = self.mvDecoder(quant_mv)
+        total_bits_mv, _ = self.iclr18_estrate_bits_mv(quant_mv)
+
+        # tree compensation
+        MC_frame_list = [None for _ in range(bs)]
+        warped_frame_list = [None for _ in range(bs)]
+        com_frame_list = [None for _ in range(bs)]
+        total_bits_res = None
+        # for layers in graph
+        # get elements of this layers
+        # get parents of all elements above
+        for layer in layers:
+            ref = [] # reference frame
+            diff = [] # motion
+            target = [] # target frames
+            for tar in layer: # id of frames in this layer
+                if tar>bs:continue
+                parent = parents[tar]
+                ref += [x[:1] if parent==0 else com_frame_list[parent-1]] # ref needed for this id
+                diff += [mv_hat[tar-1:tar]] # motion needed for this id
+                target += [x_tar[tar-1:tar]]
+            if ref:
+                ref = torch.cat(ref,dim=0)
+                diff = torch.cat(diff,dim=0)
+                target_frames = torch.cat(target,dim=0)
+                MC_frames,warped_frames = self.motioncompensation(referframe, quant_mv_upsample)
+                res_tensors = target_frames - MC_frames
+                res_hat,res_bit = self.res_codec(res_tensors)
+                if total_bits_res is None:
+                    total_bits_res = res_bits
+                else:
+                    total_bits_res += res_bits
+                com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
+                for i,tar in enumerate(layer):
+                    if tar>bs:continue
+                    MC_frame_list[tar-1] = MC_frames[i:i+1]
+                    warped_frame_list[tar-1] = warped_frames[i:i+1]
+                    com_frame_list[tar-1] = com_frames[i:i+1]
+        MC_frames = torch.cat(MC_frame_list,dim=0)
+        warped_frames = torch.cat(warped_frame_list,dim=0)
+        com_frames = torch.cat(com_frame_list,dim=0)
+
+        ######################
+
+
+# distortion
+        rec_loss = torch.mean((com_frames - input_image).pow(2))
+        warp_loss = torch.mean((warped_frames - input_image).pow(2))
+        mc_loss = torch.mean((MC_frames - input_image).pow(2))
+        
+        bpp_res = total_bits_res / (bs * h * w)
+        bpp_mv = total_bits_mv / (bs * h * w)
+        bpp = bpp_res + bpp_mv
+        
+        return com_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
+        
          
 # conditional coding
 class SCVC(nn.Module):

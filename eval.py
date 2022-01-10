@@ -30,7 +30,7 @@ from models import get_codec_model,parallel_compression,update_training,compress
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
-def LoadModel(CODEC_NAME,compression_level = 2,use_split=True):
+def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     loss_type = 'P'
     RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
@@ -213,6 +213,7 @@ def static_bench_x26x():
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(4):
+        if args.Q_option != 'Slow' and lvl<3:continue
         model = LoadModel(args.task,compression_level=lvl)
         model.eval()
         aux_loss_module = AverageMeter()
