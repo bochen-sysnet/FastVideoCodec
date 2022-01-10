@@ -2057,7 +2057,7 @@ class LSVC(nn.Module):
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 res_tensors = target_frames - MC_frames
-                res_hat,res_bit = self.res_codec(res_tensors)
+                res_hat,res_bits = self.res_codec(res_tensors)
                 if total_bits_res is None:
                     total_bits_res = res_bits
                 else:
