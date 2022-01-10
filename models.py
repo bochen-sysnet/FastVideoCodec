@@ -91,7 +91,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'MC' # MC->RES->REC
+        model.stage = 'REC' # MC->RES->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1650,10 +1650,10 @@ class SPVC(nn.Module):
         #self.opticFlow = OpticalFlowNet()
         #self.warpnet = MCNet()
         self.opticFlow = ME_Spynet()
+        self.warpnet = Warp_net()
         if '-E' in self.name:
-            self.warpnet = Warp_net(in_channels=30,out_channels=18) # enhanced compensation
-        else:
-            self.warpnet = Warp_net()
+            self.enhancenet = Warp_net(in_channels=21,out_channels=18) # enhanced compensation
+            
         if '96' in self.name:
             channels = 96
         elif '64' in self.name:
@@ -1798,6 +1798,16 @@ class SPVC(nn.Module):
             # new compression way
             com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameReconForward(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
             
+        # enhance compressed frames?
+        if '-E' in self.name:
+            if bs<6:
+                pad = 6-bs
+                inputframes = torch.cat((x[:1],com_frames, com_frames[-1].repeat(pad,1,1,1)), 0)
+            else:
+                inputframes = torch.cat((x[:1],com_frames), 0)
+            prediction = self.enhancenet(inputframes)
+            enhanced_frames = prediction[:bs]
+            
         ##### compute bits
         # estimated bits
         bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
@@ -1814,9 +1824,18 @@ class SPVC(nn.Module):
         msssim = PSNR(x_tar, MC_frames, use_list=True)
         #print([float(m) for m in msssim])
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
-        warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
+        #warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
+        eh_loss = calc_loss(x_tar, enhanced_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        img_loss = mc_loss if self.stage == 'MC' else rec_loss
+        if self.stage == 'MC':
+            img_loss = mc_loss
+        elif self.stage == 'REC':
+            img_loss = rec_loss
+        elif self.stage == 'EH':
+            img_loss = eh_loss
+        else:
+            print('unknown stage')
+            exit(1)
         img_loss = img_loss.repeat(bs)
         
         if self.training:
