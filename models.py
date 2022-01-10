@@ -2051,13 +2051,13 @@ class LSVC(nn.Module):
                 if tar>bs:continue
                 parent = parents[tar]
                 ref += [x[:1] if parent==0 else com_frame_list[parent-1]] # ref needed for this id
-                diff += [mv_hat[tar-1:tar]] # motion needed for this id
+                diff += [quant_mv_upsample[tar-1:tar]] # motion needed for this id
                 target += [x_tar[tar-1:tar]]
             if ref:
                 ref = torch.cat(ref,dim=0)
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
-                MC_frames,warped_frames = self.motioncompensation(referframe, quant_mv_upsample)
+                MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 res_tensors = target_frames - MC_frames
                 res_hat,res_bit = self.res_codec(res_tensors)
                 if total_bits_res is None:
