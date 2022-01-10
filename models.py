@@ -1878,8 +1878,8 @@ class LSVC(nn.Module):
             # hyperprior
             self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn)
             self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn)
-            self.mvEncoder = Analysis_prior_net(useAttn=self.useAttn)
-            self.mvDecoder = Synthesis_prior_net(useAttn=self.useAttn)
+            self.mvpriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
+            self.mvpriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
         else:
             self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn)
             self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn)
