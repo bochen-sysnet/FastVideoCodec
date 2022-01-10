@@ -1805,7 +1805,9 @@ class SPVC(nn.Module):
                 inputframes = torch.cat((x[:1],com_frames, com_frames[-1].repeat(pad,1,1,1)), 0)
             else:
                 inputframes = torch.cat((x[:1],com_frames), 0)
+            inputframes = inputframes.view(1,21,h,w)
             prediction = self.enhancenet(inputframes)
+            prediction = prediction.view(6,3,h,w)
             enhanced_frames = prediction[:bs]
             
         ##### compute bits
