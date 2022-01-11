@@ -709,7 +709,9 @@ class Coder2D(nn.Module):
             self.conv_type = 'rec'
             self.entropy_type = 'rpm2'
             self.RPM = RPM(channels)
-            self.bitEstimator = BitEstimator(channels)
+            BitEstimator.get_actual_bits = get_actual_bits
+            BitEstimator.get_estimate_bits = get_estimate_bits
+            self.entropy_bottleneck = BitEstimator(channels)
         else:
             print('Bottleneck not implemented for:',keyword)
             exit(1)
@@ -968,7 +970,7 @@ class Coder2D(nn.Module):
                 gaussian = torch.distributions.laplace.Laplace(mu, sigma)
                 likelihoods = gaussian.cdf(latent_hat + 0.5) - gaussian.cdf(latent_hat - 0.5)
             else:
-                likelihoods = self.bitEstimator(latent_hat + 0.5) - self.bitEstimator(latent_hat - 0.5)
+                likelihoods = self.entropy_bottleneck(latent_hat + 0.5) - self.entropy_bottleneck(latent_hat - 0.5)
             prior_latent = torch.round(latent).detach()
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
