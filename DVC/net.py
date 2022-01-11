@@ -127,7 +127,6 @@ class VideoCompressor(nn.Module):
                 for i in range(-self.mxrange, self.mxrange):
                     print(i)
                     cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
-                exit(0)
                 cdfs = torch.cat(cdfs, 4).cpu().detach()
                 
                 byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
