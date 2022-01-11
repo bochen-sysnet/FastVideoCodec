@@ -263,13 +263,13 @@ def test(epoch, model, test_dataset):
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
             ba_loss_module.update(ba_loss.cpu().data.item(), l)
             psnr_module.update(psnr.cpu().data.item(),l)
-            msssim_module.update(msssim.cpu().data.item(), l)
             if img_loss_list:
                 img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
                 img_loss_module.update(img_loss.cpu().data.item(), l)
+                msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+                msssim_module.update(msssim.cpu().data.item(), l)
         
         # show result
         test_iter.set_description(
