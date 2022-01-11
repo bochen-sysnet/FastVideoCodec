@@ -1902,14 +1902,14 @@ class LSVC(nn.Module):
         self.Q = None
         if '-H' in name:
             # hyperprior
-            self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn)
-            self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn)
+            self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
+            self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
             self.mvpriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
             self.mvpriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
             self.bitEstimator_mv = BitEstimator(out_channel_N)
         else:
-            self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn)
-            self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn)
+            self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
+            self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
             self.bitEstimator_mv = BitEstimator(out_channel_M)
         self.warpnet = Warp_net()
         self.resEncoder = Analysis_net(useAttn=self.useAttn)

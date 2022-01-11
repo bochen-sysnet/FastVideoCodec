@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False):
+    def __init__(self, useAttn=False, out_channels=out_channel_mv):
         super(Analysis_mv_net, self).__init__()
         self.conv1 = nn.Conv2d(2, out_channel_mv, 3, stride=2, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (2 + out_channel_mv) / (4))))
@@ -39,12 +39,12 @@ class Analysis_mv_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv7.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv7.bias.data, 0.01)
         self.relu7 = nn.LeakyReLU(negative_slope=0.1)
-        self.conv8 = nn.Conv2d(out_channel_mv, out_channel_M, 3, stride=1, padding=1)
+        self.conv8 = nn.Conv2d(out_channel_mv, out_channels, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
         if useAttn:
-            self.s_attn = Attention(out_channel_M, dim_head = 64, heads = 1)
-            self.t_attn = Attention(out_channel_M, dim_head = 64, heads = 1)
+            self.s_attn = Attention(out_channels, dim_head = 64, heads = 1)
+            self.t_attn = Attention(out_channels, dim_head = 64, heads = 1)
         self.useAttn = useAttn
 
     def forward(self, x):
