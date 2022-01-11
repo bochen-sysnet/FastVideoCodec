@@ -27,7 +27,7 @@ from PIL import Image
 import torchac
 
 def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True):
-    if name in ['RLVC','DVC','RAW']:
+    if name in ['RLVC','DVC','RAW','RLVC2']:
         model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif 'SPVC' in name:
         model_codec = SPVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
@@ -256,7 +256,7 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp_act[pos].to(data.device)]
                 psnr_list += [psnr[pos].to(data.device)]
                 msssim_list += [msssim[pos].to(data.device)]
-        elif model.name in ['DVC','RLVC']:
+        elif model.name in ['DVC','RLVC','RLVC2']:
             B,_,H,W = data.size()
             hidden = model.init_hidden(H,W)
             mv_prior_latent = res_prior_latent = None
