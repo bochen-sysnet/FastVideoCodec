@@ -72,8 +72,9 @@ class RecProbModel(CompressionModel):
         return bits_act
         
     def get_estimate_bits(self, likelihoods):
-        log2 = torch.log(torch.FloatTensor([2])).squeeze(0).to(likelihoods.device)
-        bits_est = torch.sum(torch.log(likelihoods)) / (-log2)
+        # log2 = torch.log(torch.FloatTensor([2])).squeeze(0).to(likelihoods.device)
+        # bits_est = torch.sum(torch.log(likelihoods)) / (-log2)
+        bits_est = torch.sum(torch.clamp(-1.0 * torch.log(likelihoods + 1e-5) / math.log(2.0), 0, 50))
         return bits_est
         
     def compress(self, x):
