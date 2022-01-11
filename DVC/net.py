@@ -22,11 +22,9 @@ def load_model(model, f):
         pretrained_dict = torch.load(f)
         model_dict = model.state_dict()
         for k, v in pretrained_dict.items():
-            print(k,v.size())
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict)
-        exit(0)
     f = str(f)
     if f.find('iter') != -1 and f.find('.model') != -1:
         st = f.find('iter') + 4
@@ -128,7 +126,9 @@ class VideoCompressor(nn.Module):
                 x = x + self.mxrange
                 n,c,h,w = x.shape
                 for i in range(-self.mxrange, self.mxrange):
+                    print(i)
                     cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
+                exit(0)
                 cdfs = torch.cat(cdfs, 4).cpu().detach()
                 
                 byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
