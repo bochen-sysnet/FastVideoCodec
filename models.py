@@ -1032,7 +1032,7 @@ class Coder2D(nn.Module):
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
-        aux_loss = self.entropy_bottleneck.loss()
+        aux_loss = self.entropy_bottleneck.loss() if self.entropy_type != 'rpm2' else torch.FloatTensor([0]).cuda()
             
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
