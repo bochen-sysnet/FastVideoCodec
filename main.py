@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC2'
+CODEC_NAME = 'LSVC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -73,18 +73,18 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['RLVC2']:
+elif CODEC_NAME in []:
     # load what exists
-    pretrained_model_path = f"backup/RLVC/RLVC-3P_best.pth"
+    pretrained_model_path = f"backup/LSVC/LSVC-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-    with open(f'DVC/snapshot/2048.model', 'rb') as f:
-       pretrained_dict = torch.load(f)
-       load_state_dict_only(model, pretrained_dict, 'warpnet')
-       load_state_dict_only(model, pretrained_dict, 'opticFlow')
+    # with open(f'DVC/snapshot/2048.model', 'rb') as f:
+    #    pretrained_dict = torch.load(f)
+    #    load_state_dict_only(model, pretrained_dict, 'warpnet')
+    #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH)
@@ -203,7 +203,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 5000 == 0:
             if True:
                 print('testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
