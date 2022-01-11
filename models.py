@@ -20,7 +20,7 @@ from torch.autograd import Function
 from torchvision import transforms
 from compressai.layers import GDN,ResidualBlock,AttentionBlock
 from compressai.models import CompressionModel
-from entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors
+from entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors,RPM
 from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
@@ -94,7 +94,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # WP->MC->REC->EH
+        model.stage = 'WP' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -705,6 +705,11 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck = JointAutoregressiveHierarchicalPriors(channels,useAttention=False)
             self.conv_type = 'none'
             self.entropy_type = 'joint'
+        elif keyword == 'RLVC2':
+            self.conv_type = 'rec'
+            self.entropy_type = 'rpm2'
+            self.RPM = RPM(channels)
+            self.bitEstimator = BitEstimator(channels)
         else:
             print('Bottleneck not implemented for:',keyword)
             exit(1)
@@ -948,6 +953,23 @@ class Coder2D(nn.Module):
             else:
                 _,latent_string,shape = self.entropy_bottleneck.compress_slow(latent, prior, decode=True)
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape, prior)
+        elif self.entropy_type == 'rpm2':
+            if self.training:
+                half = float(0.5)
+                noise = torch.empty_like(latent).uniform_(-half, half)
+                latent_hat = latent + noise
+            else:
+                latent_hat = torch.round(latent)
+            if RPM_flag:
+                assert prior_latent is not None, 'prior latent is none!'
+                sigma, mu, rpm_hidden = self.RPM(prior_latent, rpm_hidden)
+                mu = torch.zeros_like(sigma)
+                sigma = sigma.clamp(1e-5, 1e10)
+                gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+                likelihoods = gaussian.cdf(latent_hat + 0.5) - gaussian.cdf(latent_hat - 0.5)
+            else:
+                likelihoods = self.bitEstimator(latent_hat + 0.5) - self.bitEstimator(latent_hat - 0.5)
+            prior_latent = torch.round(latent).detach()
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
             if self.noMeasure:
