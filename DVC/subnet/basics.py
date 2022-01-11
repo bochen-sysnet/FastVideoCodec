@@ -16,8 +16,8 @@ from .GDN import GDN
 from torch.autograd import Variable
 import datetime
 from .flowlib import flow_to_image
-import compressai.layers as layers
-SpaceAttention = layers.AttentionBlock
+from einops import rearrange, repeat
+from torch import einsum
 
 out_channel_N = 64
 out_channel_M = 96
@@ -124,45 +124,59 @@ def conv2d_same_padding(input, weight, bias=None, stride=1, padding=0, dilation=
                   padding=(padding_rows // 2, padding_cols // 2),
                   dilation=dilation, groups=groups)
 
-def attention(q, k, v, d_model, dropout=None):
-    
-    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_model)
-        
-    scores = F.softmax(scores, dim=-1)
-    
-    if dropout is not None:
-        scores = dropout(scores)
-        
-    output = torch.matmul(scores, v)
-    return output
-        
-class TimeAttention(nn.Module):
-    def __init__(self, d_model, dropout = 0.1):
+# attention
+def exists(val):
+    return val is not None
+
+def attn(q, k, v, mask = None):
+    sim = einsum('b i d, b j d -> b i j', q, k)
+
+    if exists(mask):
+        max_neg_value = -torch.finfo(sim.dtype).max
+        sim.masked_fill_(~mask, max_neg_value)
+
+    attn = sim.softmax(dim = -1)
+    out = einsum('b i j, b j d -> b i d', attn, v)
+    return out
+
+class Attention(nn.Module):
+    def __init__(
+        self,
+        dim,
+        dim_head = 64,
+        heads = 8,
+        dropout = 0.
+    ):
         super().__init__()
-        
-        self.d_model = d_model
-        
-        self.q_linear = nn.Linear(d_model, d_model)
-        self.v_linear = nn.Linear(d_model, d_model)
-        self.k_linear = nn.Linear(d_model, d_model)
-        self.dropout = nn.Dropout(dropout)
-        self.out = nn.Linear(d_model, d_model)
-    
-    def forward(self, x):
-        bs,C,H,W = x.size()
-        x = x.view(bs,C,-1).permute(2,0,1).contiguous()
-        
-        # perform linear operation
-        
-        k = self.k_linear(x)
-        q = self.q_linear(x)
-        v = self.v_linear(x)
-        
-        # calculate attention using function we will define next
-        scores = attention(q, k, v, self.d_model, self.dropout)
-        
-        output = self.out(scores) # bs * sl * d_model
-        
-        output = output.permute(1,2,0).view(bs,C,H,W).contiguous()
-    
-        return output
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+        inner_dim = dim_head * heads
+
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x, einops_from, einops_to, mask = None, cls_mask = None, rot_emb = None, **einops_dims):
+        h = self.heads
+        q, k, v = self.to_qkv(x).chunk(3, dim = -1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
+
+        q = q * self.scale
+
+        # rearrange across time or space
+        (q_, k_, v_) = q, k, v
+        q_, k_, v_ = map(lambda t: rearrange(t, f'{einops_from} -> {einops_to}', **einops_dims), (q_, k_, v_))
+
+        # attention
+        out = attn(q_, k_, v_, mask = mask)
+
+        # merge back time or space
+        out = rearrange(out, f'{einops_to} -> {einops_from}', **einops_dims)
+
+        # merge back the heads
+        out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
+
+        # combine heads out
+        return self.to_out(out)

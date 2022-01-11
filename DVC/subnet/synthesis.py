@@ -26,18 +26,21 @@ class Synthesis_net(nn.Module):
         self.deconv4 = nn.ConvTranspose2d(out_channel_N, 3, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv4.weight.data, (math.sqrt(2 * 1 * (out_channel_N + 3) / (out_channel_N + out_channel_N))))
         torch.nn.init.constant_(self.deconv4.bias.data, 0.01)
-        if useAttn:
-            self.s_attn = SpaceAttention(out_channel_N)
-            self.t_attn = TimeAttention(out_channel_N)
+        # if useAttn:
+        #     self.s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
+        #     self.t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
         self.useAttn = useAttn
         
     def forward(self, x):
         x = self.igdn1(self.deconv1(x))
         x = self.igdn2(self.deconv2(x))
-        if self.useAttn:
-            x = self.s_attn(x)
-            x = self.t_attn(x)
         x = self.igdn3(self.deconv3(x))
+        # if self.useAttn:
+        #     B,C,H,W = x.size()
+        #     x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
+        #     x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
+        #     x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
+        #     x = x.view(B,H,W,C).permute(0,3,1,2).contiguous() 
         x = self.deconv4(x)
         return x
 

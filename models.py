@@ -1900,11 +1900,6 @@ class LSVC(nn.Module):
         self.compression_level=compression_level
         init_training_params(self)
 
-    def forwardFirstFrame(self, x):
-        output, bittrans = self.imageCompressor(x)
-        cost = self.bitEstimator(bittrans)
-        return output, cost
-
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
         inputfeature = torch.cat((warpframe, ref), 1)
@@ -2122,159 +2117,9 @@ class LSVC(nn.Module):
         bpp = bpp_res + bpp_mv
         
         return com_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
-        
-         
-# conditional coding
-class SCVC(nn.Module):
-    def __init__(self, name, channels=64, channels2=96, noMeasure=True, loss_type='P', compression_level=2):
-        super(SCVC, self).__init__()
-        self.name = name 
-        device = torch.device('cuda')
-        self.opticFlow = OpticalFlowNet()
-        self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure)
-        self.warpnet = MCNet()
-        self.ctx_encoder = nn.Sequential(nn.Conv2d(3+channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels2, kernel_size=5, stride=2, padding=2)
-                                        )
-        self.ctx_decoder1 = nn.Sequential(nn.ConvTranspose2d(channels2, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        GDN(channels, inverse=True),
-                                        nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        GDN(channels, inverse=True),
-                                        ResidualBlock(channels,channels),
-                                        nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        GDN(channels, inverse=True),
-                                        ResidualBlock(channels,channels),
-                                        nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-                                        )
-        self.ctx_decoder2 = nn.Sequential(nn.Conv2d(channels*2, channels, kernel_size=3, stride=1, padding=1),
-                                        ResidualBlock(channels,channels),
-                                        ResidualBlock(channels,channels),
-                                        nn.Conv2d(channels, 3, kernel_size=3, stride=1, padding=1)
-                                        )
-        self.feature_extract = nn.Sequential(nn.Conv2d(3, channels, kernel_size=3, stride=1, padding=1),
-                                        ResidualBlock(channels,channels)
-                                        )
-        self.tmp_prior_encoder = nn.Sequential(nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                                        GDN(channels),
-                                        nn.Conv2d(channels, channels2, kernel_size=5, stride=2, padding=2)
-                                        )
-        self.latent_codec = Coder2D('joint-attn', channels=channels2, noMeasure=noMeasure, downsample=False)
-        self.channels = channels
-        self.loss_type=loss_type
-        self.compression_level=compression_level
-        self.use_psnr = loss_type=='P'
-        init_training_params(self)
-        # split on multi-gpus
-        self.split()
-        self.noMeasure = noMeasure
+       
+# need a new RLVC model for accuracy test
 
-    def split(self):
-        self.opticFlow.cuda(0)
-        self.mv_codec.cuda(0)
-        self.feature_extract.cuda(0)
-        self.warpnet.cuda(0)
-        self.tmp_prior_encoder.cuda(1)
-        self.ctx_encoder.cuda(1)
-        self.latent_codec.cuda(1)
-        self.ctx_decoder1.cuda(1)
-        self.ctx_decoder2.cuda(1)
-        
-    def forward(self, x):
-        # x=[B,C,H,W]: input sequence of frames
-        bs, c, h, w = x[1:].size()
-        
-        ref_frame = x[:1]
-        
-        # BATCH:compute optical flow
-        t_0 = time.perf_counter()
-        mv_tensors, l0, l1, l2, l3, l4 = self.opticFlow(x[:-1], x[1:])
-        t_flow = time.perf_counter() - t_0
-        #print('Flow:',t_flow)
-        
-        # BATCH:compress optical flow
-        t_0 = time.perf_counter()
-        mv_hat,_,_,mv_act,mv_est,mv_aux = self.mv_codec(mv_tensors)
-        t_mv = time.perf_counter() - t_0
-        #print('MV entropy:',t_mv)
-        
-        # SEQ:motion compensation
-        t_0 = time.perf_counter()
-        MC_frame_list = []
-        warped_frame_list = []
-        for i in range(x.size(0)-1):
-            MC_frame,warped_frame = motion_compensation(self.warpnet,ref_frame,mv_hat[i:i+1])
-            ref_frame = MC_frame.detach()
-            MC_frame_list.append(MC_frame)
-            warped_frame_list.append(warped_frame)
-        MC_frames = torch.cat(MC_frame_list,dim=0)
-        warped_frames = torch.cat(warped_frame_list,dim=0)
-        t_comp = time.perf_counter() - t_0
-        #print('Compensation:',t_comp)
-        
-        t_0 = time.perf_counter()
-        # BATCH:extract context
-        context = self.feature_extract(MC_frames).cuda(1)
-        
-        # BATCH:temporal prior
-        prior = self.tmp_prior_encoder(context)
-        
-        # contextual encoder
-        y = self.ctx_encoder(torch.cat((x[1:].cuda(1), context), axis=1))
-        t_ctx = time.perf_counter() - t_0
-        #print('Context:',t_ctx)
-        
-        # entropy model
-        t_0 = time.perf_counter()
-        y_hat,_,_,y_act,y_est,y_aux = self.latent_codec(y, prior=prior)
-        t_y = time.perf_counter() - t_0
-        #print('Y entropy:',t_y)
-        
-        # contextual decoder
-        t_0 = time.perf_counter()
-        x_hat = self.ctx_decoder1(y_hat)
-        x_hat = self.ctx_decoder2(torch.cat((x_hat, context), axis=1)).to(x.device)
-        t_ctx_dec = time.perf_counter() - t_0
-        #print('Context dec:',t_ctx_dec)
-        
-        # estimated bits
-        bpp_est = (mv_est + y_est.to(mv_est.device))/(h * w)
-        # actual bits
-        bpp_act = (mv_act + y_act.to(mv_act.device))/(h * w)
-        # auxilary loss
-        aux_loss = (mv_aux + y_aux.to(mv_aux.device))
-        aux_loss = aux_loss.repeat(bs)
-        # calculate metrics/loss
-        psnr = PSNR(x[1:], x_hat.to(x.device), use_list=True)
-        msssim = MSSSIM(x[1:], x_hat.to(x.device), use_list=True)
-        mc_loss = calc_loss(x[1:], MC_frames, self.r, True)
-        warp_loss = calc_loss(x[1:], warped_frames, self.r, True)
-        rec_loss = calc_loss(x[1:], com_frames, self.r, self.use_psnr)
-        flow_loss = (l0+l1+l2+l3+l4).cuda(0)/5*1024
-        img_loss = self.r_rec*rec_loss
-        img_loss = img_loss.repeat(bs)
-        
-        return x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-    
-    def loss(self, pix_loss, bpp_loss, aux_loss, app_loss=None):
-        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
-        if app_loss is not None:
-            loss += self.r_app*app_loss.cuda(0)
-        return loss
-        
-    def init_hidden(self, h, w):
-        return None
-        
 class AE3D(nn.Module):
     def __init__(self, name, noMeasure=True, loss_type='P', compression_level=2, use_split=True):
         super(AE3D, self).__init__()
@@ -2567,7 +2412,7 @@ if __name__ == '__main__':
     print(result_dvc)
     print(result_rlvc)
     print(result_spvc)
-    # test_batch_proc('AE3D')
-    #test_batch_proc('SPVC-L')
-    #test_batch_proc('SPVC-R')
-    #test_batch_proc('SCVC')
+    test_batch_proc('AE3D')
+    test_batch_proc('SPVC-L')
+    test_batch_proc('SPVC-R')
+    test_batch_proc('SCVC')

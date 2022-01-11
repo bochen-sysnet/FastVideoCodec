@@ -43,8 +43,8 @@ class Analysis_mv_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
         if useAttn:
-            self.s_attn = SpaceAttention(out_channel_mv)
-            self.t_attn = TimeAttention(out_channel_mv)
+            self.s_attn = Attention(out_channel_M, dim_head = 64, heads = 1)
+            self.t_attn = Attention(out_channel_M, dim_head = 64, heads = 1)
         self.useAttn = useAttn
 
     def forward(self, x):
@@ -52,17 +52,22 @@ class Analysis_mv_net(nn.Module):
         x = self.relu2(self.conv2(x))
         x = self.relu3(self.conv3(x))
         x = self.relu4(self.conv4(x))
-        if self.useAttn:
-            x = self.s_attn(x)
-            x = self.t_attn(x)
         x = self.relu5(self.conv5(x))
-        x = self.relu6(self.conv6(x))
+        x = self.relu6(self.conv6(x)) 
         x = self.relu7(self.conv7(x))
-        return self.conv8(x)
+        x = self.conv8(x)
+        if self.useAttn:
+            # B,C,H,W->1,BHW,C
+            B,C,H,W = x.size()
+            x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
+            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
+            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
+            x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        return x
 
 def build_model():
     analysis_net = Analysis_net()
-    analysis_mv_net = Analysis_mv_net()
+    analysis_mv_net = Analysis_mv_net(useAttn=True)
     
     feature = torch.zeros([3, 2, 256, 256])
     z = analysis_mv_net(feature)

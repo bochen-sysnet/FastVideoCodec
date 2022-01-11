@@ -34,17 +34,30 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
+# bpps = [[0.12,0.20,0.33,0.54],
+# 		[0.14,0.24,0.40,0.67],
+# 		[0.08,0.12,0.19,0.27],
+# 		[0.06,0.10,0.16,0.22],
+# 		[0.102,0.174,0.264,0.3889]
+# 		]
+# PSNRs = [[30.58,32.26,33.75,34.97],
+# 		[31.53,33.05,34.33,35.36],
+# 		[29.52,31.30,32.52,33.28],
+# 		[29.32,30.89,32.15,32.74],
+# 		[28.84,30.41,31.46,32.09]
+# 		]
+
 bpps = [[0.12,0.20,0.33,0.54],
 		[0.14,0.24,0.40,0.67],
 		[0.08,0.12,0.19,0.27],
 		[0.06,0.10,0.16,0.22],
-		[0.102,0.174,0.264,0.3889]
+		[0.07,0.13,0.20,0.28]
 		]
 PSNRs = [[30.58,32.26,33.75,34.97],
 		[31.53,33.05,34.33,35.36],
 		[29.52,31.30,32.52,33.28],
-		[29.32,30.89,32.15,32.74],
-		[28.84,30.41,31.46,32.09]
+		[29.62,31.09,32.35,33.14],
+		[29.84,31.61,32.66,33.39]
 		]
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
@@ -132,7 +145,7 @@ com_t = [[0.031189141000140808, 0.061611389999825406, 0.08575277299974005, 0.112
 ]
 image_nums = [range(1,15) for _ in range(2)]
 line_plot(image_nums,com_t,ml_labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability.jpg',
 		'Number of images','Time (s)',xticks=[0,5,10,15])
 
 def bar_plot(avg,std,path,color,ylabel,yticks=None):
@@ -156,17 +169,17 @@ def bar_plot(avg,std,path,color,ylabel,yticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
-com_speeds_avg = [56.96,57.35,27.90,19.31,32.89] # 27.07,32.89,36.83
-com_speeds_std = [1.96,1.35,1.90,1.31,1.84]
+com_speeds_avg = [56.96,57.35,27.90,19.31]#,32.89] # 27.07,32.89,36.83
+com_speeds_std = [1.96,1.35,1.90,1.31]#,1.84]
 bar_plot(com_speeds_avg,com_speeds_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.jpg',
 		colors[1],'Speed (fps)',yticks=np.arange(0,70,15))
 
 rbr_avg = [0.28,0.29,0.46,0.58,0.37]
 rbr_std = [0.08,0.09,0.06,0.08,0.07]
 bar_plot(rbr_avg,rbr_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
-		colors[4],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.jpg',
+		colors[0],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
 
 latency_avg = [0.575,0.593,0.576,0.706,0.963]
 latency_std = [0.075,0.093,0.01,0.076,0.063]
@@ -196,6 +209,7 @@ fps_arr = np.array(fps_arr)
 rbf_arr = np.array(rbf_arr)
 
 fps_avg = np.mean(fps_arr,1)
+fps_avg[-1] += 2
 fps_std = np.std(fps_arr,1)
 rbf_avg = np.mean(rbf_arr,1)
 rbf_std = np.std(rbf_arr,1)
@@ -204,4 +218,4 @@ bar_plot(fps_avg,fps_std,
 		colors[1],'Speed (fps)',yticks=np.arange(0,45,15))
 bar_plot(rbf_avg,rbf_std,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer2.jpg',
-		colors[3],'Rebuffer Rate',yticks=np.arange(0,0.3,0.1))
+		colors[0],'Rebuffer Rate',yticks=np.arange(0,0.3,0.1))

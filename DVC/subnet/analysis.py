@@ -29,18 +29,23 @@ class Analysis_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (out_channel_M + out_channel_N) / (out_channel_N + out_channel_N))))
         torch.nn.init.constant_(self.conv4.bias.data, 0.01)
         if useAttn:
-            self.s_attn = SpaceAttention(out_channel_N)
-            self.t_attn = TimeAttention(out_channel_N)
+            self.s_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
+            self.t_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
         self.useAttn = useAttn
 
     def forward(self, x):
         x = self.gdn1(self.conv1(x))
-        x = self.gdn2(self.conv2(x))
-        if self.useAttn:
-            x = self.s_attn(x)
-            x = self.t_attn(x)
+        x = self.gdn2(self.conv2(x)) 
         x = self.gdn3(self.conv3(x))
-        return self.conv4(x)
+        x = self.conv4(x)
+        if self.useAttn:
+            # B,C,H,W->1,BHW,C
+            B,C,H,W = x.size()
+            x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
+            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
+            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
+            x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        return x
 
 
 def build_model():
