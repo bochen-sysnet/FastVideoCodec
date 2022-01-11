@@ -265,10 +265,7 @@ def test(epoch, model, test_dataset):
             img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
             psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
             msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-            if 'LSVC' in model.name:
-                loss = img_loss + be_loss
-            else:
-                loss = model.loss(img_loss,ba_loss,aux_loss)
+            loss = img_loss + ba_loss
             
             # record loss
             img_loss_module.update(img_loss.cpu().data.item(), l)
