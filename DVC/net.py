@@ -21,9 +21,12 @@ def load_model(model, f):
     with open(f, 'rb') as f:
         pretrained_dict = torch.load(f)
         model_dict = model.state_dict()
+        for k, v in pretrained_dict.items():
+            print(k,v.size())
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict)
+        exit(0)
     f = str(f)
     if f.find('iter') != -1 and f.find('.model') != -1:
         st = f.find('iter') + 4
@@ -53,7 +56,7 @@ class VideoCompressor(nn.Module):
         # self.bitEstimator_feature = BitEstimator(out_channel_M)
         self.warp_weight = 0
         self.mxrange = 150
-        self.calrealbits = False
+        self.calrealbits = True
 
     def forwardFirstFrame(self, x):
         output, bittrans = self.imageCompressor(x)
@@ -125,6 +128,7 @@ class VideoCompressor(nn.Module):
                 x = x + self.mxrange
                 n,c,h,w = x.shape
                 for i in range(-self.mxrange, self.mxrange):
+                    print(i)
                     cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
                 cdfs = torch.cat(cdfs, 4).cpu().detach()
                 
