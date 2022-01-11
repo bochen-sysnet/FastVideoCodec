@@ -53,7 +53,7 @@ class VideoCompressor(nn.Module):
         # self.bitEstimator_feature = BitEstimator(out_channel_M)
         self.warp_weight = 0
         self.mxrange = 150
-        self.calrealbits = True
+        self.calrealbits = False
 
     def forwardFirstFrame(self, x):
         output, bittrans = self.imageCompressor(x)
