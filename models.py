@@ -284,7 +284,7 @@ def parallel_compression(model, data, compressI=False):
                 x_hat, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
                     model(data[i:i+1],x_hat)
                 x_hat = x_hat.detach()
-                img_loss_list += [2048*mse_loss.to(data.device)]
+                img_loss_list += [2048*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
