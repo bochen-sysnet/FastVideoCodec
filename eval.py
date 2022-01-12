@@ -168,8 +168,6 @@ def static_simulation_x26x(args,test_dataset):
         ba_loss_module = AverageMeter()
         psnr_module = AverageMeter()
         msssim_module = AverageMeter()
-        GoP = args.fP + args.bP +1
-        GoP_meters = [AverageMeter() for _ in range(GoP)]
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             frame,eof = test_dataset[data_idx]
@@ -190,10 +188,6 @@ def static_simulation_x26x(args,test_dataset):
             psnr_module.update(psnr.cpu().data.item(),l)
             msssim_module.update(msssim.cpu().data.item(), l)
 
-            # record psnr per position
-            for idx,p in enumerate(psnr_list):
-                GoP_meters[idx%GoP].update(p)
-            
             # show result
             test_iter.set_description(
                 f"Q:{Q}"
@@ -206,8 +200,7 @@ def static_simulation_x26x(args,test_dataset):
             data = []
             
         test_dataset.reset()
-        psnrs = [gm.avg for gm in GoP_meters]
-        print(psnrs)
+        
 
     
 def static_bench_x26x():
@@ -234,6 +227,7 @@ def static_simulation_model(args, test_dataset):
         all_loss_module = AverageMeter()
         ds_size = len(test_dataset)
         GoP = args.fP + args.bP +1
+        GoP_meters = [AverageMeter() for _ in range(GoP)]
         data = []
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
@@ -277,6 +271,10 @@ def static_simulation_model(args, test_dataset):
                 psnr_module.update(psnr.cpu().data.item(),l)
                 msssim_module.update(msssim.cpu().data.item(), l)
                 all_loss_module.update(loss.cpu().data.item(), l)
+
+                # record psnr per position
+                for idx,p in enumerate(psnr_list):
+                    GoP_meters[idx%GoP].update(p)
             
             # show result
             test_iter.set_description(
@@ -291,6 +289,8 @@ def static_simulation_model(args, test_dataset):
             data = []
             
         test_dataset.reset()
+        psnrs = [gm.avg for gm in GoP_meters]
+        print(lvl,psnrs)
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def block_until_open(ip_addr,port):
