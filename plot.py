@@ -34,6 +34,15 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
+eplabels = ['DVC','RLVC']
+frame_loc = range(1,14)
+PSNRs = [[],
+		[]]
+
+line_plot(frame_loc,PSNRs,eplabels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
+		'bpp','PSNR (dB)')
+
 # bpps = [[0.12,0.20,0.33,0.54],
 # 		[0.14,0.24,0.40,0.67],
 # 		[0.08,0.12,0.19,0.27],
