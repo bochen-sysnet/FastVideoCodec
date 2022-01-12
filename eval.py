@@ -46,7 +46,6 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     if os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
         checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:0'))
-        best_codec_score = checkpoint['score'][1:4]
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model codec score: ", checkpoint['score'])
         del checkpoint
@@ -256,18 +255,18 @@ def static_simulation_model(args, test_dataset):
                 # aggregate loss
                 ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
                 psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-                msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
                 
                 # record loss
                 ba_loss_module.update(ba_loss.cpu().data.item(), l)
                 psnr_module.update(psnr.cpu().data.item(),l)
-                msssim_module.update(msssim.cpu().data.item(), l)
 
                 if aux_loss_list:
                     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
                     aux_loss_module.update(aux_loss.cpu().data.item(), l)
                     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
                     img_loss_module.update(img_loss.cpu().data.item(), l)
+                    msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+                    msssim_module.update(msssim.cpu().data.item(), l)
 
                 # record psnr per position
                 for idx,p in enumerate(psnr_list):
@@ -831,7 +830,7 @@ def dynamic_simulation(args, test_dataset):
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
         client_sim = RLVC_DVC_client
-    elif args.task in ['AE3D'] or 'SPVC' in args.task:
+    elif args.task in ['AE3D'] or 'SPVC':
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
     elif args.task in ['x264','x265']:
@@ -965,5 +964,5 @@ if __name__ == '__main__':
     else:
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','DVC','SPVC96','SPVC','AE3D','DVC-pretrained']:
+        elif args.task in ['RLVC','DVC','SPVC96','SPVC','AE3D','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
