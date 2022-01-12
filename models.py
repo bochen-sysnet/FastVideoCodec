@@ -2113,6 +2113,9 @@ class LSVC(nn.Module):
                 target += [x_tar[tar-1:tar]]
             if ref:
                 ref = torch.cat(ref,dim=0)
+                # if linear or detach, detach it. dont care one-hop
+                if '-L' in self.name or '-D' in self.name:
+                    ref = ref.detach()
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
