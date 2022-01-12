@@ -35,13 +35,14 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	fig.savefig(path,bbox_inches='tight')
 
 eplabels = ['DVC','RLVC']
-frame_loc = range(1,14)
-PSNRs = [[],
+frame_loc = [[i for i in range(1,14)],
+			[]]
+PSNRs = [[32.98979568481445, 33.08745193481445, 33.179832458496094, 33.29349136352539, 33.42366027832031, 33.544105529785156, 33.563720703125, 33.54086685180664, 33.41876983642578, 33.29288864135742, 33.180362701416016, 33.07490921020508, 32.98408889770508],
 		[]]
 
 line_plot(frame_loc,PSNRs,eplabels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
-		'bpp','PSNR (dB)')
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/error_prop.eps',
+		'Frame Index','PSNR (dB)')
 
 # bpps = [[0.12,0.20,0.33,0.54],
 # 		[0.14,0.24,0.40,0.67],
@@ -60,13 +61,13 @@ bpps = [[0.12,0.20,0.33,0.54],
 		[0.14,0.24,0.40,0.67],
 		[0.08,0.12,0.19,0.27],
 		[0.06,0.10,0.16,0.22],
-		[0.07,0.13,0.22,0.255]
+		[0.07,0.13,0.20,0.25]
 		]
 PSNRs = [[30.58,32.26,33.75,34.97],
 		[31.53,33.05,34.33,35.36],
 		[29.52,31.30,32.52,33.28],
 		[29.62,31.09,32.35,33.14],
-		[29.84,31.61,33.43,34.20]
+		[29.84,31.61,33.82,34.33]
 		]
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
