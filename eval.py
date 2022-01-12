@@ -255,21 +255,19 @@ def static_simulation_model(args, test_dataset):
                     
                 # aggregate loss
                 ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-                be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-                aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
                 img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
                 psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
                 msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-                loss = model.loss(img_loss,ba_loss,aux_loss)
                 
                 # record loss
-                aux_loss_module.update(aux_loss.cpu().data.item(), l)
                 img_loss_module.update(img_loss.cpu().data.item(), l)
                 ba_loss_module.update(ba_loss.cpu().data.item(), l)
-                be_loss_module.update(ba_loss.cpu().data.item(), l)
                 psnr_module.update(psnr.cpu().data.item(),l)
                 msssim_module.update(msssim.cpu().data.item(), l)
-                all_loss_module.update(loss.cpu().data.item(), l)
+
+                if aux_loss_list:
+                    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+                    aux_loss_module.update(aux_loss.cpu().data.item(), l)
 
                 # record psnr per position
                 for idx,p in enumerate(psnr_list):
@@ -282,6 +280,7 @@ def static_simulation_model(args, test_dataset):
                 f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
+                f"A: {aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
                 f"I: {float(max(psnr_list)):.2f}")
                 
             # clear input
