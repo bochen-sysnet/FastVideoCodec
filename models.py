@@ -1919,7 +1919,7 @@ class LSVC(nn.Module):
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
-        self.calrealbits = True
+        self.calrealbits = False
         self.loss_type=loss_type
         self.channels = out_channel_mv
         self.compression_level=compression_level
