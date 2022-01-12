@@ -114,7 +114,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -289,7 +288,7 @@ def static_simulation_model(args, test_dataset):
             data = []
             
         test_dataset.reset()
-        psnrs = [gm.avg for gm in GoP_meters]
+        psnrs = [float(gm.avg) for gm in GoP_meters]
         print(lvl,psnrs)
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
