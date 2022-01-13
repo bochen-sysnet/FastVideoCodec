@@ -186,10 +186,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
             f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
             f"BR: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
-            f"AX: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
             f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"PMC: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
+            f"MC: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            f"WP: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
             f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
 
         # clear result every 1000 batches
