@@ -75,7 +75,7 @@ PSNRs = [[29.81,31.05,32.23,33.06],
 		[30.32,31.89,32.65,33.22],
 		]
 line_plot(bpps,PSNRs,labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/after.jpg',
 		'bpp','PSNR (dB)')
 
 bpps = [[0.114,0.154,0.206,0.256],
