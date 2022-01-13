@@ -227,6 +227,7 @@ def static_simulation_model(args, test_dataset):
         ds_size = len(test_dataset)
         GoP = args.fP + args.bP +1
         GoP_meters = [AverageMeter() for _ in range(GoP)]
+        GoP_meters2 = [AverageMeter() for _ in range(GoP)]
         data = []
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
@@ -272,6 +273,8 @@ def static_simulation_model(args, test_dataset):
                 # record psnr per position
                 for idx,p in enumerate(psnr_list):
                     GoP_meters[idx%GoP].update(p)
+                for idx,b in enumerate(bpp_act_list):
+                    GoP_meters2[idx%GoP].update(b)
             
             # show result
             test_iter.set_description(
@@ -288,7 +291,8 @@ def static_simulation_model(args, test_dataset):
             
         test_dataset.reset()
         psnrs = [float(gm.avg) for gm in GoP_meters]
-        print(lvl,psnrs)
+        bpps = [float(gm.avg) for gm in GoP_meters2]
+        print(lvl,psnrs,bpps)
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def block_until_open(ip_addr,port):

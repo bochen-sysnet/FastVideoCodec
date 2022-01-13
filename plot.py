@@ -14,7 +14,7 @@ plt.rcParams['ytick.labelsize'] = 20
 plt.rcParams["font.family"] = "Times New Roman"
 
 colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB','#D65780']
-labels = ['H.264','H.265','DVC','RLVC','LSVC']
+labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
 
 def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
@@ -44,7 +44,7 @@ PSNRs = [[32.98979568481445, 33.08745193481445, 33.179832458496094, 33.293491363
 
 line_plot(frame_loc,PSNRs,eplabels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/error_prop.eps',
-		'Frame Index','PSNR (dB)')
+		'Frame Index','PSNR (dB)',xticks=range(1,14))
 
 # bpps = [[0.12,0.20,0.33,0.54],
 # 		[0.14,0.24,0.40,0.67],
@@ -59,67 +59,67 @@ line_plot(frame_loc,PSNRs,eplabels,
 # 		[28.84,30.41,31.46,32.09]
 # 		]
 
-bpps = [[0.12,0.20,0.33,0.54],
+bpps = [[0.11,0.15,0.20,0.25],
+		[0.12,0.20,0.33,0.54],
 		[0.14,0.24,0.40,0.67],
 		[0.08,0.12,0.19,0.27],
 		[0.06,0.10,0.16,0.22],
-		[0.11,0.15,0.20,0.25]
 		]
-PSNRs = [[30.58,32.26,33.75,34.97],
+PSNRs = [[32.41,33.45,33.86,34.33],
+		[30.58,32.26,33.75,34.97],
 		[31.53,33.05,34.33,35.36],
 		[29.52,31.30,32.52,33.28],
 		[29.32,30.89,32.15,32.74],
-		[32.41,33.43,33.86,34.33]
 		]
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[0.14,0.23,0.38,0.63],
+bpps = [[0.17,0.24,0.32,0.26],
+		[0.14,0.23,0.38,0.63],
 		[0.16,0.26,0.43,0.76],
 		[0.09,0.15,0.22,0.31],
 		[0.2,0.21,0.23,0.31],
-		[0.17,0.24,0.32,0.26]
 		]
-PSNRs = [[30.71,32.42,33.95,35.23],
+PSNRs = [[30.1,31.64,32.66,34.39],
+		[30.71,32.42,33.95,35.23],
 		[31.56,33.16,34.52,35.61],
 		[29.98,31.72,32.96,33.73],
 		[29.65,31.45,31.84,32.46],
-		[30.1,31.64,32.66,34.39]
 		]
 
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-MCL.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[0.09,0.14,0.23,0.4],
+bpps = [[]
+		[0.09,0.14,0.23,0.4],
 		[0.1,0.17,0.28,0.47],
 		[0.06,0.1,0.15,0.22],
 		[],
-		[]
 		]
-PSNRs = [[31.10,32.67,34,34.98],
+PSNRs = [[]
+		[31.10,32.67,34,34.98],
 		[32.19,33.57,34.62,35.35],
 		[30.28,32.26,33.52,34.27],
 		[],
-		[]
 		]
 
 line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-Xiph.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[0.11,0.18,0.29,0.49],
+bpps = [[]
+		[0.11,0.18,0.29,0.49],
 		[0.13,0.21,0.35,0.57],
 		[0.08,0.12,0.18,0.25],
 		[],
-		[]
 		]
-PSNRs = [[30.79,32.35,33.77,34.85],
+PSNRs = [[]
+		[30.79,32.35,33.77,34.85],
 		[31.76,33.21,34.36,35.19],
 		[30.82,32.45,33.5,34.11],
 		[],
-		[]
 		]
 
 line_plot(bpps,PSNRs,labels,
@@ -127,19 +127,19 @@ line_plot(bpps,PSNRs,labels,
 		'bpp','PSNR (dB)')
 
 ab_labels = ['Base','C64','C128','Recurrent','Detach','Linear']
-bpps = [[0.102,0.174,0.264,0.3889],
+bpps = [[]
+		[0.102,0.174,0.264,0.3889],
 		[0.418],
 		[0.123,0.181,0.284,0.3925],
 		[0.25],
 		[],
-		[]
 		]
-PSNRs = [[28.84,30.41,31.46,32.09],
+PSNRs = [[]
+		[28.84,30.41,31.46,32.09],
 		[30.93],
 		[28.98,30.54,31.54,32.24],
 		[30.83],
 		[],
-		[]
 		]
 line_plot(bpps,PSNRs,ab_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation-UVG.eps',
