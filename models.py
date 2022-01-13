@@ -292,7 +292,7 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
-            x_hat, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
+            x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
@@ -305,13 +305,15 @@ def parallel_compression(model, data, compressI=False):
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
+            aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
+            msssim_list += PSNR(data[1:], x_wp, use_list=True)
             for pos in range(N):
                 bpp_est_list += [(bpp/N).to(data.device)]
                 if model.training:
                     bpp_res_est_list += [(bpp_res/N).to(data.device)]
                 bpp_act_list += [(bpp/N).to(data.device)]
-                aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
 
     if model.training:
         return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
@@ -2144,7 +2146,7 @@ class LSVC(nn.Module):
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
         
-        return com_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
+        return com_frames, MC_frames, warped_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
        
 # need a new RLVC model for accuracy test
 
