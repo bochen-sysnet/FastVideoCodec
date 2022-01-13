@@ -92,13 +92,13 @@ line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-MCL.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[]
+bpps = [[],
 		[0.09,0.14,0.23,0.4],
 		[0.1,0.17,0.28,0.47],
 		[0.06,0.1,0.15,0.22],
 		[],
 		]
-PSNRs = [[]
+PSNRs = [[],
 		[31.10,32.67,34,34.98],
 		[32.19,33.57,34.62,35.35],
 		[30.28,32.26,33.52,34.27],
@@ -109,13 +109,13 @@ line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-Xiph.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[]
+bpps = [[],
 		[0.11,0.18,0.29,0.49],
 		[0.13,0.21,0.35,0.57],
 		[0.08,0.12,0.18,0.25],
 		[],
 		]
-PSNRs = [[]
+PSNRs = [[],
 		[30.79,32.35,33.77,34.85],
 		[31.76,33.21,34.36,35.19],
 		[30.82,32.45,33.5,34.11],
@@ -127,14 +127,14 @@ line_plot(bpps,PSNRs,labels,
 		'bpp','PSNR (dB)')
 
 ab_labels = ['Base','C64','C128','Recurrent','Detach','Linear']
-bpps = [[]
+bpps = [[],
 		[0.102,0.174,0.264,0.3889],
 		[0.418],
 		[0.123,0.181,0.284,0.3925],
 		[0.25],
 		[],
 		]
-PSNRs = [[]
+PSNRs = [[],
 		[28.84,30.41,31.46,32.09],
 		[30.93],
 		[28.98,30.54,31.54,32.24],

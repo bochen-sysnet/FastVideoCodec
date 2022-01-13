@@ -246,14 +246,14 @@ def static_simulation_model(args, test_dataset):
                 if l>args.fP+1:
                     com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:args.fP+1],[0]),True)
                     data[args.fP:args.fP+1] = com_imgs[0:1]
-                    for idx,wp in aux_loss_list1:
+                    for idx,wp in enumerate(aux_loss_list1):
                         WP_meters[5-idx].update(wp)
-                    for idx,mc in msssim_list1:
+                    for idx,mc in enumerate(msssim_list1):
                         MC_meters[5-idx].update(mc)
                     _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[args.fP:],False)
-                    for idx,wp in aux_loss_list2:
+                    for idx,wp in enumerate(aux_loss_list2):
                         WP_meters[7+idx].update(wp)
-                    for idx,mc in msssim_list2:
+                    for idx,mc in enumerate(msssim_list2):
                         MC_meters[7+idx].update(mc)
                     img_loss_list = img_loss_list1[::-1] + img_loss_list2
                     aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
