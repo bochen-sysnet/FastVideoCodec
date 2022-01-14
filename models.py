@@ -1892,6 +1892,46 @@ class SPVC(nn.Module):
         
     def init_hidden(self, h, w):
         return None
+        
+def create_sinusoidal_embeddings(n_pos, dim, out):
+    position_enc = np.array([[pos / np.power(10000, 2 * (j // 2) / dim) for j in range(dim)] for pos in range(n_pos)])
+    out[:, 0::2] = torch.FloatTensor(np.sin(position_enc[:, 0::2]))
+    out[:, 1::2] = torch.FloatTensor(np.cos(position_enc[:, 1::2]))
+    out.detach_()
+    out.requires_grad = False
+
+class Embeddings(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.position_embeddings = nn.Embedding(10, 128)
+        create_sinusoidal_embeddings(
+            n_pos=10, dim=128, out=self.position_embeddings.weight
+        )
+
+        self.LayerNorm = nn.LayerNorm(128, eps=1e-12)
+        self.dropout = nn.Dropout(0.1)
+
+    def forward(self, embeddings):
+        """
+        Parameters
+        ----------
+        input_ids: torch.tensor(bs, max_seq_length)
+            The token ids to embed.
+        Outputs
+        -------
+        embeddings: torch.tensor(bs, max_seq_length, dim)
+            The embedded tokens (plus position embeddings, no token_type embeddings)
+        """
+        seq_length = embeddings.size(1)
+        position_ids = torch.arange(seq_length, dtype=torch.long, device=embeddings.device)  # (max_seq_length)
+        position_ids = position_ids.unsqueeze(0).expand_as(input_ids)  # (bs, max_seq_length)
+
+        position_embeddings = self.position_embeddings(position_ids)  # (bs, max_seq_length, dim)
+
+        embeddings = embeddings + position_embeddings  # (bs, max_seq_length, dim)
+        embeddings = self.LayerNorm(embeddings)  # (bs, max_seq_length, dim)
+        embeddings = self.dropout(embeddings)  # (bs, max_seq_length, dim)
+        return embeddings
 
 from DVC.subnet import *
 
@@ -2429,6 +2469,11 @@ def get_DVC_pretrained(level):
 # update CNN alternatively?
     
 if __name__ == '__main__':
+    emb = Embeddings()
+    x = torch.zeros(2,3)
+    output = emb(x)
+    print(output)
+    exit(0)
     result_dvc = []
     result_rlvc = []
     result_spvc = []
