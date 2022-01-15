@@ -1283,6 +1283,7 @@ class Warp_net(nn.Module):
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = c5.size()
+            print(c5.size())
             frame_pos_emb = self.frame_rot_emb(B,device=c5.device)
             image_pos_emb = self.image_rot_emb(H,W,device=c5.device)
             c5 = c5.permute(0,2,3,1).reshape(1,-1,C).contiguous()
