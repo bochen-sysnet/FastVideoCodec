@@ -1263,7 +1263,7 @@ class Warp_net(nn.Module):
         self.useAttn = useAttn
         if self.useAttn:
             from DVC.subnet import Attention,RotaryEmbedding,AxialRotaryEmbedding
-            self.s_attn = Attention(channelnum, dim_head = 64, heads = 8)
+            self.s_attn = AttentionBlock(channelnum)#Attention(channelnum, dim_head = 64, heads = 8)
             self.t_attn = Attention(channelnum, dim_head = 64, heads = 8)
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
@@ -1284,6 +1284,7 @@ class Warp_net(nn.Module):
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
             x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
             #x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+            x = self.s_attn(x) + x
             c3 = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         c3_u = c1 + bilinearupsacling2(c3)#torch.nn.functional.interpolate(input=c3, scale_factor=2, mode='bilinear', align_corners=True)
         c4 = self.conv4(c3_u)
