@@ -1276,12 +1276,8 @@ class Warp_net(nn.Module):
         c1_p = self.conv1_p(c1)
         c2 = self.conv2(c1_p)
         c3 = self.conv3(c2)
-        c3_u = c1 + bilinearupsacling2(c3)#torch.nn.functional.interpolate(input=c3, scale_factor=2, mode='bilinear', align_corners=True)
-        c4 = self.conv4(c3_u)
-        c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
-        c5 = self.conv5(c4_u)
         if self.useAttn:
-            x = c5
+            x = c3
             B,C,H,W = x.size()
             frame_pos_emb = self.frame_rot_emb(B,device=x.device)
             #image_pos_emb = self.image_rot_emb(H,W,device=x.device)
@@ -1290,6 +1286,10 @@ class Warp_net(nn.Module):
             #x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
             c3 = self.s_attn(x) + x
+        c3_u = c1 + bilinearupsacling2(c3)#torch.nn.functional.interpolate(input=c3, scale_factor=2, mode='bilinear', align_corners=True)
+        c4 = self.conv4(c3_u)
+        c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
+        c5 = self.conv5(c4_u)
         c5 = self.conv6(c5)
         return c5
 
