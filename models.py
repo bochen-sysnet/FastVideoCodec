@@ -1281,7 +1281,7 @@ class Warp_net(nn.Module):
         c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
         c5 = self.conv5(c4_u)
         c5 = self.conv6(c5)
-        if self.useAttn:
+        if False:
             # B,C,H,W->1,BHW,C
             B,C,H,W = c5.size()
             print(c5.size())
@@ -1947,7 +1947,9 @@ class LSVC(nn.Module):
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
         inputfeature = torch.cat((warpframe, ref), 1)
-        prediction = self.warpnet(inputfeature) + warpframe
+        a = self.warpnet(inputfeature)
+        prediction = a + warpframe
+        print(a.size(),warpframe.size(),prediction.size())
         return prediction, warpframe
 
     def feature_probs_based_sigma(self,feature, sigma):
