@@ -25,7 +25,7 @@ class Synthesis_prior_net(nn.Module):
         self.deconv3 = nn.ConvTranspose2d(out_channel_N, out_channel_M, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.deconv3.weight.data, (math.sqrt(2 * 1 * (out_channel_M + out_channel_N) / (out_channel_N + out_channel_N))))
         torch.nn.init.constant_(self.deconv3.bias.data, 0.01)
-        if useAttn:
+        if False:
             self.s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
             self.t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
         self.useAttn = useAttn
@@ -33,7 +33,7 @@ class Synthesis_prior_net(nn.Module):
 
     def forward(self, x):
         x = self.relu1(self.deconv1(x))
-        if self.useAttn:
+        if False:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 

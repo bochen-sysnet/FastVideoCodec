@@ -43,7 +43,7 @@ class Synthesis_mv_net(nn.Module):
         self.deconv8 = nn.Conv2d(out_channel_mv, 2, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.deconv8.weight.data, (math.sqrt(2 * 1 * (out_channel_mv + 2) / (out_channel_mv + out_channel_mv))))
         torch.nn.init.constant_(self.deconv8.bias.data, 0.01)
-        if useAttn:
+        if False:
             self.s_attn = Attention(out_channel_mv, dim_head = 64, heads = 8)
             self.t_attn = Attention(out_channel_mv, dim_head = 64, heads = 8)
         self.useAttn = useAttn
@@ -55,7 +55,7 @@ class Synthesis_mv_net(nn.Module):
         x = self.relu4(self.deconv4(x))
         x = self.relu5(self.deconv5(x))
         x = self.relu6(self.deconv6(x))
-        if self.useAttn:
+        if False:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
