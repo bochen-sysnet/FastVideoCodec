@@ -1909,7 +1909,7 @@ class SPVC(nn.Module):
     def init_hidden(self, h, w):
         return None
 
-from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator
+from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator,out_channel_M,out_channel_N
 
 class LSVC(nn.Module):
     def __init__(self, name, loss_type='P', compression_level=3):
