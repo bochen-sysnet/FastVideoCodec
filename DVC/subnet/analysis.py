@@ -31,6 +31,8 @@ class Analysis_net(nn.Module):
         if useAttn:
             self.s_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
             self.t_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
+            self.frame_rot_emb = RotaryEmbedding(64)
+            self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
 
     def forward(self, x):
@@ -41,9 +43,11 @@ class Analysis_net(nn.Module):
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
+            frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+            image_pos_emb = self.image_rot_emb(H,W,device=x.device)
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
-            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
-            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
+            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         return x
 
