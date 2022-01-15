@@ -2114,6 +2114,7 @@ class LSVC(nn.Module):
         g,layers,parents = graph_from_batch(bs)
         ref_index = refidx_from_graph(g,bs)
         estmv = self.opticFlow(input_image, x[ref_index])
+        print(estmv.size())
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
         # tree compensation
