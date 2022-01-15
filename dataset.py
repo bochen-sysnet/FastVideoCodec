@@ -64,7 +64,7 @@ class VideoDataset(Dataset):
                 if np.sum(img) == 0:continue
                 img = Image.fromarray(img)
                 if self._frame_size is not None:
-                    img = img.resize(self._frame_size) 
+                    img = img.resize((self._frame_size,self._frame_size)) 
                 self._clip.append(img)
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
