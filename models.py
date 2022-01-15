@@ -1281,10 +1281,9 @@ class Warp_net(nn.Module):
         c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
         c5 = self.conv5(c4_u)
         c5 = self.conv6(c5)
-        if False:
+        if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = c5.size()
-            print(c5.size())
             frame_pos_emb = self.frame_rot_emb(B,device=c5.device)
             image_pos_emb = self.image_rot_emb(H,W,device=c5.device)
             c5 = c5.permute(0,2,3,1).reshape(1,-1,C).contiguous()
@@ -1949,7 +1948,6 @@ class LSVC(nn.Module):
         inputfeature = torch.cat((warpframe, ref), 1)
         a = self.warpnet(inputfeature)
         prediction = a + warpframe
-        print(a.size(),warpframe.size(),prediction.size(),ref.size(),mv.size())
         return prediction, warpframe
 
     def feature_probs_based_sigma(self,feature, sigma):
