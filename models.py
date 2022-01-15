@@ -1241,7 +1241,7 @@ class ResBlock(nn.Module):
             return self.adapt_conv(x) + seclayer
 
 class Warp_net(nn.Module):
-    def __init__(self, in_channels=6,out_channels=3):
+    def __init__(self, in_channels=6,out_channels=3,useAttn=False):
         super(Warp_net, self).__init__()
         channelnum = 64
 
@@ -1260,6 +1260,12 @@ class Warp_net(nn.Module):
         self.conv6 = nn.Conv2d(channelnum, out_channels, 3, padding=1)
         torch.nn.init.xavier_uniform_(self.conv6.weight.data)
         torch.nn.init.constant_(self.conv6.bias.data, 0.0)
+        self.useAttn = useAttn
+        if self.useAttn:
+            self.s_attn = Attention(channelnum, dim_head = 64, heads = 8)
+            self.t_attn = Attention(channelnum, dim_head = 64, heads = 8)
+            self.frame_rot_emb = RotaryEmbedding(64)
+            self.image_rot_emb = AxialRotaryEmbedding(64)
 
     def forward(self, x):
         feature_ext = self.f_relu(self.feature_ext(x))
@@ -1273,6 +1279,15 @@ class Warp_net(nn.Module):
         c4 = self.conv4(c3_u)
         c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
         c5 = self.conv5(c4_u)
+        if self.useAttn:
+            # B,C,H,W->1,BHW,C
+            B,C,H,W = c5.size()
+            frame_pos_emb = self.frame_rot_emb(B,device=c5.device)
+            image_pos_emb = self.image_rot_emb(H,W,device=c5.device)
+            c5 = c5.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+            c5 = self.t_attn(c5, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + c5
+            c5 = self.s_attn(c5, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + c5
+            c5 = c5.view(B,H,W,C).permute(0,3,1,2).contiguous()
         res = self.conv6(c5)
         return res
 
@@ -1913,7 +1928,7 @@ class LSVC(nn.Module):
             self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
             self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
             self.bitEstimator_mv = BitEstimator(out_channel_M)
-        self.warpnet = Warp_net()
+        self.warpnet = Warp_net(useAttn=('-AW' in name))
         self.resEncoder = Analysis_net(useAttn=self.useAttn)
         self.resDecoder = Synthesis_net(useAttn=self.useAttn)
         self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
