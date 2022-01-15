@@ -1949,7 +1949,7 @@ class LSVC(nn.Module):
         inputfeature = torch.cat((warpframe, ref), 1)
         a = self.warpnet(inputfeature)
         prediction = a + warpframe
-        print(a.size(),warpframe.size(),prediction.size())
+        print(a.size(),warpframe.size(),prediction.size(),ref.size(),mv.size())
         return prediction, warpframe
 
     def feature_probs_based_sigma(self,feature, sigma):
