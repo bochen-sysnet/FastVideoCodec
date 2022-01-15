@@ -1939,7 +1939,7 @@ class LSVC(nn.Module):
         self.mxrange = 150
         self.calrealbits = False
         self.loss_type=loss_type
-        self.channels = out_channel_mv
+        self.channels = out_channel_M
         self.compression_level=compression_level
         init_training_params(self)
 
