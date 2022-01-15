@@ -62,7 +62,7 @@ class Analysis_mv_net(nn.Module):
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
             x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         return x
