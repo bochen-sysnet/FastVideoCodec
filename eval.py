@@ -971,6 +971,12 @@ if __name__ == '__main__':
     # check if test encoder
     if args.encoder_test:
         args.role = 'client'
+        
+    # restrictions
+    if args.mode == 'dynamic':
+        assert(args.task in ['RLVC','DVC'] or 'SPVC' in args.task)
+    else:
+        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task)
 
     # setup streaming parameters
 
