@@ -1280,7 +1280,6 @@ class Warp_net(nn.Module):
         c4 = self.conv4(c3_u)
         c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
         c5 = self.conv5(c4_u)
-        c5 = self.conv6(c5)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = c5.size()
@@ -1290,6 +1289,7 @@ class Warp_net(nn.Module):
             c5 = self.t_attn(c5, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + c5
             c5 = self.s_attn(c5, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + c5
             c5 = c5.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        c5 = self.conv6(c5)
         return c5
 
 class ME_Spynet(nn.Module):
