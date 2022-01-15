@@ -1262,6 +1262,7 @@ class Warp_net(nn.Module):
         torch.nn.init.constant_(self.conv6.bias.data, 0.0)
         self.useAttn = useAttn
         if self.useAttn:
+            from DVC.subnet import Attention,RotaryEmbedding,AxialRotaryEmbedding
             self.s_attn = Attention(channelnum, dim_head = 64, heads = 8)
             self.t_attn = Attention(channelnum, dim_head = 64, heads = 8)
             self.frame_rot_emb = RotaryEmbedding(64)
@@ -1908,7 +1909,7 @@ class SPVC(nn.Module):
     def init_hidden(self, h, w):
         return None
 
-from DVC.subnet import *
+from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator
 
 class LSVC(nn.Module):
     def __init__(self, name, loss_type='P', compression_level=3):
