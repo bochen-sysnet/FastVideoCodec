@@ -43,9 +43,9 @@ class Synthesis_mv_net(nn.Module):
         self.deconv8 = nn.Conv2d(out_channel_mv, 2, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.deconv8.weight.data, (math.sqrt(2 * 1 * (out_channel_mv + 2) / (out_channel_mv + out_channel_mv))))
         torch.nn.init.constant_(self.deconv8.bias.data, 0.01)
-        # if useAttn:
-        #     self.s_attn = Attention(out_channel_mv, dim_head = 64, heads = 8)
-        #     self.t_attn = Attention(out_channel_mv, dim_head = 64, heads = 8)
+        if useAttn:
+            self.s_attn = Attention(out_channel_mv, dim_head = 64, heads = 8)
+            self.t_attn = Attention(out_channel_mv, dim_head = 64, heads = 8)
         self.useAttn = useAttn
         
     def forward(self, x):
@@ -55,13 +55,13 @@ class Synthesis_mv_net(nn.Module):
         x = self.relu4(self.deconv4(x))
         x = self.relu5(self.deconv5(x))
         x = self.relu6(self.deconv6(x))
-        # if self.useAttn:
-        #     # B,C,H,W->1,BHW,C
-        #     B,C,H,W = x.size()
-        #     x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
-        #     x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
-        #     x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
-        #     x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        if self.useAttn:
+            # B,C,H,W->1,BHW,C
+            B,C,H,W = x.size()
+            x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
+            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W) + x
+            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B) + x
+            x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu7(self.deconv7(x))
         return self.deconv8(x)
 
