@@ -1282,7 +1282,7 @@ class Warp_net(nn.Module):
             frame_pos_emb = self.frame_rot_emb(B,device=x.device)
             #image_pos_emb = self.image_rot_emb(H,W,device=x.device)
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+            #x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
             #x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
             c3 = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
             #c3 = self.s_attn(x)
