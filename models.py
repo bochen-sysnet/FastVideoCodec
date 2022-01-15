@@ -1277,7 +1277,7 @@ class Warp_net(nn.Module):
         c2 = self.conv2(c1_p)
         c3 = self.conv3(c2)
         if self.useAttn:
-            c3 = x
+            x = c3
             B,C,H,W = x.size()
             frame_pos_emb = self.frame_rot_emb(B,device=x.device)
             image_pos_emb = self.image_rot_emb(H,W,device=x.device)
