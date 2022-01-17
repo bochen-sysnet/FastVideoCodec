@@ -308,7 +308,7 @@ def parallel_compression(model, data, compressI=False):
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
-            if model.stage != 'EH':
+            if enhance_loss is None:
                 msssim_list += PSNR(data[1:], x_wp, use_list=True)
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
@@ -321,8 +321,6 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [(bpp).to(data.device)]
                 # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-            print('act',bpp_est_list)
-            print(bpp_res_est_list)
 
     if model.training:
         return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
@@ -1945,23 +1943,6 @@ class LSVC(nn.Module):
         self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
         self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
         self.bitEstimator_z = BitEstimator(out_channel_N)
-        if '-J' in name:
-            self.context_prediction = nn.Sequential(
-                nn.Conv2d(3, out_channel_N, 5, stride=2, padding=2),
-                GDN(out_channel_N),
-                nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),
-                GDN(out_channel_N),
-                nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),
-                GDN(out_channel_N),
-                nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2),
-            )
-            self.entropy_parameters = nn.Sequential(
-                nn.Conv2d(out_channel_M * 2, out_channel_M, 1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(out_channel_M, out_channel_M, 1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(out_channel_M, out_channel_M, 1),
-            )
         if '-E' in name:
             # self enhancement
             channels = 64
@@ -2203,6 +2184,7 @@ class LSVC(nn.Module):
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
+                print(PSNR(target_frames, MC_frames, use_list=True))
                 # enhance mC
                 if '-E' in self.name:
                     target_frames = torch.clip(target_frames, min=0, max=1)
@@ -2221,10 +2203,6 @@ class LSVC(nn.Module):
                     res_tensors = target_frames - enhanced_frames
                 else:
                     res_tensors = target_frames - MC_frames
-                if '-J' in self.name:
-                    res_hat,res_bits = self.res_codec(res_tensors,context = MC_frames)
-                else:
-                    res_hat,res_bits = self.res_codec(res_tensors)
                 if '-E' in self.name:
                     com_frames = torch.clip(res_hat + enhanced_frames, min=0, max=1)
                 else:
