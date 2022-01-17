@@ -2170,6 +2170,7 @@ class LSVC(nn.Module):
     def forward(self, x):
         input_image = x[1:]
         bs,c,h,w = input_image.size()
+        print(x.size())
 
         g,layers,parents = graph_from_batch(bs)
         ref_index = refidx_from_graph(g,bs)
