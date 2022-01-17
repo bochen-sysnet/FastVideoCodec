@@ -303,7 +303,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
-train_dataset = FrameDataset('../dataset/vimeo') 
+train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
 test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
