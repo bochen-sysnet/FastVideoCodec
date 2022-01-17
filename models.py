@@ -2208,7 +2208,7 @@ class LSVC(nn.Module):
                     pred = self.enhancement(MC_frames)
                     pred = pred.permute(0,2,3,1).reshape(-1,256)
                     target = Variable(MC_frames.permute(0,2,3,1).reshape(-1)*255).long()
-                    print(pred.size(),target.size(),torch.max(target))
+                    print(pred.size(),target.size(),MC_frames.size())
                     nll = F.cross_entropy(pred, target)
                     if enhance_loss is None:
                         enhance_loss = nll
