@@ -2067,7 +2067,7 @@ class LSVC(nn.Module):
 
         recon_sigma = self.respriorDecoder(compressed_z)
         if context is not None:
-            context = self.context_prediction(context)
+            ctx_params = self.context_prediction(context)
             recon_sigma = self.entropy_parameters(
                 torch.cat((recon_sigma, ctx_params), dim=1)
             )
