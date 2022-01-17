@@ -1944,7 +1944,7 @@ class LSVC(nn.Module):
                 GDN(out_channel_N),
                 nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),
                 GDN(out_channel_N),
-                self.conv4 = nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2),
+                nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2),
             )
             self.entropy_parameters = nn.Sequential(
                 nn.Conv2d(out_channel_M * 2, out_channel_M, 1),
