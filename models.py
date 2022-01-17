@@ -18,7 +18,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.autograd import Function
 from torchvision import transforms
-from compressai.layers import GDN,ResidualBlock,AttentionBlock
+from compressai.layers import GDN,ResidualBlock,AttentionBlock,MaskedConv2d
 from compressai.models import CompressionModel
 from entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors,RPM
 from compressai.models.waseda import Cheng2020Attention
@@ -1936,6 +1936,23 @@ class LSVC(nn.Module):
         self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
         self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
         self.bitEstimator_z = BitEstimator(out_channel_N)
+        if '-J' in name:
+            self.context_prediction = nn.Sequential(
+                nn.Conv2d(3, out_channel_N, 5, stride=2, padding=2),
+                GDN(out_channel_N),
+                nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),
+                GDN(out_channel_N),
+                nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),
+                GDN(out_channel_N),
+                self.conv4 = nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2),
+            )
+            self.entropy_parameters = nn.Sequential(
+                nn.Conv2d(out_channel_M * 2, out_channel_M, 1),
+                nn.LeakyReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, 1),
+                nn.LeakyReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, 1),
+            )
         self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = False
@@ -2037,7 +2054,7 @@ class LSVC(nn.Module):
 
         return total_bits, prob
 
-    def res_codec(self,input_residual):
+    def res_codec(self,input_residual,context=None):
         feature = self.resEncoder(input_residual)
         z = self.respriorEncoder(feature)
 
@@ -2049,6 +2066,11 @@ class LSVC(nn.Module):
             compressed_z = torch.round(z)
 
         recon_sigma = self.respriorDecoder(compressed_z)
+        if context is not None:
+            context = self.context_prediction(context)
+            recon_sigma = self.entropy_parameters(
+                torch.cat((recon_sigma, ctx_params), dim=1)
+            )
 
         feature_renorm = feature
 
@@ -2140,7 +2162,10 @@ class LSVC(nn.Module):
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 res_tensors = target_frames - MC_frames
-                res_hat,res_bits = self.res_codec(res_tensors)
+                if '-J' in self.name:
+                    res_hat,res_bits = self.res_codec(res_tensors,context = MC_frames)
+                else:
+                    res_hat,res_bits = self.res_codec(res_tensors)
                 if total_bits_res is None:
                     total_bits_res = res_bits
                 else:
