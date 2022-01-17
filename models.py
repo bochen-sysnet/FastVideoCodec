@@ -313,6 +313,7 @@ def parallel_compression(model, data, compressI=False):
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
                 msssim_list += PSNR(data[1:], x_mc, use_list=True)
+                print(msssim_list,bpp,bpp_res)
                 aux_loss_list += [enhance_loss]
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
