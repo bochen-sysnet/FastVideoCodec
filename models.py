@@ -2203,6 +2203,7 @@ class LSVC(nn.Module):
                     res_tensors = target_frames - enhanced_frames
                 else:
                     res_tensors = target_frames - MC_frames
+                res_hat,res_bits = self.res_codec(res_tensors)
                 if '-E' in self.name:
                     com_frames = torch.clip(res_hat + enhanced_frames, min=0, max=1)
                 else:
