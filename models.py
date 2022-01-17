@@ -95,7 +95,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # WP->MC->REC->EH
+        model.stage = 'EH' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -297,9 +297,11 @@ def parallel_compression(model, data, compressI=False):
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
-                img_loss = enhance_loss
+                img_loss = rec_loss*model.r
             elif model.stage == 'WP':
                 img_loss = warp_loss*model.r
+            elif model.stage == 'EH':
+                img_loss = enhance_loss + mc_loss*model.r
             else:
                 print('unknown stage')
                 exit(1)
@@ -2184,7 +2186,6 @@ class LSVC(nn.Module):
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 # enhance mC
                 if '-E' in self.name:
-                    MC_frames = MC_frames.detach()
                     target_frames = torch.clip(target_frames, min=0, max=1)
                     nb = MC_frames.size(0)
                     pred = self.enhancement(MC_frames)
