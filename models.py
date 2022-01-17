@@ -313,7 +313,7 @@ def parallel_compression(model, data, compressI=False):
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
                 msssim_list += PSNR(data[1:], x_mc, use_list=True)
-                print(msssim_list,bpp,bpp_res)
+                print(msssim_list,float(bpp),float(bpp_res))
                 aux_loss_list += [enhance_loss]
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
@@ -2249,7 +2249,6 @@ class LSVC(nn.Module):
         bpp_mv = total_bits_mv / (bs * h * w)
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
-        print(float(bpp),float(bpp_res),float(bpp_mv))
         
         return com_frames, MC_frames, warped_frames, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp
        
