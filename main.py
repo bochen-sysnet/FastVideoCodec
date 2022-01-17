@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-A-J'
+CODEC_NAME = 'LSVC-AW'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -36,8 +36,8 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 0
-STEPS = [0]
+device = 1
+STEPS = [0,0]
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
