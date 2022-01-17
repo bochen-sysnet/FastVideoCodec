@@ -313,7 +313,6 @@ def parallel_compression(model, data, compressI=False):
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
                 msssim_list += PSNR(data[1:], x_mc, use_list=True)
-                print(msssim_list,float(bpp),float(bpp_res))
                 aux_loss_list += [enhance_loss]
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
@@ -322,6 +321,8 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [(bpp).to(data.device)]
                 # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+            print('act',bpp_est_list)
+            print(bpp_res_est_list)
 
     if model.training:
         return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
