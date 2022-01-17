@@ -293,7 +293,7 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
-            x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp = model(data.detach())
+            x_hat, x_mc, x_wp, x_eh, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
@@ -313,7 +313,7 @@ def parallel_compression(model, data, compressI=False):
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
                 msssim_list += PSNR(data[1:], x_mc, use_list=True)
-                aux_loss_list += [enhance_loss]
+                aux_loss_list += PSNR(data[1:], x_eh, use_list=True)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
@@ -2162,6 +2162,7 @@ class LSVC(nn.Module):
         # tree compensation
         MC_frame_list = [None for _ in range(bs)]
         warped_frame_list = [None for _ in range(bs)]
+        enhanced_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
         total_bits_res = None
         x_tar = x[1:]
@@ -2212,6 +2213,8 @@ class LSVC(nn.Module):
                     MC_frame_list[tar-1] = MC_frames[i:i+1]
                     warped_frame_list[tar-1] = warped_frames[i:i+1]
                     com_frame_list[tar-1] = com_frames[i:i+1]
+                    if '-E' in self.name:
+                        enhanced_frame_list[tar-1] = enhanced_frames[i:i+1]
                 if total_bits_res is None:
                     total_bits_res = res_bits
                 else:
@@ -2219,6 +2222,8 @@ class LSVC(nn.Module):
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
+        if enhanced_frame_list:
+            enhanced_frames = torch.cat(enhanced_frame_list,dim=0)
 
         rec_loss = torch.mean((com_frames - input_image).pow(2))
         warp_loss = torch.mean((warped_frames - input_image).pow(2))
@@ -2229,7 +2234,7 @@ class LSVC(nn.Module):
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
         
-        return com_frames, MC_frames, warped_frames, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp
+        return com_frames, MC_frames, warped_frames, enhanced_frames, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp
        
 # need a new RLVC model for accuracy test
 
