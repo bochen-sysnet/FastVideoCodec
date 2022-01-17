@@ -298,7 +298,7 @@ def parallel_compression(model, data, compressI=False):
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
                 if enhance_loss is not None:
-                    img_loss = rec_loss*model.r + enhance_loss
+                    img_loss = enhance_loss
                 else:
                     img_loss = rec_loss*model.r
             elif model.stage == 'WP':
@@ -309,10 +309,11 @@ def parallel_compression(model, data, compressI=False):
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
-            msssim_list += PSNR(data[1:], x_wp, use_list=True)
             if enhance_loss is None:
+                msssim_list += PSNR(data[1:], x_wp, use_list=True)
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
+                msssim_list += PSNR(data[1:], x_mc, use_list=True)
                 aux_loss_list += [enhance_loss]
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
@@ -2202,12 +2203,12 @@ class LSVC(nn.Module):
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 # enhance mC
-                if False:#'-E' in self.name:
-                    MC_frames = torch.clip(MC_frames, min=0, max=1)
+                if '-E' in self.name:
+                    target_frames = torch.clip(target_frames, min=0, max=1)
                     nb = MC_frames.size(0)
                     pred = self.enhancement(MC_frames)
                     pred = pred.permute(0,2,3,1).reshape(-1,256)
-                    target = Variable(MC_frames.permute(0,2,3,1).reshape(-1)*255).long()
+                    target = Variable(target_frames.permute(0,2,3,1).reshape(-1)*255).long()
                     nll = F.cross_entropy(pred, target)
                     if enhance_loss is None:
                         enhance_loss = nll
@@ -2215,8 +2216,10 @@ class LSVC(nn.Module):
                         enhance_loss += nll
                     probs = F.softmax(pred, dim=-1)
                     pixels = torch.multinomial(probs, num_samples=1)
-                    MC_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2)
-                res_tensors = target_frames - MC_frames
+                    enhanced_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2)
+                    res_tensors = target_frames - enhanced_frames
+                else:
+                    res_tensors = target_frames - MC_frames
                 if '-J' in self.name:
                     res_hat,res_bits = self.res_codec(res_tensors,context = MC_frames)
                 else:
