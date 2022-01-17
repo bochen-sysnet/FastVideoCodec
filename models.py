@@ -95,7 +95,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # WP->MC->REC->EH
+        model.stage = 'EH' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -297,19 +297,18 @@ def parallel_compression(model, data, compressI=False):
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
-                if enhance_loss is not None:
-                    img_loss = enhance_loss
-                else:
-                    img_loss = rec_loss*model.r
+                img_loss = rec_loss*model.r
             elif model.stage == 'WP':
                 img_loss = warp_loss*model.r
+            elif model.stage == 'EH':
+                img_loss = enhance_loss
             else:
                 print('unknown stage')
                 exit(1)
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
-            if enhance_loss is None:
+            if model.stage != 'EH':
                 msssim_list += PSNR(data[1:], x_wp, use_list=True)
                 aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             else:
@@ -2224,16 +2223,19 @@ class LSVC(nn.Module):
                     res_hat,res_bits = self.res_codec(res_tensors,context = MC_frames)
                 else:
                     res_hat,res_bits = self.res_codec(res_tensors)
-                if total_bits_res is None:
-                    total_bits_res = res_bits
+                if '-E' in self.name:
+                    com_frames = torch.clip(res_hat + enhanced_frames, min=0, max=1)
                 else:
-                    total_bits_res += res_bits
-                com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
+                    com_frames = torch.clip(res_hat + MC_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
                     MC_frame_list[tar-1] = MC_frames[i:i+1]
                     warped_frame_list[tar-1] = warped_frames[i:i+1]
                     com_frame_list[tar-1] = com_frames[i:i+1]
+                if total_bits_res is None:
+                    total_bits_res = res_bits
+                else:
+                    total_bits_res += res_bits
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
