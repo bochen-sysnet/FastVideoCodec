@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.utils.data
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 from torch.autograd import Function
 from torchvision import transforms
