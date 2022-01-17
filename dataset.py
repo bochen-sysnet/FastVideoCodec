@@ -139,6 +139,8 @@ class FrameDataset(Dataset):
             img = Image.open(img_dir).convert('RGB')
             if self._frame_size is not None:
                 img = img.resize((self._frame_size,self._frame_size)) 
+            print(img.size())
+            exit(0)
             data.append(transforms.ToTensor()(img))
         data = torch.stack(data, dim=0)
         return data
