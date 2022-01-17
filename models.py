@@ -297,7 +297,7 @@ def parallel_compression(model, data, compressI=False):
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
-                img_loss = rec_loss*model.r + enhance_loss
+                img_loss = enhance_loss
             elif model.stage == 'WP':
                 img_loss = warp_loss*model.r
             else:
