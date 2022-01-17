@@ -2203,12 +2203,12 @@ class LSVC(nn.Module):
                 # enhance mC
                 if '-E' in self.name:
                     pred = self.enhancement(MC_frames)
+                    pred = pred.permute(0,2,3,1).reshape(-1,256)
+                    nll = F.cross_entropy(pred, MC_frames.permute(0,2,3,1).reshape(-1))
                     if enhance_loss is None:
                         enhance_loss = nll
                     else:
                         enhance_loss += nll
-                    pred = pred.permute(0,2,3,1).reshape(-1,256)
-                    nll = F.cross_entropy(pred, MC_frames.permute(0,2,3,1).reshape(-1))
                     probs = F.softmax(pred, dim=-1)
                     pixels = torch.multinomial(probs, num_samples=1)
                     MC_frames = pixels.reshape(bs,h,w,c).permute(0,3,1,2)
