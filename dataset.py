@@ -137,7 +137,7 @@ class FrameDataset(Dataset):
             base_dir = self.__septuplet_names[idx]
             img_dir = base_dir+'/'+f'im{img_idx}.png'
             img = Image.open(img_dir).convert('RGB')
-            print(img.size)
+            print(img.size，self._frame_size)
             if self._frame_size is not None:
                 img = img.resize((self._frame_size,self._frame_size)) 
             exit(0)
