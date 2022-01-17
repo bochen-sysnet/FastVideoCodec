@@ -2170,7 +2170,6 @@ class LSVC(nn.Module):
     def forward(self, x):
         input_image = x[1:]
         bs,c,h,w = input_image.size()
-        print(x.size())
 
         g,layers,parents = graph_from_batch(bs)
         ref_index = refidx_from_graph(g,bs)
@@ -2209,14 +2208,12 @@ class LSVC(nn.Module):
                     pred = self.enhancement(MC_frames)
                     pred = pred.permute(0,2,3,1).reshape(-1,256)
                     target = Variable(MC_frames.permute(0,2,3,1).reshape(-1)*255).long()
-                    print(pred.size(),target.size(),MC_frames.size())
                     nll = F.cross_entropy(pred, target)
                     if enhance_loss is None:
                         enhance_loss = nll
                     else:
                         enhance_loss += nll
                     probs = F.softmax(pred, dim=-1)
-                    print(pred.size(),probs.size())
                     pixels = torch.multinomial(probs, num_samples=1)
                     MC_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2)
                 res_tensors = target_frames - MC_frames
