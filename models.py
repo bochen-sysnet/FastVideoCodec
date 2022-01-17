@@ -2198,7 +2198,7 @@ class LSVC(nn.Module):
                         enhance_loss += nll
                     probs = F.softmax(pred, dim=-1)
                     pixels = torch.multinomial(probs, num_samples=1)
-                    enhanced_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2)
+                    enhanced_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2).float()/ 255.0
                     res_tensors = target_frames - enhanced_frames
                 else:
                     res_tensors = target_frames - MC_frames
