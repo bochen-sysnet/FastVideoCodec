@@ -2205,6 +2205,7 @@ class LSVC(nn.Module):
                 # enhance mC
                 if '-E' in self.name:
                     MC_frames = torch.clip(MC_frames, min=0, max=1)
+                    nb = MC_frames.size(0)
                     pred = self.enhancement(MC_frames)
                     pred = pred.permute(0,2,3,1).reshape(-1,256)
                     target = Variable(MC_frames.permute(0,2,3,1).reshape(-1)*255).long()
@@ -2217,7 +2218,7 @@ class LSVC(nn.Module):
                     probs = F.softmax(pred, dim=-1)
                     print(pred.size(),probs.size())
                     pixels = torch.multinomial(probs, num_samples=1)
-                    MC_frames = pixels.reshape(bs,h,w,c).permute(0,3,1,2)
+                    MC_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2)
                 res_tensors = target_frames - MC_frames
                 if '-J' in self.name:
                     res_hat,res_bits = self.res_codec(res_tensors,context = MC_frames)
