@@ -1989,7 +1989,7 @@ class LSVC(nn.Module):
                 nn.Conv2d(channels, channels, kernel, padding=padding),
                 nn.BatchNorm2d(channels),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(channels, 3*256, kernel=1, padding=0),
+                nn.Conv2d(channels, 3*256, 1, padding=0),
             )
         self.warp_weight = 0
         self.mxrange = 150
