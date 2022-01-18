@@ -74,7 +74,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['LSVC-4E']:
+elif CODEC_NAME in ['LSVC-ME']:
     # load what exists
     pretrained_model_path = f"backup/RLVC2/RLVC2-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)

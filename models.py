@@ -1928,17 +1928,9 @@ class LSVC(nn.Module):
         self.useAttn = True if '-A' in name else False
         self.opticFlow = ME_Spynet()
         self.Q = None
-        if '-H' in name:
-            # hyperprior
-            self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
-            self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
-            self.mvpriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
-            self.mvpriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
-            self.bitEstimator_mv = BitEstimator(out_channel_N)
-        else:
-            self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
-            self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
-            self.bitEstimator_mv = BitEstimator(out_channel_M)
+        self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M,useEnhance=('-ME' in name))
+        self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M,useEnhance=('-ME' in name))
+        self.bitEstimator_mv = BitEstimator(out_channel_M)
         self.warpnet = Warp_net(useAttn=('-AW' in name))
         self.resEncoder = Analysis_net(useAttn=self.useAttn,useEnhance=('-RE' in name))
         self.resDecoder = Synthesis_net(useAttn=self.useAttn,useEnhance=('-RE' in name))
@@ -2133,43 +2125,15 @@ class LSVC(nn.Module):
         return recon_res,total_bits
 
     def mv_codec(self, estmv):
-        if '-H' not in self.name:
-            mvfeature = self.mvEncoder(estmv)
-            if self.training:
-                half = float(0.5)
-                noise = torch.empty_like(mvfeature).uniform_(-half, half)
-                quant_mv = mvfeature + noise
-            else:
-                quant_mv = torch.round(mvfeature)
-            quant_mv_upsample = self.mvDecoder(quant_mv)
-            total_bits, _ = self.iclr18_estrate_bits_mv(quant_mv)
+        mvfeature = self.mvEncoder(estmv)
+        if self.training:
+            half = float(0.5)
+            noise = torch.empty_like(mvfeature).uniform_(-half, half)
+            quant_mv = mvfeature + noise
         else:
-            feature = self.mvEncoder(estmv)
-            z = self.mvpriorEncoder(feature)
-
-            if self.training:
-                half = float(0.5)
-                noise = torch.empty_like(z).uniform_(-half, half)
-                compressed_z = z + noise
-            else:
-                compressed_z = torch.round(z)
-
-            recon_sigma = self.mvpriorDecoder(compressed_z)
-
-            feature_renorm = feature
-
-            if self.training:
-                half = float(0.5)
-                noise = torch.empty_like(feature_renorm).uniform_(-half, half)
-                compressed_feature_renorm = feature_renorm + noise
-            else:
-                compressed_feature_renorm = torch.round(feature_renorm)
-
-            quant_mv_upsample = self.mvDecoder(compressed_feature_renorm)
-
-            total_bits_feature, _ = self.feature_probs_based_sigma(compressed_feature_renorm, recon_sigma)
-            total_bits_z, _ = self.iclr18_estrate_bits_mv(compressed_z)
-            total_bits = total_bits_feature+total_bits_z
+            quant_mv = torch.round(mvfeature)
+        quant_mv_upsample = self.mvDecoder(quant_mv)
+        total_bits, _ = self.iclr18_estrate_bits_mv(quant_mv)
         return quant_mv_upsample,total_bits
 
     def forward(self, x):

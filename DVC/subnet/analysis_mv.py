@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, out_channels=out_channel_mv):
+    def __init__(self, useAttn=False, out_channels=out_channel_mv, useEnhance=False):
         super(Analysis_mv_net, self).__init__()
         self.conv1 = nn.Conv2d(2, out_channel_mv, 3, stride=2, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (2 + out_channel_mv) / (4))))
@@ -47,7 +47,25 @@ class Analysis_mv_net(nn.Module):
             self.t_attn = Attention(out_channels, dim_head = 64, heads = 8)
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
+        if useEnhance:
+            kernel = 7
+            padding = kernel//2
+            self.enhancement = nn.Sequential(
+                nn.Conv2d(out_channels, out_channels, kernel, padding=padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channels, out_channels, kernel, padding=padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channels, out_channels, kernel, padding=padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channels, out_channels, kernel, padding=padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+            )
         self.useAttn = useAttn
+        self.useEnhance = useEnhance
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -67,6 +85,8 @@ class Analysis_mv_net(nn.Module):
             x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
             x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        if self.useEnhance:
+            x = self.enhancement(x)
         return x
 
 def build_model():
