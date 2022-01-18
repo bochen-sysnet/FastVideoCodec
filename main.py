@@ -204,8 +204,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
-            if True:
+        if batch_idx % 500 == 0 and batch_idx>0:
+            if False:
                 print('testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
                 
