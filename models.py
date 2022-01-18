@@ -2221,6 +2221,8 @@ class LSVC(nn.Module):
         com_frames = torch.cat(com_frame_list,dim=0)
         if '-E' in self.name:
             enhanced_frames = torch.cat(enhanced_frame_list,dim=0)
+        else:
+            enhanced_frames = None
 
         rec_loss = torch.mean((com_frames - input_image).pow(2))
         warp_loss = torch.mean((warped_frames - input_image).pow(2))
