@@ -33,16 +33,16 @@ class Analysis_net(nn.Module):
             padding = kernel//2
             self.enhancement = nn.Sequential(
                 nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
+                nn.BatchNorm2d(out_channel_M),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
+                nn.BatchNorm2d(out_channel_M),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
+                nn.BatchNorm2d(out_channel_M),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
+                nn.BatchNorm2d(out_channel_M),
                 nn.ReLU(inplace=True),
             )
         if useAttn:
