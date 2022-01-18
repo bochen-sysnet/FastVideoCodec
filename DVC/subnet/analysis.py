@@ -11,7 +11,7 @@ class Analysis_net(nn.Module):
     '''
     Compress residual
     '''
-    def __init__(self, useAttn=False):
+    def __init__(self, useAttn=False, useEnhance=False):
         super(Analysis_net, self).__init__()
         self.conv1 = nn.Conv2d(3, out_channel_N, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (3 + out_channel_N) / (6))))
@@ -28,12 +28,30 @@ class Analysis_net(nn.Module):
         self.conv4 = nn.Conv2d(out_channel_N, out_channel_M, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (out_channel_M + out_channel_N) / (out_channel_N + out_channel_N))))
         torch.nn.init.constant_(self.conv4.bias.data, 0.01)
+        if useEnhance:
+            kernel = 7
+            padding = kernel//2
+            self.enhancement = nn.Sequential(
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+            )
         if useAttn:
             self.s_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
             self.t_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
+        self.useEnhance = useEnhance
 
     def forward(self, x):
         x = self.gdn1(self.conv1(x))
@@ -49,6 +67,8 @@ class Analysis_net(nn.Module):
             x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
             x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        if self.useEnhance:
+            x = self.enhancement(x)
         return x
 
 

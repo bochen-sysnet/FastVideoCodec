@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-E'
+CODEC_NAME = 'LSVC-RE'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 0
+device = 1
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -74,7 +74,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in []:
+elif CODEC_NAME in ['LSVC-RE']:
     # load what exists
     pretrained_model_path = f"backup/LSVC/LSVC-3P_ckpt.pth"
     checkpoint = torch.load(pretrained_model_path)

@@ -1938,8 +1938,8 @@ class LSVC(nn.Module):
             self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
             self.bitEstimator_mv = BitEstimator(out_channel_M)
         self.warpnet = Warp_net(useAttn=('-AW' in name))
-        self.resEncoder = Analysis_net(useAttn=self.useAttn)
-        self.resDecoder = Synthesis_net(useAttn=self.useAttn)
+        self.resEncoder = Analysis_net(useAttn=self.useAttn,useEnhance=('-RE' in name))
+        self.resDecoder = Synthesis_net(useAttn=self.useAttn,useEnhance=('-RE' in name))
         self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
         self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
         self.bitEstimator_z = BitEstimator(out_channel_N)
@@ -2185,6 +2185,7 @@ class LSVC(nn.Module):
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
+                print(PSNR(target_frames, MC_frames, use_list=True))
                 # enhance mC
                 if '-E' in self.name:
                     target_frames = torch.clip(target_frames, min=0, max=1)

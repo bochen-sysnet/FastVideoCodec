@@ -9,7 +9,7 @@ class Synthesis_net(nn.Module):
     '''
     Decode residual
     '''
-    def __init__(self, useAttn = False):
+    def __init__(self, useAttn = False, useEnhance=False):
         super(Synthesis_net, self).__init__()
         self.deconv1 = nn.ConvTranspose2d(out_channel_M, out_channel_N, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, (math.sqrt(2 * 1 * (out_channel_M + out_channel_N) / (out_channel_M + out_channel_M))))
@@ -26,12 +26,31 @@ class Synthesis_net(nn.Module):
         self.deconv4 = nn.ConvTranspose2d(out_channel_N, 3, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv4.weight.data, (math.sqrt(2 * 1 * (out_channel_N + 3) / (out_channel_N + out_channel_N))))
         torch.nn.init.constant_(self.deconv4.bias.data, 0.01)
+        if useEnhance:
+            kernel = 7
+            padding = kernel//2
+            self.enhancement = nn.Sequential(
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channel_M, out_channel_M, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+            )
         if False:
             self.s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
             self.t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
         self.useAttn = useAttn
         
     def forward(self, x):
+        if self.useEnhance:
+            x = self.enhancement(x)
         x = self.igdn1(self.deconv1(x))
         x = self.igdn2(self.deconv2(x))
         x = self.igdn3(self.deconv3(x))
