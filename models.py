@@ -2187,7 +2187,7 @@ class LSVC(nn.Module):
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
-                print(PSNR(target_frames, MC_frames, use_list=True))
+                #print(PSNR(target_frames, MC_frames, use_list=True))
                 # enhance mC
                 if '-E' in self.name:
                     target_frames = torch.clip(target_frames, min=0, max=1)
