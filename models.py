@@ -298,6 +298,8 @@ def parallel_compression(model, data, compressI=False):
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
                 img_loss = rec_loss*model.r
+                if enhance_loss is not None:
+                    img_loss += enhance_loss
             elif model.stage == 'WP':
                 img_loss = warp_loss*model.r
             elif model.stage == 'EH':
