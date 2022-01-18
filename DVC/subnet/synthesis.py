@@ -47,6 +47,7 @@ class Synthesis_net(nn.Module):
             self.s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
             self.t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
         self.useAttn = useAttn
+        self.useEnhance = useEnhance
         
     def forward(self, x):
         if self.useEnhance:
