@@ -2209,7 +2209,7 @@ class LSVC(nn.Module):
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 # enhance mC
-                if '-E' in self.name:
+                if '-E' in self.name or '-4E' in self.name:
                     target_frames = torch.clip(target_frames, min=0, max=1)
                     nb = MC_frames.size(0)
                     pred = self.enhancement(MC_frames)
@@ -2232,7 +2232,7 @@ class LSVC(nn.Module):
                     MC_frame_list[tar-1] = MC_frames[i:i+1]
                     warped_frame_list[tar-1] = warped_frames[i:i+1]
                     com_frame_list[tar-1] = com_frames[i:i+1]
-                    if '-E' in self.name:
+                    if '-E' in self.name or '-4E' in self.name:
                         enhanced_frame_list[tar-1] = enhanced_frames[i:i+1]
                 if total_bits_res is None:
                     total_bits_res = res_bits
@@ -2241,7 +2241,7 @@ class LSVC(nn.Module):
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
-        if '-E' in self.name:
+        if '-E' in self.name or '-4E' in self.name:
             enhanced_frames = torch.cat(enhanced_frame_list,dim=0)
         else:
             enhanced_frames = None
