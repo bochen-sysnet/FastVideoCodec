@@ -95,7 +95,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # WP->MC->REC->EH
+        model.stage = 'EH' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1964,6 +1964,26 @@ class LSVC(nn.Module):
                 nn.BatchNorm2d(channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(channels, channels, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channels, channels, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channels, channels, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channels, channels, kernel, padding=padding),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channels, 3*256, 1, padding=0),
+            )
+        if '-4E' in name:
+            # self enhancement
+            channels = 64
+            kernel = 7
+            padding = kernel//2
+            self.enhancement = nn.Sequential(
+                nn.Conv2d(3, channels, kernel, padding=padding),
                 nn.BatchNorm2d(channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(channels, channels, kernel, padding=padding),
