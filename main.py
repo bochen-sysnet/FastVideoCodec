@@ -158,7 +158,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if model.name == 'DVC-pretrained':
             loss = img_loss
         elif 'LSVC' in model.name:
-            loss = img_loss# + be_loss
+            loss = img_loss + be_loss
         else:
             loss = model.loss(img_loss,be_loss,aux_loss)
         
@@ -204,8 +204,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 1000 == 0 and batch_idx>0:
-            if False:
+        if batch_idx % 5000 == 0 and batch_idx>0:
+            if True:
                 print('testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
                 
