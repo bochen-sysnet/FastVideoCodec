@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-E'
+CODEC_NAME = 'LSVC-RE'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 0
+device = 1
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -158,7 +158,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if model.name == 'DVC-pretrained':
             loss = img_loss
         elif 'LSVC' in model.name:
-            loss = img_loss + be_loss
+            loss = img_loss# + be_loss
         else:
             loss = model.loss(img_loss,be_loss,aux_loss)
         
