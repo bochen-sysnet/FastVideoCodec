@@ -293,29 +293,21 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
-            x_hat, x_mc, x_wp, x_eh, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp = model(data.detach())
+            x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
                 img_loss = rec_loss*model.r
-                if enhance_loss is not None:
-                    img_loss += enhance_loss
             elif model.stage == 'WP':
                 img_loss = warp_loss*model.r
-            elif model.stage == 'EH':
-                img_loss = enhance_loss + mc_loss*model.r
             else:
                 print('unknown stage')
                 exit(1)
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
-            if enhance_loss is None:
-                msssim_list += PSNR(data[1:], x_wp, use_list=True)
-                aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
-            else:
-                msssim_list += PSNR(data[1:], x_mc, use_list=True)
-                aux_loss_list += PSNR(data[1:], x_eh, use_list=True)
+            msssim_list += PSNR(data[1:], x_wp, use_list=True)
+            aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
@@ -1748,8 +1740,6 @@ class SPVC(nn.Module):
         #self.warpnet = MCNet()
         self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
-        if '-E' in self.name:
-            self.enhancenet = Warp_net(in_channels=21,out_channels=18) # enhanced compensation
             
         if '96' in self.name:
             channels = 96
@@ -1895,18 +1885,6 @@ class SPVC(nn.Module):
             # new compression way
             com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameReconForward(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
             
-        # enhance compressed frames?
-        if '-E' in self.name:
-            if bs<6:
-                pad = 6-bs
-                inputframes = torch.cat((x[:1],com_frames, com_frames[-1].repeat(pad,1,1,1)), 0)
-            else:
-                inputframes = torch.cat((x[:1],com_frames), 0)
-            inputframes = inputframes.view(1,21,h,w)
-            prediction = self.enhancenet(inputframes)
-            prediction = prediction.view(6,3,h,w)
-            enhanced_frames = prediction[:bs]
-            
         ##### compute bits
         # estimated bits
         bpp_est = ((mv_est) + \
@@ -1924,16 +1902,11 @@ class SPVC(nn.Module):
         #print([float(m) for m in msssim])
         mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
         #warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
-        if '-E' in self.name:
-            eh_loss = calc_loss(x_tar, enhanced_frames, self.r, True)
         rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
         if self.stage == 'MC':
             img_loss = mc_loss
         elif self.stage == 'REC':
             img_loss = rec_loss
-        elif self.stage == 'EH':
-            img_loss = eh_loss + rec_loss
-            msssim = PSNR(x_tar, enhanced_frames, use_list=True)
         else:
             print('unknown stage')
             exit(1)
@@ -1960,47 +1933,17 @@ class LSVC(nn.Module):
         self.useAttn = True if '-A' in name else False
         self.opticFlow = ME_Spynet()
         self.Q = None
-        self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
-        self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
-        self.resEncoder = Analysis_net(useAttn=self.useAttn)
-        self.resDecoder = Synthesis_net(useAttn=self.useAttn)
-        self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
-        self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
+        mv_attn = ('-MA' in name) or ('-A' in name) 
+        self.mvEncoder = Analysis_mv_net(useAttn=mv_attn,out_channels=out_channel_M)
+        self.mvDecoder = Synthesis_mv_net(useAttn=mv_attn,in_channels=out_channel_M)
+        res_attn = ('-RA' in name) or ('-A' in name)
+        self.resEncoder = Analysis_net(useAttn=res_attn)
+        self.resDecoder = Synthesis_net(useAttn=res_attn)
+        self.respriorEncoder = Analysis_prior_net(useAttn=res_attn)
+        self.respriorDecoder = Synthesis_prior_net(useAttn=res_attn)
         self.bitEstimator_mv = BitEstimator(out_channel_M)
         self.warpnet = Warp_net(useAttn=('-AW' in name))
         self.bitEstimator_z = BitEstimator(out_channel_N)
-        if '-E' in name:
-            # self enhancement
-            channels = 64
-            kernel = 7
-            padding = kernel//2
-            self.enhancement = nn.Sequential(
-                nn.Conv2d(3, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, 3*256, 1, padding=0),
-            )
         self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = False
@@ -2160,11 +2103,9 @@ class LSVC(nn.Module):
         # tree compensation
         MC_frame_list = [None for _ in range(bs)]
         warped_frame_list = [None for _ in range(bs)]
-        enhanced_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
         total_bits_res = None
         x_tar = x[1:]
-        enhance_loss = None
         for layer in layers:
             ref = [] # reference frame
             diff = [] # motion
@@ -2184,22 +2125,7 @@ class LSVC(nn.Module):
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 #print(PSNR(target_frames, MC_frames, use_list=True))
-                # enhance mC
-                if '-E' in self.name:
-                    target_frames = torch.clip(target_frames, min=0, max=1)
-                    nb = MC_frames.size(0)
-                    pred = self.enhancement(MC_frames)
-                    pred = pred.permute(0,2,3,1).reshape(-1,256)
-                    target = Variable(target_frames.permute(0,2,3,1).reshape(-1)*255).long()
-                    nll = F.cross_entropy(pred, target)
-                    if enhance_loss is None:
-                        enhance_loss = nll
-                    else:
-                        enhance_loss += nll
-                    probs = F.softmax(pred, dim=-1)
-                    pixels = torch.multinomial(probs, num_samples=1)
-                    enhanced_frames = pixels.reshape(nb,h,w,c).permute(0,3,1,2).float()/ 255.0
-                approx_frames = MC_frames if '-E' not in self.name else enhanced_frames 
+                approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
                 res_hat,res_bits = self.res_codec(res_tensors)
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
@@ -2208,8 +2134,6 @@ class LSVC(nn.Module):
                     MC_frame_list[tar-1] = MC_frames[i:i+1]
                     warped_frame_list[tar-1] = warped_frames[i:i+1]
                     com_frame_list[tar-1] = com_frames[i:i+1]
-                    if '-E' in self.name:
-                        enhanced_frame_list[tar-1] = enhanced_frames[i:i+1]
                 if total_bits_res is None:
                     total_bits_res = res_bits
                 else:
@@ -2217,10 +2141,6 @@ class LSVC(nn.Module):
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
-        if '-E' in self.name:
-            enhanced_frames = torch.cat(enhanced_frame_list,dim=0)
-        else:
-            enhanced_frames = None
 
         rec_loss = torch.mean((com_frames - input_image).pow(2))
         warp_loss = torch.mean((warped_frames - input_image).pow(2))
@@ -2231,7 +2151,7 @@ class LSVC(nn.Module):
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
         
-        return com_frames, MC_frames, warped_frames, enhanced_frames, rec_loss, warp_loss, mc_loss, enhance_loss, bpp_res, bpp
+        return com_frames, MC_frames, warped_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
        
 # need a new RLVC model for accuracy test
 
