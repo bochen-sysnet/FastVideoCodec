@@ -95,7 +95,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'MC' # WP->MC->REC->EH
+        model.stage = 'REC' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -259,7 +259,7 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [msssim[pos].to(data.device)]
         elif model.name in ['DVC','RLVC','RLVC2']:
             B,_,H,W = data.size()
-            hidden = model.init_hidden(H,W)
+            hidden = model.init_hidden(H,W,data.device)
             mv_prior_latent = res_prior_latent = None
             x_hat = data[0:1]
             for i in range(1,B):
@@ -1044,7 +1044,7 @@ class Coder2D(nn.Module):
             self.dec_t += time.perf_counter() - t_0
         
         # auxilary loss
-        aux_loss = self.entropy_bottleneck.loss() if self.entropy_type != 'rpm2' else torch.FloatTensor([0]).cuda()
+        aux_loss = self.entropy_bottleneck.loss() if self.entropy_type != 'rpm2' else torch.FloatTensor([0]).to(hat.device)
             
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
             
@@ -1139,7 +1139,7 @@ def torch_warp(tensorInput, tensorFlow):
     if str(tensorFlow.size()) not in Backward_tensorGrid[device_id]:
             tensorHorizontal = torch.linspace(-1.0, 1.0, tensorFlow.size(3)).view(1, 1, 1, tensorFlow.size(3)).expand(tensorFlow.size(0), -1, tensorFlow.size(2), -1)
             tensorVertical = torch.linspace(-1.0, 1.0, tensorFlow.size(2)).view(1, 1, tensorFlow.size(2), 1).expand(tensorFlow.size(0), -1, -1, tensorFlow.size(3))
-            Backward_tensorGrid[device_id][str(tensorFlow.size())] = torch.cat([ tensorHorizontal, tensorVertical ], 1).cuda().to(device_id)
+            Backward_tensorGrid[device_id][str(tensorFlow.size())] = torch.cat([ tensorHorizontal, tensorVertical ], 1).to(device_id)
 
     tensorFlow = torch.cat([tensorFlow[:, 0:1, :, :] / ((tensorInput.size(3) - 1.0) / 2.0), tensorFlow[:, 1:2, :, :] / ((tensorInput.size(2) - 1.0) / 2.0) ], 1)
 
@@ -1627,15 +1627,15 @@ class IterPredVideoCodecs(nn.Module):
         loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
         return loss
     
-    def init_hidden(self, h, w):
+    def init_hidden(self, h, w, device):
         rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
         rae_res_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
         rpm_mv_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
         rpm_res_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
-        rae_mv_hidden = rae_mv_hidden.cuda()
-        rae_res_hidden = rae_res_hidden.cuda()
-        rpm_mv_hidden = rpm_mv_hidden.cuda()
-        rpm_res_hidden = rpm_res_hidden.cuda()
+        rae_mv_hidden = rae_mv_hidden.to(device)
+        rae_res_hidden = rae_res_hidden.to(device)
+        rpm_mv_hidden = rpm_mv_hidden.to(device)
+        rpm_res_hidden = rpm_res_hidden.to(device)
         return (rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden)
         
 def TreeFrameReconForward(warpnet,res_codec,x,bs,mv_hat,layers,parents,mode='forward'):
@@ -1948,7 +1948,7 @@ class SPVC(nn.Module):
         loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
         return loss
         
-    def init_hidden(self, h, w):
+    def init_hidden(self, h, w, device):
         return None
 
 from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator,out_channel_M,out_channel_N
@@ -2358,7 +2358,7 @@ class AE3D(nn.Module):
         
         return x_hat.to(x.device), bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
     
-    def init_hidden(self, h, w):
+    def init_hidden(self, h, w, device):
         return None
         
     def loss(self, pix_loss, bpp_loss, aux_loss, app_loss=None):
