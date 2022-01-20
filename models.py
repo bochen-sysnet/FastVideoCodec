@@ -95,7 +95,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # WP->MC->REC->EH
+        model.stage = 'MC' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1292,7 +1292,7 @@ class Warp_net(nn.Module):
                 GDN(channels, inverse=True),
                 nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
                 GDN(channels, inverse=True),
-                nn.ConvTranspose2d(channels, in_channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                nn.ConvTranspose2d(channels, 3, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
             )
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
@@ -1960,14 +1960,14 @@ class LSVC(nn.Module):
         self.useAttn = True if '-A' in name else False
         self.opticFlow = ME_Spynet()
         self.Q = None
-        self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M,useEnhance=('-ME' in name))
-        self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M,useEnhance=('-ME' in name))
-        self.bitEstimator_mv = BitEstimator(out_channel_M)
-        self.warpnet = Warp_net(useAttn=('-AW' in name))
-        self.resEncoder = Analysis_net(useAttn=self.useAttn,useEnhance=('-RE' in name))
-        self.resDecoder = Synthesis_net(useAttn=self.useAttn,useEnhance=('-RE' in name))
+        self.mvEncoder = Analysis_mv_net(useAttn=self.useAttn,out_channels=out_channel_M)
+        self.mvDecoder = Synthesis_mv_net(useAttn=self.useAttn,in_channels=out_channel_M)
+        self.resEncoder = Analysis_net(useAttn=self.useAttn)
+        self.resDecoder = Synthesis_net(useAttn=self.useAttn))
         self.respriorEncoder = Analysis_prior_net(useAttn=self.useAttn)
         self.respriorDecoder = Synthesis_prior_net(useAttn=self.useAttn)
+        self.bitEstimator_mv = BitEstimator(out_channel_M)
+        self.warpnet = Warp_net(useAttn=('-AW' in name))
         self.bitEstimator_z = BitEstimator(out_channel_N)
         if '-E' in name:
             # self enhancement
@@ -1988,26 +1988,6 @@ class LSVC(nn.Module):
                 nn.BatchNorm2d(channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel, padding=padding),
-                nn.BatchNorm2d(channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channels, 3*256, 1, padding=0),
-            )
-        if '-4E' in name:
-            # self enhancement
-            channels = 64
-            kernel = 7
-            padding = kernel//2
-            self.enhancement = nn.Sequential(
-                nn.Conv2d(3, channels, kernel, padding=padding),
                 nn.BatchNorm2d(channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(channels, channels, kernel, padding=padding),
@@ -2205,7 +2185,7 @@ class LSVC(nn.Module):
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 # enhance mC
-                if '-E' in self.name or '-4E' in self.name:
+                if '-E' in self.name:
                     target_frames = torch.clip(target_frames, min=0, max=1)
                     nb = MC_frames.size(0)
                     pred = self.enhancement(MC_frames)
@@ -2228,7 +2208,7 @@ class LSVC(nn.Module):
                     MC_frame_list[tar-1] = MC_frames[i:i+1]
                     warped_frame_list[tar-1] = warped_frames[i:i+1]
                     com_frame_list[tar-1] = com_frames[i:i+1]
-                    if '-E' in self.name or '-4E' in self.name:
+                    if '-E' in self.name:
                         enhanced_frame_list[tar-1] = enhanced_frames[i:i+1]
                 if total_bits_res is None:
                     total_bits_res = res_bits
@@ -2237,7 +2217,7 @@ class LSVC(nn.Module):
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
-        if '-E' in self.name or '-4E' in self.name:
+        if '-E' in self.name:
             enhanced_frames = torch.cat(enhanced_frame_list,dim=0)
         else:
             enhanced_frames = None
