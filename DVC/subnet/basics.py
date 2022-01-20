@@ -124,7 +124,39 @@ def conv2d_same_padding(input, weight, bias=None, stride=1, padding=0, dilation=
     return F.conv2d(input, weight, bias, stride,
                   padding=(padding_rows // 2, padding_cols // 2),
                   dilation=dilation, groups=groups)
+                  
+# classes
 
+class PreNorm(nn.Module):
+    def __init__(self, dim, fn):
+        super().__init__()
+        self.fn = fn
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, x, *args, **kwargs):
+        x = self.norm(x)
+        return self.fn(x, *args, **kwargs)
+        
+# feedforward
+
+class GEGLU(nn.Module):
+    def forward(self, x):
+        x, gates = x.chunk(2, dim = -1)
+        return x * F.gelu(gates)
+
+class FeedForward(nn.Module):
+    def __init__(self, dim, mult = 4, dropout = 0.):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim, dim * mult * 2),
+            GEGLU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim * mult, dim)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+        
 # attention
 def exists(val):
     return val is not None

@@ -43,8 +43,14 @@ class Analysis_mv_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
         if useAttn:
-            self.s_attn = Attention(out_channels, dim_head = 64, heads = 8)
-            self.t_attn = Attention(out_channels, dim_head = 64, heads = 8)
+            self.layers = nn.ModuleList([])
+            depth = 12
+            for _ in range(depth):
+                ff = FeedForward(out_channels)
+                s_attn = Attention(out_channels, dim_head = 64, heads = 8)
+                t_attn = Attention(out_channels, dim_head = 64, heads = 8)
+                time_attn, spatial_attn, ff = map(lambda t: PreNorm(dim, t), (time_attn, spatial_attn, ff))
+                self.layers.append(nn.ModuleList([time_attn, spatial_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         if useEnhance:
@@ -82,8 +88,10 @@ class Analysis_mv_net(nn.Module):
             frame_pos_emb = self.frame_rot_emb(B,device=x.device)
             image_pos_emb = self.image_rot_emb(H,W,device=x.device)
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+            for (t_attn, s_attn, ff) in self.layers:
+                x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         if self.useEnhance:
             x = self.enhancement(x)
