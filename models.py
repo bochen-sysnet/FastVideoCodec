@@ -95,7 +95,7 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # setup training weights
     if epoch <= warmup_epoch:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'MC' # WP->MC->REC->EH
+        model.stage = 'REC' # WP->MC->REC->EH
     else:
         model.r_img, model.r_bpp, model.r_aux = 1,1,1
     
@@ -1271,9 +1271,39 @@ class Warp_net(nn.Module):
         torch.nn.init.constant_(self.conv6.bias.data, 0.0)
         self.useAttn = useAttn
         if self.useAttn:
-            from DVC.subnet import Attention,RotaryEmbedding,AxialRotaryEmbedding
-            self.s_attn = AttentionBlock(channelnum)#Attention(channelnum, dim_head = 64, heads = 8)
-            self.t_attn = Attention(channelnum, dim_head = 64, heads = 8)
+            from DVC.subnet import Attention,FeedForward,RotaryEmbedding,AxialRotaryEmbedding
+            self.patch_size = 16
+            channels = channelnum
+            kernel = 5
+            padding = 2
+            self.downsample = nn.Sequential(
+                nn.Conv2d(3, channels, kernel_size=kernel, stride=2, padding=padding),
+                GDN(channels),
+                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding),
+                GDN(channels),
+                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding),
+                GDN(channels),
+                nn.Conv2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, bias=False),
+            )
+            self.upsample = nn.Sequential(
+                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                GDN(channels, inverse=True),
+                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                GDN(channels, inverse=True),
+                nn.ConvTranspose2d(channels, channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+                GDN(channels, inverse=True),
+                nn.ConvTranspose2d(channels, in_channels, kernel_size=kernel, stride=2, padding=padding, output_padding=1),
+            )
+            self.frame_rot_emb = RotaryEmbedding(64)
+            self.image_rot_emb = AxialRotaryEmbedding(64)
+            self.layers = nn.ModuleList([])
+            depth = 12
+            for _ in range(depth):
+                ff = FeedForward(channelnum)
+                s_attn = Attention(channelnum, dim_head = 64, heads = 8)
+                t_attn = Attention(channelnum, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(channelnum, t), (t_attn, s_attn, ff))
+                self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
 
@@ -1285,21 +1315,23 @@ class Warp_net(nn.Module):
         c1_p = self.conv1_p(c1)
         c2 = self.conv2(c1_p)
         c3 = self.conv3(c2)
-        if self.useAttn:
-            x = c3
-            B,C,H,W = x.size()
-            frame_pos_emb = self.frame_rot_emb(B,device=x.device)
-            #image_pos_emb = self.image_rot_emb(H,W,device=x.device)
-            x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-            #x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
-            x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
-            c3 = self.s_attn(x)
         c3_u = c1 + bilinearupsacling2(c3)#torch.nn.functional.interpolate(input=c3, scale_factor=2, mode='bilinear', align_corners=True)
         c4 = self.conv4(c3_u)
         c4_u = c0 + bilinearupsacling2(c4)# torch.nn.functional.interpolate(input=c4, scale_factor=2, mode='bilinear', align_corners=True)
         c5 = self.conv5(c4_u)
         c5 = self.conv6(c5)
+        if self.useAttn:
+            x = self.downsample(c5)
+            B,C,H,W = x.size()
+            frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+            image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+            x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+            for (t_attn, s_attn, ff) in self.layers:
+                x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                x = ff(x) + x
+            x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+            c5 = self.upsample(x)
         return c5
 
 class ME_Spynet(nn.Module):
