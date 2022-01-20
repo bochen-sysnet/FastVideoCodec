@@ -32,8 +32,14 @@ class Analysis_prior_net(nn.Module):
         #     nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2)
         # )
         if useAttn:
-            self.s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
-            self.t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
+            self.layers = nn.ModuleList([])
+            depth = 12
+            for _ in range(depth):
+                ff = FeedForward(out_channel_N)
+                s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
+                t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(out_channel_N, t), (t_attn, s_attn, ff))
+                self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
@@ -47,8 +53,10 @@ class Analysis_prior_net(nn.Module):
             frame_pos_emb = self.frame_rot_emb(B,device=x.device)
             image_pos_emb = self.image_rot_emb(H,W,device=x.device)
             x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous() 
-            x = self.t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-            x = self.s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+            for (t_attn, s_attn, ff) in self.layers:
+                x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu2(self.conv2(x))
         return self.conv3(x)
