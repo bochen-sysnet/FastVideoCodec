@@ -1271,7 +1271,7 @@ class Warp_net(nn.Module):
         torch.nn.init.constant_(self.conv6.bias.data, 0.0)
         self.useAttn = useAttn
         if self.useAttn:
-            from DVC.subnet import Attention,FeedForward,RotaryEmbedding,AxialRotaryEmbedding
+            from DVC.subnet import PreNorm,Attention,FeedForward,RotaryEmbedding,AxialRotaryEmbedding
             self.patch_size = 16
             channels = channelnum
             kernel = 5
