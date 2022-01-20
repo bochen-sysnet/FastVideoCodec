@@ -10,7 +10,7 @@ class Synthesis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, in_channels=out_channel_mv, useEnhance=False):
+    def __init__(self, useAttn=False, in_channels=out_channel_mv):
         super(Synthesis_mv_net, self).__init__()
         self.deconv1 = nn.ConvTranspose2d(in_channels, out_channel_mv, 3, stride=2, padding=1, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, math.sqrt(2 * 1))
@@ -43,29 +43,9 @@ class Synthesis_mv_net(nn.Module):
         self.deconv8 = nn.Conv2d(out_channel_mv, 2, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.deconv8.weight.data, (math.sqrt(2 * 1 * (out_channel_mv + 2) / (out_channel_mv + out_channel_mv))))
         torch.nn.init.constant_(self.deconv8.bias.data, 0.01)
-        if useEnhance:
-            kernel = 7
-            padding = kernel//2
-            self.enhancement = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, kernel, padding=padding),
-                nn.BatchNorm2d(in_channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(in_channels, in_channels, kernel, padding=padding),
-                nn.BatchNorm2d(in_channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(in_channels, in_channels, kernel, padding=padding),
-                nn.BatchNorm2d(in_channels),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(in_channels, in_channels, kernel, padding=padding),
-                nn.BatchNorm2d(in_channels),
-                nn.ReLU(inplace=True),
-            )
         self.useAttn = useAttn
-        self.useEnhance = useEnhance
         
     def forward(self, x):
-        if self.useEnhance:
-            x = self.enhancement(x)
         x = self.relu1(self.deconv1(x))
         x = self.relu2(self.deconv2(x))
         x = self.relu3(self.deconv3(x))

@@ -24,13 +24,6 @@ class Analysis_prior_net(nn.Module):
         self.conv3 = nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv3.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv3.bias.data, 0.01)
-        # self.priorencoder = nn.Sequential(
-        #     nn.Conv2d(out_channel_M, out_channel_N, 3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2),
-        #     nn.ReLU(),
-        #     nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2)
-        # )
         if useAttn:
             self.layers = nn.ModuleList([])
             depth = 12
