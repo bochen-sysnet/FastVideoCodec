@@ -49,8 +49,8 @@ class Analysis_mv_net(nn.Module):
                 ff = FeedForward(out_channels)
                 s_attn = Attention(out_channels, dim_head = 64, heads = 8)
                 t_attn = Attention(out_channels, dim_head = 64, heads = 8)
-                time_attn, spatial_attn, ff = map(lambda t: PreNorm(dim, t), (time_attn, spatial_attn, ff))
-                self.layers.append(nn.ModuleList([time_attn, spatial_attn, ff]))
+                t_attn, s_attn, ff = map(lambda t: PreNorm(dim, t), (t_attn, s_attn, ff))
+                self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         if useEnhance:
