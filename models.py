@@ -903,7 +903,7 @@ class Coder2D(nn.Module):
             
         self.realCom = not self.training
         # update only once during testing
-        if not self.updated and self.realCom:
+        if not self.updated and self.realCom and self.entropy_type != 'rpm2':
             self.entropy_bottleneck.update(force=True)
             self.updated = True
             
@@ -1006,7 +1006,7 @@ class Coder2D(nn.Module):
             bits_est = torch.zeros(latent_hat.size(0)).squeeze(0).to(x.device)
         
         # calculate bpp (actual)
-        if self.realCom:
+        if self.realCom and self.entropy_type != 'rpm2':
             bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
         else:
             bits_act = bits_est
