@@ -594,49 +594,6 @@ def get_grid_locations(b, h, w):
     grid = grid.repeat(b,1,1,1)
     return grid
 
-def attention(q, k, v, d_model, dropout=None):
-    
-    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_model)
-        
-    scores = F.softmax(scores, dim=-1)
-    
-    if dropout is not None:
-        scores = dropout(scores)
-        
-    output = torch.matmul(scores, v)
-    return output
-        
-class Attention(nn.Module):
-    def __init__(self, d_model, dropout = 0.1):
-        super().__init__()
-        
-        self.d_model = d_model
-        
-        self.q_linear = nn.Linear(d_model, d_model)
-        self.v_linear = nn.Linear(d_model, d_model)
-        self.k_linear = nn.Linear(d_model, d_model)
-        self.dropout = nn.Dropout(dropout)
-        self.out = nn.Linear(d_model, d_model)
-    
-    def forward(self, x):
-        bs,C,H,W = x.size()
-        x = x.view(bs,C,-1).permute(2,0,1).contiguous()
-        
-        # perform linear operation
-        
-        k = self.k_linear(x)
-        q = self.q_linear(x)
-        v = self.v_linear(x)
-        
-        # calculate attention using function we will define next
-        scores = attention(q, k, v, self.d_model, self.dropout)
-        
-        output = self.out(scores) # bs * sl * d_model
-        
-        output = output.permute(1,2,0).view(bs,C,H,W).contiguous()
-    
-        return output
-        
 def set_model_grad(model,requires_grad=True):
     for k,v in model.named_parameters():
         v.requires_grad = requires_grad
@@ -685,12 +642,12 @@ class Coder2D(nn.Module):
             self.entropy_type = 'rpm'
         elif keyword in ['attn']:
             # for batch model
-            self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=True,entropy_trick=entropy_trick)
+            self.entropy_bottleneck = MeanScaleHyperPriors(channels,entropy_trick=entropy_trick)
             self.conv_type = 'attn'
             self.entropy_type = 'mshp'
         elif keyword in ['mshp']:
             # for image codec, single frame
-            self.entropy_bottleneck = MeanScaleHyperPriors(channels,useAttention=False,entropy_trick=entropy_trick)
+            self.entropy_bottleneck = MeanScaleHyperPriors(channels,entropy_trick=entropy_trick)
             self.conv_type = 'non-rec' # not need for single image compression
             self.entropy_type = 'mshp'
         elif keyword in ['DVC','base','DCVC','DCVC_v2']:
@@ -725,12 +682,17 @@ class Coder2D(nn.Module):
             self.enc_lstm = ConvLSTM(channels)
             self.dec_lstm = ConvLSTM(channels)
         elif self.conv_type == 'attn':
-            self.s_attn_a = AttentionBlock(channels)
-            self.s_attn_s = AttentionBlock(channels)
-            self.t_attn_a = Attention(channels)
-            self.t_attn_s = Attention(channels)
-            #self.s_attn_a = Attention(channels)
-            #self.s_attn_s = Attention(channels)
+            from DVC.subnet import FeedForward,Attention,PreNorm,RotaryEmbedding,AxialRotaryEmbedding
+            self.layers = nn.ModuleList([])
+            depth = 12
+            for _ in range(depth):
+                ff = FeedForward(channels)
+                s_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
+                self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
+            self.frame_rot_emb = RotaryEmbedding(64)
+            self.image_rot_emb = AxialRotaryEmbedding(64)
             
         self.downsample = downsample
         self.updated = False
@@ -760,11 +722,6 @@ class Coder2D(nn.Module):
             
             if self.conv_type == 'rec':
                 x, state_enc = self.enc_lstm(x, state_enc)
-            elif self.conv_type == 'attn':
-                # use attention
-                B,C,H,W = x.size()
-                x = self.s_attn_a(x)
-                x = self.t_attn_a(x)
                 
             x = self.gdn3(self.enc_conv3(x))
             latent = self.enc_conv4(x) # latent optical flow
@@ -802,16 +759,22 @@ class Coder2D(nn.Module):
             t_0 = time.perf_counter()
             # decompress
             if self.downsample:
-                x = self.igdn1(self.dec_conv1(latent_hat))
+                x = latent_hat
+                if self.conv_type == 'attn':
+                    B,C,H,W = x.size()
+                    frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+                    image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+                    x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+                    for (t_attn, s_attn, ff) in self.layers:
+                        x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                        x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                        x = ff(x) + x
+                    x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+                x = self.igdn1(self.dec_conv1(x))
                 x = self.igdn2(self.dec_conv2(x))
                 
                 if self.conv_type == 'rec':
                     x, state_dec = self.enc_lstm(x, state_dec)
-                elif self.conv_type == 'attn':
-                    # use attention
-                    B,C,H,W = x.size()
-                    x = self.s_attn_s(x)
-                    x = self.t_attn_s(x)
                     
                 x = self.igdn3(self.dec_conv3(x))
                 hat = self.dec_conv4(x)
@@ -864,16 +827,22 @@ class Coder2D(nn.Module):
         t_0 = time.perf_counter()
         # decompress
         if self.downsample:
-            x = self.igdn1(self.dec_conv1(latent_hat))
+            x = latent_hat
+            if self.conv_type == 'attn':
+                B,C,H,W = x.size()
+                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+                for (t_attn, s_attn, ff) in self.layers:
+                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                    x = ff(x) + x
+                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+            x = self.igdn1(self.dec_conv1(x))
             x = self.igdn2(self.dec_conv2(x))
             
             if self.conv_type == 'rec':
                 x, state_dec = self.enc_lstm(x, state_dec)
-            elif self.conv_type == 'attn':
-                # use attention
-                B,C,H,W = x.size()
-                x = self.s_attn_s(x)
-                x = self.t_attn_s(x)
                 
             x = self.igdn3(self.dec_conv3(x))
             hat = self.dec_conv4(x)
@@ -914,10 +883,7 @@ class Coder2D(nn.Module):
             if self.conv_type == 'rec':
                 x, state_enc = self.enc_lstm(x, state_enc)
             elif self.conv_type == 'attn':
-                # use attention
-                B,C,H,W = x.size()
-                x = self.s_attn_a(x)
-                x = self.t_attn_a(x)
+                pass
                 
             x = self.gdn3(self.enc_conv3(x))
             latent = self.enc_conv4(x) # latent optical flow
@@ -1009,16 +975,22 @@ class Coder2D(nn.Module):
             
         # decompress
         if self.downsample:
-            x = self.igdn1(self.dec_conv1(latent_hat))
+            x = latent_hat
+            if self.conv_type == 'attn':
+                B,C,H,W = x.size()
+                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+                for (t_attn, s_attn, ff) in self.layers:
+                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                    x = ff(x) + x
+                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+            x = self.igdn1(self.dec_conv1(x))
             x = self.igdn2(self.dec_conv2(x))
             
             if self.conv_type == 'rec':
                 x, state_dec = self.enc_lstm(x, state_dec)
-            elif self.conv_type == 'attn':
-                # use attention
-                B,C,H,W = x.size()
-                x = self.s_attn_s(x)
-                x = self.t_attn_s(x)
                 
             x = self.igdn3(self.dec_conv3(x))
             hat = self.dec_conv4(x)
@@ -1699,7 +1671,7 @@ class SPVC(nn.Module):
         if '-L' in self.name:
             entropy_trick = False
         # use attention in encoder and entropy model
-        self.mv_codec = Coder2D('attn', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
+        self.mv_codec = Coder2D('mshp', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
         self.res_codec = Coder2D('attn', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
         self.channels = channels
         self.loss_type=loss_type
@@ -1754,7 +1726,11 @@ class SPVC(nn.Module):
             self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
             self.meters['eERES'].update(self.res_codec.AC_t)
         else:
+            # SEQ:motion compensation
+            t_0 = time.perf_counter()
             res_string,res_act = TreeFrameReconCompress(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
+            t_comp = time.perf_counter() - t_0
+            self.meters['E-MC'].update(t_comp)
         
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
@@ -1787,7 +1763,10 @@ class SPVC(nn.Module):
             # reconstruction
             com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x_ref.device)
         else:
+            t_0 = time.perf_counter()
             com_frames = TreeFrameReconDecompress(self.warpnet,self.res_codec,x_ref,res_string,bs,mv_hat,layers,parents)
+            t_comp = time.perf_counter() - t_0
+            self.meters['D-MC'].update(t_comp)
         
         return com_frames
         

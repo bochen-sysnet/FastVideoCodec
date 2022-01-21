@@ -114,6 +114,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -717,7 +718,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
             x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
             x_b = torch.flip(x_GoP[:args.fP+1],[0])
             B,_,H,W = x_b.size()
-            com_hidden = model.init_hidden(H,W)
+            com_hidden = model.init_hidden(H,W,x_b.device)
             com_mv_prior_latent = com_res_prior_latent = None
             # send this compressed I frame
             x_ref = x_b[:1]
@@ -731,7 +732,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
                 if not args.encoder_test:
                     send_strings_to_process(process, [mv_string,res_string], useXZ=False)
             # init some states for forward compression
-            com_hidden = model.init_hidden(H,W)
+            com_hidden = model.init_hidden(H,W,x_b.device)
             com_mv_prior_latent = com_res_prior_latent = None
             x_ref = x_b[:1]
 
@@ -800,7 +801,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
             x_b = torch.flip(x_GoP[:args.fP+1],[0])
             B,_,H,W = x_b.size()
-            decom_hidden = model.init_hidden(H,W)
+            decom_hidden = model.init_hidden(H,W,x_b.device)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
             # get compressed I frame
@@ -814,7 +815,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 # record time
                 x_ref = x_ref.detach()
                 psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
-            decom_hidden = model.init_hidden(H,W)
+            decom_hidden = model.init_hidden(H,W,x_b.device)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
             if t_startup is not None:
@@ -918,12 +919,12 @@ def dynamic_simulation(args, test_dataset):
             outstr = f'{args.task} {args.fps} {com_level} ' +\
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
             f.write(outstr)
-            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-            #     enc_str,dec_str,_,_ = showTimer(model)
-            #     if args.role == 'standalone' or args.role == 'client':
-            #         f.write(enc_str+'\n')
-            #     if args.role == 'standalone' or args.role == 'server':
-            #         f.write(dec_str+'\n')
+            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+                enc_str,dec_str,_,_ = showTimer(model)
+                if args.role == 'standalone' or args.role == 'client':
+                    f.write(enc_str+'\n')
+                if args.role == 'standalone' or args.role == 'server':
+                    f.write(dec_str+'\n')
             
         test_dataset.reset()
 
@@ -976,7 +977,7 @@ if __name__ == '__main__':
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC'] or 'SPVC' in args.task)
     else:
-        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task)
+        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'SPVC' in args.task)
 
     # setup streaming parameters
 
@@ -990,5 +991,5 @@ if __name__ == '__main__':
     else:
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','DVC','SPVC96','SPVC','AE3D','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC','DVC','SPVC64-N','SPVC','AE3D','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)

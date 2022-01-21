@@ -152,7 +152,6 @@ class MeanScaleHyperPriors(CompressionModel):
     def __init__(
         self,
         channels,
-        useAttention=False,
         entropy_trick=True,
     ):
         super().__init__(channels)
@@ -162,65 +161,33 @@ class MeanScaleHyperPriors(CompressionModel):
         self.sigma = self.mu = self.z_string = None
         self.gaussian_conditional = GaussianConditional(None)
         
-        lite = False
+        self.h_a1 = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+        )
         
-        if lite:
-            self.h_a1 = nn.Sequential(
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                nn.LeakyReLU(inplace=True),
-            )
-            
-            self.h_a2 = nn.Sequential(
-                nn.Conv2d(channels, channels, kernel_size=5, stride=2, padding=2),
-            )
-            
-            self.h_s1 = nn.Sequential(
-                nn.ConvTranspose2d(channels, channels, kernel_size=5, stride=2, padding=2),
-                nn.LeakyReLU(inplace=True),
-            )
-            
-            self.h_s2 = nn.Sequential(
-                nn.ConvTranspose2d(channels, channels, kernel_size=5, stride=2, padding=2, output_padding=1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(channels, channels*2, kernel_size=3, stride=1, padding=1),
-            )
-        else:
-            self.h_a1 = nn.Sequential(
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-            )
-            
-            self.h_a2 = nn.Sequential(
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-            )
-            
-            self.h_s1 = nn.Sequential(
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-            )
-            
-            self.h_s2 = nn.Sequential(
-                nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
-                nn.LeakyReLU(inplace=True),
-                nn.Conv2d(channels, channels*2, kernel_size=3, stride=1, padding=1),
-            )
+        self.h_a2 = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+        )
         
-        self.useAttention = useAttention
+        self.h_s1 = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+        )
+        
+        self.h_s2 = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(channels, channels*2, kernel_size=3, stride=1, padding=1),
+        )
+        
         self.scale_table = get_scale_table()
-        
-        if self.useAttention:
-            self.s_attn_a = AttentionBlock(channels)
-            self.s_attn_s = AttentionBlock(channels)
-            self.t_attn_a = Attention(channels)
-            self.t_attn_s = Attention(channels)
 
         self.entropy_trick = entropy_trick
 
@@ -264,16 +231,12 @@ class MeanScaleHyperPriors(CompressionModel):
         self, x, training = None
     ):
         z = self.h_a1(x)
-        if self.useAttention:
-            z = st_attention(z,self.s_attn_a,self.t_attn_a)
         z = self.h_a2(z)
         z_hat, z_likelihood = self.entropy_bottleneck(z)
         
         self.z = z # for fast compression
             
         g = self.h_s1(z_hat)
-        if self.useAttention:
-            g = st_attention(g,self.s_attn_s,self.t_attn_s)
         gaussian_params = self.h_s2(g)
             
         self.sigma, self.mu = torch.split(gaussian_params, self.channels, dim=1) # for fast compression
@@ -319,8 +282,6 @@ class MeanScaleHyperPriors(CompressionModel):
         t_0 = time.perf_counter()
         B,C,H,W = x.size()
         z = self.h_a1(x)
-        if self.useAttention:
-            z = st_attention(z,self.s_attn_a,self.t_attn_a)
         z = self.h_a2(z)
         self.eNet_t += time.perf_counter() - t_0
         # AC
@@ -330,8 +291,6 @@ class MeanScaleHyperPriors(CompressionModel):
         # NET
         t_0 = time.perf_counter()
         g = self.h_s1(z_hat)
-        if self.useAttention:
-            g = st_attention(g,self.s_attn_s,self.t_attn_s)
         gaussian_params = self.h_s2(g)
         sigma, mu = torch.split(gaussian_params, self.channels, dim=1) # for fast compression
         sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(x.device))
@@ -377,8 +336,6 @@ class MeanScaleHyperPriors(CompressionModel):
         # NET
         t_0 = time.perf_counter()
         g = self.h_s1(z_hat)
-        if self.useAttention:
-            g = st_attention(g,self.s_attn_s,self.t_attn_s)
         gaussian_params = self.h_s2(g)
         sigma, mu = torch.split(gaussian_params, self.channels, dim=1) # for fast compression
         sigma = torch.maximum(sigma, torch.FloatTensor([-7.0]).to(sigma.device))
