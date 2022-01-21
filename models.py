@@ -1261,7 +1261,6 @@ class Warp_net(nn.Module):
         self.conv6 = nn.Conv2d(channelnum, out_channels, 3, padding=1)
         torch.nn.init.xavier_uniform_(self.conv6.weight.data)
         torch.nn.init.constant_(self.conv6.bias.data, 0.0)
-        self.useAttn = useAttn
 
     def forward(self, x):
         feature_ext = self.f_relu(self.feature_ext(x))
