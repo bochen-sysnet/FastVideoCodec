@@ -35,8 +35,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
-    model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
-    if not use_split:model = model.cuda()
+    model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=False)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -46,7 +45,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     ####### Load codec model 
     if os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:0'))
+        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cpu'))
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model codec score: ", checkpoint['score'])
         del checkpoint
@@ -216,7 +215,7 @@ def static_bench_x26x():
 def static_simulation_model(args, test_dataset):
     for lvl in range(4):
         if args.Q_option != 'Slow' and lvl<3:continue
-        model = LoadModel(args.task,compression_level=lvl)
+        model = LoadModel(args.task,compression_level=lvl).cuda()
         model.eval()
         aux_loss_module = AverageMeter()
         img_loss_module = AverageMeter()
@@ -851,7 +850,7 @@ def dynamic_simulation(args, test_dataset):
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
         client_sim = RLVC_DVC_client
-    elif args.task in ['AE3D'] or 'SPVC':
+    elif args.task in ['AE3D','SPVC64-N']:
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
     elif args.task in ['x264','x265']:
@@ -867,6 +866,10 @@ def dynamic_simulation(args, test_dataset):
         ####### Load model
         if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
             model = LoadModel(args.task,compression_level=com_level,use_split=args.use_split)
+            if args.use_cuda:
+                model = model.cuda()
+            else:
+                model = model.cpu()
             model.eval()
         else:
             model = None
@@ -886,7 +889,8 @@ def dynamic_simulation(args, test_dataset):
                 continue
             if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
                 data = torch.stack(data, dim=0)
-                data = data.cuda()
+                if args.use_cuda:
+                    data = data.cuda()
             
             with torch.no_grad():
                 if args.role == 'standalone':
@@ -955,6 +959,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
     parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
     parser.set_defaults(use_psnr=False)
+    parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
+    parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
+    parser.set_defaults(use_cuda=True)
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
@@ -975,7 +982,7 @@ if __name__ == '__main__':
         
     # restrictions
     if args.mode == 'dynamic':
-        assert(args.task in ['RLVC','DVC'] or 'SPVC' in args.task)
+        assert(args.task in ['RLVC','DVC','x264','x265','SPVC64-N'])
     else:
         assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'SPVC' in args.task)
 
@@ -983,7 +990,7 @@ if __name__ == '__main__':
 
         
     print(args)
-    assert args.dataset in ['UVG','MCL-JCV','Xiph','Xiph2','HEVC']
+    assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
     test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
         
     if args.mode == 'dynamic':
