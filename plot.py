@@ -49,13 +49,13 @@ line_plot(frame_loc,PSNRs,eplabels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/error_prop.eps',
 		'Frame Index','PSNR (dB)',xticks=range(1,7))
 
-bpps = [[],
+bpps = [[0.37],
 		[0.12,0.20,0.33,0.54],
 		[0.14,0.24,0.40,0.67],
 		[0.08,0.12,0.19,0.27],
 		[0.06,0.11,0.16,0.24],
 		]
-PSNRs = [[],
+PSNRs = [[34.39],
 		[30.58,32.26,33.75,34.97],
 		[31.53,33.05,34.33,35.36],
 		[29.52,31.30,32.52,33.28],
