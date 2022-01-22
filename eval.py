@@ -913,10 +913,6 @@ def dynamic_simulation(args, test_dataset):
             # clear input
             data = []
 
-        # destroy model
-        if 'SPVC' in args.task:
-            model.destroy()
-
         # write results
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")

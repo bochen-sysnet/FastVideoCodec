@@ -21,7 +21,7 @@ from torch.autograd import Function
 from torchvision import transforms
 from compressai.layers import GDN,ResidualBlock,AttentionBlock,MaskedConv2d
 from compressai.models import CompressionModel
-from entropy_models import RecProbModel,JointAutoregressiveHierarchicalPriors,MeanScaleHyperPriors,RPM
+from entropy_models import RecProbModel,MeanScaleHyperPriors,RPM
 from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
@@ -658,14 +658,6 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck = EntropyBottleneck(channels)
             self.conv_type = 'non-rec'
             self.entropy_type = 'base'
-        elif keyword == 'joint-attn':
-            self.entropy_bottleneck = JointAutoregressiveHierarchicalPriors(channels,useAttention=True)
-            self.conv_type = 'none'
-            self.entropy_type = 'joint'
-        elif keyword == 'joint':
-            self.entropy_bottleneck = JointAutoregressiveHierarchicalPriors(channels,useAttention=False)
-            self.conv_type = 'none'
-            self.entropy_type = 'joint'
         elif keyword == 'RLVC2':
             self.conv_type = 'rec'
             self.entropy_type = 'rpm2'
@@ -742,8 +734,6 @@ class Coder2D(nn.Module):
             latentSize = latent.size()[-2:]
         elif self.entropy_type == 'mshp':
             latent_hat, latent_string, latentSize = self.entropy_bottleneck.compress_slow(latent,decode=decodeLatent)
-        elif self.entropy_type == 'joint':
-            latent_hat, latent_string,latentSize = self.entropy_bottleneck.compress_slow(latent, prior, decode=decodeLatent)     
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
             latent_hat, latent_string, rpm_hidden, prior_latent = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent)
@@ -811,8 +801,6 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck.dAC_t = time.perf_counter() - t_0
         elif self.entropy_type == 'mshp':
             latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize)
-        elif self.entropy_type == 'joint':
-            latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, prior)
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
             latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, rpm_hidden, prior_latent)
@@ -917,14 +905,6 @@ class Coder2D(nn.Module):
             else:
                 _,latent_string, shape = self.entropy_bottleneck.compress_slow(latent, decode=True)
                 latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape)
-        elif self.entropy_type == 'joint':
-            if self.noMeasure:
-                latent_hat, likelihoods = self.entropy_bottleneck(latent, prior, training=self.training)
-                if self.realCom:
-                    latent_string = self.entropy_bottleneck.compress(latent)
-            else:
-                _,latent_string,shape = self.entropy_bottleneck.compress_slow(latent, prior, decode=True)
-                latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape, prior)
         elif self.entropy_type == 'rpm2':
             if self.training:
                 half = float(0.5)
@@ -1683,10 +1663,6 @@ class SPVC(nn.Module):
             self = self.cuda()
         self.noMeasure = noMeasure
         self.entropy_trick = entropy_trick
-
-    def destroy(self):
-        self.mv_codec.entropy_bottleneck.destroy()
-        self.res_codec.entropy_bottleneck.destroy()
 
     def split(self):
         self.opticFlow.cuda(0)
