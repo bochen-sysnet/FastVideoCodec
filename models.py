@@ -461,77 +461,6 @@ def calc_loss(Y1_raw, Y1_com, r, use_psnr):
         loss = r*(1-metrics)
     return loss
 
-# pyramid flow estimation
-class OpticalFlowNet(nn.Module):
-    def __init__(self):
-        super(OpticalFlowNet, self).__init__()
-        self.pool = nn.AvgPool2d(kernel_size=(2,2), stride=(2,2), padding=0)
-        self.loss = LossNet()
-
-    def forward(self, im1_4, im2_4):
-        # im1_4,im2_4:[1,c,h,w]
-        # flow_4:[1,2,h,w]
-        batch, _, h, w = im1_4.size()
-        
-        im1_3 = self.pool(im1_4)
-        im1_2 = self.pool(im1_3)
-        im1_1 = self.pool(im1_2)
-        im1_0 = self.pool(im1_1)
-
-        im2_3 = self.pool(im2_4)
-        im2_2 = self.pool(im2_3)
-        im2_1 = self.pool(im2_2)
-        im2_0 = self.pool(im2_1)
-
-        flow_zero = torch.zeros(batch, 2, h//16, w//16).to(im1_4.device)
-
-        loss_0, flow_0 = self.loss(flow_zero, im1_0, im2_0, upsample=False)
-        loss_1, flow_1 = self.loss(flow_0, im1_1, im2_1, upsample=True)
-        loss_2, flow_2 = self.loss(flow_1, im1_2, im2_2, upsample=True)
-        loss_3, flow_3 = self.loss(flow_2, im1_3, im2_3, upsample=True)
-        loss_4, flow_4 = self.loss(flow_3, im1_4, im2_4, upsample=True)
-
-        return flow_4, loss_0, loss_1, loss_2, loss_3, loss_4
-
-class LossNet(nn.Module):
-    def __init__(self):
-        super(LossNet, self).__init__()
-        self.convnet = FlowCNN()
-        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
-
-    def forward(self, flow, im1, im2, upsample=True):
-        if upsample:
-            flow = self.upsample(flow)
-        batch_size, _, H, W = flow.shape
-        loc = get_grid_locations(batch_size, H, W).to(im1.device)
-        flow = flow.to(im1.device)
-        im1_warped = F.grid_sample(im1, loc + flow.permute(0,2,3,1), align_corners=True)
-        res = self.convnet(im1_warped, im2, flow)
-        flow_fine = res + flow # N,2,H,W
-
-        im1_warped_fine = F.grid_sample(im1, loc + flow_fine.permute(0,2,3,1), align_corners=True)
-        loss_layer = torch.mean(torch.pow(im1_warped_fine-im2,2))
-
-        return loss_layer, flow_fine
-
-class FlowCNN(nn.Module):
-    def __init__(self):
-        super(FlowCNN, self).__init__()
-        self.conv1 = nn.Conv2d(8, 32, kernel_size=7, stride=1, padding=3)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=7, stride=1, padding=3)
-        self.conv3 = nn.Conv2d(64, 32, kernel_size=7, stride=1, padding=3)
-        self.conv4 = nn.Conv2d(32, 16, kernel_size=7, stride=1, padding=3)
-        self.conv5 = nn.Conv2d(16, 2, kernel_size=7, stride=1, padding=3)
-
-    def forward(self, im1_warp, im2, flow):
-        x = torch.cat((im1_warp, im2, flow),axis=1)
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
-        x = self.conv5(x)
-        return x
-
 class ConvLSTM(nn.Module):
     def __init__(self, channels=128, forget_bias=1.0, activation=F.relu):
         super(ConvLSTM, self).__init__()
@@ -553,58 +482,9 @@ class ConvLSTM(nn.Module):
 
         return h, torch.cat((c, h),dim=1)
 
-class MCNet(nn.Module):
-    def __init__(self):
-        super(MCNet, self).__init__()
-        self.l1 = nn.Conv2d(8, 64, kernel_size=3, stride=1, padding=1)
-        self.l2 = ResidualBlock(64,64)
-        self.l3 = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        self.l4 = ResidualBlock(64,64)
-        self.l5 = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        self.l6 = ResidualBlock(64,64)
-        self.l7 = ResidualBlock(64,64)
-        self.l8 = nn.Upsample(scale_factor=2, mode='nearest')
-        self.l9 = ResidualBlock(64,64)
-        self.l10 = nn.Upsample(scale_factor=2, mode='nearest')
-        self.l11 = ResidualBlock(64,64)
-        self.l12 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-        self.l13 = nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1)
-
-    def forward(self, x):
-        m1 = self.l1(x)
-        m2 = self.l2(m1)
-        m3 = self.l3(m2)
-        m4 = self.l4(m3)
-        m5 = self.l5(m4)
-        m6 = self.l6(m5)
-        m7 = self.l7(m6)
-        m8 = self.l8(m7) + m4
-        m9 = self.l9(m8)
-        m10 = self.l10(m9) + m2
-        m11 = self.l11(m10)
-        m12 = F.relu(self.l12(m11))
-        m13 = self.l13(m12)
-        return m13
-
-def get_grid_locations(b, h, w):
-    new_h = torch.linspace(-1,1,h).view(-1,1).repeat(1,w)
-    new_w = torch.linspace(-1,1,w).repeat(h,1)
-    grid  = torch.cat((new_w.unsqueeze(2),new_h.unsqueeze(2)),dim=2)
-    grid  = grid.unsqueeze(0)
-    grid = grid.repeat(b,1,1,1)
-    return grid
-
 def set_model_grad(model,requires_grad=True):
     for k,v in model.named_parameters():
         v.requires_grad = requires_grad
-        
-def motion_compensation(mc_model,x,motion):
-    bs, c, h, w = x.size()
-    loc = get_grid_locations(bs, h, w).to(motion.device)
-    warped_frames = F.grid_sample(x.to(motion.device), loc + motion.permute(0,2,3,1), align_corners=True)
-    MC_input = torch.cat((motion, x.to(motion.device), warped_frames), axis=1)
-    MC_frames = mc_model(MC_input)
-    return MC_frames,warped_frames
     
 def get_actual_bits(self, string):
     bits_act = torch.FloatTensor([len(b''.join(string))*8]).squeeze(0)
@@ -716,7 +596,20 @@ class Coder2D(nn.Module):
                 x, state_enc = self.enc_lstm(x, state_enc)
                 
             x = self.gdn3(self.enc_conv3(x))
-            latent = self.enc_conv4(x) # latent optical flow
+            x = self.enc_conv4(x) # latent optical flow
+            
+            if self.conv_type == 'attn':
+                B,C,H,W = x.size()
+                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+                for (t_attn, s_attn, ff) in self.layers:
+                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                    x = ff(x) + x
+                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+                
+            latent = x
         else:
             latent = x
         
@@ -750,16 +643,6 @@ class Coder2D(nn.Module):
             # decompress
             if self.downsample:
                 x = latent_hat
-                if self.conv_type == 'attn':
-                    B,C,H,W = x.size()
-                    frame_pos_emb = self.frame_rot_emb(B,device=x.device)
-                    image_pos_emb = self.image_rot_emb(H,W,device=x.device)
-                    x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-                    for (t_attn, s_attn, ff) in self.layers:
-                        x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-                        x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
-                        x = ff(x) + x
-                    x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
                 x = self.igdn1(self.dec_conv1(x))
                 x = self.igdn2(self.dec_conv2(x))
                 
@@ -816,16 +699,6 @@ class Coder2D(nn.Module):
         # decompress
         if self.downsample:
             x = latent_hat
-            if self.conv_type == 'attn':
-                B,C,H,W = x.size()
-                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
-                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
-                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-                for (t_attn, s_attn, ff) in self.layers:
-                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
-                    x = ff(x) + x
-                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
             x = self.igdn1(self.dec_conv1(x))
             x = self.igdn2(self.dec_conv2(x))
             
@@ -874,7 +747,20 @@ class Coder2D(nn.Module):
                 pass
                 
             x = self.gdn3(self.enc_conv3(x))
-            latent = self.enc_conv4(x) # latent optical flow
+            x = self.enc_conv4(x) # latent optical flow
+            
+            if self.conv_type == 'attn':
+                B,C,H,W = x.size()
+                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
+                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+                for (t_attn, s_attn, ff) in self.layers:
+                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
+                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+                    x = ff(x) + x
+                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+                
+            latent = x
         else:
             latent = x
         
@@ -956,16 +842,6 @@ class Coder2D(nn.Module):
         # decompress
         if self.downsample:
             x = latent_hat
-            if self.conv_type == 'attn':
-                B,C,H,W = x.size()
-                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
-                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
-                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-                for (t_attn, s_attn, ff) in self.layers:
-                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
-                    x = ff(x) + x
-                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
             x = self.igdn1(self.dec_conv1(x))
             x = self.igdn2(self.dec_conv2(x))
             
@@ -1285,7 +1161,6 @@ def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
                 ref = ref.detach()
             diff = torch.cat(diff,dim=0)
             MC_frame,warped_frame = motioncompensation(warpnet, ref, diff)
-            #MC_frame,warped_frame = motion_compensation(warpnet,ref,diff)
             for i,tar in enumerate(layer):
                 if tar>bs:continue
                 MC_frame_list[tar-1] = MC_frame[i:i+1]
@@ -1416,7 +1291,6 @@ class IterPredVideoCodecs(nn.Module):
         # motion compensation
         t_0 = time.perf_counter()
         # replace
-        # Y1_MC,Y1_warp = motion_compensation(self.warpnet,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
         Y1_MC, Y1_warp = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
@@ -1474,7 +1348,6 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        #Y1_MC,_ = motion_compensation(self.warpnet,Y0_com,mv_hat.cuda(1) if self.use_split else mv_hat)
         Y1_MC, _ = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['E-MC'].update(t_comp)
@@ -1501,7 +1374,6 @@ class IterPredVideoCodecs(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         # motion compensation
         t_0 = time.perf_counter()
-        #Y1_MC,Y1_warp = motion_compensation(self.warpnet,x_ref,mv_hat.cuda(1) if self.use_split else mv_hat)
         Y1_MC,Y1_warp = motioncompensation(self.warpnet, x_ref, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
         self.meters['D-MC'].update(t_comp)
