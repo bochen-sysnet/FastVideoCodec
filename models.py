@@ -1522,7 +1522,11 @@ class SPVC(nn.Module):
             entropy_trick = False
         # use attention in encoder and entropy model
         self.mv_codec = Coder2D('mshp', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
-        self.res_codec = Coder2D('mshp', in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
+        if '-P' in self.name:
+            res_type = 'mshp' # plain type
+        else:
+            res_type = 'attn'
+        self.res_codec = Coder2D(res_type, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
         self.channels = channels
         self.loss_type=loss_type
         self.compression_level=compression_level
@@ -1549,7 +1553,7 @@ class SPVC(nn.Module):
         t_0 = time.perf_counter()
         # obtain reference frames from a graph
         x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name)) # or one-hop?
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name)) # or one-hop?
         ref_index = refidx_from_graph(g,bs)
         mv_tensors = self.opticFlow(x_tar,x[ref_index])
         self.meters['E-FL'].update(time.perf_counter() - t_0)
@@ -1592,7 +1596,7 @@ class SPVC(nn.Module):
         self.meters['eDMV'].update(self.mv_codec.AC_t)
         
         # graph
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name))
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         
         if '-N' not in self.name:
             # SEQ:motion compensation
@@ -1873,7 +1877,7 @@ class LSVC(nn.Module):
         input_image = x[1:]
         bs,c,h,w = input_image.size()
 
-        g,layers,parents = graph_from_batch(bs)
+        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         ref_index = refidx_from_graph(g,bs)
         estmv = self.opticFlow(input_image, x[ref_index])
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)

@@ -300,14 +300,15 @@ def static_simulation_model(args, test_dataset):
             data = []
             
         test_dataset.reset()
-        psnrs = [float(gm.avg) for gm in GoP_meters]
-        bpps = [float(gm.avg) for gm in GoP_meters2]
-        psnrs2 = [float(gm.avg) for gm in MC_meters]
-        psnrs3 = [float(gm.avg) for gm in WP_meters]
-        print(lvl,bpps)
-        print(psnrs)
-        print(psnrs2)
-        print(psnrs3)
+        if args.use_ep:
+            psnrs = [float(gm.avg) for gm in GoP_meters]
+            bpps = [float(gm.avg) for gm in GoP_meters2]
+            psnrs2 = [float(gm.avg) for gm in MC_meters]
+            psnrs3 = [float(gm.avg) for gm in WP_meters]
+            print(lvl,bpps)
+            print(psnrs)
+            print(psnrs2)
+            print(psnrs3)
     return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
 
 def block_until_open(ip_addr,port):
@@ -514,7 +515,8 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             # compress backward
             x_b = torch.flip(x_GoP[:args.fP+1],[0])
             # wait for I and backward
-            while time.perf_counter() - t_0 < (i+args.fP+1)/args.fps:time.sleep(0.001)
+            if not args.encoder_test:
+                while time.perf_counter() - t_0 < (i+args.fP+1)/args.fps:time.sleep(0.001)
             mv_string1,res_string1,_ = model.compress(x_b)
             # Send strings in order
             if not args.encoder_test:
@@ -522,7 +524,8 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             # compress forward
             x_f = x_GoP[args.fP:]
             # wait for forward
-            while time.perf_counter() - t_0 < (i+GoP_size)/args.fps:time.sleep(0.001)
+            if not args.encoder_test:
+                while time.perf_counter() - t_0 < (i+GoP_size)/args.fps:time.sleep(0.001)
             # ready
             mv_string2,res_string2,_ = model.compress(x_f)
             # Send strings in order
@@ -533,7 +536,8 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             # compress backward
             x_f = x_GoP
             # wait for backward
-            while time.perf_counter() - t_0 < (i+GoP_size)/args.fps:time.sleep(0.001)
+            if not args.encoder_test:
+                while time.perf_counter() - t_0 < (i+GoP_size)/args.fps:time.sleep(0.001)
             # ready
             mv_string,res_string,bpp_act_list = model.compress(x_f)
             # Send strings in order
@@ -542,6 +546,8 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
         # Count time
         if t_first is not None:
             frame_count += GoP_size
+            if args.encoder_test:
+                frame_count -= 1
         else:
             t_first = time.perf_counter() - t_0
         total_time = time.perf_counter() - t_0
@@ -700,9 +706,11 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
     L = data.size(0)
     t_0 = time.perf_counter()
     encoder_iter = tqdm(range(L))
+    frame_count = 0
     for i in encoder_iter:
         # wait for 1/30. or 1/60.
-        while time.perf_counter() < t_0 + i/args.fps:time.sleep(0.001)
+        if not args.encoder_test:
+            while time.perf_counter() < t_0 + i/args.fps:time.sleep(0.001)
         p = i%GoP
         if p > args.fP:
             # compress forward
@@ -737,7 +745,8 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
 
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = (i)/(total_time)
+        if i%GoP!=0:frame_count += 1
+        fps = frame_count/(total_time)
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
@@ -850,7 +859,7 @@ def dynamic_simulation(args, test_dataset):
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
         client_sim = RLVC_DVC_client
-    elif args.task in ['AE3D','SPVC64-N']:
+    elif args.task in ['AE3D','SPVC64-N','SPVC96-N']:
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
     elif args.task in ['x264','x265']:
@@ -958,6 +967,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
     parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
     parser.set_defaults(use_cuda=True)
+    parser.add_argument('--use_ep', dest='use error prop', action='store_true')
+    parser.add_argument('--no-use_ep', dest='use error prop', action='store_false')
+    parser.set_defaults(use_ep=True)
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
@@ -978,7 +990,7 @@ if __name__ == '__main__':
         
     # restrictions
     if args.mode == 'dynamic':
-        assert(args.task in ['RLVC','DVC','x264','x265','SPVC64-N'])
+        assert(args.task in ['RLVC','DVC','x264','x265','SPVC64-N','SPVC96-N'])
     else:
         assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'SPVC' in args.task)
 
@@ -994,5 +1006,5 @@ if __name__ == '__main__':
     else:
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','DVC','SPVC64-N','SPVC','AE3D','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC','DVC','SPVC64-N','SPVC96-N','SPVC','AE3D','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
