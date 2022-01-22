@@ -990,9 +990,9 @@ if __name__ == '__main__':
         
     # restrictions
     if args.mode == 'dynamic':
-        assert(args.task in ['RLVC','DVC','x264','x265','SPVC64-N','SPVC96-N'])
+        
     else:
-        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'SPVC' in args.task)
+        
 
     # setup streaming parameters
 
@@ -1002,9 +1002,11 @@ if __name__ == '__main__':
     test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
         
     if args.mode == 'dynamic':
+        assert(args.task in ['RLVC','DVC','x264','x265','SPVC64-N','SPVC96-N'])
         dynamic_simulation(args, test_dataset)
     else:
+        assert(args.task in ['x264','x265','RLVC2','DVC-pretrained'] or 'LSVC' in args.task)
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','DVC','SPVC64-N','SPVC96-N','SPVC','AE3D','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC2','SPVC64-N','SPVC96-N','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
