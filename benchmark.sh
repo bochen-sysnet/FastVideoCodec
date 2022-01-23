@@ -65,9 +65,9 @@
 # -----------------------------------------------------------
 # eval scalability: use different models measure mean,std on UVG
 # dynamic
-for task in DVC RLVC
+for task in RLVC
 do
-	for p_num in 3 4 5 7 8 9 10 11 12 13 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29  #1 2 6 14 30
+	for p_num in 18 19 20 21 22 23 24 25 26 27 28 29  #1 2 6 14 30
 	do
 		python3 eval.py --task $task --encoder_test --fP $p_num --bP $p_num --Q_option Slow
 	done
