@@ -401,7 +401,7 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
     else:
         print('Codec not supported')
         exit(1)
-    block_until_open(args.server_ip,args.probe_port)
+    block_until_open(args.server_ip,args.srdy_port)
     # create a rtsp pipe
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     t_0 = time.perf_counter()
@@ -448,7 +448,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     process = sp.Popen(command, stdout=sp.PIPE)
     # Probe port (server port in rtsp cannot be probed)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((args.server_ip, int(args.probe_port)))
+    s.bind((args.server_ip, int(args.srdy_port)))
     s.listen(1)
     conn, addr = s.accept()
     psnr_module = AverageMeter()
@@ -990,7 +990,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='server IP')
     parser.add_argument('--stream_port', type=str, default='8846', help='RTSP port')
-    parser.add_argument('--probe_port', type=str, default='8847', help='Port to check if server is ready')
+    parser.add_argument('--srdy_port', type=str, default='8847', help='Port to check if server is ready')
+    parser.add_argument('--crdy_port', type=str, default='8848', help='Port to check if client is ready')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--mode', type=str, default='dynamic', help='dynamic or static simulation')

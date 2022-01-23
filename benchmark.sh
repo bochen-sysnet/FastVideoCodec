@@ -46,7 +46,15 @@
 # efficiency: on-going now
 # speed
 # python eval.py --task SPVC64-N,DVC,RLVC --encoder_test
-# python eval.py --task x265,x264 --fps 1000
+# for task in DVC RLVC
+# do
+# 	python3 eval.py --task $task --encoder_test --Q_option Slow
+# done
+# # python eval.py --task x265,x264 --fps 1000
+# for task in x264 x265
+# do
+# 	python3 eval.py --task $task --fps 1000 --Q_option Slow
+# done
 
 # -----------------------------------------------------------
 # impact of hardware
@@ -57,7 +65,7 @@
 # -----------------------------------------------------------
 # eval scalability: use different models measure mean,std on UVG
 # dynamic
-for task in RLVC DVC
+for task in DVC RLVC
 do
 	for p_num in 3 4 5 7 8 9 10 11 12 13 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29  #1 2 6 14 30
 	do

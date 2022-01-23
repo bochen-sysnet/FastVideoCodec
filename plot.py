@@ -101,11 +101,6 @@ line_plot(bpps,PSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-HEVC.eps',
 		'bpp','PSNR (dB)')
         
-########################NETWORK IMPACT#####################
-
-
-########################HARDWARE IMPACT#####################
-        
 #######################ERROR PROP########################
 eplabels = ['DVC','RLVC'] # UVG,r=2048
 frame_loc = [[i for i in range(1,14)] for _ in range(len(eplabels))]
@@ -148,7 +143,7 @@ line_plot(bpps,PSNRs,ab_labels,
 
 ######################SCALABILITY##########################
 # motivation show duration
-scalability_labels = ['RLVC','DVC']
+scalability_labels = ['DVC','RLVC']
 # read
 fps_avg_list = []
 fps_std_list = []
@@ -183,13 +178,8 @@ gpu_avg_list = np.array(gpu_avg_list)
 gpu_avg_list.resize(len(scalability_labels),5)
 gpu_std_list = np.array(gpu_std_list)
 gpu_std_list.resize(len(scalability_labels),5)
-# fps_std_list = np.array(fps_std_list).resize(len(scalability_labels),5)
-# gpu_avg_list = np.array(gpu_avg_list).resize(len(scalability_labels),5)
-# gpu_std_list = np.array(gpu_std_list).resize(len(scalability_labels),5)
 
-GOP_size = [[1,2,6,14,30] for _ in range(len(scalability_labels))]
-# print(fps_avg_list)
-# print(gpu_avg_list)
+GOP_size = [[i+1 for i in range(30)] for _ in range(len(scalability_labels))]
 line_plot(GOP_size,fps_avg_list,scalability_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
 		'GOP Size','Time (s)',xticks=[1,2,6,14,30])
@@ -199,7 +189,7 @@ line_plot(GOP_size,gpu_avg_list,scalability_labels,
 
 # result show fps
 
-def bar_plot(avg,std,path,color,ylabel,yticks=None):
+def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
 	N = len(avg)
 	ind = np.arange(N)  # the x locations for the groups
 	width = 0.5       # the width of the bars
@@ -210,7 +200,7 @@ def bar_plot(avg,std,path,color,ylabel,yticks=None):
 		yerr=std, error_kw=dict(lw=1, capsize=1, capthick=1))
 	ax.set_ylabel(ylabel, fontsize = labelsize)
 	ax.set_xticks(ind)
-	ax.set_xticklabels(labels[:N])
+	ax.set_xticklabels(label)
 	if yticks is not None:
 		plt.yticks( yticks )
 	xleft, xright = ax.get_xlim()
@@ -220,27 +210,43 @@ def bar_plot(avg,std,path,color,ylabel,yticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
-com_speeds_avg = [56.96,57.35,27.90,19.31]#,32.89] # 27.07,32.89,36.83
-com_speeds_std = [1.96,1.35,1.90,1.31]#,1.84]
-bar_plot(com_speeds_avg,com_speeds_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.jpg',
-		colors[1],'Speed (fps)',yticks=np.arange(0,70,15))
+########################HARDWARE IMPACT#####################
+# RTX2080,RTX2070
+# all hardware in same plot: x(HW),y(speed)
 
-rbr_avg = [0.28,0.29,0.46,0.58,0.37]
-rbr_std = [0.08,0.09,0.06,0.08,0.07]
-bar_plot(rbr_avg,rbr_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.jpg',
-		colors[0],'Rebuffer Rate',yticks=np.arange(0,1,0.2))
+# GTX1080 performance
+# encoder only
+# encoding speed
+fps_avg_list = []
+fps_std_list = []
+with open('1080_speed.log','r') as f:
+	count = 0
+	fps_arr = []
+	for idx,line in enumerate(f.readlines()):
+		line = line.strip()
+		line = line.split(' ')
+		fps_arr += [float(line[3])]
+		if idx%4==3:
+			fps_arr = np.array(fps_arr)
+			fps_avg,fps_std = np.mean(fps_arr),np.std(fps_arr)
+			fps_avg_list.append(fps_avg)
+			fps_std_list.append(fps_std)
+			fps_arr = []
 
-latency_avg = [0.575,0.593,0.576,0.706,0.963]
-latency_std = [0.075,0.093,0.01,0.076,0.063]
-bar_plot(latency_avg,latency_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
-		colors[3],'Start-up Latency',yticks=np.arange(0,1,0.2))
+bar_plot(fps_avg_list,fps_std_list,labels[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
+		colors[1],'Speed (fps)',yticks=np.arange(0,500,15))
 
+
+########################NETWORK IMPACT#####################
+# FPS,Rebuffer,Latency
+# NET 1
+# NET 2
+
+# live performance
 fps_arr = [[] for _ in range(5)]
 rbf_arr = [[] for _ in range(5)]
-with open('server.log','r') as f:
+with open('live_remote.log','r') as f:
 	count = 0
 	for line in f.readlines():
 		line = line.strip()
@@ -255,7 +261,6 @@ with open('server.log','r') as f:
 		fps_arr[pos] += [fps]
 		rbf_arr[pos] += [rbf]
 		count += 1
-	# switch 2,3
 fps_arr = np.array(fps_arr)
 rbf_arr = np.array(rbf_arr)
 
@@ -263,9 +268,18 @@ fps_avg = np.mean(fps_arr,1)
 fps_std = np.std(fps_arr,1)
 rbf_avg = np.mean(rbf_arr,1)
 rbf_std = np.std(rbf_arr,1)
-bar_plot(fps_avg,fps_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed2.jpg',
-		colors[1],'Speed (fps)',yticks=np.arange(0,45,15))
-bar_plot(rbf_avg,rbf_std,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer2.jpg',
+# used to compute throughput
+bar_plot(fps_avg,fps_std,labels[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/fps.eps',
+		colors[1],'Speed (fps)',yticks=np.arange(0,45,15)) 
+bar_plot(rbf_avg,rbf_std,labels[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
 		colors[0],'Rebuffer Rate',yticks=np.arange(0,0.3,0.1))
+
+# standalone, local startup latency to compensate
+# startup latency
+latency_avg = [0.575,0.593,0.576,0.706,0.963]
+latency_std = [0.075,0.093,0.01,0.076,0.063]
+bar_plot(latency_avg,latency_std,labels[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
+		colors[3],'Start-up Latency',yticks=np.arange(0,1,0.2))
