@@ -47,7 +47,7 @@ PSNRs = [[34.39],
 		[29.42,31.30,32.60,33.42],
 		]
 line_plot(bpps,PSNRs,labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.jpg',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
 		'bpp','PSNR (dB)')
 
 bpps = [[],
@@ -147,16 +147,57 @@ line_plot(bpps,PSNRs,ab_labels,
 		'bpp','PSNR (dB)')
 
 ######################SCALABILITY##########################
-scalability_labels = ['DVC','RLVC']
-com_mem = [[],[]]
-com_t = [
-[],
-[],
-]
-image_nums = [[1,2,6,14,30] for _ in range(len(scalability_labels))]
-line_plot(image_nums,com_t,scalability_labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability.jpg',
-		'Number of images','Time (s)',xticks=[1,2,6,14,30])
+# motivation show duration
+scalability_labels = ['RLVC','DVC']
+# read
+fps_avg_list = []
+fps_std_list = []
+gpu_avg_list = []
+gpu_std_list = []
+with open('scalability.log','r') as f:
+	count = 0
+	fps_arr = []
+	gpu_arr = []
+	for idx,line in enumerate(f.readlines()):
+		line = line.strip()
+		line = line.split(' ')
+		fps_arr += [float(line[3])]
+		gpu_arr += [float(line[6])]
+		if idx%4==3:
+			fps_arr = np.array(fps_arr)
+			gpu_arr = np.array(gpu_arr)/8117
+			fps_avg,fps_std = np.mean(fps_arr),np.std(fps_arr)
+			gpu_avg,gpu_std = np.mean(gpu_arr),np.std(gpu_arr)
+			fps_avg_list.append(fps_avg)
+			fps_std_list.append(fps_std)
+			gpu_avg_list.append(gpu_avg)
+			gpu_std_list.append(gpu_std)
+			fps_arr = []
+			gpu_arr = []
+
+fps_avg_list = np.array(fps_avg_list)
+fps_avg_list.resize(len(scalability_labels),5)
+fps_std_list = np.array(fps_std_list)
+fps_std_list.resize(len(scalability_labels),5)
+gpu_avg_list = np.array(gpu_avg_list)
+gpu_avg_list.resize(len(scalability_labels),5)
+gpu_std_list = np.array(gpu_std_list)
+gpu_std_list.resize(len(scalability_labels),5)
+# fps_std_list = np.array(fps_std_list).resize(len(scalability_labels),5)
+# gpu_avg_list = np.array(gpu_avg_list).resize(len(scalability_labels),5)
+# gpu_std_list = np.array(gpu_std_list).resize(len(scalability_labels),5)
+
+GOP_size = [[1,2,6,14,30] for _ in range(len(scalability_labels))]
+# print(fps_avg_list)
+# print(gpu_avg_list)
+line_plot(GOP_size,fps_avg_list,scalability_labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
+		'GOP Size','Time (s)',xticks=[1,2,6,14,30])
+line_plot(GOP_size,gpu_avg_list,scalability_labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_gpu.eps',
+		'GOP Size','GPU Usage (%)',xticks=[1,2,6,14,30])
+
+# result show fps
 
 def bar_plot(avg,std,path,color,ylabel,yticks=None):
 	N = len(avg)
@@ -219,7 +260,6 @@ fps_arr = np.array(fps_arr)
 rbf_arr = np.array(rbf_arr)
 
 fps_avg = np.mean(fps_arr,1)
-fps_avg[-1] += 2
 fps_std = np.std(fps_arr,1)
 rbf_avg = np.mean(rbf_arr,1)
 rbf_std = np.std(rbf_arr,1)

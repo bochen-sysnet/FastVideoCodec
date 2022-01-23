@@ -26,9 +26,31 @@ import socket
 import argparse
 from datetime import datetime
 
+
 from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
+
+import subprocess
+
+def get_gpu_memory_map():
+    """Get the current gpu usage.
+
+    Returns
+    -------
+    usage: dict
+        Keys are device ids as integers.
+        Values are memory usage as integers in MB.
+    """
+    result = subprocess.check_output(
+        [
+            'nvidia-smi', '--query-gpu=memory.used',
+            '--format=csv,nounits,noheader'
+        ], encoding='utf-8')
+    # Convert lines into a dictionary
+    gpu_memory = [int(x) for x in result.strip().split('\n')]
+    gpu_memory_map = dict(zip(range(len(gpu_memory)), gpu_memory))
+    return gpu_memory_map
 
 def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     loss_type = 'P'
@@ -113,7 +135,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -506,6 +527,7 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
     GoP = args.fP + args.bP +1
     L = data.size(0)
     encoder_iter = tqdm(range(0,L,GoP))
+    gpu_module = AverageMeter()
     for i in encoder_iter:
         x_GoP = data[i:i+GoP]
         GoP_size = x_GoP.size(0)
@@ -552,11 +574,15 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             t_first = time.perf_counter() - t_0
         total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time-t_first)
+        # GPU 
+        gm = get_gpu_memory_map()
+        gpu_module.update(gm[0])
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
             f"FPS: {fps:.2f}. "
-            f"Total: {total_time:.3f}. ")
+            f"Total: {total_time:.3f}. "
+            f"GPU: {gpu_module.avg:.3f}. ")
     if not args.encoder_test:
         # Close and flush stdin
         process.stdin.close()
@@ -747,11 +773,16 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
         total_time = time.perf_counter() - t_0
         if i%GoP!=0:frame_count += 1
         fps = frame_count/(total_time)
+
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
             f"FPS: {fps:.2f}. "
             f"Total: {total_time:.3f}. ")
+
+    # GPU 
+    gpu = get_gpu_memory_map()
+
     if not args.encoder_test:
         # Close and flush stdin
         process.stdin.close()
@@ -759,7 +790,7 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
         process.wait()
         # Terminate the sub-process
         process.terminate()
-    return fps
+    return fps,gpu[0]
 
 def RLVC_DVC_server(args,data,model=None,Q=None):
     # Beginning time of streaming
@@ -867,7 +898,7 @@ def dynamic_simulation(args, test_dataset):
         client_sim = x26x_client
     else:
         print('Unexpected task:',args.task)
-        exit(1)
+        exit(1)   
     ds_size = len(test_dataset)
     Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
     com_level_list = [0,1,2,3] if args.Q_option == 'Slow' else [2]
@@ -887,6 +918,7 @@ def dynamic_simulation(args, test_dataset):
         latency_module = AverageMeter()
         fps_module = AverageMeter()
         rbr_module = AverageMeter()
+        gpu_module = AverageMeter()
         load_iter = tqdm(range(ds_size))
         for data_idx in load_iter:
             frame,eof = test_dataset[data_idx]
@@ -907,7 +939,10 @@ def dynamic_simulation(args, test_dataset):
                     psnr,fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'server':
                     psnr,fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
-                elif args.role == 'client' or args.encoder_test:
+                elif args.encoder_test:
+                    fps,gpu = client_sim(args,data,model=model,Q=Q)
+                    gpu_module.update(gpu)
+                elif args.role == 'client':
                     fps = client_sim(args,data,model=model,Q=Q)
                 else:
                     print('Unexpected role:',args.role)
@@ -926,14 +961,15 @@ def dynamic_simulation(args, test_dataset):
         with open(args.role + '.log','a+') as f:
             time_str = datetime.now().strftime("%d-%b-%Y(%H:%M:%S.%f)")
             outstr = f'{args.task} {args.fps} {com_level} ' +\
-                    f'{fps_module.avg:.2f} {rbr_module.avg:.2f} {latency_module.avg:.2f}\n'
+                    f'{fps_module.avg:.2f} {rbr_module.avg:.2f} '+\
+                    f'{latency_module.avg:.2f} {gpu_module.avg:.2f}\n'
             f.write(outstr)
-            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-                enc_str,dec_str,_,_ = showTimer(model)
-                if args.role == 'standalone' or args.role == 'client':
-                    f.write(enc_str+'\n')
-                if args.role == 'standalone' or args.role == 'server':
-                    f.write(dec_str+'\n')
+            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+            #     enc_str,dec_str,_,_ = showTimer(model)
+            #     if args.role == 'standalone' or args.role == 'client':
+            #         f.write(enc_str+'\n')
+            #     if args.role == 'standalone' or args.role == 'server':
+            #         f.write(dec_str+'\n')
             
         test_dataset.reset()
 
@@ -987,12 +1023,6 @@ if __name__ == '__main__':
     # check if test encoder
     if args.encoder_test:
         args.role = 'client'
-        
-    # restrictions
-    if args.mode == 'dynamic':
-        
-    else:
-        
 
     # setup streaming parameters
 
