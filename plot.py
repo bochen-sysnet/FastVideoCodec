@@ -12,7 +12,7 @@ mksize = 4
 plt.rcParams['xtick.labelsize'] = 20
 plt.rcParams['ytick.labelsize'] = 20
 plt.rcParams["font.family"] = "Times New Roman"
-
+# '#DB1F48';'#1C4670';'#21B6A8';'#FF9636'
 colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB','#D65780']
 labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
@@ -171,21 +171,21 @@ with open('scalability.log','r') as f:
 			gpu_arr = []
 
 fps_avg_list = np.array(fps_avg_list)
-fps_avg_list.resize(len(scalability_labels),5)
+fps_avg_list.resize(len(scalability_labels),30)
 fps_std_list = np.array(fps_std_list)
-fps_std_list.resize(len(scalability_labels),5)
+fps_std_list.resize(len(scalability_labels),30)
 gpu_avg_list = np.array(gpu_avg_list)
-gpu_avg_list.resize(len(scalability_labels),5)
+gpu_avg_list.resize(len(scalability_labels),30)
 gpu_std_list = np.array(gpu_std_list)
-gpu_std_list.resize(len(scalability_labels),5)
+gpu_std_list.resize(len(scalability_labels),30)
 
 GOP_size = [[i+1 for i in range(30)] for _ in range(len(scalability_labels))]
 line_plot(GOP_size,fps_avg_list,scalability_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
-		'GOP Size','Time (s)',xticks=[1,2,6,14,30])
+		'GOP Size','Time (s)')
 line_plot(GOP_size,gpu_avg_list,scalability_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_gpu.eps',
-		'GOP Size','GPU Usage (%)',xticks=[1,2,6,14,30])
+		'GOP Size','GPU Usage (%)')
 
 # result show fps
 

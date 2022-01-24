@@ -135,6 +135,7 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
+                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -388,6 +389,12 @@ def recv_strings_from_process(process, strings_to_recv, useXZ=True):
     return strings
     
 def x26x_client(args,data,model=None,Q=None,width=256,height=256):
+    # wait for server to test
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((args.client_ip, int(args.crdy_port)))
+    s.listen(1)
+    conn, addr = s.accept()
+    #########################
     fps = 25
     GOP = args.fP + args.bP +1
     if args.task == 'x265':
@@ -427,10 +434,15 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
     process.wait()
     # Terminate the sub-process
     process.terminate()
+    # probe port
+    conn.close()
+    s.close()
     return fps
     
 # how to direct rtsp traffic?
 def x26x_server(args,data,model=None,Q=None,width=256,height=256):
+    # only start if client is started
+    block_until_open(args.client_ip,args.crdy_port)
     # Beginning time of streaming
     t_0 = time.perf_counter()
     # create a rtsp server or listener
@@ -451,7 +463,6 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     s.bind((args.server_ip, int(args.srdy_port)))
     s.listen(1)
     conn, addr = s.accept()
-    psnr_module = AverageMeter()
     i = 0
     GoP = 1+args.fP+args.bP
     t_startup = None
@@ -487,25 +498,18 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
                 t_rebuffer_total += t_rebuffer
                 t_cache = 0
             frame_count += 1
-        
-        # process metrics
-        com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
-        raw = data[i+1] if args.task == 'x264' else data[i]
-        raw = transforms.ToTensor()(raw).cuda().unsqueeze(0)
-        psnr_module.update(PSNR(com, raw).cpu().data.item())
         i += 1
         
         # Count time
         total_time = time.perf_counter() - t_0
-        # fps = i/total_time
-        fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        fps = i/total_time
+        # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
     
         # show result
         stream_iter.set_description(
             f"Decoder {i:3}. "
             f"FPS: {fps:.2f}. "
             f"Rebuffer: {t_rebuffer_total:.2f}. "
-            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     conn.close()
     s.close()
@@ -513,11 +517,17 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,t_rebuffer_total/total_time,t_startup
+    return fps,t_rebuffer_total/total_time,t_startup
             
 def SPVC_AE3D_client(args,data,model=None,Q=None):
     # start a process to pipe data to netcat
     if not args.encoder_test:
+        # wait for server to test
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind((args.client_ip, int(args.crdy_port)))
+        s.listen(1)
+        conn, addr = s.accept()
+        #########################
         block_until_open(args.server_ip,args.stream_port)
         cmd = f'nc {args.server_ip} {args.stream_port}'
         process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE)
@@ -527,7 +537,6 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
     GoP = args.fP + args.bP +1
     L = data.size(0)
     encoder_iter = tqdm(range(0,L,GoP))
-    gpu_module = AverageMeter()
     for i in encoder_iter:
         x_GoP = data[i:i+GoP]
         GoP_size = x_GoP.size(0)
@@ -574,15 +583,13 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
             t_first = time.perf_counter() - t_0
         total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time-t_first)
-        # GPU 
-        gm = get_gpu_memory_map()
-        gpu_module.update(gm[0])
         # progress bar
         encoder_iter.set_description(
             f"Encoder: {i:3}. "
             f"FPS: {fps:.2f}. "
-            f"Total: {total_time:.3f}. "
-            f"GPU: {gpu_module.avg:.3f}. ")
+            f"Total: {total_time:.3f}. ")
+    # GPU 
+    gm = get_gpu_memory_map()
     if not args.encoder_test:
         # Close and flush stdin
         process.stdin.close()
@@ -590,9 +597,14 @@ def SPVC_AE3D_client(args,data,model=None,Q=None):
         process.wait()
         # Terminate the sub-process
         process.terminate()
-    return fps
+        # probe port
+        conn.close()
+        s.close()
+    return fps,gm[0]
     
 def SPVC_AE3D_server(args,data,model=None,Q=None):
+    # only start if client is started
+    block_until_open(args.client_ip,args.crdy_port)
     t_0 = time.perf_counter()
     GoP = args.fP + args.bP +1
     # create a pipe for listening from netcat
@@ -601,7 +613,6 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     # initialize
     t_startup = None # duration to receive the first frame
     frame_count = 0
-    psnr_module = AverageMeter()
     i = 0
     t_rebuffer_total = 0
     L = data.size(0)
@@ -699,31 +710,30 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             frame_count += GoP_size
 
         total_time = time.perf_counter() - t_0
+        i += GoP_size
+        # fps = i/total_time
         fps = frame_count/(total_time - t_startup)
-
-        # measure metrics
-        for com in x_hat:
-            com = com.unsqueeze(0)
-            raw = data[i].unsqueeze(0)
-            psnr_module.update(PSNR(com, raw).cpu().data.item())
-            i += 1
 
         # show result
         stream_iter.set_description(
             f"Decoder: {i:3}. "
             f"Rebuffer: {t_rebuffer_total:.2f}. "
             f"FPS: {fps:.2f}. "
-            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,t_rebuffer_total/total_time,t_startup
+    return fps,t_rebuffer_total/total_time,t_startup
     
 def RLVC_DVC_client(args,data,model=None,Q=None):
     if not args.encoder_test:
-        # cannot connect before server is started
+        # wait for server to test
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind((args.client_ip, int(args.crdy_port)))
+        s.listen(1)
+        conn, addr = s.accept()
+        #########################
         # start a process to pipe data to netcat
         block_until_open(args.server_ip,args.stream_port)
         cmd = f'nc {args.server_ip} {args.stream_port}'
@@ -790,16 +800,20 @@ def RLVC_DVC_client(args,data,model=None,Q=None):
         process.wait()
         # Terminate the sub-process
         process.terminate()
+        # probe port
+        conn.close()
+        s.close()
     return fps,gpu[0]
 
 def RLVC_DVC_server(args,data,model=None,Q=None):
     # Beginning time of streaming
+    # only start if client is started
+    block_until_open(args.client_ip,args.crdy_port)
     t_0 = time.perf_counter()
     GoP = args.fP+args.bP+1
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-    psnr_module = AverageMeter()
     L = data.size(0)
     t_rebuffer_total = 0
     t_startup = None
@@ -834,7 +848,6 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_cache = 0
                 frame_count += 1
             x_ref = x_ref.detach()
-            psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
         elif p == args.fP or i == L-1:
             # get current GoP 
             x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
@@ -853,7 +866,6 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                 # record time
                 x_ref = x_ref.detach()
-                psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
             decom_hidden = model.init_hidden(H,W,x_b.device)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
@@ -877,13 +889,12 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             f"Decoder: {i:3}. "
             f"Rebuffer: {t_rebuffer_total:.2f}. "
             f"FPS: {fps:.2f}. "
-            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"Total: {total_time:.3f}. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
-    return psnr_module.avg,fps,t_rebuffer_total/total_time,t_startup
+    return fps,t_rebuffer_total/total_time,t_startup
         
 def dynamic_simulation(args, test_dataset):
     # get server and client simulator
@@ -936,9 +947,9 @@ def dynamic_simulation(args, test_dataset):
             with torch.no_grad():
                 if args.role == 'standalone':
                     threading.Thread(target=client_sim, args=(args,data,model,Q)).start() 
-                    psnr,fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
+                    fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'server':
-                    psnr,fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
+                    fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.encoder_test:
                     fps,gpu = client_sim(args,data,model=model,Q=Q)
                     gpu_module.update(gpu)
@@ -989,6 +1000,7 @@ if __name__ == '__main__':
     parser.add_argument('--role', type=str, default='standalone', help='server or client or standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
     parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='server IP')
+    parser.add_argument('--client_ip', type=str, default='127.0.0.1', help='server IP')
     parser.add_argument('--stream_port', type=str, default='8846', help='RTSP port')
     parser.add_argument('--srdy_port', type=str, default='8847', help='Port to check if server is ready')
     parser.add_argument('--crdy_port', type=str, default='8848', help='Port to check if client is ready')
