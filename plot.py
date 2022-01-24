@@ -12,8 +12,8 @@ mksize = 4
 plt.rcParams['xtick.labelsize'] = 20
 plt.rcParams['ytick.labelsize'] = 20
 plt.rcParams["font.family"] = "Times New Roman"
-# '#DB1F48';'#1C4670';'#21B6A8';'#FF9636'
-colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB','#D65780']
+colors = ['#DB1F48','#FF9636','#1C4670','#9D5FFB','#21B6A8','#D65780']
+# colors = ['#D00C0E','#E09C1A','#08A720','#86A8E7','#9D5FFB','#D65780']
 labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
 
@@ -34,70 +34,70 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 
-bpps = [[0.12,0.18,0.266,0.37],
+Ubpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.33,0.54],
 		[0.14,0.24,0.40,0.67],
 		[0.08,0.12,0.19,0.27],
 		[0.06,0.11,0.164,0.24],
 		]
-PSNRs = [[30.63,32.17,33.52,34.39],
+UPSNRs = [[30.63,32.17,33.52,34.39],
 		[30.58,32.26,33.75,34.97],
 		[31.53,33.05,34.33,35.36],
 		[29.52,31.30,32.52,33.28],
 		[29.42,31.30,32.60,33.42],
 		]
-line_plot(bpps,PSNRs,labels,
+line_plot(Ubpps,UPSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[0.14,0.21,0.30,0.41],
+Mbpps = [[0.14,0.21,0.30,0.41],
 		[0.14,0.23,0.38,0.63],
 		[0.16,0.26,0.43,0.76],
 		[0.09,0.15,0.22,0.31],
 		[0.08,0.14,0.20,0.28],
 		]
-PSNRs = [[30.93,32.47,33.75,34.57],
+MPSNRs = [[30.93,32.47,33.75,34.57],
 		[30.71,32.42,33.95,35.23],
 		[31.56,33.16,34.52,35.61],
 		[29.98,31.72,32.96,33.73],
 		[29.64,31.54,32.80,33.60],
 		]
 
-line_plot(bpps,PSNRs,labels,
+line_plot(Mbpps,MPSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-MCL.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[0.10],
+Xbpps = [[0.10,0.147,0.22,0.34],
 		[0.10,0.17,0.32,0.60],
 		[0.11,0.21,0.37,0.66],
 		[0.06,0.10,0.16,0.24],
 		[0.05,0.087,0.138,0.216],
 		]
-PSNRs = [[31.84],
+XPSNRs = [[31.84,33.24,34.51,35.40],
 		[31.56,32.97,34.30,35.49],
 		[32.45,33.83,35.01,35.96],
 		[30.89,32.68,33.92,34.69],
 		[30.75,32.51,33.71,34.48],
 		]
 
-line_plot(bpps,PSNRs,labels,
+line_plot(Xbpps,XPSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-Xiph.eps',
 		'bpp','PSNR (dB)')
 
-bpps = [[0.14],
+Hbpps = [[0.14,0.21,0.307,0.37],
 		[0.14,0.24,0.40,0.66],
 		[0.16,0.275,0.47,0.77],
 		[0.09,0.15,0.22,0.32],
 		[0.08,0.13,0.20,0.28],
 		]
-PSNRs = [[29.75],
+HPSNRs = [[29.75,31.28,32.39,33.05],
 		[29.56,31.18,32.66,33.86],
 		[30.50,32.01,33.28,34.24],
 		[28.84,30.40,31.35,31.95],
 		[28.48,30.29,31.37,32.04],
 		]
 
-line_plot(bpps,PSNRs,labels,
+line_plot(Hbpps,HPSNRs,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-HEVC.eps',
 		'bpp','PSNR (dB)')
         
@@ -130,7 +130,7 @@ for i in range(4):
         
 ########################ABLATION####################################
 # UVG
-ab_labels = ['LSVC','w/ TSE','Linear','One-hop','Detach']
+ab_labels = ['LSVC','w/o TSE','Linear','One-hop','Detach']
 bpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.30,0.41],
         [],
@@ -144,8 +144,10 @@ PSNRs = [[30.63,32.17,33.52,34.39],
 		[],
 		]
 line_plot(bpps,PSNRs,ab_labels,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation-UVG.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation.eps',
 		'bpp','PSNR (dB)')
+
+# speed
 
 ######################SCALABILITY##########################
 # motivation show duration
@@ -250,8 +252,9 @@ bar_plot(fps_avg_list,fps_std_list,labels[1:],
 # NET 2
 
 # live performance
-fps_arr = [[] for _ in range(5)]
-rbf_arr = [[] for _ in range(5)]
+fps_arr = [[[] for _ in range(4)] for _ in range(5)]
+rbf_arr = [[[] for _ in range(4)] for _ in range(5)]
+lat_arr = [[[] for _ in range(4)] for _ in range(5)]
 with open('live_remote.log','r') as f:
 	count = 0
 	for line in f.readlines():
@@ -259,33 +262,39 @@ with open('live_remote.log','r') as f:
 		line = line.split(' ')
 		fps = float(line[3])
 		rbf = float(line[4])
-		pos = count%5
-		if pos==2:
-			pos=3
-		elif pos==3:
-			pos=2
-		fps_arr[pos] += [fps]
-		rbf_arr[pos] += [rbf]
+		lat = float(line[5])
+		i = (count%20)%4 # lambda value
+		j = (count%20)/4 # method
+		fps_arr[i][j] += [fps]
+		rbf_arr[i][j] += [rbf]
+		lat_arr[i][j] += [lat]
 		count += 1
 fps_arr = np.array(fps_arr)
 rbf_arr = np.array(rbf_arr)
+rbf_arr.resize(5,12)
+lat_arr = np.array(lat_arr)
+lat_arr.resize(5,12)
 
-fps_avg = np.mean(fps_arr,1)
-fps_std = np.std(fps_arr,1)
+# throughput_avg = np.mean(fps_arr,2)
+k = 0
+fps_arr = fps_arr.transpose(2,0,1)
+for psnr,bpp in [(UPSNRs,Ubpps),(MPSNRs,Mbpps),(XPSNRs,Xbpps),(HPSNRs,Hbpps)]:
+	for i in range(5):
+		for j in range(4):
+			fps_arr[k][i][j] *= (256*256*bpp[i][j]/1024)
+	# used to compute throughput
+	line_plot(psnr,fps_arr[k],labels,
+		f'/home/bo/Dropbox/Research/SIGCOMM22/images/throughput_{k}.eps',
+		'Throughput (Kbps)','PSNR (dB)')
+	k += 1
+
 rbf_avg = np.mean(rbf_arr,1)
 rbf_std = np.std(rbf_arr,1)
-# used to compute throughput
-bar_plot(fps_avg,fps_std,labels[1:],
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/fps.eps',
-		colors[1],'Speed (fps)',yticks=np.arange(0,45,15)) 
-bar_plot(rbf_avg,rbf_std,labels[1:],
+lat_avg = np.mean(lat_arr,1)
+lat_std = np.std(lat_arr,1)
+bar_plot(rbf_avg,rbf_std,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
-		colors[0],'Rebuffer Rate',yticks=np.arange(0,0.3,0.1))
-
-# standalone, local startup latency to compensate
-# startup latency
-latency_avg = [0.575,0.593,0.576,0.706,0.963]
-latency_std = [0.075,0.093,0.01,0.076,0.063]
-bar_plot(latency_avg,latency_std,labels[1:],
+		colors[0],'Rebuffer Rate')
+bar_plot(lat_avg,lat_std,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
-		colors[3],'Start-up Latency',yticks=np.arange(0,1,0.2))
+		colors[3],'Start-up Latency')
