@@ -31,23 +31,23 @@
 
 # -----------------------------------------------------------
 # impact of hardware
-# for task in SPVC64-N DVC RLVC
-# do
-# 	python3 eval.py --Q_option Slow --task $task --encoder_test
-# done
+for task in SPVC64-N
+do
+	python3 eval.py --Q_option Slow --task $task --encoder_test
+done
 # python eval.py --task x264 --fps 1000 --Q_option Slow
 # python eval.py --task x265 --fps 1000 --Q_option Slow
 
 # -----------------------------------------------------------
 # eval scalability: use different models measure mean,std on UVG
 # dynamic
-for task in SPVC64-N
-do
-	for p_num in {1..30} 
-	do
-		python3 eval.py --task $task --encoder_test --fP $p_num --bP $p_num --Q_option Slow
-	done
-done
+# for task in SPVC64-N
+# do
+# 	for p_num in {1..14} 
+# 	do
+# 		python3 eval.py --task $task --encoder_test --fP $p_num --bP $p_num --Q_option Slow
+# 	done
+# done
 
 # -----------------------------------------------------------
 # error propagation

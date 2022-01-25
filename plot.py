@@ -17,18 +17,27 @@ colors = ['#DB1F48','#FF9636','#1C4670','#9D5FFB','#21B6A8','#D65780']
 labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
 
-def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None,yticks=None,ncol=None):
+def line_plot(XX,YY,label,color,path,xlabel,ylabel,
+				xticks=None,yticks=None,ncol=None, yerr=None,
+				use_arrow=False,arrow_coord=(0.4,30)):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
 	for i in range(len(XX)):
 		xx,yy = XX[i],YY[i]
-		plt.plot(xx, yy, color = colors[i], marker = markers[i], label = labels[i], linewidth=2)
+		if yerr is None:
+			plt.plot(xx, yy, color = color[i], marker = markers[i], label = label[i], linewidth=2)
+		else:
+			plt.errorbar(xx, yy, yerr=yerr[i], color = color[i], marker = markers[i], label = label[i], linewidth=2)
 	plt.xlabel(xlabel, fontsize = labelsize)
 	plt.ylabel(ylabel, fontsize = labelsize)
 	if xticks is not None:
 		plt.xticks( xticks )
 	if yticks is not None:
 		plt.yticks(yticks)
+	if use_arrow:
+		ax.text(
+		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=15,
+		    bbox=dict(boxstyle="larrow,pad=0.3", fc="white", ec="black", lw=2))
 	plt.tight_layout()
 	if ncol is None:
 		plt.legend(loc='best',fontsize = lfsize)
@@ -52,9 +61,15 @@ UPSNRs = [[30.63,32.17,33.52,34.39],
 		[29.52,31.30,32.52,33.28],
 		[29.42,31.30,32.60,33.42],
 		]
-line_plot(Ubpps,UPSNRs,labels,
+Ubpps = np.array(Ubpps)
+UPSNRs = np.array(UPSNRs)
+line_plot(Ubpps,UPSNRs,labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
 		'bpp','PSNR (dB)')
+
+line_plot(Ubpps[1:],UPSNRs[1:],labels[1:],colors[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34))
 
 Mbpps = [[0.14,0.21,0.30,0.41],
 		[0.14,0.23,0.38,0.63],
@@ -69,7 +84,7 @@ MPSNRs = [[30.93,32.47,33.75,34.57],
 		[29.64,31.54,32.80,33.60],
 		]
 
-line_plot(Mbpps,MPSNRs,labels,
+line_plot(Mbpps,MPSNRs,labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-MCL.eps',
 		'bpp','PSNR (dB)')
 
@@ -86,7 +101,7 @@ XPSNRs = [[31.84,33.24,34.51,35.40],
 		[30.75,32.51,33.71,34.48],
 		]
 
-line_plot(Xbpps,XPSNRs,labels,
+line_plot(Xbpps,XPSNRs,labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-Xiph.eps',
 		'bpp','PSNR (dB)')
 
@@ -103,7 +118,7 @@ HPSNRs = [[29.75,31.28,32.39,33.05],
 		[28.48,30.29,31.37,32.04],
 		]
 
-line_plot(Hbpps,HPSNRs,labels,
+line_plot(Hbpps,HPSNRs,labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-HEVC.eps',
 		'bpp','PSNR (dB)')
         
@@ -130,7 +145,7 @@ LSVC_error = [
 ]
 for i in range(4):
     PSNRs = [LSVC_error[i],DVC_error[i],RLVC_error[i]]
-    line_plot(frame_loc,PSNRs,eplabels,
+    line_plot(frame_loc,PSNRs,eplabels,colors,
             f'/home/bo/Dropbox/Research/SIGCOMM22/images/error_prop_{i}.eps',
             'Frame Index','PSNR (dB)',xticks=range(1,14))
         
@@ -139,15 +154,15 @@ for i in range(4):
 ab_labels = ['LSVC','w/o TSE','Linear','One-hop']
 bpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.30,0.41],
-        [0.10,0.15,0.23],
+        [0.10,0.15,0.23,0.33],
 		[],
 		]
 PSNRs = [[30.63,32.17,33.52,34.39],
 		[29.83,31.25,32.74,34.05],
-        [29.33,31.15,32.59],
+        [29.33,31.15,32.59,33.65],
 		[],
 		]
-line_plot(bpps,PSNRs,ab_labels,
+line_plot(bpps,PSNRs,ab_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation.eps',
 		'bpp','PSNR (dB)')
 
@@ -191,15 +206,29 @@ gpu_avg_list.resize(len(scalability_labels),30)
 gpu_std_list = np.array(gpu_std_list)
 gpu_std_list.resize(len(scalability_labels),30)
 
-show_len = 30
-GOP_size = [[i+2 for i in range(show_len)] for _ in range(len(scalability_labels))]
-line_plot(GOP_size,fps_avg_list[:,:show_len],scalability_labels,
+show_indices = [0,1,5,13,29] # 1,2,6,14,30
+GOP_size = [[i+2 for i in show_indices] for _ in range(len(scalability_labels))]
+print(gpu_std_list)
+print(fps_std_list)
+line_plot(GOP_size,fps_avg_list[:,show_indices],scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
-		'GOP Size','Time (s)',ncol=len(scalability_labels),yticks=range(10,50,10),xticks=range(5,show_len,5))
-line_plot(GOP_size,gpu_avg_list[:,:show_len],scalability_labels,
+		'GOP Size','Coding Speed (fps)',ncol=len(scalability_labels),yerr=fps_std_list[:,show_indices],
+		yticks=range(10,50,10),xticks=range(5,31,5))
+line_plot(GOP_size,gpu_avg_list[:,show_indices],scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_gpu.eps',
-		'GOP Size','GPU Usage (%)',xticks=range(5,show_len,5))
-
+		'GOP Size','GPU Usage (%)',xticks=range(5,31,5),yerr=gpu_std_list[:,show_indices])
+# motiv
+show_indices = range(30)
+GOP_size = [[i+2 for i in show_indices] for _ in range(2)]
+line_plot(GOP_size,gpu_avg_list[1:,show_indices],scalability_labels[1:],colors[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation2.eps',
+		'GOP Size','GPU Usage (%)',xticks=range(5,31,5))
+show_indices = range(30)#[0,1,5,13,29]
+GOP_size = [[i+2 for i in show_indices] for _ in range(3)]
+total_time = 1/fps_avg_list[:,show_indices]*(1+np.array(show_indices))
+line_plot(GOP_size,total_time,scalability_labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation3.eps',
+		'GOP Size','Coding Duration (s)',xticks=range(5,31,5))
 # result show fps
 
 def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
@@ -222,7 +251,8 @@ def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
 	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
-	plt.clf()
+
+
 
 ########################HARDWARE IMPACT#####################
 # RTX2080,RTX2070
@@ -249,8 +279,50 @@ with open('1080_speed.log','r') as f:
 
 bar_plot(fps_avg_list,fps_std_list,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
-		colors[0],'Speed (fps)')
+		colors[1],'Speed (fps)')
 
+# bar_plot(fps_avg_list[1:],fps_std_list[1:],labels[1:],
+# 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation1.eps',
+# 		'#4f646f','Coding Speed (fps)',yticks=[30,500])
+def hbar_plot(avg,std,label,path,color,xlabel,xticks=None):
+	plt.rcdefaults()
+	fig, (ax1,ax2) = plt.subplots(1,2,sharey=True)
+
+	y_pos = np.arange(len(avg))
+	width = 0.5
+	hbars1 = ax1.barh(y_pos, avg, width, color=color, xerr=std, align='center', error_kw=dict(lw=1, capsize=1, capthick=1))
+	hbars2 = ax2.barh(y_pos, avg, width, color=color, xerr=std, align='center', error_kw=dict(lw=1, capsize=1, capthick=1))
+	
+	ax1.set_xlim(0,200)
+	ax2.set_xlim(450,500)
+
+	# hide the spines between ax and ax2
+	ax1.spines['right'].set_visible(False)
+	ax2.spines['left'].set_visible(False)
+	ax1.yaxis.tick_left()
+	# ax1.tick_params(labelright='off')
+
+	d = .015 # how big to make the diagonal lines in axes coordinates
+	# arguments to pass plot, just so we don't keep repeating them
+	kwargs = dict(transform=ax1.transAxes, color='r', clip_on=False)
+	ax1.plot((1-d,1+d), (-d,+d), **kwargs)
+	ax1.plot((1-d,1+d),(1-d,1+d), **kwargs)
+
+	kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
+	ax2.plot((-d,+d), (1-d,1+d), **kwargs)
+	ax2.plot((-d,+d), (-d,+d), **kwargs)
+
+	ax1.bar_label(hbars1, fmt='%.2f')
+	ax2.bar_label(hbars2, fmt='%.2f')
+	ax1.set_yticks(y_pos, labels=label)
+	ax1.invert_yaxis()  
+	plt.tight_layout()
+	fig.text(0.5, 0, xlabel, ha='center')
+	fig.savefig(path,bbox_inches='tight')
+hbar_plot(fps_avg_list[1:],fps_std_list[1:],labels[1:],
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation1.eps',
+		'#4f646f','Coding Speed (fps)',xticks=[30,150,500])
+exit(0)
 
 ########################NETWORK IMPACT#####################
 # FPS,Rebuffer,Latency
@@ -295,7 +367,7 @@ k = 0
 for psnr,bpp in [(UPSNRs,Ubpps),(MPSNRs,Mbpps),(XPSNRs,Xbpps),(HPSNRs,Hbpps)]:
 	throughput = np.array(bpp)/fps_arr
 	# used to compute throughput
-	line_plot(throughput,psnr,labels,
+	line_plot(throughput,psnr,labels,colors,
 		f'/home/bo/Dropbox/Research/SIGCOMM22/images/bpep-distortion_{k}.eps',
 		'bpep','PSNR (dB)')
 	k += 1
@@ -322,7 +394,7 @@ k = 0
 for psnr,bpp in [(UPSNRs,Ubpps),(MPSNRs,Mbpps),(XPSNRs,Xbpps),(HPSNRs,Hbpps)]:
 	throughput = np.array(bpp)/fps_arr
 	# used to compute throughput
-	line_plot(throughput,psnr,labels,
+	line_plot(throughput,psnr,labels,colors,
 		f'/home/bo/Dropbox/Research/SIGCOMM22/images/bpep-distortion_lossy_{k}.eps',
 		'bpep','PSNR (dB)')
 	k += 1

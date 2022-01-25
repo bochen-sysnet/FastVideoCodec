@@ -66,23 +66,23 @@ def init_training_params(model):
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
     print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
     
-    model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f} {6:.3f}"
-    model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
+    model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
+    model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f}"
     model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
                     'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),
                     'E-NET':AverageMeter(),
                     'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
                     'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
+    model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
     
 def showTimer(model):
     enc = sum([val.avg if 'E-' in key else 0 for key,val in model.meters.items()])
     dec = sum([val.avg if 'D-' in key else 0 for key,val in model.meters.items()])
     enc_str = model.fmt_enc_str.format(model.meters['E-FL'].avg,model.meters['E-MV'].avg,
-        model.meters['E-MC'].avg,model.meters['E-RES'].avg,model.meters['E-NET'].avg,
-        model.meters['eEMV'].avg,model.meters['eERES'].avg)
+        model.meters['E-MC'].avg,model.meters['E-RES'].avg,
+        model.bitscounter['M'].avg,model.bitscounter['R'].avg)
     dec_str = model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,
-        model.meters["D-RES"].avg,model.meters["D-NET"].avg,
-        model.meters['eDMV'].avg,model.meters['eDRES'].avg)
+        model.meters["D-RES"].avg)
     # print(enc,enc_str)
     # print(dec,dec_str)
     return enc_str,dec_str,enc,dec
@@ -1361,7 +1361,8 @@ class IterPredVideoCodecs(nn.Module):
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1).to(Y1_raw.device)
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-        
+        self.bitscounter['M'].update(float(mv_act)) 
+        self.bitscounter['R'].update(float(res_act)) 
         return Y1_com,mv_string,res_string,hidden_states,mv_prior_latent,res_prior_latent
     
     def decompress(self, x_ref, mv_string, res_string, hidden_states, RPM_flag, mv_prior_latent, res_prior_latent):
@@ -1583,6 +1584,8 @@ class SPVC(nn.Module):
             self.meters['E-MC'].update(t_comp)
         
         # actual bits
+        self.bitscounter['M'].update(float(mv_act)) 
+        self.bitscounter['R'].update(float(torch.sum(res_act))) 
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         bpp_act = [bpp for bpp in bpp_act]
         
