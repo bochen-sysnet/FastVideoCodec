@@ -18,10 +18,10 @@
 # rebuffer,fps
 for dataset in UVG MCL-JCV Xiph HEVC
 do
-	echo "Role:$1. SIP:$2. CIP:$3. Data: $dataset"	
+	echo "Role:$1. Data: $dataset"	
 	for task in SPVC64-N x264 x265 DVC RLVC
 	do
-		python3 eval.py --Q_option Slow --task $task --role $1 --server_ip $2 --client_ip $3 --dataset $dataset
+		python3 eval.py --Q_option Slow --task $task --role $1 --server_ip 130.126.136.154 --client_ip 10.194.246.197 --dataset $dataset
 	done
 done
 
