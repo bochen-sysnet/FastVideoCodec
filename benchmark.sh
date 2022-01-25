@@ -2,28 +2,24 @@
 
 # impact of network: rebuffer,fps,start-up
 # sudo tc qdisc add dev wlp68s0 root netem loss 20%
-# for test_num in 1 2 3 
-# do
-# 	echo "Role:$1. IP:$2. Test: $test_num. Loss: $lr"	
-# 	for task in SPVC64-N x264 x265 DVC RLVC
-# 	do
-# 		python3 eval.py --Q_option Slow --task $task --role $1 --server_ip $2 --client_ip $3
-# 		# sudo kill -9 `sudo lsof -t -i:8846`
-# 	done
-# done
+for test_num in 1 2 3 
+do
+	echo "Role:$1. IP:$2. Test: $test_num. Loss: $lr"	
+	for task in SPVC64-N x264 x265 DVC RLVC
+	do
+		python3 eval.py --Q_option Slow --task $task --role $1 --server_ip 130.126.136.154 --client_ip 10.194.246.197
+		# sudo kill -9 `sudo lsof -t -i:8846`
+	done
+done
 # sudo tc qdisc del dev wlp68s0 root
 
 # -----------------------------------------------------------
 # live
 # rebuffer,fps
-for dataset in UVG MCL-JCV Xiph HEVC
-do
-	echo "Role:$1. Data: $dataset"	
-	for task in SPVC64-N x264 x265 DVC RLVC
-	do
-		python3 eval.py --Q_option Slow --task $task --role $1 --server_ip 130.126.136.154 --client_ip 10.194.246.197 --dataset $dataset
-	done
-done
+# for task in SPVC64-N x264 x265 DVC RLVC
+# do
+# 	python3 eval.py --Q_option Slow --task $task --role $1 --server_ip 130.126.136.154 --client_ip 10.194.246.197 --dataset $dataset
+# done
 
 # offline
 # efficiency: on-going now
