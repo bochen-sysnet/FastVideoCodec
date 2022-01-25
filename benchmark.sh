@@ -22,7 +22,7 @@
 # done
 
 # offline
-# efficiency: on-going now
+# efficiency: 
 # speed
 # for task in SPVC64-N
 # do
@@ -31,23 +31,23 @@
 
 # -----------------------------------------------------------
 # impact of hardware
-for task in SPVC64-N DVC RLVC
-do
-	python3 eval.py --Q_option Slow --task $task --encoder_test
-done
-python eval.py --task x264 --fps 1000 --Q_option Slow
-python eval.py --task x265 --fps 1000 --Q_option Slow
+# for task in SPVC64-N DVC RLVC
+# do
+# 	python3 eval.py --Q_option Slow --task $task --encoder_test
+# done
+# python eval.py --task x264 --fps 1000 --Q_option Slow
+# python eval.py --task x265 --fps 1000 --Q_option Slow
 
 # -----------------------------------------------------------
 # eval scalability: use different models measure mean,std on UVG
 # dynamic
-# for task in SPVC64-N
-# do
-# 	for p_num in {1..30} 
-# 	do
-# 		python3 eval.py --task $task --encoder_test --fP $p_num --bP $p_num --Q_option Slow
-# 	done
-# done
+for task in SPVC64-N
+do
+	for p_num in {1..30} 
+	do
+		python3 eval.py --task $task --encoder_test --fP $p_num --bP $p_num --Q_option Slow
+	done
+done
 
 # -----------------------------------------------------------
 # error propagation
@@ -58,4 +58,4 @@ python eval.py --task x265 --fps 1000 --Q_option Slow
 # ablation
 # efficiency:trivial
 # speed
-# python eval.py --task SPVC64-N,SPVC64-N-D,SPVC64-N-L,SPVC64-N-O,SPVC64-N-P, --encoder_test
+# python eval.py --task SPVC64-N,SPVC64-N-P,SPVC64-N-L,SPVC64-N-O, --encoder_test

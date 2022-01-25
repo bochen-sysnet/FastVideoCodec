@@ -17,7 +17,7 @@ colors = ['#DB1F48','#FF9636','#1C4670','#9D5FFB','#21B6A8','#D65780']
 labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
 
-def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
+def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None,yticks=None,ncol=None):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
 	for i in range(len(XX)):
@@ -27,12 +27,18 @@ def line_plot(XX,YY,labels,path,xlabel,ylabel,xticks=None):
 	plt.ylabel(ylabel, fontsize = labelsize)
 	if xticks is not None:
 		plt.xticks( xticks )
+	if yticks is not None:
+		plt.yticks(yticks)
 	plt.tight_layout()
-	plt.legend(loc='best',fontsize = lfsize)
+	if ncol is None:
+		plt.legend(loc='best',fontsize = lfsize)
+	else:
+		plt.legend(loc='best',fontsize = lfsize,ncol=ncol)
 	# plt.xlim((0.8,3.2))
 	# plt.ylim((-40,90))
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
+	plt.clf()
 
 Ubpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.33,0.54],
@@ -130,17 +136,15 @@ for i in range(4):
         
 ########################ABLATION####################################
 # UVG
-ab_labels = ['LSVC','w/o TSE','Linear','One-hop','Detach']
+ab_labels = ['LSVC','w/o TSE','Linear','One-hop']
 bpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.30,0.41],
-        [0.10,0.15],
-		[],
+        [0.10,0.15,0.23],
 		[],
 		]
 PSNRs = [[30.63,32.17,33.52,34.39],
 		[29.83,31.25,32.74,34.05],
-        [29.33,31.15],
-		[],
+        [29.33,31.15,32.59],
 		[],
 		]
 line_plot(bpps,PSNRs,ab_labels,
@@ -151,7 +155,7 @@ line_plot(bpps,PSNRs,ab_labels,
 
 ######################SCALABILITY##########################
 # motivation show duration
-scalability_labels = ['DVC','RLVC']
+scalability_labels = ['LSVC','DVC','RLVC']
 # read
 fps_avg_list = []
 fps_std_list = []
@@ -187,13 +191,14 @@ gpu_avg_list.resize(len(scalability_labels),30)
 gpu_std_list = np.array(gpu_std_list)
 gpu_std_list.resize(len(scalability_labels),30)
 
-GOP_size = [[i+1 for i in range(30)] for _ in range(len(scalability_labels))]
-line_plot(GOP_size,fps_avg_list,scalability_labels,
+show_len = 30
+GOP_size = [[i+2 for i in range(show_len)] for _ in range(len(scalability_labels))]
+line_plot(GOP_size,fps_avg_list[:,:show_len],scalability_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
-		'GOP Size','Time (s)')
-line_plot(GOP_size,gpu_avg_list,scalability_labels,
+		'GOP Size','Time (s)',ncol=len(scalability_labels),yticks=range(10,50,10),xticks=range(5,show_len,5))
+line_plot(GOP_size,gpu_avg_list[:,:show_len],scalability_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_gpu.eps',
-		'GOP Size','GPU Usage (%)')
+		'GOP Size','GPU Usage (%)',xticks=range(5,show_len,5))
 
 # result show fps
 
@@ -217,6 +222,7 @@ def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
 	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
+	plt.clf()
 
 ########################HARDWARE IMPACT#####################
 # RTX2080,RTX2070
@@ -241,60 +247,96 @@ with open('1080_speed.log','r') as f:
 			fps_std_list.append(fps_std)
 			fps_arr = []
 
-bar_plot(fps_avg_list,fps_std_list,labels[1:],
+bar_plot(fps_avg_list,fps_std_list,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',
-		colors[1],'Speed (fps)',yticks=np.arange(0,500,15))
+		colors[0],'Speed (fps)')
 
 
 ########################NETWORK IMPACT#####################
 # FPS,Rebuffer,Latency
+def get_mean_std_from(pos,filename):
+	arr = [[[] for _ in range(4)] for _ in range(5)]
+	with open(filename,'r') as f:
+		count = 0
+		for line in f.readlines():
+			line = line.strip()
+			line = line.split(' ')
+			v = float(line[pos])
+			i = (count%20)//4 # method
+			j = (count%20)%4 # lambda value
+			arr[i][j] += [v]
+			count += 1
+	arr = np.array(arr)
+	arr.resize(5,4*len(arr[0][0]))
+	avg = np.mean(arr,1)
+	std = np.std(arr,1)
+	return avg,std
+
+def get_arr_from(pos,filename):
+	arr = [[[] for _ in range(4)] for _ in range(5)]
+	with open(filename,'r') as f:
+		count = 0
+		for line in f.readlines():
+			line = line.strip()
+			line = line.split(' ')
+			v = float(line[pos])
+			i = (count%20)//4 # method
+			j = (count%20)%4 # lambda value
+			arr[i][j] += [v]
+			count += 1
+	arr = np.array(arr)
+	return arr
+
 # NET 1
-# NET 2
+fps_arr = get_arr_from(3,'live_client.log')
+fps_arr = np.mean(fps_arr,2)
 
-# live performance
-fps_arr = [[[] for _ in range(4)] for _ in range(5)]
-rbf_arr = [[[] for _ in range(4)] for _ in range(5)]
-lat_arr = [[[] for _ in range(4)] for _ in range(5)]
-with open('live_remote.log','r') as f:
-	count = 0
-	for line in f.readlines():
-		line = line.strip()
-		line = line.split(' ')
-		fps = float(line[3])
-		rbf = float(line[4])
-		lat = float(line[5])
-		i = (count%20)%4 # lambda value
-		j = (count%20)/4 # method
-		fps_arr[i][j] += [fps]
-		rbf_arr[i][j] += [rbf]
-		lat_arr[i][j] += [lat]
-		count += 1
-fps_arr = np.array(fps_arr)
-rbf_arr = np.array(rbf_arr)
-rbf_arr.resize(5,12)
-lat_arr = np.array(lat_arr)
-lat_arr.resize(5,12)
-
-# throughput_avg = np.mean(fps_arr,2)
 k = 0
-fps_arr = fps_arr.transpose(2,0,1)
 for psnr,bpp in [(UPSNRs,Ubpps),(MPSNRs,Mbpps),(XPSNRs,Xbpps),(HPSNRs,Hbpps)]:
-	for i in range(5):
-		for j in range(4):
-			fps_arr[k][i][j] *= (256*256*bpp[i][j]/1024)
+	throughput = np.array(bpp)/fps_arr
 	# used to compute throughput
-	line_plot(psnr,fps_arr[k],labels,
-		f'/home/bo/Dropbox/Research/SIGCOMM22/images/throughput_{k}.eps',
-		'Throughput (Kbps)','PSNR (dB)')
+	line_plot(throughput,psnr,labels,
+		f'/home/bo/Dropbox/Research/SIGCOMM22/images/bpep-distortion_{k}.eps',
+		'bpep','PSNR (dB)')
 	k += 1
 
-rbf_avg = np.mean(rbf_arr,1)
-rbf_std = np.std(rbf_arr,1)
-lat_avg = np.mean(lat_arr,1)
-lat_std = np.std(lat_arr,1)
+fps_avg,fps_std = get_mean_std_from(3,'live_client.log')
+rbf_avg,rbf_std = get_mean_std_from(4,'live_server.log')
+lat_avg,lat_std = get_mean_std_from(5,'live_server.log')
+
+bar_plot(fps_avg,fps_std,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/framerate.eps',
+		colors[0],'Frame Rate',yticks=range(0,40,10))
 bar_plot(rbf_avg,rbf_std,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer.eps',
-		colors[0],'Rebuffer Rate')
+		colors[2],'Rebuffer Rate',yticks=[0,0.1,.2,.3])
 bar_plot(lat_avg,lat_std,labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
-		colors[3],'Start-up Latency')
+		colors[4],'Start-up Latency',yticks=[0,0.5,1,1.5])
+
+# NET 2
+fps_arr = get_arr_from(3,'lossy_client.log')
+fps_arr = np.mean(fps_arr,2)
+
+k = 0
+for psnr,bpp in [(UPSNRs,Ubpps),(MPSNRs,Mbpps),(XPSNRs,Xbpps),(HPSNRs,Hbpps)]:
+	throughput = np.array(bpp)/fps_arr
+	# used to compute throughput
+	line_plot(throughput,psnr,labels,
+		f'/home/bo/Dropbox/Research/SIGCOMM22/images/bpep-distortion_lossy_{k}.eps',
+		'bpep','PSNR (dB)')
+	k += 1
+
+fps_avg,fps_std = get_mean_std_from(3,'lossy_client.log')
+rbf_avg,rbf_std = get_mean_std_from(4,'lossy_server.log')
+lat_avg,lat_std = get_mean_std_from(5,'lossy_server.log')
+
+bar_plot(fps_avg,fps_std,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/framerate_loss.eps',
+		colors[0],'Frame Rate',yticks=range(0,40,10))
+bar_plot(rbf_avg,rbf_std,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/rebuffer_loss.eps',
+		colors[2],'Rebuffer Rate',yticks=[0,0.1,.2,.3,.4])
+bar_plot(lat_avg,lat_std,labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/latency_loss.eps',
+		colors[4],'Start-up Latency')
