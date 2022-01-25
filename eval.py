@@ -437,7 +437,7 @@ def x26x_client(args,data,model=None,Q=None,width=256,height=256):
     # probe port
     conn.close()
     s.close()
-    return fps
+    return fps,0
     
 # how to direct rtsp traffic?
 def x26x_server(args,data,model=None,Q=None,width=256,height=256):
@@ -502,8 +502,8 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = i/total_time
-        # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        # fps = i/total_time
+        fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
     
         # show result
         stream_iter.set_description(
@@ -950,11 +950,9 @@ def dynamic_simulation(args, test_dataset):
                     fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
                 elif args.role == 'server':
                     fps,rebuffer_rate,latency = server_sim(args,data,model=model,Q=Q)
-                elif args.encoder_test:
+                elif args.encoder_test or args.role == 'client':
                     fps,gpu = client_sim(args,data,model=model,Q=Q)
                     gpu_module.update(gpu)
-                elif args.role == 'client':
-                    fps = client_sim(args,data,model=model,Q=Q)
                 else:
                     print('Unexpected role:',args.role)
                     exit(1)
