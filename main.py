@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'SPVC64-N-L'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 1 # 0,1,2,3
 #RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 RESUME_CODEC_PATH = f'backup/SPVC64-N/SPVC64-N-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
