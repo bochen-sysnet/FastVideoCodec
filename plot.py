@@ -17,6 +17,14 @@ colors = ['#DB1F48','#FF9636','#1C4670','#9D5FFB','#21B6A8','#D65780']
 labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
 
+with open('time_bits_distribution.log','r') as f:
+	for idx,line in enumerate(f.readlines()):
+		line = line.strip()
+		line = line.split(' ')
+		mt,rt,mbpp,rbpp = float(line[0]),float(line[1]),float(line[2]),float(line[3])
+
+exit(0)
+
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,
 				xticks=None,yticks=None,ncol=None, yerr=None,
 				use_arrow=False,arrow_coord=(0.4,30)):
@@ -208,8 +216,6 @@ gpu_std_list.resize(len(scalability_labels),30)
 
 show_indices = [0,1,5,13,29] # 1,2,6,14,30
 GOP_size = [[i+2 for i in show_indices] for _ in range(len(scalability_labels))]
-print(gpu_std_list)
-print(fps_std_list)
 line_plot(GOP_size,fps_avg_list[:,show_indices],scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
 		'GOP Size','Coding Speed (fps)',ncol=len(scalability_labels),yerr=fps_std_list[:,show_indices],
@@ -322,7 +328,6 @@ def hbar_plot(avg,std,label,path,color,xlabel,xticks=None):
 hbar_plot(fps_avg_list[1:],fps_std_list[1:],labels[1:],
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation1.eps',
 		'#4f646f','Coding Speed (fps)',xticks=[30,150,500])
-exit(0)
 
 ########################NETWORK IMPACT#####################
 # FPS,Rebuffer,Latency

@@ -31,10 +31,10 @@
 
 # -----------------------------------------------------------
 # impact of hardware
-for task in SPVC64-N
-do
-	python3 eval.py --Q_option Slow --task $task --encoder_test
-done
+# for task in SPVC64-N
+# do
+# 	python3 eval.py --Q_option Slow --task $task --encoder_test
+# done
 # python eval.py --task x264 --fps 1000 --Q_option Slow
 # python eval.py --task x265 --fps 1000 --Q_option Slow
 
@@ -57,5 +57,7 @@ done
 # -----------------------------------------------------------
 # ablation
 # efficiency:trivial
-# speed
-# python eval.py --task SPVC64-N,SPVC64-N-P,SPVC64-N-L,SPVC64-N-O, --encoder_test
+for task in SPVC64-N,SPVC64-N-P,SPVC64-N-L,SPVC64-N-O
+do
+	python3 eval.py --task $task --encoder_test --Q_option Slow
+done
