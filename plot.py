@@ -17,14 +17,6 @@ colors = ['#DB1F48','#FF9636','#1C4670','#9D5FFB','#21B6A8','#D65780']
 labels = ['LSVC','H.264','H.265','DVC','RLVC']
 markers = ['p','s','o','>','v','^']
 
-with open('time_bits_distribution.log','r') as f:
-	for idx,line in enumerate(f.readlines()):
-		line = line.strip()
-		line = line.split(' ')
-		mt,rt,mbpp,rbpp = float(line[0]),float(line[1]),float(line[2]),float(line[3])
-
-exit(0)
-
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,
 				xticks=None,yticks=None,ncol=None, yerr=None,
 				use_arrow=False,arrow_coord=(0.4,30)):
@@ -56,6 +48,28 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 	plt.clf()
+
+def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
+	N = len(avg)
+	ind = np.arange(N)  # the x locations for the groups
+	width = 0.5       # the width of the bars
+	fig, ax = plt.subplots()
+	ax.grid(zorder=0)
+	ax.set_axisbelow(True)
+	hbar = ax.bar(ind, avg, width, color=color, \
+		yerr=std, error_kw=dict(lw=1, capsize=1, capthick=1))
+	ax.set_ylabel(ylabel, fontsize = labelsize)
+	ax.set_xticks(ind)
+	ax.set_xticklabels(label)
+	ax.bar_label(hbar, fmt='%.2f', fontsize = labelsize)
+	if yticks is not None:
+		plt.yticks( yticks )
+	xleft, xright = ax.get_xlim()
+	ybottom, ytop = ax.get_ylim()
+	ratio = 0.3
+	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
+	plt.tight_layout()
+	fig.savefig(path,bbox_inches='tight')
 
 Ubpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.33,0.54],
@@ -163,19 +177,38 @@ ab_labels = ['LSVC','w/o TSE','Linear','One-hop']
 bpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.30,0.41],
         [0.10,0.15,0.23,0.33],
-		[0.11],
+		[0.11,0.19,0.28,],
 		]
 PSNRs = [[30.63,32.17,33.52,34.39],
 		[29.83,31.25,32.74,34.05],
         [29.33,31.15,32.59,33.65],
-		[29.77],
+		[29.77,31.50,32.94,],
 		]
 line_plot(bpps,PSNRs,ab_labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation_e.eps',
 		'bpp','PSNR (dB)')
 
 # speed
-
+fps_avg_list = []
+fps_std_list = []
+with open('ablation.log','r') as f:
+	count = 0
+	fps_arr = []
+	for idx,line in enumerate(f.readlines()):
+		line = line.strip()
+		line = line.split(' ')
+		fps_arr += [float(line[3])]
+		if idx%4==3:
+			fps_arr = np.array(fps_arr)
+			fps_avg,fps_std = np.mean(fps_arr),np.std(fps_arr)
+			fps_avg_list.append(fps_avg)
+			fps_std_list.append(fps_std)
+			fps_arr = []
+ab_labels = ['LSVC','w/o TSE','Linear','One-hop']
+bar_plot(fps_avg_list,fps_std_list,ab_labels,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation_s.eps',
+		'#4f646f','Speed (fps)')
+exit(0)
 ######################SCALABILITY##########################
 # motivation show duration
 scalability_labels = ['LSVC','DVC','RLVC']
@@ -223,6 +256,20 @@ line_plot(GOP_size,fps_avg_list[:,show_indices],scalability_labels,colors,
 line_plot(GOP_size,gpu_avg_list[:,show_indices],scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_gpu.eps',
 		'GOP Size','GPU Usage (%)',xticks=range(5,31,5),yerr=gpu_std_list[:,show_indices])
+
+SPSNRs = [
+[],
+[],
+[],
+[],
+]
+Sbpps = [
+[],
+[],
+[],
+[],
+]
+
 # motiv
 show_indices = range(30)
 GOP_size = [[i+2 for i in show_indices] for _ in range(2)]
@@ -236,27 +283,6 @@ line_plot(GOP_size,total_time,scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation3.eps',
 		'GOP Size','Coding Duration (s)',xticks=range(5,31,5))
 # result show fps
-
-def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
-	N = len(avg)
-	ind = np.arange(N)  # the x locations for the groups
-	width = 0.5       # the width of the bars
-	fig, ax = plt.subplots()
-	ax.grid(zorder=0)
-	ax.set_axisbelow(True)
-	ax.bar(ind, avg, width, color=color, \
-		yerr=std, error_kw=dict(lw=1, capsize=1, capthick=1))
-	ax.set_ylabel(ylabel, fontsize = labelsize)
-	ax.set_xticks(ind)
-	ax.set_xticklabels(label)
-	if yticks is not None:
-		plt.yticks( yticks )
-	xleft, xright = ax.get_xlim()
-	ybottom, ytop = ax.get_ylim()
-	ratio = 0.3
-	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
-	plt.tight_layout()
-	fig.savefig(path,bbox_inches='tight')
 
 
 

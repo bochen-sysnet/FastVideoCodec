@@ -57,7 +57,7 @@
 # -----------------------------------------------------------
 # ablation
 # efficiency:trivial
-for task in SPVC64-N,SPVC64-N-P,SPVC64-N-L,SPVC64-N-O
+for task in SPVC64-N-O
 do
 	python3 eval.py --task $task --encoder_test --Q_option Slow
 done
