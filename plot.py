@@ -155,12 +155,12 @@ ab_labels = ['LSVC','w/o TSE','Linear','One-hop']
 bpps = [[0.12,0.18,0.266,0.37],
 		[0.12,0.20,0.30,0.41],
         [0.10,0.15,0.23,0.33],
-		[],
+		[0.11],
 		]
 PSNRs = [[30.63,32.17,33.52,34.39],
 		[29.83,31.25,32.74,34.05],
         [29.33,31.15,32.59,33.65],
-		[],
+		[29.77],
 		]
 line_plot(bpps,PSNRs,ab_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation.eps',
