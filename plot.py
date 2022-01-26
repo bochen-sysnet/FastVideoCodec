@@ -208,7 +208,7 @@ ab_labels = ['LSVC','w/o TSE','Linear','One-hop']
 bar_plot(fps_avg_list,fps_std_list,ab_labels,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/ablation_s.eps',
 		'#4f646f','Speed (fps)')
-exit(0)
+
 ######################SCALABILITY##########################
 # motivation show duration
 scalability_labels = ['LSVC','DVC','RLVC']
@@ -258,17 +258,23 @@ line_plot(GOP_size,gpu_avg_list[:,show_indices],scalability_labels,colors,
 		'GOP Size','GPU Usage (%)',xticks=range(5,31,5),yerr=gpu_std_list[:,show_indices])
 
 SPSNRs = [
-[],
-[],
-[],
+[30.91,32.62,33.89,34.57],
+[30.94],
+[30.63,32.17,33.52,34.39],
+[30.17,31.72,,],
 [],
 ]
 Sbpps = [
-[],
-[],
-[],
+[0.23,0.36,0.54,0.74],
+[0.21],
+[0.12,0.18,0.266,0.37],
+[0.11,0.16,,],
 [],
 ]
+sc_labels = ['GOP=3','GOP=5','GOP=13 (Our setup)','GOP=29','GOP=61']
+line_plot(Sbpps,SPSNRs,sc_labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_e.eps',
+		'bpp','PSNR (dB)')
 
 # motiv
 show_indices = range(30)
