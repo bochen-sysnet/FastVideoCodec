@@ -903,7 +903,7 @@ def dynamic_simulation(args, test_dataset):
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
         client_sim = RLVC_DVC_client
-    elif args.task in ['AE3D','SPVC64-N','SPVC96-N']:
+    elif args.task in ['AE3D',] or 'SPVC64-N' in args.task:
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
     elif args.task in ['x264','x265']:
@@ -975,12 +975,12 @@ def dynamic_simulation(args, test_dataset):
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} '+\
                     f'{latency_module.avg:.2f} {gpu_module.avg:.2f}\n'
             f.write(outstr)
-            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-                enc_str,dec_str,_,_ = showTimer(model)
-                if args.role == 'standalone' or args.role == 'client':
-                    f.write(enc_str+'\n')
-                if args.role == 'standalone' or args.role == 'server':
-                    f.write(dec_str+'\n')
+            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+            #     enc_str,dec_str,_,_ = showTimer(model)
+            #     if args.role == 'standalone' or args.role == 'client':
+            #         f.write(enc_str+'\n')
+            #     if args.role == 'standalone' or args.role == 'server':
+            #         f.write(dec_str+'\n')
             
         test_dataset.reset()
 
@@ -1018,7 +1018,7 @@ if __name__ == '__main__':
     parser.set_defaults(use_cuda=True)
     parser.add_argument('--use_ep', dest='use error prop', action='store_true')
     parser.add_argument('--no-use_ep', dest='use error prop', action='store_false')
-    parser.set_defaults(use_ep=True)
+    parser.set_defaults(use_ep=False)
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
@@ -1045,11 +1045,11 @@ if __name__ == '__main__':
     test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
         
     if args.mode == 'dynamic':
-        assert(args.task in ['RLVC','DVC','x264','x265','SPVC64-N','SPVC96-N'])
+        assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC64-N' in args.task)
         dynamic_simulation(args, test_dataset)
     else:
         assert(args.task in ['x264','x265','RLVC2','DVC-pretrained'] or 'LSVC' in args.task)
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC2','SPVC64-N','SPVC96-N','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC2','SPVC64-N','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)

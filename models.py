@@ -1584,8 +1584,8 @@ class SPVC(nn.Module):
             self.meters['E-MC'].update(t_comp)
         
         # actual bits
-        self.bitscounter['M'].update(float(mv_act)) 
-        self.bitscounter['R'].update(float(torch.sum(res_act))) 
+        # self.bitscounter['M'].update(float(mv_act)) 
+        # self.bitscounter['R'].update(float(torch.sum(res_act))) 
         bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
         bpp_act = [bpp for bpp in bpp_act]
         
