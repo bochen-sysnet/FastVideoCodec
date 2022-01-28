@@ -306,8 +306,8 @@ def parallel_compression(model, data, compressI=False):
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
-            msssim_list += PSNR(data[1:], x_wp, use_list=True)
-            aux_loss_list += PSNR(data[1:], x_mc, use_list=True)
+            msssim_list += PSNR(data[1:], x_mc, use_list=True)
+            aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
