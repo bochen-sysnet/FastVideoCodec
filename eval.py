@@ -1042,7 +1042,7 @@ if __name__ == '__main__':
         
     print(args)
     assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(512,512))
         
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC64-N' in args.task)
