@@ -135,7 +135,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] == 'mp4':
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
@@ -1042,7 +1041,7 @@ if __name__ == '__main__':
         
     print(args)
     assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(720,480))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(640,480))
         
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC64-N' in args.task)
