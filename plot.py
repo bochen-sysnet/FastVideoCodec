@@ -63,7 +63,8 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 		xx,yy = XX[i],YY[i]
 		if yerr is None:
 			plt.plot(xx, yy, color = color[i], marker = markers[i], 
-				linestyle = linestyles[i], label = label[i], 
+				# linestyle = linestyles[i], 
+				label = label[i], 
 				linewidth=2, markersize=8)
 		else:
 			plt.errorbar(xx, yy, yerr=yerr[i], color = color[i], 
@@ -132,7 +133,7 @@ def hbar_plot(avg,std,label,path,color,xlabel):
 	ax1.yaxis.tick_left()
 	# ax1.tick_params(labelright='off')
 
-	d = .015 # how big to make the diagonal lines in axes coordinates
+	d = .03 # how big to make the diagonal lines in axes coordinates
 	# arguments to pass plot, just so we don't keep repeating them
 	kwargs = dict(transform=ax1.transAxes, color='r', clip_on=False)
 	ax1.plot((1-d,1+d), (-d,+d), **kwargs)
@@ -156,34 +157,44 @@ def hbar_plot(avg,std,label,path,color,xlabel):
     
 ######################OTHER SIZE########################
 # 10893
-640960_PSNR = [
+x640960_PSNR = [
 [34.66,36.22,37.92,39.31],
 [33.90,35.42,36.70,37.69],
 [34.79,36.06,37.11,37.93],
 [33.20,35.25,36.92,38.02],
 [33.14,35.27,36.93,38.15],
 ]
-640960_bpp = [
+x640960_bpp = [
 [0.087,0.118,0.17,0.25],
 [0.08,0.13,0.22,0.38],
 [0.08,0.13,0.35,0.57],
 [0.05,0.07,0.11,0.17],
 [0.044,0.07,0.11,0.17],
 ]
-448_PSNR = [
+
+line_plot(x640960_bpp,x640960_PSNR,labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/x640_960.eps',
+		'bpp','',ncol=0,
+		xticks=[.2,.4,.6],yticks=range(33,41))
+x448_bpp = [
 [0.107,0.15,0.22,0.317],
 [0.094,0.16,0.27,0.45],
 [0.11,0.18,0.31,0.52],
 [0.061,0.10,0.15,0.22],
 [0.052,0.09,0.14,0.205],
 ]
-448_bpp = [
+x448_PSNR = [
 [32.45,34.08,35.66,36.76],
 [32.06,33.71,35.17,36.34],
 [33.01,34.46,35.69,36.68],
 [31.19,33.17,34.63,35.56],
 [31.11,33.14,34.66,35.67],
 ]
+
+line_plot(x448_bpp,x448_PSNR,labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/x448_448.eps',
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,36),
+		xticks=[.2,.4,.6],yticks=range(31,38))
 
 ######################PIPELINE##########################
 #LSVC
@@ -294,7 +305,7 @@ line_plot(Ubpps,UPSNRs,labels,colors,
 
 line_plot(Ubpps[1:],UPSNRs[1:],labels[1:],colors[1:],
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
-		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,35),
 		xticks=[.2,.4,.6],yticks=range(30,37))
 
 Mbpps = [[0.14,0.21,0.30,0.41],#,0.538],
@@ -351,7 +362,42 @@ line_plot(Hbpps,HPSNRs,labels,colors,
 		'bpp','',
 		xticks=[.2,.4,.6,.8],yticks=range(30,35))
 
-def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = ['WiFi', 'Lossy WiFi'],
+
+def groupedhbar(data_mean,data_std):
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	num_methods = data_mean.shape[1]
+	num_env = data_mean.shape[0]
+	center_index = np.arange(1, num_env + 1)
+	colors = ['lightcoral', 'orange', 'yellow'] #light_colors
+
+	# colors = ['coral', 'orange', 'green']
+
+	methods = ['LSVC', 'DVC', 'RLVC']
+	hatches = ['/', '-', 'O']
+	machines = ['CPU', 'GPU']
+
+	for i in range(num_methods):
+	    x_index = center_index - (i - (num_methods - 1) / 2) * 0.3
+	    hbar = plt.barh(x_index, data_mean[:, i], xerr=data_std[:, i], height=0.25,
+	             linewidth=2, color=colors[i], label=methods[i],
+	             hatch=hatches[i], edgecolor='k')
+	    ax.bar_label(hbar, fmt='%.2f', fontsize = labelsize_b, rotation=0)
+	ax.grid()
+	ax.spines['bottom'].set_linewidth(3)
+	ax.spines['top'].set_linewidth(3)
+	ax.spines['left'].set_linewidth(3)
+	ax.spines['right'].set_linewidth(3)
+	plt.yticks(np.linspace(1, 2, 2)+0.15, machines, size=32,rotation=90)
+	plt.xticks(np.linspace(0, 30, 7), size=32)
+	ax.set_xlabel('FPS', size=40)
+	# ax.set_xlabel('latency', size=40)
+	plt.legend(bbox_to_anchor=(1.4, 0.5), fancybox=True,
+	           loc='right', ncol=1, fontsize=20)
+	fig.savefig('/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps', bbox_inches='tight', format='pdf')
+	plt.close()
+
+def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = ['WiFi', 'WiFi (lossy)'],
 				methods = ['LSVC','H.264','H.265','DVC','RLVC'],use_barlabel=False):
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
@@ -434,13 +480,15 @@ fps_std_arr = np.array(fps_std_list)
 fps_avg_arr.resize(2,5)
 fps_std_arr.resize(2,5)
 selected = [0,3,4]
-groupedbar(fps_avg_arr[:,selected],fps_std_arr[:,selected],'FPS', 
-	'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',yticks=[10,20,30],
-	envs = ['GTX 1080', 'Intel i9'], methods = ['LSVC','DVC','RLVC'],use_barlabel=True)
+groupedhbar(fps_avg_arr[::-1,selected],fps_std_arr[::-1,selected])
+exit(0)
+# groupedbar(fps_avg_arr[:,selected],fps_std_arr[:,selected],'FPS', 
+# 	'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',yticks=[10,20,30],
+# 	envs = ['GTX 1080', 'Intel i9'], methods = ['LSVC','DVC','RLVC'],use_barlabel=True)
 
 
 # NET 1
-ytick_list = [range(30,36),range(30,36),range(31,36),range(29,34)]
+ytick_list = [range(30,36),range(30,36),range(31,37),range(29,35)]
 fps_arr = get_arr_from(3,'live_client.log')
 fps_arr = np.mean(fps_arr,2)
 
@@ -575,9 +623,9 @@ line_plot(GOP_size,fps_avg_list[:,show_indices],scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_fps.eps',
 		'GOP Size','FPS',yerr=fps_std_list[:,show_indices],ncol=0,
 		yticks=range(10,50,10),xticks=range(0,61,10))
-line_plot(GOP_size,gpu_avg_list[:,show_indices],scalability_labels,colors,
+line_plot(GOP_size,100*gpu_avg_list[:,show_indices],scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/scalability_gpu.eps',
-		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[.2,.3,.4,.5],
+		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[20,30,40,50],legloc='upper left',
 		yerr=gpu_std_list[:,show_indices])
 
 SPSNRs = [
@@ -603,9 +651,9 @@ line_plot(Sbpps,SPSNRs,sc_labels,colors,
 # motiv
 show_indices = range(30)
 GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(2)]
-line_plot(GOP_size,gpu_avg_list[1:,show_indices],scalability_labels[1:],colors[1:],
+line_plot(GOP_size,100*gpu_avg_list[1:,show_indices],scalability_labels[1:],colors[1:],
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation2.eps',
-		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[.21,.22,.23,.24])
+		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[21,22,23,24])
 show_indices = range(30)#[0,1,5,13,29]
 GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(3)]
 total_time = 1/fps_avg_list[:,show_indices]*(1+np.array(show_indices))

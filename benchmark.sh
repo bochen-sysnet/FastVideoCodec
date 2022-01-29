@@ -31,10 +31,10 @@
 
 # -----------------------------------------------------------
 # impact of hardware
-for task in SPVC64-N DVC RLVC
-do
-	python3 eval.py --Q_option Slow --task $task --encoder_test --no-use_cuda
-done
+# for task in SPVC64-N DVC RLVC
+# do
+# 	python3 eval.py --Q_option Slow --task $task --encoder_test --no-use_cuda
+# done
 # python eval.py --task x264 --fps 1000 --Q_option Slow
 # python eval.py --task x265 --fps 1000 --Q_option Slow
 
@@ -57,7 +57,7 @@ done
 # -----------------------------------------------------------
 # ablation
 # efficiency:trivial
-# for task in SPVC64-N-O
-# do
-# 	python3 eval.py --task $task --encoder_test --Q_option Slow
-# done
+for task in SPVC64-N-O
+do
+	python3 eval.py --task $task --encoder_test --Q_option Slow
+done
