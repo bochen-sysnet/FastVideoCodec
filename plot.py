@@ -221,15 +221,14 @@ for psnr in [L_psnr,D_psnr,R_psnr]:
 	std = np.std(psnr,1)
 	psnr_mean_list += [mean]
 	psnr_std_list += [std]
-print(psnr_mean_list)
-print(psnr_std_list)
+# print(psnr_mean_list)
+# print(psnr_std_list)
 # x = [[1,2,3]for _ in range(3)]
 # selected = [0,3,4]
 # line_plot(x,psnr_mean_list,['LSVC','DVC','RLVC'],colors,
 # 		'/home/bo/Dropbox/Research/SIGCOMM22/images/memcre.eps',
 # 		'Stage','PSNR (dB)', yerr=psnr_std_list)
 
-exit(0)
     
 ######################OTHER SIZE########################
 # 10893
@@ -500,7 +499,6 @@ fps_avg_arr.resize(2,5)
 fps_std_arr.resize(2,5)
 selected = [0,3,4]
 groupedhbar(fps_avg_arr[::-1,selected],fps_std_arr[::-1,selected])
-exit(0)
 # groupedbar(fps_avg_arr[:,selected],fps_std_arr[:,selected],'FPS', 
 # 	'/home/bo/Dropbox/Research/SIGCOMM22/images/speed.eps',yticks=[10,20,30],
 # 	envs = ['GTX 1080', 'Intel i9'], methods = ['LSVC','DVC','RLVC'],use_barlabel=True)
@@ -517,7 +515,7 @@ for psnr,bpp,yc in [(UPSNRs,Ubpps,True),(MPSNRs,Mbpps,False),(XPSNRs,Xbpps,False
 	# used to compute throughput
 	line_plot(throughput,psnr,labels,colors,
 		f'/home/bo/Dropbox/Research/SIGCOMM22/images/bpep-distortion_{k}.eps',
-		'Pixel-level Throughput','PSNR (dB)' if yc else '',use_arrow=yc,arrow_coord=(0.005,34),
+		'Encoding Throughput','PSNR (dB)' if yc else '',use_arrow=yc,arrow_coord=(0.005,34),
 		xticks=[.01,.02],yticks=ytick_list[k])
 	k += 1
 
@@ -535,7 +533,7 @@ for psnr,bpp,yc in [(UPSNRs,Ubpps,True),(MPSNRs,Mbpps,False),(XPSNRs,Xbpps,False
 	# used to compute throughput
 	line_plot(throughput,psnr,labels,colors,
 		f'/home/bo/Dropbox/Research/SIGCOMM22/images/bpep-distortion_lossy_{k}.eps',
-		'Pixel-level Throughput','PSNR (dB)' if yc else '',use_arrow=yc,arrow_coord=(0.005,34),
+		'Encoding Throughput','PSNR (dB)' if yc else '',use_arrow=yc,arrow_coord=(0.005,34),
 		xticks=[.01,.02],yticks=ytick_list[k])
 	k += 1
 
@@ -556,6 +554,7 @@ groupedbar(fps_avg,fps_std,'FPS',
 groupedbar(rbf_avg,rbf_std,'', 
 	'/home/bo/Dropbox/Research/SIGCOMM22/images/rebufferrate.eps',
 	yticks=[0,.1,.2,.3])
+print(lat_avg)
 groupedbar(lat_avg,lat_std,'Second', 
 	'/home/bo/Dropbox/Research/SIGCOMM22/images/latency.eps',
 	yticks=[0,1,2,3,4])
