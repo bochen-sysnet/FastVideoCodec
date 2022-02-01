@@ -671,7 +671,7 @@ show_indices = range(30)
 GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(2)]
 line_plot(GOP_size,100*gpu_avg_list[1:,show_indices],scalability_labels[1:],colors[1:],
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation2.eps',
-		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[21,22,23,24])
+		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[0,20,30,100])
 show_indices = range(30)#[0,1,5,13,29]
 GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(3)]
 total_time = 1/fps_avg_list[:,show_indices]*(1+np.array(show_indices))
