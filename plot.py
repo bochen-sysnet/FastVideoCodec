@@ -321,9 +321,9 @@ line_plot(Ubpps,UPSNRs,labels,colors,
 		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
 		xticks=[.2,.4,.6],yticks=range(30,37))
 
-line_plot(Ubpps[1:],UPSNRs[1:],labels[1:],colors[1:],
+line_plot(Ubpps,UPSNRs,labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
-		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,35),
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
 		xticks=[.2,.4,.6],yticks=range(30,37))
 
 Mbpps = [[0.14,0.21,0.30,0.41],#,0.538],
