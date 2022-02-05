@@ -64,7 +64,7 @@ def init_training_params(model):
     I_lvl_list = [37,32,27,22,17]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
-    print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
+    # print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
     
     model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
     model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f}"
@@ -548,7 +548,7 @@ class Coder2D(nn.Module):
         else:
             print('Bottleneck not implemented for:',keyword)
             exit(1)
-        print('Conv type:',self.conv_type,'entropy type:',self.entropy_type)
+        # print('Conv type:',self.conv_type,'entropy type:',self.entropy_type)
         self.channels = channels
         if self.conv_type == 'rec':
             self.enc_lstm = ConvLSTM(channels)
@@ -1506,7 +1506,7 @@ def TreeFrameReconDecompress(warpnet,res_codec,x_ref,res_string,bs,mv_hat,layers
     return com_frames
 
 class SPVC(nn.Module):
-    def __init__(self, name, channels=128, noMeasure=True, loss_type='P', 
+    def __init__(self, name, channels=64, noMeasure=True, loss_type='P', 
             compression_level=2, use_split=True, entropy_trick=True):
         super(SPVC, self).__init__()
         self.name = name 
@@ -1517,8 +1517,8 @@ class SPVC(nn.Module):
             
         if '96' in self.name:
             channels = 96
-        elif '64' in self.name:
-            channels = 64
+        elif '128' in self.name:
+            channels = 128
         if '-L' in self.name:
             entropy_trick = False
         # use attention in encoder and entropy model
@@ -1564,24 +1564,11 @@ class SPVC(nn.Module):
         self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
         self.meters['eEMV'].update(self.mv_codec.AC_t)
         
-        if '-N' not in self.name:
-            # SEQ:motion compensation
-            t_0 = time.perf_counter()
-            MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split)
-            t_comp = time.perf_counter() - t_0
-            self.meters['E-MC'].update(t_comp)
-            
-            # BATCH:compress residual
-            res_tensors = x_tar.to(MC_frames.device) - MC_frames
-            res_string,_,_,res_act,_,_ = self.res_codec.compress(res_tensors,decodeLatent=False)
-            self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
-            self.meters['eERES'].update(self.res_codec.AC_t)
-        else:
-            # SEQ:motion compensation
-            t_0 = time.perf_counter()
-            res_string,res_act = TreeFrameReconCompress(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
-            t_comp = time.perf_counter() - t_0
-            self.meters['E-MC'].update(t_comp)
+        # SEQ:motion compensation
+        t_0 = time.perf_counter()
+        res_string,res_act = TreeFrameReconCompress(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
+        t_comp = time.perf_counter() - t_0
+        self.meters['E-MC'].update(t_comp)
         
         # actual bits
         # self.bitscounter['M'].update(float(mv_act)) 
@@ -1601,25 +1588,10 @@ class SPVC(nn.Module):
         # graph
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         
-        if '-N' not in self.name:
-            # SEQ:motion compensation
-            t_0 = time.perf_counter()
-            MC_frames,warped_frames = TFE(self.warpnet,x_ref,bs,mv_hat,layers,parents,self.use_split)
-            t_comp = time.perf_counter() - t_0
-            self.meters['D-MC'].update(t_comp)
-            
-            # BATCH:compress residual
-            res_hat,_,_,_ = self.res_codec.decompress(res_string, latentSize=latent_size)
-            self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
-            self.meters['eDRES'].update(self.res_codec.AC_t)
-            
-            # reconstruction
-            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x_ref.device)
-        else:
-            t_0 = time.perf_counter()
-            com_frames = TreeFrameReconDecompress(self.warpnet,self.res_codec,x_ref,res_string,bs,mv_hat,layers,parents)
-            t_comp = time.perf_counter() - t_0
-            self.meters['D-MC'].update(t_comp)
+        t_0 = time.perf_counter()
+        com_frames = TreeFrameReconDecompress(self.warpnet,self.res_codec,x_ref,res_string,bs,mv_hat,layers,parents)
+        t_comp = time.perf_counter() - t_0
+        self.meters['D-MC'].update(t_comp)
         
         return com_frames
         
@@ -1643,30 +1615,9 @@ class SPVC(nn.Module):
             self.meters['D-MV'].update(self.mv_codec.dec_t)
             self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
-        
-        if '-N' not in self.name:
-            # SEQ:motion compensation
-            t_0 = time.perf_counter()
-            MC_frames,warped_frames = TFE(self.warpnet,x[:1],bs,mv_hat,layers,parents,self.use_split,detach=('-D' in self.name or '-L' in self.name))
-            t_comp = time.perf_counter() - t_0
-            if not self.noMeasure:
-                self.meters['E-MC'].update(t_comp)
-                self.meters['D-MC'].update(t_comp)
-            
-            # BATCH:compress residual
-            if self.stage == 'RES': MC_frames = MC_frames.detach()
-            res_tensors = x_tar.to(MC_frames.device) - MC_frames
-            res_hat,_, _,res_act,res_est,res_aux,_ = self.res_codec(res_tensors)
-            if not self.noMeasure:
-                self.meters['E-RES'].update(self.res_codec.enc_t)
-                self.meters['D-RES'].update(self.res_codec.dec_t)
-                self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
-                self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
-            # reconstruction
-            com_frames = torch.clip(res_hat + MC_frames, min=0, max=1).to(x.device)
-        else:
-            # new compression way
-            com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameReconForward(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
+
+        # new compression way
+        com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameReconForward(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
             
         ##### compute bits
         # estimated bits

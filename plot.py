@@ -674,7 +674,7 @@ line_plot(GOP_size,100*gpu_avg_list[1:,show_indices],scalability_labels[1:],colo
 		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[0,20,30,100])
 show_indices = range(30)#[0,1,5,13,29]
 GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(3)]
-total_time = 1/fps_avg_list[:,show_indices]*(1+np.array(show_indices))
+total_time = 1/fps_avg_list[:,show_indices]*(1+2*(1+np.array(show_indices)))
 line_plot(GOP_size,total_time,scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation3.eps',
-		'GOP Size','Second',xticks=range(0,61,10),yticks=[0,.5,1,1.5])
+		'GOP Size','Second',xticks=range(0,61,10),yticks=[0,1,2,3,4])

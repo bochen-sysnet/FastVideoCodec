@@ -59,21 +59,21 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     ####### Codec model 
     model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=False)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
+    # print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
     if model.name == 'DVC-pretrained':
         return model
 
     ####### Load codec model 
     if os.path.isfile(RESUME_CODEC_PATH):
-        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+        # print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
         checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cpu'))
         load_state_dict_all(model, checkpoint['state_dict'])
-        print("Loaded model codec score: ", checkpoint['score'])
+        # print("Loaded model codec score: ", checkpoint['score'])
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
-        #exit(1)
+        exit(1)
     print("===================================================================")
     return model
     
@@ -465,6 +465,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     s.bind((args.server_ip, int(args.srdy_port)))
     s.listen(1)
     conn, addr = s.accept()
+    psnr_module = AverageMeter()
     i = 0
     GoP = 1+args.fP+args.bP
     t_startup = None
@@ -482,6 +483,9 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         # Convert the bytes read into a NumPy array, and reshape it to video frame dimensions
         frame = np.fromstring(raw_frame, np.uint8)
         frame = frame.reshape((height, width, 3))
+        if args.use_disp:
+            cv2.imshow('Receiver',frame)
+            cv2.waitKey(1)
 
         if t_startup is None:
             if i==GoP:
@@ -500,25 +504,33 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
                 t_rebuffer_total += t_rebuffer
                 t_cache = 0
             frame_count += 1
+
+        # process metrics
+        com = transforms.ToTensor()(frame).cuda().unsqueeze(0)
+        raw = data[i+1] if args.task == 'x264' else data[i]
+        raw = transforms.ToTensor()(raw).cuda().unsqueeze(0)
+        psnr_module.update(PSNR(com, raw).cpu().data.item())
         i += 1
         
         # Count time
         total_time = time.perf_counter() - t_0
-        # fps = i/total_time
-        fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        fps = i/total_time
+        # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
     
         # show result
         stream_iter.set_description(
-            f"Decoder {i:3}. "
+            f"Frame count {i:3}. "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}) dB. "
             f"FPS: {fps:.2f}. "
-            f"Rebuffer: {t_rebuffer_total:.2f}. "
-            f"Total: {total_time:.3f}. ")
+            f"Rebuffering duration: {t_rebuffer_total:.2f} s. "
+            f"Total duration: {total_time:.3f} s. ")
     conn.close()
     s.close()
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
+    cv2.destroyAllWindows()
     return fps,t_rebuffer_total/total_time,t_startup
             
 def SPVC_AE3D_client(args,data,model=None,Q=None):
@@ -616,6 +628,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     t_startup = None # duration to receive the first frame
     frame_count = 0
     i = 0
+    psnr_module = AverageMeter()
     t_rebuffer_total = 0
     L = data.size(0)
     stream_iter = tqdm(range(0,L,GoP))
@@ -631,17 +644,23 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             # receive the first two strings
             n_mv = 1 if model.entropy_trick else bs
             n_res = 1 if model.entropy_trick else bs
-            if '-N' in model.name:
-                if bs<=2:
-                    n_res = 1
-                elif bs<=6:
-                    n_res = 2
-                else:
-                    n_res = 3
+            if bs<=2:
+                n_res = 1
+            elif bs<=6:
+                n_res = 2
+            else:
+                n_res = 3
             mv_string1 = recv_strings_from_process(process, n_mv)
             res_string1 = recv_strings_from_process(process, n_res)
             # decompress backward
             x_b_hat = model.decompress(x_ref,mv_string1,res_string1,bs)
+            # display
+            if args.use_disp:
+                for frame in torch.cat((torch.flip(x_b_hat,[0]),x_ref)):
+                    frame = transforms.ToPILImage()(frame.squeeze(0))
+                    frame = np.array(frame)
+                    cv2.imshow('Learning-based Compression (Ours)',frame)
+                    cv2.waitKey(1)
             # rebuffer
             if t_startup is not None:
                 # count rebuffer time
@@ -660,17 +679,23 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             # receive the second two strings
             n_mv = 1 if model.entropy_trick else bs
             n_res = 1 if model.entropy_trick else bs
-            if '-N' in model.name:
-                if bs<=2:
-                    n_res = 1
-                elif bs<=6:
-                    n_res = 2
-                else:
-                    n_res = 3
+            if bs<=2:
+                n_res = 1
+            elif bs<=6:
+                n_res = 2
+            else:
+                n_res = 3
             mv_string2 = recv_strings_from_process(process, n_mv)
             res_string2 = recv_strings_from_process(process, n_res)
             # decompress forward
             x_f_hat = model.decompress(x_ref,mv_string2,res_string2,bs)
+            # display
+            if args.use_disp:
+                for frame in x_f_hat:
+                    frame = transforms.ToPILImage()(frame.squeeze(0))
+                    frame = np.array(frame)
+                    cv2.imshow('Learning-based Compression (Ours)',frame)
+                    cv2.waitKey(1)
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
         else:
@@ -678,19 +703,25 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             # receive two strings
             n_mv = 1 if model.entropy_trick else bs
             n_res = 1 if model.entropy_trick else bs
-            if '-N' in model.name:
-                if bs<=2:
-                    n_res = 1
-                elif bs<=6:
-                    n_res = 2
-                else:
-                    n_res = 3
+            if bs<=2:
+                n_res = 1
+            elif bs<=6:
+                n_res = 2
+            else:
+                n_res = 3
             mv_string = recv_strings_from_process(process, n_mv)
             res_string = recv_strings_from_process(process, n_res)
             # decompress backward
             x_f_hat = model.decompress(x_ref,mv_string,res_string,bs)
             # concate
             x_hat = torch.cat((x_ref,x_f_hat),dim=0)
+            # display
+            if args.use_disp:
+                for frame in x_hat:
+                    frame = transforms.ToPILImage()(frame.squeeze(0))
+                    frame = np.array(frame)
+                    cv2.imshow('Learning-based Compression (Ours)',frame)
+                    cv2.waitKey(33)
 
         # start rebuffering after receiving a gop
         if t_startup is None:
@@ -712,20 +743,31 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
             frame_count += GoP_size
 
         total_time = time.perf_counter() - t_0
-        i += GoP_size
+        # i += GoP_size
         # fps = i/total_time
         fps = frame_count/(total_time - t_startup)
 
+        # measure metrics
+        for com in x_hat:
+            com = com.unsqueeze(0)
+            raw = data[i].unsqueeze(0)
+            psnr = PSNR(com, raw).cpu().data.item()
+            if psnr < 100:
+                psnr_module.update(psnr)
+            i += 1
+
         # show result
         stream_iter.set_description(
-            f"Decoder: {i:3}. "
-            f"Rebuffer: {t_rebuffer_total:.2f}. "
+            f"Frame count: {i:3}. "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}) dB. "
             f"FPS: {fps:.2f}. "
-            f"Total: {total_time:.3f}. ")
+            f"Rebuffering duration: {t_rebuffer_total:.2f} s. "
+            f"Total duration: {total_time:.3f} s. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
     process.terminate()
+    cv2.destroyAllWindows()
     return fps,t_rebuffer_total/total_time,t_startup
     
 def RLVC_DVC_client(args,data,model=None,Q=None):
@@ -816,6 +858,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
     # create a pipe for listening from netcat
     cmd = f'nc -lkp {args.stream_port}'
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
+    psnr_module = AverageMeter()
     L = data.size(0)
     t_rebuffer_total = 0
     t_startup = None
@@ -850,6 +893,13 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_cache = 0
                 frame_count += 1
             x_ref = x_ref.detach()
+            psnr_module.update(PSNR(data[i:i+1], x_ref).cpu().data.item())
+            # display
+            if args.use_disp:
+                frame = transforms.ToPILImage()(x_ref.squeeze(0))
+                frame = np.array(frame)
+                cv2.imshow('Learning-based Compression (Existing)',frame)
+                cv2.waitKey(1)
         elif p == args.fP or i == L-1:
             # get current GoP 
             x_GoP = data[i//GoP*GoP:i//GoP*GoP+GoP]
@@ -858,7 +908,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             decom_hidden = model.init_hidden(H,W,x_b.device)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
-            # get compressed I frame
+            frame_list = [x_ref]
             # decompress backward
             for j in range(1,B):
                 # receive strings
@@ -868,6 +918,8 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     model.decompress(x_ref, mv_string, res_string, decom_hidden, j>1, decom_mv_prior_latent, decom_res_prior_latent)
                 # record time
                 x_ref = x_ref.detach()
+                psnr_module.update(PSNR(x_b[j:j+1], x_ref).cpu().data.item())
+                frame_list = [x_ref] + frame_list
             decom_hidden = model.init_hidden(H,W,x_b.device)
             decom_mv_prior_latent = decom_res_prior_latent = None
             x_ref = x_b[:1]
@@ -883,15 +935,24 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     t_rebuffer_total += t_rebuffer
                     t_cache = 0
                 frame_count += B
+            if args.use_disp:
+                for frame in frame_list:
+                    frame = transforms.ToPILImage()(frame.squeeze(0))
+                    frame = np.array(frame)
+                    cv2.imshow('Learning-based Compression (Existing)',frame)
+                    cv2.waitKey(33)
+
+
         # Count time
         total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
         # show result
         stream_iter.set_description(
-            f"Decoder: {i:3}. "
-            f"Rebuffer: {t_rebuffer_total:.2f}. "
+            f"Frame count: {i:3}. "
+            f"PSNR: {psnr_module.val:.2f} ({psnr_module.avg:.2f}) dB. "
             f"FPS: {fps:.2f}. "
-            f"Total: {total_time:.3f}. ")
+            f"Rebuffering duration: {t_rebuffer_total:.2f} s. "
+            f"Total duration: {total_time:.3f} s. ")
     # Close and flush stdin
     process.stdout.close()
     # Terminate the sub-process
@@ -903,7 +964,7 @@ def dynamic_simulation(args, test_dataset):
     if args.task in ['RLVC','DVC']:
         server_sim = RLVC_DVC_server
         client_sim = RLVC_DVC_client
-    elif args.task in ['AE3D',] or 'SPVC64-N' in args.task:
+    elif args.task in ['AE3D',] or 'SPVC' in args.task:
         server_sim = SPVC_AE3D_server
         client_sim = SPVC_AE3D_client
     elif args.task in ['x264','x265']:
@@ -1019,6 +1080,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_ep', dest='use error prop', action='store_true')
     parser.add_argument('--no-use_ep', dest='use error prop', action='store_false')
     parser.set_defaults(use_ep=False)
+    parser.add_argument('--use_disp', dest='use_disp', action='store_true')
+    parser.add_argument('--no-use_disp', dest='use_disp', action='store_false')
+    parser.set_defaults(use_disp=True)
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
@@ -1038,18 +1102,16 @@ if __name__ == '__main__':
         args.role = 'client'
 
     # setup streaming parameters
-
-        
-    print(args)
+    # print(args)
     assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
     test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
         
     if args.mode == 'dynamic':
-        assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC64-N' in args.task)
+        assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
         dynamic_simulation(args, test_dataset)
     else:
         assert(args.task in ['x264','x265','RLVC2','DVC-pretrained'] or 'LSVC' in args.task)
         if args.task in ['x264','x265']:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC2','SPVC64-N','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
