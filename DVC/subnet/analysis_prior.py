@@ -11,27 +11,27 @@ class Analysis_prior_net(nn.Module):
     '''
     Compress residual prior
     '''
-    def __init__(self, useAttn=False):
+    def __init__(self, useAttn=False, channels=out_channel_N):
         super(Analysis_prior_net, self).__init__()
-        self.conv1 = nn.Conv2d(out_channel_M, out_channel_N, 3, stride=1, padding=1)
-        torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (out_channel_M + out_channel_N) / (out_channel_M + out_channel_M))))
+        self.conv1 = nn.Conv2d(out_channel_M,  channels, 3, stride=1, padding=1)
+        torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (out_channel_M +  channels) / (out_channel_M + out_channel_M))))
         torch.nn.init.constant_(self.conv1.bias.data, 0.01)
         self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2)
+        self.conv2 = nn.Conv2d( channels,  channels, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv2.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv2.bias.data, 0.01)
         self.relu2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(out_channel_N, out_channel_N, 5, stride=2, padding=2)
+        self.conv3 = nn.Conv2d( channels,  channels, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv3.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv3.bias.data, 0.01)
         if useAttn:
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(out_channel_N)
-                s_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
-                t_attn = Attention(out_channel_N, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(out_channel_N, t), (t_attn, s_attn, ff))
+                ff = FeedForward( channels)
+                s_attn = Attention( channels, dim_head = 64, heads = 8)
+                t_attn = Attention( channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm( channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
