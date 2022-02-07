@@ -1713,7 +1713,6 @@ class LSVC(nn.Module):
 
             return sym_out - self.mxrange, real_bits
 
-        print(feature.size(),sigma.size())
         mu = torch.zeros_like(sigma)
         sigma = sigma.clamp(1e-5, 1e10)
         gaussian = torch.distributions.laplace.Laplace(mu, sigma)
@@ -1792,11 +1791,6 @@ class LSVC(nn.Module):
             compressed_z = torch.round(z)
 
         recon_sigma = self.respriorDecoder(compressed_z)
-        if context is not None:
-            ctx_params = self.context_prediction(context)
-            recon_sigma = self.entropy_parameters(
-                torch.cat((recon_sigma, ctx_params), dim=1)
-            )
 
         feature_renorm = feature
 
