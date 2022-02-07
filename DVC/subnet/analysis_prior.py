@@ -13,7 +13,7 @@ class Analysis_prior_net(nn.Module):
     '''
     def __init__(self, useAttn=False, channels=out_channel_N):
         super(Analysis_prior_net, self).__init__()
-        self.conv1 = nn.Conv2d(out_channel_M,  channels, 3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(channels,  channels, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (out_channel_M +  channels) / (out_channel_M + out_channel_M))))
         torch.nn.init.constant_(self.conv1.bias.data, 0.01)
         self.relu1 = nn.ReLU()
