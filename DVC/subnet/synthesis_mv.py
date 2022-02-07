@@ -12,7 +12,7 @@ class Synthesis_mv_net(nn.Module):
     '''
     def __init__(self, useAttn=False, channels=out_channel_mv):
         super(Synthesis_mv_net, self).__init__()
-        self.deconv1 = nn.ConvTranspose2d(in_channels,  channels, 3, stride=2, padding=1, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(channels,  channels, 3, stride=2, padding=1, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, math.sqrt(2 * 1))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)
         self.relu1 = nn.LeakyReLU(negative_slope=0.1)
