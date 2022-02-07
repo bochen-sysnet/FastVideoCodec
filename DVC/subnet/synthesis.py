@@ -11,7 +11,7 @@ class Synthesis_net(nn.Module):
     '''
     def __init__(self, useAttn = False, channels=out_channel_N):
         super(Synthesis_net, self).__init__()
-        self.deconv1 = nn.ConvTranspose2d(out_channel_M,  channels, 5, stride=2, padding=2, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(channels,  channels, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, (math.sqrt(2 * 1 * (out_channel_M +  channels) / (out_channel_M + out_channel_M))))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)
         self.igdn1 = GDN( channels, inverse=True)
@@ -30,10 +30,10 @@ class Synthesis_net(nn.Module):
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(out_channel_M)
-                s_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
-                t_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(out_channel_M, t), (t_attn, s_attn, ff))
+                ff = FeedForward(channels)
+                s_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)

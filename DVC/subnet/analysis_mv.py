@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, out_channels=out_channel_mv, channels=out_channel_mv):
+    def __init__(self, useAttn=False, channels=out_channel_mv):
         super(Analysis_mv_net, self).__init__()
         self.conv1 = nn.Conv2d(2, channels, 3, stride=2, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (2 + channels) / (4))))
@@ -39,17 +39,17 @@ class Analysis_mv_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv7.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv7.bias.data, 0.01)
         self.relu7 = nn.LeakyReLU(negative_slope=0.1)
-        self.conv8 = nn.Conv2d(channels, out_channels, 3, stride=1, padding=1)
+        self.conv8 = nn.Conv2d(channels, channels, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
         if useAttn:
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(out_channels)
-                s_attn = Attention(out_channels, dim_head = 64, heads = 8)
-                t_attn = Attention(out_channels, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(out_channels, t), (t_attn, s_attn, ff))
+                ff = FeedForward(channels)
+                s_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)

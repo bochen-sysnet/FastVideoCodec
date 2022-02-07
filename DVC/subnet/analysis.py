@@ -25,17 +25,17 @@ class Analysis_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv3.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv3.bias.data, 0.01)
         self.gdn3 = GDN( channels)
-        self.conv4 = nn.Conv2d( channels, out_channel_M, 5, stride=2, padding=2)
-        torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (out_channel_M +  channels) / ( channels +  channels))))
+        self.conv4 = nn.Conv2d( channels, channels, 5, stride=2, padding=2)
+        torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (channels +  channels) / ( channels +  channels))))
         torch.nn.init.constant_(self.conv4.bias.data, 0.01)
         if useAttn:
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(out_channel_M)
-                s_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
-                t_attn = Attention(out_channel_M, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(out_channel_M, t), (t_attn, s_attn, ff))
+                ff = FeedForward(channels)
+                s_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)

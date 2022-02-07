@@ -10,7 +10,7 @@ class Synthesis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, in_channels=out_channel_mv, channels=out_channel_mv):
+    def __init__(self, useAttn=False, channels=out_channel_mv):
         super(Synthesis_mv_net, self).__init__()
         self.deconv1 = nn.ConvTranspose2d(in_channels,  channels, 3, stride=2, padding=1, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, math.sqrt(2 * 1))
@@ -47,10 +47,10 @@ class Synthesis_mv_net(nn.Module):
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(in_channels)
-                s_attn = Attention(in_channels, dim_head = 64, heads = 8)
-                t_attn = Attention(in_channels, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(in_channels, t), (t_attn, s_attn, ff))
+                ff = FeedForward(channels)
+                s_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn = Attention(channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
