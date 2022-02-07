@@ -1713,7 +1713,7 @@ class LSVC(nn.Module):
 
             return sym_out - self.mxrange, real_bits
 
-
+        print(feature.size(),sigma.size())
         mu = torch.zeros_like(sigma)
         sigma = sigma.clamp(1e-5, 1e10)
         gaussian = torch.distributions.laplace.Laplace(mu, sigma)
