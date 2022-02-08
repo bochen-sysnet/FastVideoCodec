@@ -11,22 +11,27 @@ class Analysis_net(nn.Module):
     '''
     Compress residual
     '''
-    def __init__(self, useAttn=False, channels=out_channel_N):
+    def __init__(self, useAttn=False, channels=None):
         super(Analysis_net, self).__init__()
-        self.conv1 = nn.Conv2d(3,  channels, 5, stride=2, padding=2)
-        torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (3 +  channels) / (6))))
+        if channels is None:
+            conv_channels = out_channel_N
+            out_channels = out_channel_M
+        else:
+            conv_channels = out_channels = channels
+        self.conv1 = nn.Conv2d(3,  conv_channels, 5, stride=2, padding=2)
+        torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (3 +  conv_channels) / (6))))
         torch.nn.init.constant_(self.conv1.bias.data, 0.01)
-        self.gdn1 = GDN( channels)
-        self.conv2 = nn.Conv2d( channels,  channels, 5, stride=2, padding=2)
+        self.gdn1 = GDN( conv_channels)
+        self.conv2 = nn.Conv2d( conv_channels,  conv_channels, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv2.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv2.bias.data, 0.01)
-        self.gdn2 = GDN( channels)
-        self.conv3 = nn.Conv2d( channels,  channels, 5, stride=2, padding=2)
+        self.gdn2 = GDN( conv_channels)
+        self.conv3 = nn.Conv2d( conv_channels,  conv_channels, 5, stride=2, padding=2)
         torch.nn.init.xavier_normal_(self.conv3.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv3.bias.data, 0.01)
-        self.gdn3 = GDN( channels)
-        self.conv4 = nn.Conv2d( channels, channels, 5, stride=2, padding=2)
-        torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (channels +  channels) / ( channels +  channels))))
+        self.gdn3 = GDN( conv_channels)
+        self.conv4 = nn.Conv2d( conv_channels, out_channels, 5, stride=2, padding=2)
+        torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2 * (out_channels +  conv_channels) / ( conv_channels +  conv_channels))))
         torch.nn.init.constant_(self.conv4.bias.data, 0.01)
         if useAttn:
             self.layers = nn.ModuleList([])

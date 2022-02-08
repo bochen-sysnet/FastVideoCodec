@@ -9,31 +9,36 @@ class Synthesis_net(nn.Module):
     '''
     Decode residual
     '''
-    def __init__(self, useAttn = False, channels=out_channel_N):
+    def __init__(self, useAttn = False, channels=None):
         super(Synthesis_net, self).__init__()
-        self.deconv1 = nn.ConvTranspose2d(channels,  channels, 5, stride=2, padding=2, output_padding=1)
-        torch.nn.init.xavier_normal_(self.deconv1.weight.data, (math.sqrt(2 * 1 * (out_channel_M +  channels) / (out_channel_M + out_channel_M))))
+        if channels is None:
+            in_channels = out_channel_M
+            conv_channels = out_channel_N
+        else:
+            in_channels = conv_channels = channels
+        self.deconv1 = nn.ConvTranspose2d(in_channels,  conv_channels, 5, stride=2, padding=2, output_padding=1)
+        torch.nn.init.xavier_normal_(self.deconv1.weight.data, (math.sqrt(2 * 1 * (conv_channels +  in_channels) / (in_channels + in_channels))))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)
-        self.igdn1 = GDN( channels, inverse=True)
-        self.deconv2 = nn.ConvTranspose2d( channels,  channels, 5, stride=2, padding=2, output_padding=1)
+        self.igdn1 = GDN( conv_channels, inverse=True)
+        self.deconv2 = nn.ConvTranspose2d( conv_channels,  conv_channels, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv2.weight.data, math.sqrt(2 * 1))
         torch.nn.init.constant_(self.deconv2.bias.data, 0.01)
-        self.igdn2 = GDN( channels, inverse=True)
-        self.deconv3 = nn.ConvTranspose2d( channels,  channels, 5, stride=2, padding=2, output_padding=1)
+        self.igdn2 = GDN( conv_channels, inverse=True)
+        self.deconv3 = nn.ConvTranspose2d( conv_channels,  conv_channels, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv3.weight.data, math.sqrt(2 * 1))
         torch.nn.init.constant_(self.deconv3.bias.data, 0.01)
-        self.igdn3 = GDN( channels, inverse=True)
-        self.deconv4 = nn.ConvTranspose2d( channels, 3, 5, stride=2, padding=2, output_padding=1)
-        torch.nn.init.xavier_normal_(self.deconv4.weight.data, (math.sqrt(2 * 1 * ( channels + 3) / ( channels +  channels))))
+        self.igdn3 = GDN( conv_channels, inverse=True)
+        self.deconv4 = nn.ConvTranspose2d( conv_channels, 3, 5, stride=2, padding=2, output_padding=1)
+        torch.nn.init.xavier_normal_(self.deconv4.weight.data, (math.sqrt(2 * 1 * ( conv_channels + 3) / ( conv_channels +  conv_channels))))
         torch.nn.init.constant_(self.deconv4.bias.data, 0.01)
         if useAttn:
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(channels)
-                s_attn = Attention(channels, dim_head = 64, heads = 8)
-                t_attn = Attention(channels, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
+                ff = FeedForward(conv_channels)
+                s_attn = Attention(conv_channels, dim_head = 64, heads = 8)
+                t_attn = Attention(conv_channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(conv_channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
