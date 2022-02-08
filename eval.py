@@ -470,7 +470,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
     GoP = 1+args.fP+args.bP
     t_startup = None
     frame_count = 0
-    t_rebuffer_total = 0
+    t_rebuffer_total = r_rate = fps = 0
     stream_iter = tqdm(range(len(data)))
     while True:
         # read width*height*3 bytes from stdout (1 frame)
@@ -484,7 +484,8 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         frame = np.fromstring(raw_frame, np.uint8)
         frame = frame.reshape((height, width, 3))
         if args.use_disp:
-            cv2.imshow('Receiver',frame)
+            cv2.imshow("H.264", frame)
+            cv2.setWindowTitle("H.264", f"[H.264] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
             cv2.waitKey(1)
 
         if t_startup is None:
@@ -516,6 +517,7 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         total_time = time.perf_counter() - t_0
         fps = i/total_time
         # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        r_rate = t_rebuffer_total/total_time
     
         # show result
         stream_iter.set_description(
@@ -630,6 +632,7 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
     i = 0
     psnr_module = AverageMeter()
     t_rebuffer_total = 0
+    r_rate = fps = 0
     L = data.size(0)
     stream_iter = tqdm(range(0,L,GoP))
     # start listening
@@ -659,7 +662,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                 for frame in torch.cat((torch.flip(x_b_hat,[0]),x_ref)):
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
-                    cv2.imshow('Learning-based Compression (Ours)',frame)
+                    cv2.imshow("LSVC", frame)
+                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
                     cv2.waitKey(1)
             # rebuffer
             if t_startup is not None:
@@ -694,7 +698,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                 for frame in x_f_hat:
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
-                    cv2.imshow('Learning-based Compression (Ours)',frame)
+                    cv2.imshow("LSVC", frame)
+                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
                     cv2.waitKey(1)
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
@@ -720,7 +725,8 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                 for frame in x_hat:
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
-                    cv2.imshow('Learning-based Compression (Ours)',frame)
+                    cv2.imshow("LSVC", frame)
+                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
                     cv2.waitKey(33)
 
         # start rebuffering after receiving a gop
@@ -742,10 +748,11 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                 t_cache = 0
             frame_count += GoP_size
 
-        total_time = time.perf_counter() - t_0
         # i += GoP_size
         # fps = i/total_time
+        total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time - t_startup)
+        r_rate = t_rebuffer_total/total_time
 
         # measure metrics
         for com in x_hat:
@@ -860,7 +867,7 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
     process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
     psnr_module = AverageMeter()
     L = data.size(0)
-    t_rebuffer_total = 0
+    t_rebuffer_total = fps = r_rate = 0
     t_startup = None
     frame_count = 0
     stream_iter = tqdm(range(L))
@@ -898,7 +905,8 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
             if args.use_disp:
                 frame = transforms.ToPILImage()(x_ref.squeeze(0))
                 frame = np.array(frame)
-                cv2.imshow('Learning-based Compression (Existing)',frame)
+                cv2.imshow("RLVC", frame)
+                cv2.setWindowTitle("RLVC", f"[RLVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
                 cv2.waitKey(1)
         elif p == args.fP or i == L-1:
             # get current GoP 
@@ -939,13 +947,15 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 for frame in frame_list:
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
-                    cv2.imshow('Learning-based Compression (Existing)',frame)
+                    cv2.imshow("RLVC", frame)
+                    cv2.setWindowTitle("RLVC", f"[RLVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
                     cv2.waitKey(33)
 
 
         # Count time
         total_time = time.perf_counter() - t_0
         fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        r_rate = t_rebuffer_total/total_time
         # show result
         stream_iter.set_description(
             f"Frame count: {i:3}. "
