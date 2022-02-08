@@ -14,7 +14,7 @@ class Synthesis_prior_net(nn.Module):
     '''
     def __init__(self, useAttn = False, channels=out_channel_N):
         super(Synthesis_prior_net, self).__init__()
-        self.deconv1 = nn.ConvTranspose2d(out_channel_N, channels, 5, stride=2, padding=2, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(channels, channels, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, math.sqrt(2 * 1))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)
         self.relu1 = nn.ReLU()

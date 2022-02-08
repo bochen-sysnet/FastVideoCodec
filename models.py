@@ -1667,7 +1667,12 @@ class LSVC(nn.Module):
         self.useAttn = True if '-A' in name else False
         self.opticFlow = ME_Spynet()
         self.Q = None
-        channels = 64 if '-S' in name else 128
+        if '-S' in name:
+            channels = 64
+        elif '-M' in name:
+            channels = 96
+        else:
+            channels = 128
         mv_attn = ('-A' in name)
         res_attn = ('-A' in name)
         self.mvEncoder = Analysis_mv_net(useAttn=mv_attn,channels=channels)
