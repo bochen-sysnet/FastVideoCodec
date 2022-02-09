@@ -1790,7 +1790,7 @@ class LSVC(nn.Module):
 
         return total_bits, prob
 
-    def res_codec(self,input_residual,context=None):
+    def res_codec(self,input_residual):
         feature = self.resEncoder(input_residual)
         z = self.respriorEncoder(feature)
 
