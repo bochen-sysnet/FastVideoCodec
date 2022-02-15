@@ -1658,7 +1658,7 @@ class SPVC(nn.Module):
     def init_hidden(self, h, w, device):
         return None
 
-from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator,out_channel_M,out_channel_N
+from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator,out_channel_M,out_channel_N,out_channel_mv
 
 class LSVC(nn.Module):
     def __init__(self, name, loss_type='P', compression_level=3):
@@ -1688,7 +1688,7 @@ class LSVC(nn.Module):
             self.bitEstimator_z = BitEstimator(channels)
         else:
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
-            self.bitEstimator_z = BitEstimator(out_channel_z)
+            self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warpnet = Warp_net()
         self.warp_weight = 0
         self.mxrange = 150
