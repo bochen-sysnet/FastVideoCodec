@@ -37,10 +37,10 @@ class Analysis_net(nn.Module):
             self.layers = nn.ModuleList([])
             depth = 12
             for _ in range(depth):
-                ff = FeedForward(channels)
-                s_attn = Attention(channels, dim_head = 64, heads = 8)
-                t_attn = Attention(channels, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
+                ff = FeedForward(out_channels)
+                s_attn = Attention(out_channels, dim_head = 64, heads = 8)
+                t_attn = Attention(out_channels, dim_head = 64, heads = 8)
+                t_attn, s_attn, ff = map(lambda t: PreNorm(out_channels, t), (t_attn, s_attn, ff))
                 self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
