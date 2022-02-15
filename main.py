@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-A-B'
+CODEC_NAME = 'LSVC-A-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
@@ -36,8 +36,8 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1
-STEPS = [0,0]
+device = 0
+STEPS = []
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -71,7 +71,7 @@ best_codec_score = [1,0,0]
 ####### Load yowo model
 # ---------------------------------------------------------------
 # try to load codec model 
-if CODEC_NAME in []:
+if CODEC_NAME in ['LSVC-A-128']:
     # load what exists
     pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))

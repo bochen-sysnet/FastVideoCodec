@@ -425,7 +425,6 @@ def load_state_dict_all(model, state_dict):
     for name, param in state_dict.items():
         if name.endswith("._offset") or name.endswith("._quantized_cdf") or name.endswith("._cdf_length") or name.endswith(".scale_table"):
              continue
-        print(name,own_state[name].size(), param.size())
         own_state[name].copy_(param)
     
 def PSNR(Y1_raw, Y1_com, use_list=False):
@@ -1670,20 +1669,21 @@ class LSVC(nn.Module):
         self.Q = None
         mv_attn = ('-A' in name)
         res_attn = ('-A' in name)
-        self.mvEncoder = Analysis_mv_net(useAttn=mv_attn,channels=out_channel_M)
-        self.mvDecoder = Synthesis_mv_net(channels=out_channel_M)
+        channels = 128 if '-128' in name else out_channel_M 
+        self.mvEncoder = Analysis_mv_net(useAttn=mv_attn,channels=channels)
+        self.mvDecoder = Synthesis_mv_net(channels=channels)
         self.resEncoder = Analysis_net(useAttn=res_attn)
         self.resDecoder = Synthesis_net()
         self.respriorEncoder = Analysis_prior_net(useAttn=res_attn)
         self.respriorDecoder = Synthesis_prior_net()
-        self.bitEstimator_mv = BitEstimator(out_channel_M)
+        self.bitEstimator_mv = BitEstimator(channels)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warpnet = Warp_net()
         self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = False
         self.loss_type=loss_type
-        self.channels = out_channel_M
+        self.channels = channels
         self.compression_level=compression_level
         init_training_params(self)
 
