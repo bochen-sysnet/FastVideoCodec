@@ -984,8 +984,8 @@ def dynamic_simulation(args, test_dataset):
         print('Unexpected task:',args.task)
         exit(1)   
     ds_size = len(test_dataset)
-    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
-    com_level_list = [0,1,2,3] if args.Q_option == 'Slow' else [2]
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [15]
+    com_level_list = [0,1,2,3] if args.Q_option == 'Slow' else [3]
     for com_level,Q in zip(com_level_list,Q_list):
         ####### Load model
         if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
@@ -1113,7 +1113,7 @@ if __name__ == '__main__':
 
     # setup streaming parameters
     # print(args)
-    assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
+    # assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
     test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
         
     if args.mode == 'dynamic':
