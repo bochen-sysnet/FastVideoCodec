@@ -12,9 +12,10 @@ class Analysis_mv_net(nn.Module):
     def __init__(self, useAttn=False, channels=None):
         super(Analysis_mv_net, self).__init__()
         if channels is None:
-            conv_channels = out_channel_mv
+            out_channels = conv_channels = out_channel_mv
         else: 
-            conv_channels = channels
+            conv_channels = out_channel_mv
+            out_channels = channels
         self.conv1 = nn.Conv2d(2, conv_channels, 3, stride=2, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (2 + conv_channels) / (4))))
         torch.nn.init.constant_(self.conv1.bias.data, 0.01)
@@ -43,7 +44,7 @@ class Analysis_mv_net(nn.Module):
         torch.nn.init.xavier_normal_(self.conv7.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv7.bias.data, 0.01)
         self.relu7 = nn.LeakyReLU(negative_slope=0.1)
-        self.conv8 = nn.Conv2d(conv_channels, conv_channels, 3, stride=1, padding=1)
+        self.conv8 = nn.Conv2d(conv_channels, out_channels, 3, stride=1, padding=1)
         torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
         torch.nn.init.constant_(self.conv8.bias.data, 0.01)
         if useAttn:

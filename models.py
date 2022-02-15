@@ -1668,28 +1668,16 @@ class LSVC(nn.Module):
         self.useAttn = True if '-A' in name else False
         self.opticFlow = ME_Spynet()
         self.Q = None
-        if '-S' in name:
-            channels = 64
-        elif '-M' in name:
-            channels = 96
-        elif '-B' in name:
-            channels = 128
-        else:
-            channels = None
         mv_attn = ('-A' in name)
         res_attn = ('-A' in name)
-        self.mvEncoder = Analysis_mv_net(useAttn=mv_attn,channels=channels)
-        self.mvDecoder = Synthesis_mv_net(useAttn=False,channels=channels)
-        self.resEncoder = Analysis_net(useAttn=res_attn,channels=channels)
-        self.resDecoder = Synthesis_net(useAttn=False,channels=channels)
-        self.respriorEncoder = Analysis_prior_net(useAttn=res_attn,channels=channels)
-        self.respriorDecoder = Synthesis_prior_net(useAttn=False,channels=channels)
-        if channels is not None:
-            self.bitEstimator_mv = BitEstimator(channels)
-            self.bitEstimator_z = BitEstimator(channels)
-        else:
-            self.bitEstimator_mv = BitEstimator(out_channel_mv)
-            self.bitEstimator_z = BitEstimator(out_channel_N)
+        self.mvEncoder = Analysis_mv_net(useAttn=mv_attn,channels=out_channel_M)
+        self.mvDecoder = Synthesis_mv_net(channels=out_channel_M)
+        self.resEncoder = Analysis_net(useAttn=res_attn)
+        self.resDecoder = Synthesis_net()
+        self.respriorEncoder = Analysis_prior_net(useAttn=res_attn)
+        self.respriorDecoder = Synthesis_prior_net()
+        self.bitEstimator_mv = BitEstimator(out_channel_M)
+        self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warpnet = Warp_net()
         self.warp_weight = 0
         self.mxrange = 150
