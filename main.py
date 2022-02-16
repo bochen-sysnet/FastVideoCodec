@@ -71,7 +71,7 @@ best_codec_score = [1,0,0]
 ####### Load yowo model
 # ---------------------------------------------------------------
 # try to load codec model 
-if CODEC_NAME in ['LSVC-A-128']:
+if CODEC_NAME in []:
     # load what exists
     pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
