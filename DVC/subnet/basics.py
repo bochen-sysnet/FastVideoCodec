@@ -435,16 +435,15 @@ class Uniformer(nn.Module):
         attn_dropout = 0.
     ):
         super().__init__()
+        dims = (*dims, channels)
         init_dim, *_, last_dim = dims
         self.to_tokens = nn.Conv3d(channels, init_dim, (1, 1, 1), stride = (1, 1, 1), padding = (0, 0, 0))
 
-        dim_in_out = tuple(zip(dims[:-1], dims[1:]))
         mhsa_types = tuple(map(lambda t: t.lower(), mhsa_types))
 
         self.stages = nn.ModuleList([])
 
         for ind, (depth, mhsa_type) in enumerate(zip(depths, mhsa_types)):
-            is_last = ind == len(depths) - 1
             stage_dim = dims[ind]
             heads = stage_dim // dim_head
 
@@ -461,7 +460,7 @@ class Uniformer(nn.Module):
                 nn.Sequential(
                     LayerNorm3D(stage_dim),
                     nn.Conv3d(stage_dim, dims[ind + 1], (1, 1, 1), stride = (1, 1, 1)),
-                ) if not is_last else None
+                )
             ]))
 
     def forward(self, video):
