@@ -48,11 +48,6 @@ class Analysis_prior_net(nn.Module):
                 depths = (3, 4, 8, 3),              # depth at each stage
                 mhsa_types = ('l', 'l', 'g', 'g')   # aggregation type at each stage, 'l' stands for local, 'g' stands for global
             )
-        if self.useUnif:
-            B,C,H,W = x.size()
-            x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
-            x = self.uniformer(x)
-            x = x.squeeze(0).permute(1,0,2,3)
         self.useUnif = useUnif
 
     def forward(self, x):
@@ -70,6 +65,11 @@ class Analysis_prior_net(nn.Module):
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu2(self.conv2(x))
+        if self.useUnif:
+            B,C,H,W = x.size()
+            x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
+            x = self.uniformer(x)
+            x = x.squeeze(0).permute(1,0,2,3)
         return self.conv3(x)
 
 
