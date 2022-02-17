@@ -11,7 +11,7 @@ class Analysis_prior_net(nn.Module):
     '''
     Compress residual prior
     '''
-    def __init__(self, useAttn=False, channels=None):
+    def __init__(self, useAttn=False, channels=None, useUnif=False):
         super(Analysis_prior_net, self).__init__()
         if channels is None:
             in_channels = out_channel_M
@@ -41,6 +41,19 @@ class Analysis_prior_net(nn.Module):
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
+        if useUnif:
+            self.uniformer = Uniformer(
+                channels = conv_channels,
+                dims = (64, 128, 256, 512),         # feature dimensions per stage (4 stages)
+                depths = (3, 4, 8, 3),              # depth at each stage
+                mhsa_types = ('l', 'l', 'g', 'g')   # aggregation type at each stage, 'l' stands for local, 'g' stands for global
+            )
+        if self.useUnif:
+            B,C,H,W = x.size()
+            x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
+            x = self.uniformer(x)
+            x = x.squeeze(0).permute(1,0,2,3)
+        self.useUnif = useUnif
 
     def forward(self, x):
         x = torch.abs(x)

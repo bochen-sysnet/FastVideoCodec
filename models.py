@@ -1672,9 +1672,9 @@ class LSVC(nn.Module):
         channels = 128 if '-128' in name else out_channel_M 
         self.mvEncoder = Analysis_mv_net(useAttn=useAttn,channels=channels,useUnif=useUnif)
         self.mvDecoder = Synthesis_mv_net(channels=channels)
-        self.resEncoder = Analysis_net(useAttn=useAttn)
+        self.resEncoder = Analysis_net(useAttn=useAttn,useUnif=useUnif)
         self.resDecoder = Synthesis_net()
-        self.respriorEncoder = Analysis_prior_net(useAttn=useAttn)
+        self.respriorEncoder = Analysis_prior_net(useAttn=useAttn,useUnif=useUnif)
         self.respriorDecoder = Synthesis_prior_net()
         self.bitEstimator_mv = BitEstimator(channels)
         self.bitEstimator_z = BitEstimator(out_channel_N)
