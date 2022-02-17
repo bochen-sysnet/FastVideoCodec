@@ -435,8 +435,8 @@ class Uniformer(nn.Module):
         attn_dropout = 0.
     ):
         super().__init__()
-        dims = (*dims, channels)
         init_dim, *_, last_dim = dims
+        dims = (*dims, channels)
         self.to_tokens = nn.Conv3d(channels, init_dim, (1, 1, 1), stride = (1, 1, 1), padding = (0, 0, 0))
 
         mhsa_types = tuple(map(lambda t: t.lower(), mhsa_types))

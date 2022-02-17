@@ -61,7 +61,8 @@ class Analysis_mv_net(nn.Module):
         self.useAttn = useAttn
         if useUnif:
             self.uniformer = Uniformer(
-                dims = (64, 128, 512, 128),         # feature dimensions per stage (4 stages)
+                channels = out_channels,
+                dims = (64, 128, 256, 512),         # feature dimensions per stage (4 stages)
                 depths = (3, 4, 8, 3),              # depth at each stage
                 mhsa_types = ('l', 'l', 'g', 'g')   # aggregation type at each stage, 'l' stands for local, 'g' stands for global
             )
