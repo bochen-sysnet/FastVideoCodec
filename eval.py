@@ -1129,7 +1129,7 @@ if __name__ == '__main__':
     # setup streaming parameters
     # print(args)
     # assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(448,448))
         
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
