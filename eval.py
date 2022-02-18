@@ -485,7 +485,9 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         frame = frame.reshape((height, width, 3))
         if args.use_disp:
             cv2.imshow("H.264", frame)
-            cv2.setWindowTitle("H.264", f"[H.264] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
+            bpp_list = [0.18,0.19,0.29]
+            bpp = bpp_list[int(args.dataset[-1])]
+            cv2.setWindowTitle("H.264", f"[H.264] PSNR:{psnr_module.avg:.2f}dB. bpp:{bpp:.2f}. FPS:{fps:.2f}. Rebuffering: {r_rate:.2f}. ")
             cv2.waitKey(1)
 
         if t_startup is None:
@@ -663,7 +665,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
                     cv2.imshow("LSVC", frame)
-                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
+                    bpp_list = [0.27,0.22,0.39]
+                    bpp = bpp_list[int(args.dataset[-1])]
+                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. bpp:{bpp:.2f}. FPS:{fps:.2f}. Rebuffering: {r_rate:.2f}. ")
                     cv2.waitKey(1)
             # rebuffer
             if t_startup is not None:
@@ -699,7 +703,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
                     cv2.imshow("LSVC", frame)
-                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
+                    bpp_list = [0.27,0.22,0.39]
+                    bpp = bpp_list[int(args.dataset[-1])]
+                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. bpp:{bpp:.2f}. FPS:{fps:.2f}. Rebuffering: {r_rate:.2f}. ")
                     cv2.waitKey(1)
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
@@ -726,7 +732,9 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
                     cv2.imshow("LSVC", frame)
-                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
+                    bpp_list = [0.27,0.22,0.39]
+                    bpp = bpp_list[int(args.dataset[-1])]
+                    cv2.setWindowTitle("LSVC", f"[LSVC] PSNR:{psnr_module.avg:.2f}dB. bpp:{bpp:.2f}. FPS:{fps:.2f}. Rebuffering: {r_rate:.2f}. ")
                     cv2.waitKey(33)
 
         # start rebuffering after receiving a gop
@@ -906,7 +914,9 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 frame = transforms.ToPILImage()(x_ref.squeeze(0))
                 frame = np.array(frame)
                 cv2.imshow("RLVC", frame)
-                cv2.setWindowTitle("RLVC", f"[RLVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
+                bpp_list = [0.18,0.14,0.24]
+                bpp = bpp_list[int(args.dataset[-1])]
+                cv2.setWindowTitle("RLVC", f"[RLVC] PSNR:{psnr_module.avg:.2f}dB. bpp:{bpp:.2f}. FPS:{fps:.2f}. Rebuffering: {r_rate:.2f}. ")
                 cv2.waitKey(1)
         elif p == args.fP or i == L-1:
             # get current GoP 
@@ -948,7 +958,9 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     frame = transforms.ToPILImage()(frame.squeeze(0))
                     frame = np.array(frame)
                     cv2.imshow("RLVC", frame)
-                    cv2.setWindowTitle("RLVC", f"[RLVC] PSNR:{psnr_module.avg:.2f}dB. FPS:{fps:.2f}. Rebuffering Rate: {r_rate:.2f}. ")
+                    bpp_list = [0.18,0.14,0.24]
+                    bpp = bpp_list[int(args.dataset[-1])]
+                    cv2.setWindowTitle("RLVC", f"[RLVC] PSNR:{psnr_module.avg:.2f}dB. bpp:{bpp:.2f}. FPS:{fps:.2f}. Rebuffering: {r_rate:.2f}. ")
                     cv2.waitKey(33)
 
 
@@ -1065,6 +1077,9 @@ def dynamic_simulation(args, test_dataset):
 # Rebuffering ratio is the ratio between the rebuffering duration and the actual duration of video that played (rebuffering duration / playback duration)
 # sudo ufw allow 53
 # sudo ufw status verbose
+# x265    0.18,35.79  0.19,35.26  0.29,33.46
+# LSVC-A  0.27,32.65  0.22,36.06  0.39,33.31
+# RLVC    0.18,32.07  0.14,35.12  0.24,32.46
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
