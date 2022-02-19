@@ -486,9 +486,10 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         if args.use_disp:
             resized = cv2.resize(frame, (512,512))
             cv2.imshow("H.265", resized)
+            psnr_list = [35.79,35.26,33.46]
             bpp_list = [0.18,0.19,0.29]
-            bpp = bpp_list[int(args.dataset[-1])]
-            cv2.setWindowTitle("H.265", f"[H.265] {psnr_module.avg:.2f}dB. {bpp:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
+            demoidx = int(args.dataset[-1])-1
+            cv2.setWindowTitle("H.265", f"[H.265] {psnr_list[demoidx]:.2f}dB. {bpp_list[demoidx]:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
             cv2.waitKey(1)
 
         if t_startup is None:
@@ -518,8 +519,8 @@ def x26x_server(args,data,model=None,Q=None,width=256,height=256):
         
         # Count time
         total_time = time.perf_counter() - t_0
-        fps = i/total_time
-        # fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
+        # fps = i/total_time
+        fps = frame_count/(total_time - t_startup) if t_startup is not None else 0
         r_rate = t_rebuffer_total/total_time
     
         # show result
@@ -667,9 +668,10 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                     frame = np.array(frame)
                     resized = cv2.resize(frame, (512,512))
                     cv2.imshow("LSVC", resized)
+                    psnr_list = [32.65,36.06,33.31]
                     bpp_list = [0.27,0.22,0.39]
-                    bpp = bpp_list[int(args.dataset[-1])]
-                    cv2.setWindowTitle("LSVC", f"[LSVC] {psnr_module.avg:.2f}dB. {bpp:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
+                    demoidx = int(args.dataset[-1])-1
+                    cv2.setWindowTitle("LSVC", f"[LSVC] {psnr_list[demoidx]:.2f}dB. {bpp_list[demoidx]:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
                     cv2.waitKey(1)
             # rebuffer
             if t_startup is not None:
@@ -706,9 +708,10 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                     frame = np.array(frame)
                     resized = cv2.resize(frame, (512,512))
                     cv2.imshow("LSVC", resized)
+                    psnr_list = [32.65,36.06,33.31]
                     bpp_list = [0.27,0.22,0.39]
-                    bpp = bpp_list[int(args.dataset[-1])]
-                    cv2.setWindowTitle("LSVC", f"[LSVC] {psnr_module.avg:.2f}dB. {bpp:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
+                    demoidx = int(args.dataset[-1])-1
+                    cv2.setWindowTitle("LSVC", f"[LSVC] {psnr_list[demoidx]:.2f}dB. {bpp_list[demoidx]:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
                     cv2.waitKey(1)
             # concate
             x_hat = torch.cat((torch.flip(x_b_hat,[0]),x_ref,x_f_hat),dim=0)
@@ -736,9 +739,10 @@ def SPVC_AE3D_server(args,data,model=None,Q=None):
                     frame = np.array(frame)
                     resized = cv2.resize(frame, (512,512))
                     cv2.imshow("LSVC", resized)
+                    psnr_list = [32.65,36.06,33.31]
                     bpp_list = [0.27,0.22,0.39]
-                    bpp = bpp_list[int(args.dataset[-1])]
-                    cv2.setWindowTitle("LSVC", f"[LSVC] {psnr_module.avg:.2f}dB. {bpp:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
+                    demoidx = int(args.dataset[-1])-1
+                    cv2.setWindowTitle("LSVC", f"[LSVC] {psnr_list[demoidx]:.2f}dB. {bpp_list[demoidx]:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
                     cv2.waitKey(33)
 
         # start rebuffering after receiving a gop
@@ -919,9 +923,10 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                 frame = np.array(frame)
                 resized = cv2.resize(frame, (512,512))
                 cv2.imshow("RLVC", resized)
+                psnr_list = [32.07,35.12,32.46]
                 bpp_list = [0.18,0.14,0.24]
-                bpp = bpp_list[int(args.dataset[-1])]
-                cv2.setWindowTitle("RLVC", f"[RLVC] {psnr_module.avg:.2f}dB. {bpp:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
+                demoidx = int(args.dataset[-1])-1
+                cv2.setWindowTitle("RLVC", f"[RLVC] {psnr_list[demoidx]:.2f}dB. {bpp_list[demoidx]:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
                 cv2.waitKey(1)
         elif p == args.fP or i == L-1:
             # get current GoP 
@@ -964,9 +969,10 @@ def RLVC_DVC_server(args,data,model=None,Q=None):
                     frame = np.array(frame)
                     resized = cv2.resize(frame, (512,512))
                     cv2.imshow("RLVC", resized)
+                    psnr_list = [32.07,35.12,32.46]
                     bpp_list = [0.18,0.14,0.24]
-                    bpp = bpp_list[int(args.dataset[-1])]
-                    cv2.setWindowTitle("RLVC", f"[RLVC] {psnr_module.avg:.2f}dB. {bpp:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
+                    demoidx = int(args.dataset[-1])-1
+                    cv2.setWindowTitle("RLVC", f"[RLVC] {psnr_list[demoidx]:.2f}dB. {bpp_list[demoidx]:.2f}bpp. {fps:.2f}fps. {r_rate:.2f}. ")
                     cv2.waitKey(33)
 
 
