@@ -425,7 +425,9 @@ def load_state_dict_all(model, state_dict):
     for name, param in state_dict.items():
         if name.endswith("._offset") or name.endswith("._quantized_cdf") or name.endswith("._cdf_length") or name.endswith(".scale_table"):
              continue
+        print(name,own_state[name].size())
         own_state[name].copy_(param)
+    exit(0)
     
 def PSNR(Y1_raw, Y1_com, use_list=False):
     Y1_com = Y1_com.to(Y1_raw.device)
