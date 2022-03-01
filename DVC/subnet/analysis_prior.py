@@ -41,14 +41,6 @@ class Analysis_prior_net(nn.Module):
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
-        if useUnif:
-            self.uniformer = Uniformer(
-                channels = conv_channels,
-                dims = (64, 128, 256, 512),         # feature dimensions per stage (4 stages)
-                depths = (3, 4, 8, 3),              # depth at each stage
-                mhsa_types = ('l', 'l', 'g', 'g')   # aggregation type at each stage, 'l' stands for local, 'g' stands for global
-            )
-        self.useUnif = useUnif
 
     def forward(self, x):
         x = torch.abs(x)
@@ -65,11 +57,6 @@ class Analysis_prior_net(nn.Module):
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu2(self.conv2(x))
-        if self.useUnif:
-            B,C,H,W = x.size()
-            x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
-            x = self.uniformer(x)
-            x = x.squeeze(0).permute(1,0,2,3)
         return self.conv3(x)
 
 

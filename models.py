@@ -425,9 +425,7 @@ def load_state_dict_all(model, state_dict):
     for name, param in state_dict.items():
         if name.endswith("._offset") or name.endswith("._quantized_cdf") or name.endswith("._cdf_length") or name.endswith(".scale_table"):
              continue
-        print(name,own_state[name].size())
         own_state[name].copy_(param)
-    exit(0)
     
 def PSNR(Y1_raw, Y1_com, use_list=False):
     Y1_com = Y1_com.to(Y1_raw.device)
@@ -1670,13 +1668,12 @@ class LSVC(nn.Module):
         self.opticFlow = ME_Spynet()
         self.Q = None
         useAttn = ('-A' in name)
-        useUnif = ('-U' in name)
         channels = 128 if '-128' in name else out_channel_M 
-        self.mvEncoder = Analysis_mv_net(useAttn=useAttn,channels=channels,useUnif=useUnif)
+        self.mvEncoder = Analysis_mv_net(useAttn=useAttn,channels=channels)
         self.mvDecoder = Synthesis_mv_net(channels=channels)
-        self.resEncoder = Analysis_net(useAttn=useAttn,useUnif=useUnif)
+        self.resEncoder = Analysis_net(useAttn=useAttn)
         self.resDecoder = Synthesis_net()
-        self.respriorEncoder = Analysis_prior_net(useAttn=useAttn,useUnif=useUnif)
+        self.respriorEncoder = Analysis_prior_net(useAttn=useAttn)
         self.respriorDecoder = Synthesis_prior_net()
         self.bitEstimator_mv = BitEstimator(channels)
         self.bitEstimator_z = BitEstimator(out_channel_N)

@@ -6,6 +6,6 @@ from .synthesis import Synthesis_net
 from .synthesis_mv import Synthesis_mv_net
 from .synthesis_prior import Synthesis_prior_net
 from .endecoder import ME_Spynet, flow_warp, Warp_net
-from .bitEstimator import BitEstimator
+from .bitEstimator import BitEstimator, Bitparm
 from .basics import *
 from .ms_ssim_torch import ms_ssim, ssim

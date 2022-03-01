@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, channels=None, useUnif=False):
+    def __init__(self, useAttn=False, channels=None):
         super(Analysis_mv_net, self).__init__()
         if channels is None:
             out_channels = conv_channels = out_channel_mv
@@ -59,14 +59,6 @@ class Analysis_mv_net(nn.Module):
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
-        if useUnif:
-            self.uniformer = Uniformer(
-                channels = out_channels,
-                dims = (64, 128, 256, 512),         # feature dimensions per stage (4 stages)
-                depths = (3, 4, 8, 3),              # depth at each stage
-                mhsa_types = ('l', 'l', 'g', 'g')   # aggregation type at each stage, 'l' stands for local, 'g' stands for global
-            )
-        self.useUnif = useUnif
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -88,11 +80,6 @@ class Analysis_mv_net(nn.Module):
                 x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
-        if self.useUnif:
-            B,C,H,W = x.size()
-            x = x.permute(1,0,2,3).unsqueeze(0).contiguous()
-            x = self.uniformer(x)
-            x = x.squeeze(0).permute(1,0,2,3)
         return x
 
 def build_model():
