@@ -86,7 +86,7 @@ else:
 if not PRUNING:
     hook = None
 else:
-    hook = FisherPruningHook()
+    hook = FisherPruningHook(pruning=True)
     hook.after_build_model(model)
     hook.before_run(model)
 
@@ -206,7 +206,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         else:
             train_iter.set_description(
                 f"{batch_idx:6}. "
-                f"F: {hook.total_flops:.4f}. A: {hook.total_acts:.4f}"
+                f"F: {hook.total_flops:.4f}. A: {hook.total_acts:.4f}. "
                 f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
                 f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
                 f"BR: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
