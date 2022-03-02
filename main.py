@@ -53,13 +53,15 @@ if use_cuda:
 
 ####### Create model
 
+# codec model
+model = get_codec_model(CODEC_NAME, 
+                        loss_type=loss_type, 
+                        compression_level=compression_level,
+                        use_split=False)
+model = model.cuda(device)
+
+# load model
 if not PRUNING:
-    # codec model .
-    model = get_codec_model(CODEC_NAME, 
-                            loss_type=loss_type, 
-                            compression_level=compression_level,
-                            use_split=False)
-    model = model.cuda(device)
     if CODEC_NAME in []:
         # load what exists
         pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
@@ -68,10 +70,6 @@ if not PRUNING:
         load_state_dict_whatever(model, checkpoint['state_dict'])
         del checkpoint
         print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-        # with open(f'DVC/snapshot/2048.model', 'rb') as f:
-        #    pretrained_dict = torch.load(f)
-        #    load_state_dict_only(model, pretrained_dict, 'warpnet')
-        #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
     elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
         checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
@@ -84,7 +82,6 @@ if not PRUNING:
         print("Cannot load model codec", RESUME_CODEC_PATH)
     hook = None
 else:
-    model = LSVC('LSVC-A',loss_type='P', compression_level=3).cuda(device)
     hook = FisherPruningHook(deploy_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
