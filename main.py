@@ -24,6 +24,8 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 
 from dataset import VideoDataset, FrameDataset
 
+from prune import FisherPruningHook
+
 # OPTION
 CODEC_NAME = 'LSVC-A'
 SAVE_DIR = f'backup/{CODEC_NAME}'
