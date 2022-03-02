@@ -40,7 +40,7 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 1
 STEPS = []
-PRUNING = False
+PRUNING = True
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -153,7 +153,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             bpp_res_est_list = []
         else:
             _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
-        print(img_loss_list,data.size(),model.name)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
