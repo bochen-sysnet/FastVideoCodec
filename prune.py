@@ -113,6 +113,8 @@ class FisherPruningHook():
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             self.print_model(model)
+        else:
+            load_checkpoint(model, self.deploy_from)
 
     def before_run(self, model):
         """Initialize the relevant variables(fisher, flops and acts) for
