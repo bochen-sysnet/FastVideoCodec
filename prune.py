@@ -107,8 +107,6 @@ class FisherPruningHook():
         """
 
         if not self.pruning:
-            # for name, module in model.named_modules():
-            #     add_pruning_attrs(module)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             self.print_model(model)
@@ -175,6 +173,9 @@ class FisherPruningHook():
 
     def update_flop_act(self, model, work_dir='work_dir/'):
         flops, acts = self.compute_flops_acts()
+        save_checkpoint(model, filename='work_dir/ckpt.pth')
+        print(model.state_dict())
+        exit(0)
         if len(self.save_flops_thr):
             flops_thr = self.save_flops_thr[0]
             if flops < flops_thr:
