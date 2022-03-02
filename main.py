@@ -151,12 +151,12 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             bpp_res_est_list = []
         else:
             _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        print(img_loss_list,data.size())
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
         be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
-        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0) if aux_loss_list else 0
-        print(img_loss_list)
+        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
@@ -168,7 +168,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             loss = model.loss(img_loss,be_loss,aux_loss)
         
         # record loss
-        aux_loss_module.update(aux_loss.cpu().data.item() if aux_loss_list else 0, l)
+        aux_loss_module.update(aux_loss.cpu().data.item(), l)
         img_loss_module.update(img_loss.cpu().data.item(), l)
         be_loss_module.update(be_loss.cpu().data.item(), l)
         be_res_loss_module.update(be_res_loss.cpu().data.item() if bpp_res_est_list else 0, l)
