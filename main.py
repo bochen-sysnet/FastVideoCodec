@@ -38,11 +38,11 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 0
 STEPS = []
+PRUNING = True
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
-####### Create model
 seed = int(time.time())
 #seed = int(0)
 torch.manual_seed(seed)
@@ -51,12 +51,45 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
-# codec model .
-model = get_codec_model(CODEC_NAME, 
-                        loss_type=loss_type, 
-                        compression_level=compression_level,
-                        use_split=False)
-model = model.cuda(device)
+####### Create model
+
+if not PRUNING:
+    # codec model .
+    model = get_codec_model(CODEC_NAME, 
+                            loss_type=loss_type, 
+                            compression_level=compression_level,
+                            use_split=False)
+    model = model.cuda(device)
+    if CODEC_NAME in []:
+        # load what exists
+        pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
+        checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
+        best_codec_score = checkpoint['score']
+        load_state_dict_whatever(model, checkpoint['state_dict'])
+        del checkpoint
+        print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
+        # with open(f'DVC/snapshot/2048.model', 'rb') as f:
+        #    pretrained_dict = torch.load(f)
+        #    load_state_dict_only(model, pretrained_dict, 'warpnet')
+        #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
+    elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+        # BEGIN_EPOCH = checkpoint['epoch'] + 1
+        best_codec_score = checkpoint['score']
+        load_state_dict_all(model, checkpoint['state_dict'])
+        print("Loaded model codec score: ", checkpoint['score'])
+        del checkpoint
+    else:
+        print("Cannot load model codec", RESUME_CODEC_PATH)
+    hook = None
+else:
+    model = LSVC('LSVC-A',loss_type='P', compression_level=3).cuda(device)
+    hook = FisherPruningHook(deploy_from=RESUME_CODEC_PATH)
+    hook.after_build_model(model)
+    hook.before_run(model)
+
+
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
@@ -68,31 +101,6 @@ optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 
 # initialize best score
 best_codec_score = [1,0,0]
 
-####### Load yowo model
-# ---------------------------------------------------------------
-# try to load codec model 
-if CODEC_NAME in []:
-    # load what exists
-    pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
-    checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
-    best_codec_score = checkpoint['score']
-    load_state_dict_whatever(model, checkpoint['state_dict'])
-    del checkpoint
-    print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-    # with open(f'DVC/snapshot/2048.model', 'rb') as f:
-    #    pretrained_dict = torch.load(f)
-    #    load_state_dict_only(model, pretrained_dict, 'warpnet')
-    #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    # BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
-else:
-    print("Cannot load model codec", RESUME_CODEC_PATH)
 print("===================================================================")
 
 class AverageMeter(object):
@@ -113,7 +121,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset,test_dataset2):
+def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2, hook=None):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -172,6 +180,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         # backward
         scaler.scale(loss).backward()
+
+        if hook is not None:
+            hook.after_train_iter(batch_idx)
+
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:
             scaler.step(optimizer)
@@ -179,16 +191,27 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             optimizer.zero_grad()
             
         # show result
-        train_iter.set_description(
-            f"{batch_idx:6}. "
-            f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-            f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
-            f"BR: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
-            f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"MC: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"WP: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
-            f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
+        if hook is None:
+            train_iter.set_description(
+                f"{batch_idx:6}. "
+                f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+                f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+                f"BR: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
+                f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"MC: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+                f"WP: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
+                f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
+        else:
+            train_iter.set_description(
+                f"{batch_idx:6}. "
+                f"F: {hook.total_flops:.4f}. A: {hook.total_acts:.4f}"
+                f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+                f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+                f"BR: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
+                f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
 
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
@@ -309,7 +332,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2)
+    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2, hook=hook)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)

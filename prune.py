@@ -171,8 +171,28 @@ class FisherPruningHook():
         if itr % self.interval == 0:
             self.channel_prune()
             self.init_accum_fishers()
-            self.print_model(model, print_channel=False)
+            self.total_flops, self.total_acts = self.update_flop_act(model)
         self.init_flops_acts()
+
+    def update_flop_act(self, model, work_dir='work_dir/'):
+        flops, acts = self.compute_flops_acts()
+        if len(self.save_flops_thr):
+            flops_thr = self.save_flops_thr[0]
+            if flops < flops_thr:
+                self.save_flops_thr.pop(0)
+                path = osp.join(
+                    work_dir, 'flops_{:.0f}_acts_{:.0f}.pth'.format(
+                        flops * 100, acts * 100))
+                save_checkpoint(model, filename=path)
+        if len(self.save_acts_thr):
+            acts_thr = self.save_acts_thr[0]
+            if acts < acts_thr:
+                self.save_acts_thr.pop(0)
+                path = osp.join(
+                    work_dir, 'acts_{:.0f}_flops_{:.0f}.pth'.format(
+                        acts * 100, flops * 100))
+                save_checkpoint(model, filename=path)
+        return flops, acts
 
     def print_model(self, model, work_dir='work_dir/', print_flops_acts=True, print_channel=True):
         """Print the related information of the current model.
@@ -186,24 +206,8 @@ class FisherPruningHook():
         """
 
         if print_flops_acts:
-            flops, acts = self.compute_flops_acts()
+            flops, acts = self.update_flop_act(model, work_dir)
             print('Flops: {:.2f}%, Acts: {:.2f}%'.format(flops * 100, acts * 100))
-            if len(self.save_flops_thr):
-                flops_thr = self.save_flops_thr[0]
-                if flops < flops_thr:
-                    self.save_flops_thr.pop(0)
-                    path = osp.join(
-                        work_dir, 'flops_{:.0f}_acts_{:.0f}.pth'.format(
-                            flops * 100, acts * 100))
-                    save_checkpoint(model, filename=path)
-            if len(self.save_acts_thr):
-                acts_thr = self.save_acts_thr[0]
-                if acts < acts_thr:
-                    self.save_acts_thr.pop(0)
-                    path = osp.join(
-                        work_dir, 'acts_{:.0f}_flops_{:.0f}.pth'.format(
-                            acts * 100, flops * 100))
-                    save_checkpoint(model, filename=path)
         if print_channel:
             for module, name in self.conv_names.items():
                 chans_i = int(module.in_mask.sum().cpu().numpy())
@@ -336,7 +340,6 @@ class FisherPruningHook():
                 fisher /= float(self.acts[group] / 1e6)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
-        print(module.name,channel)
         # only modify in_mask is sufficient
         if isinstance(module, int):
             # the case for multiple modules in a group
@@ -868,3 +871,4 @@ if __name__ == '__main__':
 
     loss.backward()
     hook.after_train_iter(0)
+    print(hook.total_flops,hook.total_acts)
