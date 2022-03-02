@@ -843,8 +843,8 @@ def deploy_pruning(model):
         elif type(module).__name__ == 'Bitparm':
             in_mask = module.in_mask.bool()
             requires_grad = module.h.requires_grad
-            module.h = nn.Parameter(model.h.data[:,in_mask].data)
-            module.b = nn.Parameter(model.b.data[:,in_mask].data)
+            module.h = nn.Parameter(module.h.data[:,in_mask].data)
+            module.b = nn.Parameter(module.b.data[:,in_mask].data)
             module.h.requires_grad = requires_grad
             module.b.requires_grad = requires_grad
 
