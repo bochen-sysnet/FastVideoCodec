@@ -178,7 +178,6 @@ class FisherPruningHook():
 
     def update_flop_act(self, model, work_dir='work_dir/'):
         flops, acts = self.compute_flops_acts()
-        save_checkpoint(model, filename='work_dir/ckpt.pth')
         if len(self.save_flops_thr):
             flops_thr = self.save_flops_thr[0]
             if flops < flops_thr:
