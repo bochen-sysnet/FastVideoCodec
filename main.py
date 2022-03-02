@@ -183,7 +183,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         scaler.scale(loss).backward()
 
         if hook is not None:
-            hook.after_train_iter(batch_idx)
+            hook.after_train_iter(batch_idx, model)
 
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:

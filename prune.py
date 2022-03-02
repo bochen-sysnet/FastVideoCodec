@@ -159,7 +159,7 @@ class FisherPruningHook():
             module.register_forward_hook(self.save_input_forward_hook)
         # self.print_model(model, print_flops_acts=False)
 
-    def after_train_iter(self, itr):
+    def after_train_iter(self, itr, model):
         # compute fisher
         for module, name in self.conv_names.items():
             self.compute_fisher_backward_hook(module)
