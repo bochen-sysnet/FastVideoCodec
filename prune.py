@@ -725,6 +725,11 @@ def add_pruning_attrs(module, pruning=False):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
                 x = x * mask
+            else:
+                # if it has no ancestor
+                # we need to mask it
+                if x.size(1) == len(m.in_mask):
+                    x = x[:,m.in_mask,:,:]
             output = F.conv2d(x, m.weight, m.bias, m.stride,
                             m.padding, m.dilation, m.groups)
             m.output_size = output.size()
