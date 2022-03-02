@@ -84,7 +84,7 @@ if not PRUNING:
         print("Cannot load model codec", RESUME_CODEC_PATH)
     hook = None
 else:
-    hook = FisherPruningHook(pruning=False, deploy_from='word_dir/ckpt.pth')
+    hook = FisherPruningHook(pruning=False, deploy_from='work_dir/ckpt.pth')
     hook.after_build_model(model)
     hook.before_run(model)
 
