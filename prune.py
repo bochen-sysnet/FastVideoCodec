@@ -109,6 +109,7 @@ class FisherPruningHook():
         if not self.pruning:
             # for name, module in model.named_modules():
             #     add_pruning_attrs(module)
+            load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             self.print_model(model)
 
