@@ -107,6 +107,9 @@ class FisherPruningHook():
         """
 
         if not self.pruning:
+            for n, m in model.named_modules():
+                if n: m.name = n
+                add_pruning_attrs(m, pruning=self.pruning)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             self.print_model(model)
@@ -122,16 +125,15 @@ class FisherPruningHook():
         self.name2module = OrderedDict()
 
         for n, m in model.named_modules():
+            if n: m.name = n
+            if self.pruning:
+                add_pruning_attrs(m, pruning=self.pruning)
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear) or isinstance(m, Bitparm):
-                m.name = n
                 self.conv_names[m] = n
                 self.name2module[n] = m
             elif isinstance(m, nn.LayerNorm):
-                m.name = n
                 self.ln_names[m] = n
                 self.name2module[n] = m
-            if self.pruning and n:
-                add_pruning_attrs(m, pruning=self.pruning)
 
         if self.pruning:
             # divide the conv to several group and all convs in same
@@ -173,9 +175,8 @@ class FisherPruningHook():
 
     def update_flop_act(self, model, work_dir='work_dir/'):
         flops, acts = self.compute_flops_acts()
-        save_checkpoint(model, filename='work_dir/ckpt.pth')
-        print(model.state_dict())
-        exit(0)
+        # save_checkpoint(model, filename='work_dir/ckpt.pth')
+        # print(model.state_dict())
         if len(self.save_flops_thr):
             flops_thr = self.save_flops_thr[0]
             if flops < flops_thr:
