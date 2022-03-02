@@ -42,8 +42,6 @@ class FisherPruningHook():
             Default: True
         delta (str): "acts" or "flops", prune the model by
             "acts" or flops. Default: "acts"
-        batch_size (int): The batch_size when pruning model.
-            Default: 2
         interval (int): The interval of  pruning two channels.
             Default: 10
         deploy_from (str): Path of checkpoint containing the structure
@@ -60,7 +58,6 @@ class FisherPruningHook():
         self,
         pruning=True,
         delta='acts',
-        batch_size=2,
         interval=10,
         deploy_from=None,
         save_flops_thr=[0.75, 0.5, 0.25],
@@ -71,7 +68,6 @@ class FisherPruningHook():
         self.pruning = pruning
         self.delta = delta
         self.interval = interval
-        self.batch_size = batch_size
         # The key of self.flops is conv module, and value of it
         # is the summation of conv's flops in forward process
         self.flops = {}
@@ -110,12 +106,12 @@ class FisherPruningHook():
         optimizer's initialization
         """
 
+        load_checkpoint(model, self.deploy_from)
         if not self.pruning:
             for name, module in model.named_modules():
                 add_pruning_attrs(module)
             assert self.deploy_from, 'You have to give a ckpt' \
                 'containing the structure information of the pruning model'
-            load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
 
     def before_run(self, model):
@@ -149,25 +145,30 @@ class FisherPruningHook():
             # outchannel is correlated with inchannel
             self.construct_outchannel_masks()
             for conv, name in self.conv_names.items():
-                self.temp_fisher_info[conv] = conv.in_mask.data.new_zeros(
-                    self.batch_size, len(conv.in_mask)) # fisher info of every in_channel
+                self.temp_fisher_info[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask)) # fisher info of every in_channel
                 self.accum_fishers[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask))
             for group_id in self.groups:
                 module = self.groups[group_id][0]
-                self.temp_fisher_info[group_id] = conv.in_mask.data.new_zeros(
-                    self.batch_size, len(conv.in_mask))
-                self.accum_fishers[group_id] = conv.in_mask.data.new_zeros(len(conv.in_mask))
+                self.temp_fisher_info[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
+                self.accum_fishers[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
             self.init_flops_acts()
             self.init_temp_fishers()
-        self.print_model(model, print_flops_acts=False)
 
-    def after_train_iter(self, runner):
+        # register forward hook
+        for module, name in self.conv_names.items():
+            module.register_forward_hook(self.save_input_forward_hook)
+        # self.print_model(model, print_flops_acts=False)
+
+    def after_train_iter(self, itr):
+        # compute fisher
+        for module, name in self.conv_names.items():
+            self.compute_fisher_backward_hook(module)
         if not self.pruning:
             return
         self.group_fishers()
         self.accumulate_fishers()
         self.init_temp_fishers()
-        if self.every_n_iters(runner, self.interval):
+        if itr % self.interval == 0:
             self.channel_prune()
             self.init_accum_fishers()
             self.print_model(model, print_channel=False)
@@ -254,6 +255,10 @@ class FisherPruningHook():
                 min : the value of fisher / delta
         """
         module_info = {}
+        # if hasattr(module,'name'):
+        #     print(module.name, fisher.min())
+        # else:
+        #     print(module,fisher.min())
         if fisher.sum() > 0 and in_mask.sum() > 0:
             nonzero = in_mask.nonzero().view(-1)
             fisher = fisher[nonzero]
@@ -295,17 +300,21 @@ class FisherPruningHook():
                 # reduced in entire forward process after we set a
                 # zero in `in_mask` of a specific conv_module.
                 # this affects both current and ancestor module
+                # flops per channel
+                in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
                 delta_flops = self.flops[module] * module.out_mask.sum() / (
-                    module.in_channels * module.out_channels)
+                    module.in_channels * module.out_channels) * in_rep
                 for ancestor in ancestors:
+                    out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_flops += self.flops[ancestor] * ancestor.in_mask.sum(
-                    ) / (ancestor.in_channels * ancestor.out_channels)
+                    ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
                 fisher /= (float(delta_flops) / 1e9)
             if self.delta == 'acts':
                 # activation only counts ancestors
                 delta_acts = 0
                 for ancestor in ancestors:
-                    delta_acts += self.acts[ancestor] / ancestor.out_channels
+                    out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
+                    delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
@@ -325,17 +334,17 @@ class FisherPruningHook():
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
-            info.update(self.find_pruning_channel(group, fisher, in_mask,
-                                                  info))
+            info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
+        print(module.name,channel)
         # only modify in_mask is sufficient
         if isinstance(module, int):
             # the case for multiple modules in a group
             for m in self.groups[module]:
-                m.in_mask[0, channel] = 0
+                m.in_mask[channel] = 0
         elif module is not None:
             # the case for single module
-            module.in_mask[0, channel] = 0
+            module.in_mask[channel] = 0
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
@@ -357,26 +366,30 @@ class FisherPruningHook():
                 module_fisher = self.temp_fisher_info[module]
                 self.temp_fisher_info[group] += module_fisher 
                 # accumulate flops per in_channel per batch for each group
-                delta_flops = self.flops[module] // module.in_channels // \
-                    module.out_channels * module.out_mask.sum()
+                if type(module).__name__ != 'Bitparm': 
+                    delta_flops = self.flops[module] // module.in_channels // \
+                        module.out_channels * module.out_mask.sum()
+                else:
+                    delta_flops = self.flops[module] // module.in_channels
                 self.flops[group] += delta_flops
 
             # sum along the dim of batch
-            self.batch_fishers[group] = (
-                self.temp_fisher_info[group]**2).sum(0)
+            self.batch_fishers[group] = self.temp_fisher_info[group]**2
 
             # impact on group ancestors, whose out channels are coupled with its
             # in_channels
             for module in self.ancest[group]:
-                delta_flops = self.flops[module] // module.out_channels // \
-                        module.in_channels * module.in_mask.sum()
+                if type(module).__name__ != 'Bitparm': 
+                    delta_flops = self.flops[module] // module.out_channels // \
+                            module.in_channels * module.in_mask.sum()
+                else:
+                    delta_flops = self.flops[module] // module.out_channels
                 self.flops[group] += delta_flops
                 acts = self.acts[module] // module.out_channels
                 self.acts[group] += acts
         # the case for single modules
         for module, name in self.conv_names.items():
-            self.batch_fishers[module] = (
-                self.temp_fisher_info[module]**2).sum(0)
+            self.batch_fishers[module] = self.temp_fisher_info[module]**2
 
     def init_flops_acts(self):
         """Clear the flops and acts of model in last iter."""
@@ -391,36 +404,35 @@ class FisherPruningHook():
         for group in self.groups:
             self.temp_fisher_info[group].zero_()
 
-    def save_input_forward_hook(self, module, outputs):
+    def save_input_forward_hook(self, module, inputs, outputs):
         """Save the input and flops and acts for computing fisher and flops or
-        acts.
+        acts. Total flops
 
         Args:
             module (nn.Module): the module of register hook
-            outputs (tuple): out of module
         """
-        assert module in self.conv_names
         layer_name = type(module).__name__
         if layer_name in ['Conv2d', 'ConvTranspose2d']:
-            n, oc, oh, ow = outputs.shape
+            n, oc, oh, ow = module.output_size
             ic = module.in_channels
             kh, kw = module.kernel_size
             self.flops[module] += np.prod([n, oc, oh, ow, ic, kh, kw])
             self.acts[module] += np.prod([n, oc, oh, ow])
         elif layer_name in ['Linear']:
-            n, sl, oc = outputs.shape
+            n, sl, oc = module.output_size
             ic = module.weight.size(1)
             self.flops[module] += np.prod([n, sl, oc, ic])
             self.acts[module] += np.prod([n, sl, oc])
         elif layer_name in ['Bitparm']:
-            n, oc, oh, ow = outputs.shape
+            n, oc, oh, ow = module.output_size
             self.flops[module] += np.prod([n, oc, oh, ow])
             self.acts[module] += np.prod([n, oc, oh, ow])
         else:
             print('Unrecognized in save_input_forward_hook:',layer_name)
             exit(0)
 
-    def compute_fisher_backward_hook(self, module, grad_input):
+    def compute_fisher_backward_hook(self, module):
+        # there are some bugs in torch, not using the backward hook
         """
         Args:
             module (nn.Module): module register hooks
@@ -428,24 +440,24 @@ class FisherPruningHook():
                 grad_input[0]is the grad of input in Pytorch 1.3, it seems
                 has changed in Higher version
         """
-        def compute_fisher(grads, layer_name):
-            # why multiply the input?
-            if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
-                grads = grads.sum(-1).sum(-1) # sum over last two dimensions
+        def compute_fisher(weight, grad_weight, layer_name):
+            # information per mask channel per module
+            grads = weight*grad_weight
+            if layer_name in ['Conv2d', 'Bitparm']:
+                grads = grads.sum(-1).sum(-1).sum(0)
+            elif layer_name in ['ConvTranspose2d']:
+                grads = grads.sum(-1).sum(-1).sum(-1)
             elif layer_name in ['Linear']:
-                grads = grads.sum(-1)
+                grads = grads.sum(0)
+                grads = grads.view(module.in_rep,-1).sum(0)
             else:
                 print('Unrecognized in compute_fisher:',layer_name)
                 exit(0)
             return grads
 
-        assert module in self.conv_names and grad_input[0] is not None
         layer_name = type(module).__name__
-        grad_feature = grad_input[0]
-        # avoid that last batch is't full,
-        # but actually it's always full in mmdetection.
-        self.temp_fisher_info[module][:grad_input[0].size(0)] += \
-            compute_fisher(grad_feature, layer_name)
+        weight = module.weight if layer_name not in ['Bitparm'] else module.h
+        self.temp_fisher_info[module] += compute_fisher(weight, weight.grad, layer_name)
 
     def construct_outchannel_masks(self):
         """Register the `input_mask` of one conv to it's nearest ancestor conv,
@@ -708,12 +720,14 @@ def add_pruning_attrs(module, pruning=False):
         module.register_buffer(
             'out_mask', module.weight.new_ones((module.out_channels,), ))
         module.finetune = not pruning
-        def modified_forward(m, x):
+        def modified_forward(m, x_input):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask
-            return F.conv2d(x, m.weight, m.bias, m.stride,
+                x = x_input * mask
+            output = F.conv2d(x, m.weight, m.bias, m.stride,
                             m.padding, m.dilation, m.groups)
+            m.output_size = output.size()
+            return output
         module.forward = MethodType(modified_forward, module)
     if type(module).__name__ == 'ConvTranspose2d':
         module.register_buffer(
@@ -721,42 +735,44 @@ def add_pruning_attrs(module, pruning=False):
         module.register_buffer(
             'out_mask', module.weight.new_ones((module.out_channels,), ))
         module.finetune = not pruning
-        def modified_forward(m, x):
+        def modified_forward(m, x_input):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask
-            return F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
+                x = x_input * mask
+            output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
                     padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
+            m.output_size = output.size()
+            return output
         module.forward = MethodType(modified_forward, module)
     if  type(module).__name__ == 'Linear':
-        in_mask_size,out_mask_size = module.weight.size(1),module.weight.size(0)
+        module.in_channels,module.out_channels = module.weight.size(1),module.weight.size(0)
         if 'fn.to_qkv' in module.name:
             # qkv share the same mask
             # 8 heads share the same mask
-            out_rep = 3*8
-            in_rep = 1
+            module.out_rep = 3*8
+            module.in_rep = 1
         elif 'fn.to_out.0' in module.name:
             # 8 heads share the same mask
-            out_rep = 1
-            in_rep = 8
+            module.out_rep = 1
+            module.in_rep = 8
         elif 'fn.net.0' in module.name:
             # gate and variable share the same mask in GEGLU
-            out_rep = 2
-            in_rep = 1
+            module.out_rep = 2
+            module.in_rep = 1
         else:
-            out_rep = in_rep = 1
-        assert out_mask_size%out_rep == 0 and in_mask_size%in_rep == 0
-        out_mask_size //= out_rep
-        in_mask_size //= in_rep
+            module.out_rep = module.in_rep = 1
         module.register_buffer(
-            'in_mask', module.weight.new_ones((in_mask_size,), ))
+            'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
         module.register_buffer(
-            'out_mask', module.weight.new_ones((out_mask_size,), ))
-        def modified_forward(self, x):
-            if not self.finetune:
-                mask = self.in_mask.repeat(in_rep).view(1,1,-1)
-                x = x * mask
-            return self.forwrad(x)
+            'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
+        module.finetune = not pruning
+        def modified_forward(m, x_input):
+            if not m.finetune:
+                mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
+                x = x_input * mask
+            output = F.linear(x, m.weight, bias=m.bias)
+            m.output_size = output.size()
+            return output
         module.forward = MethodType(modified_forward, module)    
     if  type(module).__name__ == 'LayerNorm':
         # no need to modify layernorm during pruning since it is not computed over channels
@@ -767,11 +783,19 @@ def add_pruning_attrs(module, pruning=False):
             'in_mask', module.h.new_ones((module.h.size(1),), ))
         module.register_buffer(
             'out_mask', module.h.new_ones((module.h.size(1),), ))
-        def modified_forward(self, x):
-            if not self.finetune:
-                mask = self.in_mask.view(1,-1,1,1)
-                x = x * mask
-            return self.forward(x)
+        module.finetune = not pruning
+        module.in_channels = module.out_channels = module.h.size(1)
+        def modified_forward(m, x_input):
+            if not m.finetune:
+                mask = m.in_mask.view(1,-1,1,1)
+                x = x_input * mask
+            if m.final:
+                output = F.sigmoid(x * F.softplus(m.h) + m.b)
+            else:
+                x = x * F.softplus(m.h) + m.b
+                output = x + F.tanh(x) * F.tanh(m.a)
+            m.output_size = output.size()
+            return output
         module.forward = MethodType(modified_forward, module)
 
 
@@ -806,23 +830,8 @@ def deploy_pruning(model):
 
         elif type(module).__name__ == 'Linear':
             requires_grad = module.weight.requires_grad
-            if 'fn.to_qkv' in module.name:
-                # qkv share the same mask
-                # 8 heads share the same mask
-                out_rep = 3*8
-                in_rep = 1
-            elif 'fn.to_out.0' in module.name:
-                # 8 heads share the same mask
-                out_rep = 1
-                in_rep = 8
-            elif 'fn.net.0' in module.name:
-                # gate and variable share the same mask in GEGLU
-                out_rep = 2
-                in_rep = 1
-            else:
-                out_rep = in_rep = 1
-            out_mask = module.out_mask.bool().repeat(out_rep)
-            in_mask = module.in_mask.bool().repeat(in_rep)
+            out_mask = module.out_mask.bool().repeat(module.out_rep)
+            in_mask = module.in_mask.bool().repeat(module.in_rep)
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
@@ -846,42 +855,16 @@ def deploy_pruning(model):
             module.weight.requires_grad = requires_grad
             module.bias.requires_grad = requires_grad
 
+# to do: make sure linear works fine
+
 if __name__ == '__main__':
-    data = torch.randn(7,3,256,256)
+    data = torch.randn(7,3,256,256).cuda()
     model = LSVC('LSVC-A').cuda()
     hook = FisherPruningHook(deploy_from=f'backup/LSVC-A/LSVC-A-3P_best.pth')
     hook.after_build_model(model)
     hook.before_run(model)
-    # x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data)
-    # loss = rec_loss*model.r + bpp
+    x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data)
+    loss = rec_loss*model.r + bpp
 
-    # loss.backward()
-
-
-# output mask of layer 1 should be exactly the same as 
-# input mask of layer 2
-# there should be a place storing independent masks and the corresponding FLOP/MEM
-# can each conv layer should refer to this to construct a pruned model
-# image input will always have 3 channels
-# module types, conv2d, batchnorm2d, GDN/iGDN, layernorm, bitsestimator
-# share mask: every residual connection in attn block, to_qkv, different heads in attn
-# pruning one of the head does not help too much, it makes computation not parallelizable
-# ofcourse qkv should have same number of channels
-
-# def pruned_conv(x, module, in_indices, out_indices):
-#     new_x = x[:,in_indices,:,:]
-#     new_module = module
-#     new_module.weight.data = module.weight[:,in_indices,:,:][out_indices,:,:,:]
-#     new_module.bias.data = module.bias[out_indices]
-#     return new_module(new_x)
-    
-# if __name__ == '__main__':
-#     in_indices = [0,2]
-#     out_indices = [0,2,3]
-#     x = torch.randn(2,3,2,2)
-#     m = nn.Conv2d(3,4,3,stride=1,padding=1)
-#     in_mask = torch.zeros(1,3,1,1)
-#     in_mask[:,in_indices,:,:] = 1
-#     y1 = m(x*in_mask)[:,out_indices,:,:]
-#     y2 = pruned_conv(x,m,in_indices,out_indices)
-#     print(y1==y2)
+    loss.backward()
+    hook.after_train_iter(0)

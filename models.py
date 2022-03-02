@@ -19,8 +19,7 @@ from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 from torch.autograd import Function
 from torchvision import transforms
-from compressai.layers import GDN,ResidualBlock,AttentionBlock,MaskedConv2d
-from compressai.models import CompressionModel
+from compressai.layers import GDN
 from entropy_models import RecProbModel,MeanScaleHyperPriors,RPM
 from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
