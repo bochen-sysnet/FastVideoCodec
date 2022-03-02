@@ -162,11 +162,11 @@ class FisherPruningHook():
         self.print_model(model, print_flops_acts=False)
 
     def after_train_iter(self, itr, model):
+        if not self.pruning:
+            return
         # compute fisher
         for module, name in self.conv_names.items():
             self.compute_fisher_backward_hook(module)
-        if not self.pruning:
-            return
         self.group_fishers()
         self.accumulate_fishers()
         self.init_temp_fishers()
@@ -722,10 +722,10 @@ def add_pruning_attrs(module, pruning=False):
         module.register_buffer(
             'out_mask', module.weight.new_ones((module.out_channels,), ))
         module.finetune = not pruning
-        def modified_forward(m, x_input):
+        def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x_input * mask
+                x = x * mask
             output = F.conv2d(x, m.weight, m.bias, m.stride,
                             m.padding, m.dilation, m.groups)
             m.output_size = output.size()
@@ -737,10 +737,10 @@ def add_pruning_attrs(module, pruning=False):
         module.register_buffer(
             'out_mask', module.weight.new_ones((module.out_channels,), ))
         module.finetune = not pruning
-        def modified_forward(m, x_input):
+        def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x_input * mask
+                x = x * mask
             output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
                     padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
             m.output_size = output.size()
@@ -768,10 +768,10 @@ def add_pruning_attrs(module, pruning=False):
         module.register_buffer(
             'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
         module.finetune = not pruning
-        def modified_forward(m, x_input):
+        def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
-                x = x_input * mask
+                x = x * mask
             output = F.linear(x, m.weight, bias=m.bias)
             m.output_size = output.size()
             return output
@@ -787,10 +787,10 @@ def add_pruning_attrs(module, pruning=False):
             'out_mask', module.h.new_ones((module.h.size(1),), ))
         module.finetune = not pruning
         module.in_channels = module.out_channels = module.h.size(1)
-        def modified_forward(m, x_input):
+        def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x_input * mask
+                x = x * mask
             if m.final:
                 output = F.sigmoid(x * F.softplus(m.h) + m.b)
             else:
