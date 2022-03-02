@@ -112,7 +112,6 @@ class FisherPruningHook():
                 add_pruning_attrs(m, pruning=self.pruning)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
-            self.print_model(model)
         else:
             load_checkpoint(model, self.deploy_from)
 
@@ -159,6 +158,8 @@ class FisherPruningHook():
         # register forward hook
         for module, name in self.conv_names.items():
             module.register_forward_hook(self.save_input_forward_hook)
+            
+        self.print_model(model)
 
     def after_train_iter(self, itr, model):
         # compute fisher
