@@ -38,7 +38,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 0
+device = 1
 STEPS = []
 PRUNING = True
 
@@ -156,6 +156,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
         be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
         aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0) if aux_loss_list else 0
+        print(img_loss_list)
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
