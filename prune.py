@@ -610,14 +610,10 @@ class FisherPruningHook():
             # independent nets
             if 'opticFlow' in n:
                 mi,ci = [int(c) for c in n if c.isdigit()]
-                if mi==0 and ci==1:
+                if ci==1:
                     ancest_name = []
                 else:
-                    if ci==1:
-                        mi,ci = mi-1,5
-                    else:
-                        ci -= 1
-                    ancest_name = [f'opticFlow.moduleBasic.{mi}.conv{ci}']
+                    ancest_name = [f'opticFlow.moduleBasic.{mi}.conv{ci-1}']
             elif 'mvEncoder' in n:
                 if 'conv' in n:
                     a, = re.findall(r'\d+',n)
