@@ -63,28 +63,30 @@ model = get_codec_model(CODEC_NAME,
 model = model.cuda(device)
 
 # load model
+if CODEC_NAME in []:
+    # load what exists
+    pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
+    checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
+    best_codec_score = checkpoint['score']
+    load_state_dict_whatever(model, checkpoint['state_dict'])
+    del checkpoint
+    print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
+elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score']
+    load_state_dict_all(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'])
+    del checkpoint
+else:
+    print("Cannot load model codec", RESUME_CODEC_PATH)
+
+# hook
 if not PRUNING:
-    if CODEC_NAME in []:
-        # load what exists
-        pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
-        checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
-        best_codec_score = checkpoint['score']
-        load_state_dict_whatever(model, checkpoint['state_dict'])
-        del checkpoint
-        print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-    elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-        # BEGIN_EPOCH = checkpoint['epoch'] + 1
-        best_codec_score = checkpoint['score']
-        load_state_dict_all(model, checkpoint['state_dict'])
-        print("Loaded model codec score: ", checkpoint['score'])
-        del checkpoint
-    else:
-        print("Cannot load model codec", RESUME_CODEC_PATH)
     hook = None
 else:
-    hook = FisherPruningHook(deploy_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook()
     hook.after_build_model(model)
     hook.before_run(model)
 

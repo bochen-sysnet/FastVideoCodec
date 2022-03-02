@@ -106,7 +106,6 @@ class FisherPruningHook():
         optimizer's initialization
         """
 
-        load_checkpoint(model, self.deploy_from)
         if not self.pruning:
             for name, module in model.named_modules():
                 add_pruning_attrs(module)
