@@ -110,6 +110,7 @@ class FisherPruningHook():
             # for name, module in model.named_modules():
             #     add_pruning_attrs(module)
             deploy_pruning(model)
+            self.print_model(model)
 
     def before_run(self, model):
         """Initialize the relevant variables(fisher, flops and acts) for
@@ -155,7 +156,6 @@ class FisherPruningHook():
         # register forward hook
         for module, name in self.conv_names.items():
             module.register_forward_hook(self.save_input_forward_hook)
-        # self.print_model(model, print_flops_acts=False)
 
     def after_train_iter(self, itr, model):
         # compute fisher
@@ -174,7 +174,6 @@ class FisherPruningHook():
 
     def update_flop_act(self, model, work_dir='work_dir/'):
         flops, acts = self.compute_flops_acts()
-        save_checkpoint(model, filename=osp.join(work_dir,'ckpt.pth'))
         if len(self.save_flops_thr):
             flops_thr = self.save_flops_thr[0]
             if flops < flops_thr:

@@ -86,7 +86,7 @@ else:
 if not PRUNING:
     hook = None
 else:
-    hook = FisherPruningHook(pruning=True)
+    hook = FisherPruningHook(pruning=False)
     hook.after_build_model(model)
     hook.before_run(model)
 
