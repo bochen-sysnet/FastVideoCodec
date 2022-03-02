@@ -124,7 +124,7 @@ class FisherPruningHook():
         self.name2module = OrderedDict()
 
         for n, m in model.named_modules():
-            if self.pruning:
+            if self.pruning and n:
                 add_pruning_attrs(m, pruning=self.pruning)
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear) or isinstance(m, Bitparm):
                 m.name = n
