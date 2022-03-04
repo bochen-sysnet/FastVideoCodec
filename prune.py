@@ -106,14 +106,12 @@ class FisherPruningHook():
         optimizer's initialization
         """
 
+        for n, m in model.named_modules():
+            if n: m.name = n
+            add_pruning_attrs(m, pruning=self.pruning)
+        load_checkpoint(model, self.deploy_from)
         if not self.pruning:
-            for n, m in model.named_modules():
-                if n: m.name = n
-                add_pruning_attrs(m, pruning=self.pruning)
-            load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
-        else:
-            load_checkpoint(model, self.deploy_from)
 
     def before_run(self, model):
         """Initialize the relevant variables(fisher, flops and acts) for
