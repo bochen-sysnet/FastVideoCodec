@@ -26,6 +26,7 @@ def load_checkpoint(model, filename):
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
     for name, param in state_dict.items():
+        print(name,param.size())
         own_state[name].copy_(param)
 
 def save_checkpoint(model, filename):
