@@ -26,8 +26,6 @@ def load_checkpoint(model, filename):
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
     for name, param in state_dict.items():
-        if 'in_mask' in name:
-            print(name,param.size(),param.sum())
         own_state[name].copy_(param)
 
 def save_checkpoint(model, filename):
@@ -108,11 +106,11 @@ class FisherPruningHook():
         optimizer's initialization
         """
 
-        for n, m in model.named_modules():
-            if n: m.name = n
-            add_pruning_attrs(m, pruning=self.pruning)
-        load_checkpoint(model, self.deploy_from)
         if not self.pruning:
+            for n, m in model.named_modules():
+                if n: m.name = n
+                add_pruning_attrs(m, pruning=self.pruning)
+            load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
 
     def before_run(self, model):
@@ -154,6 +152,8 @@ class FisherPruningHook():
                 self.accum_fishers[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
             self.init_flops_acts()
             self.init_temp_fishers()
+            if self.deploy_from is not None:
+                load_checkpoint(model, self.deploy_from)
 
         # register forward hook
         for module, name in self.conv_names.items():
