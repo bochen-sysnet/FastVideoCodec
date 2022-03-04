@@ -85,7 +85,8 @@ if not PRUNING:
     hook = None
 else:
     # hook = FisherPruningHook(pruning=False, deploy_from='work_dir/ckpt.pth')
-    hook = FisherPruningHook(pruning=True, deploy_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
+    # hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
