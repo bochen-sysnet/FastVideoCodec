@@ -60,6 +60,8 @@ class FisherPruningHook():
         delta='acts',
         interval=10,
         deploy_from=None,
+        resume_from=None,
+        start_from=None,
         save_flops_thr=[0.75, 0.5, 0.25],
         save_acts_thr=[0.75, 0.5, 0.25],
     ):
@@ -90,6 +92,8 @@ class FisherPruningHook():
         self.channels = 0
         self.delta = delta
         self.deploy_from = deploy_from
+        self.resume_from = resume_from
+        self.start_from = start_from
 
         for i in range(len(save_acts_thr) - 1):
             assert save_acts_thr[i] > save_acts_thr[i + 1]
@@ -112,6 +116,9 @@ class FisherPruningHook():
                 add_pruning_attrs(m, pruning=self.pruning)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
+            
+        if self.start_from is not None:
+            load_checkpoint(model, self.start_from)
 
     def before_run(self, model):
         """Initialize the relevant variables(fisher, flops and acts) for
@@ -152,8 +159,8 @@ class FisherPruningHook():
                 self.accum_fishers[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
             self.init_flops_acts()
             self.init_temp_fishers()
-            if self.deploy_from is not None:
-                load_checkpoint(model, self.deploy_from)
+            if self.resume_from is not None:
+                load_checkpoint(model, self.resume_from)
 
         # register forward hook
         for module, name in self.conv_names.items():
