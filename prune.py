@@ -26,7 +26,7 @@ def load_checkpoint(model, filename):
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
     for name, param in state_dict.items():
-        print(name,param.size(),param.sum() if 'out_mask' in name else None)
+        print(name,param.size(),int(param.sum()) if 'out_mask' in name or 'in_mask' in name else None)
         own_state[name].copy_(param)
     exit(0)
 
