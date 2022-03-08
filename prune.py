@@ -751,7 +751,11 @@ def add_pruning_attrs(module, pruning=False):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
                 x = x * mask
-            print(m.name,x.size(),m.weight.size(),m.bias.size() if hasattr(m,'bias') and m.bias is not None else 0,m.out_mask.sum(),m.in_mask.sum())
+            else:
+                # if it has no ancestor
+                # we need to mask it
+                if x.size(1) == len(m.in_mask):
+                    x = x[:,m.in_mask.bool(),:,:]
             output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
                     padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
             m.output_size = output.size()
