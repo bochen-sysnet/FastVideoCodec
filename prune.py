@@ -161,10 +161,9 @@ class FisherPruningHook():
             self.init_temp_fishers()
             if self.resume_from is not None:
                 load_checkpoint(model, self.resume_from)
-
-        # register forward hook
-        for module, name in self.conv_names.items():
-            module.register_forward_hook(self.save_input_forward_hook)
+            # register forward hook
+            for module, name in self.conv_names.items():
+                module.register_forward_hook(self.save_input_forward_hook)
 
         self.print_model(model, print_flops_acts=False)
 
