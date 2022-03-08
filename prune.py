@@ -26,7 +26,6 @@ def load_checkpoint(model, filename):
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
     for name, param in state_dict.items():
-        print(name,param.size(),int(param.sum()) if 'out_mask' in name or 'in_mask' in name else None)
         own_state[name].copy_(param)
 
 def save_checkpoint(model, filename):
@@ -850,7 +849,7 @@ def deploy_pruning(model):
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
             temp_weight = module.weight.data[out_mask]
-            module.temp_weight = nn.Parameter(temp_weight[:, in_mask].data)
+            module.weight = nn.Parameter(temp_weight[:, in_mask].data)
             module.weight.requires_grad = requires_grad
 
         elif type(module).__name__ == 'Bitparm':
