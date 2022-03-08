@@ -23,13 +23,14 @@ NON_PASS = CONV + FC
 
 def load_checkpoint(model, filename):
     checkpoint = torch.load(filename,map_location=torch.device('cuda:0'))
+    print('Load model score:', checkpoint['score'])
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
     for name, param in state_dict.items():
         own_state[name].copy_(param)
 
-def save_checkpoint(model, filename):
-    state = {'state_dict': model.state_dict()}
+def save_checkpoint(model, filename, score=0):
+    state = {'state_dict': model.state_dict(), 'score':score}
     torch.save(state, filename)
 
 class FisherPruningHook():
