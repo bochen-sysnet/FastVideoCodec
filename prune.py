@@ -783,7 +783,7 @@ def add_pruning_attrs(module, pruning=False):
             if not m.finetune:
                 mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
                 x = x * mask
-            print(m.name,x.size(),m.weight.size(),m.bias.size())
+            print(m.name,x.size(),m.weight.size(),m.bias.size() if hasattr(m,'bias') else 0)
             output = F.linear(x, m.weight, bias=m.bias)
             m.output_size = output.size()
             return output
