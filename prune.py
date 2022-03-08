@@ -751,6 +751,7 @@ def add_pruning_attrs(module, pruning=False):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
                 x = x * mask
+            print(m.name,x.size(),m.weight.size(),m.bias.size() if hasattr(m,'bias') and m.bias is not None else 0,m.out_mask.sum(),m.in_mask.sum())
             output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
                     padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
             m.output_size = output.size()
@@ -782,7 +783,6 @@ def add_pruning_attrs(module, pruning=False):
             if not m.finetune:
                 mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
                 x = x * mask
-            print(m.name,x.size(),m.weight.size(),m.bias.size() if hasattr(m,'bias') and m.bias is not None else 0,m.out_mask.sum(),m.in_mask.sum())
             output = F.linear(x, m.weight, bias=m.bias)
             m.output_size = output.size()
             return output
