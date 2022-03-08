@@ -648,14 +648,11 @@ class FisherPruningHook():
                 else:
                     cl = [int(c) for c in n if c.isdigit()]
                     if len(cl)==1:
-                        ancest_name = ['warpnet.conv5.conv2']
-                    elif cl[0]==0 and cl[1]==1:
+                        ancest_name = ['warpnet.feature_ext']
+                    elif cl[1]==1:
                         ancest_name = ['warpnet.feature_ext']
                     else:
-                        if cl[1]==1:
-                            ancest_name = [f'warpnet.conv{cl[0]-1}.conv2']
-                        else:
-                            ancest_name = [f'warpnet.conv{cl[0]}.conv1']
+                        ancest_name = [f'warpnet.conv{cl[0]}.conv1']
             elif 'resEncoder' in n:
                 if 'conv' in n:
                     a, = re.findall(r'\d+',n)
