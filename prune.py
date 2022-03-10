@@ -22,7 +22,7 @@ NON_PASS = CONV + FC
 
 
 def load_checkpoint(model, filename):
-    checkpoint = torch.load(filename,map_location=torch.device('cuda:0'))
+    checkpoint = torch.load(filename,map_location=torch.device('cuda:1'))
     print('Load model score:', checkpoint['score'])
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
