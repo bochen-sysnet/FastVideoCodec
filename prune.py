@@ -489,6 +489,7 @@ class FisherPruningHook():
         for bn, name in self.ln_names.items():
             conv_module = self.ln2ancest[bn][0]
             bn.out_mask = conv_module.out_mask
+            print(name,conv_module.name,bn.out_mask.sum())
 
     def make_groups(self):
         """The modules (convolutions and BNs) connected to the same conv need
