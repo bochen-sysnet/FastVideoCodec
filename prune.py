@@ -883,7 +883,8 @@ def deploy_pruning(model):
             out_mask = module.out_mask.bool()
             requires_grad = module.beta.requires_grad
             module.beta = nn.Parameter(module.beta.data[out_mask].data)
-            gamma = module.gamma[out_mask]
+            print(module.gamma)
+            gamma = nn.Parameter(module.gamma.data[out_mask].data)
             module.gamma = gamma[:,out_mask]
             module.gamma.requires_grad = requires_grad
             module.beta.requires_grad = requires_grad
