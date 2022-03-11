@@ -880,7 +880,6 @@ def deploy_pruning(model):
         elif type(module).__name__ == 'GDN':
             out_mask = module.out_mask.bool()
             requires_grad = module.beta.requires_grad
-            print(out_mask.sum())
             module.beta = nn.Parameter(module.beta.data[out_mask].data)
             gamma = module.gamma.data[out_mask]
             module.gamma = nn.Parameter(gamma[:,out_mask].data)
