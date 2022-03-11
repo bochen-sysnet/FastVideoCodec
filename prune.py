@@ -22,7 +22,7 @@ NON_PASS = CONV + FC
 
 
 def load_checkpoint(model, filename):
-    checkpoint = torch.load(filename)
+    checkpoint = torch.load(filename,map_location=torch.device('cuda:1'))
     print('Load model score:', checkpoint['score'])
     state_dict = checkpoint['state_dict']
     own_state = model.state_dict()
@@ -883,8 +883,8 @@ def deploy_pruning(model):
             out_mask = module.out_mask.bool()
             requires_grad = module.beta.requires_grad
             module.beta = nn.Parameter(module.beta.data[out_mask].data)
-            gamma = nn.Parameter(module.gamma.data[out_mask].data)
-            module.gamma = gamma[:,out_mask]
+            gamma = module.gamma.data[out_mask]
+            module.gamma = nn.Parameter(gamma[:,out_mask].data)
             module.gamma.requires_grad = requires_grad
             module.beta.requires_grad = requires_grad
 
