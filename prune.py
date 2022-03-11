@@ -666,14 +666,17 @@ class FisherPruningHook():
                         ancest_name = [f'resEncoder.conv{int(a)-1}']
                 elif 'layers' in n:
                     ancest_name = name2ancest(n)
-                else:
-                    print('Unexpected layer in resEncoder')
+                elif 'gdn' in n:
+                    ancest_name = [f'resEncoder.conv{a}']
             elif 'resDecoder' in n:
                 a, = re.findall(r'\d+',n)
-                if a == '1':
-                    ancest_name = [f'respriorDecoder.deconv3']
-                else:
-                    ancest_name = [f'resDecoder.deconv{int(a)-1}']
+                if 'deconv' in n:
+                    if a == '1':
+                        ancest_name = [f'respriorDecoder.deconv3']
+                    else:
+                        ancest_name = [f'resDecoder.deconv{int(a)-1}']
+                elif 'igdn' in n:
+                    ancest_name = [f'resDecoder.deconv{a}']
             elif 'respriorEncoder' in n:
                 if 'conv' in n:
                     a, = re.findall(r'\d+',n)
@@ -697,12 +700,6 @@ class FisherPruningHook():
                     ancest_name = [f'respriorEncoder.layers.11.2.fn.net.3']
                 else:
                     ancest_name = [f'bitEstimator_z.f{int(a)-1}']
-            elif 'resEncoder.gdn' in n:
-                a, = re.findall(r'\d+',n)
-                ancest_name = [f'resEncoder.conv{a}']
-            elif 'resDecoder.igdn' in n:
-                a, = re.findall(r'\d+',n)
-                ancest_name = [f'resDecoder.deconv{a}']
 
             if type(m).__name__ in ['Conv2d','ConvTranspose2d','Linear','Bitparm']:
                 conv2ancest[m] = []
