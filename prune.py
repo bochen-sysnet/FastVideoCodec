@@ -132,7 +132,6 @@ class FisherPruningHook():
         self.name2module = OrderedDict()
 
         for n, m in model.named_modules():
-            print(n,type(m).__name__)
             if n: m.name = n
             if self.pruning:
                 add_pruning_attrs(m, pruning=self.pruning)
@@ -142,7 +141,6 @@ class FisherPruningHook():
             elif isinstance(m, nn.LayerNorm):
                 self.ln_names[m] = n
                 self.name2module[n] = m
-        exit(0)
 
         if self.pruning:
             # divide the conv to several group and all convs in same
@@ -613,7 +611,7 @@ class FisherPruningHook():
         conv2ancest = {}
         ln2ancest = {}
         for n, m in model.named_modules():
-            if type(m).__name__ not in ['Conv2d','ConvTranspose2d','Linear','LayerNorm','Bitparm']:
+            if type(m).__name__ not in ['Conv2d','ConvTranspose2d','Linear','LayerNorm','Bitparm','GDN']:
                 continue
             # independent nets
             if 'opticFlow' in n:
@@ -696,6 +694,12 @@ class FisherPruningHook():
                     ancest_name = [f'respriorEncoder.layers.11.2.fn.net.3']
                 else:
                     ancest_name = [f'bitEstimator_z.f{int(a)-1}']
+            elif 'resEncoder.gdn' in n:
+                a, = re.findall(r'\d+',n)
+                ancest_name = [f'resEncoder.conv{a}']
+            elif 'resDecoder.igdn' in n:
+                a, = re.findall(r'\d+',n)
+                ancest_name = [f'resDecoder.deconv{a}']
 
             if type(m).__name__ in ['Conv2d','ConvTranspose2d','Linear','Bitparm']:
                 conv2ancest[m] = []
@@ -795,6 +799,9 @@ def add_pruning_attrs(module, pruning=False):
         # no need to modify layernorm during pruning since it is not computed over channels
         module.register_buffer(
             'out_mask', module.weight.new_ones((len(module.weight),), ))
+    if  type(module).__name__ == 'GDN':
+        module.register_buffer(
+            'out_mask', module.weight.new_ones((len(module.weight),), ))
     if  type(module).__name__ == 'Bitparm':
         module.register_buffer(
             'in_mask', module.h.new_ones((module.h.size(1),), ))
@@ -871,6 +878,14 @@ def deploy_pruning(model):
             module.bias = nn.Parameter(module.bias.data[out_mask].data)
             module.weight.requires_grad = requires_grad
             module.bias.requires_grad = requires_grad
+            
+        elif type(module).__name__ == 'GDN':
+            out_mask = module.out_mask.bool()
+            requires_grad = module.beta.requires_grad
+            beta = nn.Parameter(module.beta.data[out_mask].data)
+            module.beta = beta[:,out_mask]
+            gamma = nn.Parameter(module.gamma.data[out_mask].data)
+            module.gamma = gamma[:,out_mask]
 
 # to do: make sure linear works fine
 
