@@ -801,7 +801,7 @@ def add_pruning_attrs(module, pruning=False):
             'out_mask', module.weight.new_ones((len(module.weight),), ))
     if  type(module).__name__ == 'GDN':
         module.register_buffer(
-            'out_mask', module.weight.new_ones((len(module.beta),), ))
+            'out_mask', module.beta.new_ones((len(module.beta),), ))
     if  type(module).__name__ == 'Bitparm':
         module.register_buffer(
             'in_mask', module.h.new_ones((module.h.size(1),), ))
