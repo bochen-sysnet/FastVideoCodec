@@ -132,6 +132,7 @@ class FisherPruningHook():
         self.name2module = OrderedDict()
 
         for n, m in model.named_modules():
+            print(n,type(m).__name__ == 'Conv2d')
             if n: m.name = n
             if self.pruning:
                 add_pruning_attrs(m, pruning=self.pruning)
@@ -141,6 +142,7 @@ class FisherPruningHook():
             elif isinstance(m, nn.LayerNorm):
                 self.ln_names[m] = n
                 self.name2module[n] = m
+        exit(0)
 
         if self.pruning:
             # divide the conv to several group and all convs in same
