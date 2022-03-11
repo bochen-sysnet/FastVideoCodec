@@ -132,7 +132,7 @@ class FisherPruningHook():
         self.name2module = OrderedDict()
 
         for n, m in model.named_modules():
-            print(n,type(m).__name__ == 'Conv2d')
+            print(n,type(m).__name__)
             if n: m.name = n
             if self.pruning:
                 add_pruning_attrs(m, pruning=self.pruning)
