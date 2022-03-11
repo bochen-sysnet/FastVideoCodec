@@ -11,16 +11,6 @@ from torch.nn import Conv2d, ConvTranspose2d
 from models import LSVC
 from DVC.subnet import Bitparm, GDN
 
-# These grad_fn pattern are flags of specific a nn.Module
-CONV = ('CudnnConvolutionTransposeBackward', 'CudnnConvolutionBackward')
-FC = ('MulBackward', 'MmBackward') # multiply, dot product
-BN = ('NativeLayerNormBackward')
-# all modules with channel should be considered
-# the modules which contains NON_PASS grad_fn need to change the parameter size
-# according to channels after pruning
-NON_PASS = CONV + FC
-
-
 def load_checkpoint(model, filename):
     checkpoint = torch.load(filename,map_location=torch.device('cuda:1'))
     print('Load model score:', checkpoint['score'])
@@ -71,6 +61,9 @@ class FisherPruningHook():
         self.pruning = pruning
         self.delta = delta
         self.interval = interval
+        # The key of self.input is conv module, and value of it
+        # is list of conv' input_features in forward process
+        self.conv_inputs = {}
         # The key of self.flops is conv module, and value of it
         # is the summation of conv's flops in forward process
         self.flops = {}
@@ -152,6 +145,7 @@ class FisherPruningHook():
             # outchannel is correlated with inchannel
             self.construct_outchannel_masks()
             for conv, name in self.conv_names.items():
+                self.conv_inputs[conv] = []
                 self.temp_fisher_info[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask)) # fisher info of every in_channel
                 self.accum_fishers[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask))
             for group_id in self.groups:
@@ -172,8 +166,8 @@ class FisherPruningHook():
         if not self.pruning:
             return
         # compute fisher
-        for module, name in self.conv_names.items():
-            self.compute_fisher_backward_hook(module)
+        # for module, name in self.conv_names.items():
+        #     self.compute_fisher_backward(module)
         self.group_fishers()
         self.accumulate_fishers()
         self.init_temp_fishers()
@@ -443,7 +437,29 @@ class FisherPruningHook():
             print('Unrecognized in save_input_forward_hook:',layer_name)
             exit(0)
 
-    def compute_fisher_backward_hook(self, module):
+        def backward_hook(grad_feature):
+            def compute_fisher(input, grad_input, layer_name):
+                # information per mask channel per module
+                grads = input * grad_input
+                if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
+                    grads = grads.sum(-1).sum(-1).sum(0)
+                elif layer_name in ['Linear']:
+                    grads = grads.sum(0).sum(0)
+                    grads = grads.view(module.in_rep,-1).sum(0)
+                else:
+                    print('Unrecognized in compute_fisher:',layer_name)
+                    exit(0)
+                return grads
+
+            layer_name = type(module).__name__
+            feature = self.conv_inputs[module].pop(-1)[0]
+            self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
+            
+        if inputs[0].requires_grad:
+            inputs[0].register_hook(backward_hook)
+            self.conv_inputs[module].append(inputs)
+
+    def compute_fisher_backward(self, module):
         # there are some bugs in torch, not using the backward hook
         """
         Args:
@@ -486,7 +502,6 @@ class FisherPruningHook():
         for bn, name in self.ln_names.items():
             conv_module = self.ln2ancest[bn][0]
             bn.out_mask = conv_module.out_mask
-            print(name,conv_module.name,bn.out_mask.sum())
 
     def make_groups(self):
         """The modules (convolutions and BNs) connected to the same conv need
@@ -711,7 +726,6 @@ class FisherPruningHook():
         self.conv2ancest = conv2ancest
         self.ln2ancest = ln2ancest
 
-
 def add_pruning_attrs(module, pruning=False):
     """When module is conv, add `finetune` attribute, register `mask` buffer
     and change the origin `forward` function. When module is BN, add `out_mask`
@@ -722,7 +736,7 @@ def add_pruning_attrs(module, pruning=False):
         pruning (bool): Indicating the state of model which
             will make conv's forward behave differently.
     """
-    # TODO: mask  change to bool
+
     if type(module).__name__ == 'Conv2d':
         module.register_buffer(
             'in_mask', module.weight.new_ones((module.in_channels,), ))
@@ -792,14 +806,7 @@ def add_pruning_attrs(module, pruning=False):
             output = F.linear(x, m.weight, bias=m.bias)
             m.output_size = output.size()
             return output
-        module.forward = MethodType(modified_forward, module)    
-    if  type(module).__name__ == 'LayerNorm':
-        # no need to modify layernorm during pruning since it is not computed over channels
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((len(module.weight),), ))
-    if  type(module).__name__ == 'GDN':
-        module.register_buffer(
-            'out_mask', module.beta.new_ones((len(module.beta),), ))
+        module.forward = MethodType(modified_forward, module)  
     if  type(module).__name__ == 'Bitparm':
         module.register_buffer(
             'in_mask', module.h.new_ones((module.h.size(1),), ))
@@ -818,7 +825,14 @@ def add_pruning_attrs(module, pruning=False):
                 output = x + F.tanh(x) * F.tanh(m.a)
             m.output_size = output.size()
             return output
-        module.forward = MethodType(modified_forward, module)
+        module.forward = MethodType(modified_forward, module)  
+    if  type(module).__name__ == 'LayerNorm':
+        # no need to modify layernorm during pruning since it is not computed over channels
+        module.register_buffer(
+            'out_mask', module.weight.new_ones((len(module.weight),), ))
+    if  type(module).__name__ == 'GDN':
+        module.register_buffer(
+            'out_mask', module.beta.new_ones((len(module.beta),), ))
 
 
 def deploy_pruning(model):
@@ -898,5 +912,5 @@ if __name__ == '__main__':
     loss = rec_loss*model.r + bpp
 
     loss.backward()
-    hook.after_train_iter(0)
+    hook.after_train_iter(0, model)
     print(hook.total_flops,hook.total_acts)
