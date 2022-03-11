@@ -60,6 +60,7 @@ model = get_codec_model(CODEC_NAME,
                         loss_type=loss_type, 
                         compression_level=compression_level,
                         use_split=False)
+model = model.cuda(device)
 
 # load model
 if not PRUNING:
@@ -89,7 +90,6 @@ else:
     hook.after_build_model(model)
     hook.before_run(model)
 
-model = model.cuda(device)
 
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
