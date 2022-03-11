@@ -165,6 +165,9 @@ class FisherPruningHook():
             # register forward hook
             for module, name in self.conv_names.items():
                 module.register_forward_hook(self.save_input_forward_hook)
+        else:
+            self.set_group_masks(model)
+            self.construct_outchannel_masks()
 
         self.print_model(model, print_flops_acts=False)
 
