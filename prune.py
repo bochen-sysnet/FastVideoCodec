@@ -165,9 +165,6 @@ class FisherPruningHook():
             # register forward hook
             for module, name in self.conv_names.items():
                 module.register_forward_hook(self.save_input_forward_hook)
-        else:
-            self.set_group_masks(model)
-            self.construct_outchannel_masks()
 
         self.print_model(model, print_flops_acts=False)
 
@@ -275,7 +272,7 @@ class FisherPruningHook():
         #     print(module.name, fisher.min())
         # else:
         #     print(module,fisher.min())
-        if fisher.sum() > 0 and in_mask.sum() > 0:
+        if fisher.sum() > 0 and in_mask.sum() > 1:
             nonzero = in_mask.nonzero().view(-1)
             fisher = fisher[nonzero]
             min_value, argmin = fisher.min(dim=0)
