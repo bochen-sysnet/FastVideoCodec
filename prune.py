@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Conv2d, ConvTranspose2d
 from models import LSVC
-from DVC.subnet import Bitparm
+from DVC.subnet import Bitparm, GDN
 
 # These grad_fn pattern are flags of specific a nn.Module
 CONV = ('CudnnConvolutionTransposeBackward', 'CudnnConvolutionBackward')
@@ -138,7 +138,7 @@ class FisherPruningHook():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear) or isinstance(m, Bitparm):
                 self.conv_names[m] = n
                 self.name2module[n] = m
-            elif isinstance(m, nn.LayerNorm):
+            elif isinstance(m, nn.LayerNorm) or isinstance(m, GDN):
                 self.ln_names[m] = n
                 self.name2module[n] = m
 
@@ -485,8 +485,7 @@ class FisherPruningHook():
                     conv.out_mask = m.in_mask
                     break
 
-        # make sure norm and conv output are the same   
-        print(self.ln_names.keys())
+        # make sure norm and conv output are the same  
         for bn, name in self.ln_names.items():
             conv_module = self.ln2ancest[bn][0]
             bn.out_mask = conv_module.out_mask
