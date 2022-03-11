@@ -485,7 +485,8 @@ class FisherPruningHook():
                     conv.out_mask = m.in_mask
                     break
 
-        # make sure norm and conv output are the same    
+        # make sure norm and conv output are the same   
+        print(self.ln_names.keys())
         for bn, name in self.ln_names.items():
             conv_module = self.ln2ancest[bn][0]
             bn.out_mask = conv_module.out_mask
