@@ -890,6 +890,7 @@ def deploy_pruning(model):
             module.bias = nn.Parameter(module.bias.data[out_mask].data)
             module.weight.requires_grad = requires_grad
             module.bias.requires_grad = requires_grad
+            print(module.name,module.out_mask.sum())
             
         elif type(module).__name__ == 'GDN':
             out_mask = module.out_mask.bool()
