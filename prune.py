@@ -546,9 +546,9 @@ class FisherPruningHook():
         # TODO remove this
         self.conv_names_group = [[item.name for item in v]
                                  for idx, v in self.groups.items()]
-        # for g in self.conv_names_group:
-        #     print(g)
-        # exit(0)
+        for g in self.conv_names_group:
+            print(g)
+        exit(0)
 
     def set_group_masks(self, model):
         """the modules(convolutions and BN) connect to same convolutions need
@@ -609,10 +609,12 @@ class FisherPruningHook():
                 ancest_name = [f'{net_name}.layers.{a}.{b}.fn.to_qkv']
             elif 'norm' in n:
                 a,b = re.findall(r'\d+',n)
-                if b != '2':
-                    ancest_name = [f'{net_name}.layers.{a}.{b}.fn.to_out.0']
+                if a == '0' and b == '0':
+                    ancest_name = [f'{net_name}.conv{d}']
+                elif b == '0':
+                    ancest_name = [f'{net_name}.layers.{int(a)-1}.2.fn.net.3']
                 else:
-                    ancest_name = [f'{net_name}.layers.{a}.{b}.fn.net.3']
+                    ancest_name = [f'{net_name}.layers.{a}.{int(b)-1}.fn.to_out.0']
             elif 'net' in n:
                 a,b,c = re.findall(r'\d+',n)
                 if c == '0':
@@ -640,23 +642,17 @@ class FisherPruningHook():
                 if 'conv' in n:
                     a, = re.findall(r'\d+',n)
                     if a == '1':
-                        ancest_name = []
+                        ancest_name = [f'mvEncoder.conv8']
                     else:
                         ancest_name = [f'mvEncoder.conv{int(a)-1}']
                 elif 'layers' in n:
                     ancest_name = name2ancest(n)
                 else:
                     print('Unexpected layer in mvEncoder')
-            elif 'bitEstimator_mv' in n:
-                a, = re.findall(r'\d+',n)
-                if a == '1':
-                    ancest_name = [f'mvEncoder.layers.11.2.fn.net.3']
-                else:
-                    ancest_name = [f'bitEstimator_mv.f{int(a)-1}']
             elif 'mvDecoder' in n:
                 a, = re.findall(r'\d+',n)
                 if a == '1':
-                    ancest_name = [f'bitEstimator_mv.f4']
+                    ancest_name = ['mvEncoder.conv8',f'bitEstimator_mv.f4']
                 else:
                     ancest_name = [f'mvDecoder.deconv{int(a)-1}']
             elif 'warpnet' in n:
@@ -707,12 +703,20 @@ class FisherPruningHook():
                     ancest_name = [f'bitEstimator_z.f4']
                 else:
                     ancest_name = [f'respriorDecoder.deconv{int(a)-1}']
+            elif 'bitEstimator_mv' in n:
+                a, = re.findall(r'\d+',n)
+                if a == '1':
+                    # first to make sure them in same group
+                    # second to make sure the ancestor get the correct out channel
+                    ancest_name = ['mvEncoder.conv8','mvEncoder.layers.11.2.fn.net.3']
+                else:
+                    ancest_name = ['mvEncoder.conv8',f'bitEstimator_mv.f{int(a)-1}']
             elif 'bitEstimator_z' in n:
                 a, = re.findall(r'\d+',n)
                 if a == '1':
-                    ancest_name = [f'respriorEncoder.layers.11.2.fn.net.3']
+                    ancest_name = ['respriorEncoder.conv3',f'respriorEncoder.layers.11.2.fn.net.3']
                 else:
-                    ancest_name = [f'bitEstimator_z.f{int(a)-1}']
+                    ancest_name = ['respriorEncoder.conv3',f'bitEstimator_z.f{int(a)-1}']
 
             if type(m).__name__ in ['Conv2d','ConvTranspose2d','Linear','Bitparm']:
                 conv2ancest[m] = []
@@ -890,7 +894,6 @@ def deploy_pruning(model):
             module.bias = nn.Parameter(module.bias.data[out_mask].data)
             module.weight.requires_grad = requires_grad
             module.bias.requires_grad = requires_grad
-            print(module.name,module.out_mask.sum())
             
         elif type(module).__name__ == 'GDN':
             out_mask = module.out_mask.bool()
