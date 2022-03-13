@@ -370,7 +370,6 @@ class FisherPruningHook():
             for module in self.groups[group]:
                 # accumulate fisher per channel per batch
                 module_fisher = self.temp_fisher_info[module]
-                print(module.name,module_fisher.size())
                 self.temp_fisher_info[group] += module_fisher 
                 # accumulate flops per in_channel per batch for each group
                 if type(module).__name__ != 'Bitparm': 
@@ -643,7 +642,7 @@ class FisherPruningHook():
                 if 'conv' in n:
                     a, = re.findall(r'\d+',n)
                     if a == '1':
-                        ancest_name = [f'mvEncoder.conv8']
+                        ancest_name = []
                     else:
                         ancest_name = [f'mvEncoder.conv{int(a)-1}']
                 elif 'layers' in n:
