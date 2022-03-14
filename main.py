@@ -84,9 +84,9 @@ if not PRUNING:
         print("Cannot load model codec", RESUME_CODEC_PATH)
     hook = None
 else:
-    hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_75_flops_65.pth')
+    #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_75_flops_65.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
-    #hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
@@ -338,7 +338,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
     
-    is_best = score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1] and not PRUNING
+    is_best = (score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1]) and not PRUNING
     if is_best:
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score
