@@ -217,6 +217,9 @@ class FisherPruningHook():
                 chans_o = int(module.out_mask.sum().cpu().numpy())
                 print('{}: input_channels: {}/{}, out_channels: {}/{}'.format(
                         name, chans_i, len(module.in_mask), chans_o, len(module.out_mask)))
+            for module, name in self.ln_names.items():
+                chans_o = int(module.out_mask.sum().cpu().numpy())
+                print('{}: out_channels: {}/{}'.format(name, chans_o, len(module.out_mask)))
 
     def compute_flops_acts(self):
         """Computing the flops and activation remains."""
