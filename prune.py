@@ -549,9 +549,9 @@ class FisherPruningHook():
         # TODO remove this
         self.conv_names_group = [[item.name for item in v]
                                  for idx, v in self.groups.items()]
-#         for g in self.conv_names_group:
-#             print(g)
-#         exit(0)
+        for g in self.conv_names_group:
+            print(g)
+        exit(0)
 
     def set_group_masks(self, model):
         """the modules(convolutions and BN) connect to same convolutions need
@@ -595,7 +595,7 @@ class FisherPruningHook():
                 d = 4
             elif 'respriorEncoder' in n:
                 net_name = 'respriorEncoder'
-                d = 3
+                d = 1
             else:
                 print('Unrecognized net name:',n)
                 exit(0)
@@ -694,6 +694,8 @@ class FisherPruningHook():
                     a, = re.findall(r'\d+',n)
                     if a == '1':
                         ancest_name = ['resEncoder.conv4','resEncoder.layers.11.2.fn.net.3']
+                    elif a == '2':
+                        ancest_name = ['respriorEncoder.conv1',f'respriorEncoder.layers.11.2.fn.net.3']
                     else:
                         ancest_name = [f'respriorEncoder.conv{int(a)-1}']
                 elif 'layers' in n:
@@ -717,7 +719,7 @@ class FisherPruningHook():
             elif 'bitEstimator_z' in n:
                 a, = re.findall(r'\d+',n)
                 if a == '1':
-                    ancest_name = ['respriorEncoder.conv3',f'respriorEncoder.layers.11.2.fn.net.3']
+                    ancest_name = ['respriorEncoder.conv3']
                 else:
                     ancest_name = ['respriorEncoder.conv3',f'bitEstimator_z.f{int(a)-1}']
 
