@@ -895,6 +895,7 @@ def deploy_pruning(model):
         elif type(module).__name__ == 'LayerNorm':
             out_mask = module.out_mask.bool()
             requires_grad = module.weight.requires_grad
+            print(module.name,module.normalized_shape.size(),out_mask.sum())
             module.weight = nn.Parameter(module.weight.data[out_mask].data)
             module.bias = nn.Parameter(module.bias.data[out_mask].data)
             module.weight.requires_grad = requires_grad
