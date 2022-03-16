@@ -96,6 +96,8 @@ class FisherPruningHook():
 
         self.save_flops_thr = save_flops_thr
         self.save_acts_thr = save_acts_thr
+        
+        self.total_flops = self.total_acts = 0
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
