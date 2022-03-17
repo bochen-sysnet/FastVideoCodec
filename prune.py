@@ -891,6 +891,9 @@ def deploy_pruning(model):
             requires_grad = module.h.requires_grad
             module.h = nn.Parameter(module.h.data[:,in_mask].data)
             module.b = nn.Parameter(module.b.data[:,in_mask].data)
+            if hasattr(module, 'a') and module.a is not None:
+                module.a = nn.Parameter(module.a.data[:,in_mask].data)
+                module.a.requires_grad = requires_grad
             module.h.requires_grad = requires_grad
             module.b.requires_grad = requires_grad
 
