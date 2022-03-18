@@ -31,8 +31,8 @@ CODEC_NAME = 'LSVC-A'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
-RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
-#RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
+#RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -84,9 +84,9 @@ if not PRUNING:
         print("Cannot load model codec", RESUME_CODEC_PATH)
     hook = None
 else:
-    hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_25_flops_7.pth')
+    #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_25_flops_7.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
-    #hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
