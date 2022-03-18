@@ -668,10 +668,10 @@ class FisherPruningHook():
                     if len(cl)==1:
                         ancest_name = ['warpnet.feature_ext']
                     elif cl[1]==1:
-                        if cl[1]==0:
+                        if cl[0]==0:
                             ancest_name = ['warpnet.feature_ext']
                         else:
-                            ancest_name = [,f'warpnet.conv{cl[0]-1}.conv2']
+                            ancest_name = ['warpnet.feature_ext',f'warpnet.conv{cl[0]-1}.conv2']
                     else:
                         ancest_name = [f'warpnet.conv{cl[0]}.conv1']
             elif 'resEncoder' in n:
