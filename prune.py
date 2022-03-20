@@ -666,7 +666,7 @@ class FisherPruningHook():
                 else:
                     cl = [int(c) for c in n if c.isdigit()]
                     if len(cl)==1:
-                        ancest_name = ['warpnet.feature_ext']
+                        ancest_name = ['warpnet.feature_ext','warpnet.conv5.conv2']
                     elif cl[1]==1:
                         if cl[0]==0:
                             ancest_name = ['warpnet.feature_ext']
