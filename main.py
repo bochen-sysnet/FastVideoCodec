@@ -84,9 +84,9 @@ if not PRUNING:
         print("Cannot load model codec", RESUME_CODEC_PATH)
     hook = None
 else:
-    #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_25_flops_10.pth')
+    hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_25_flops_12.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
+    #hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
