@@ -689,7 +689,7 @@ class FisherPruningHook():
                 a, = re.findall(r'\d+',n)
                 if 'deconv' in n:
                     if a == '1':
-                        ancest_name = [f'respriorDecoder.deconv3']
+                        ancest_name = [f'resEncoder.conv4']
                     else:
                         ancest_name = [f'resDecoder.deconv{int(a)-1}']
                 elif 'igdn' in n:
