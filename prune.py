@@ -328,6 +328,7 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
+            print(name,torch.sum(fisher),fisher)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -346,14 +347,17 @@ class FisherPruningHook():
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
+            print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
         if isinstance(module, int):
+            print('Pruning:',module, channel)
             # the case for multiple modules in a group
             for m in self.groups[module]:
                 m.in_mask[channel] = 0
         elif module is not None:
+            print('Pruning:',module.name, channel)
             # the case for single module
             module.in_mask[channel] = 0
 
