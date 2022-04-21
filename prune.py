@@ -98,6 +98,7 @@ class FisherPruningHook():
         self.save_acts_thr = save_acts_thr
         
         self.total_flops = self.total_acts = 0
+        self.fisher_norm = True
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -165,6 +166,10 @@ class FisherPruningHook():
         self.print_model(model, print_flops_acts=False)
 
     def after_train_iter(self, itr, model):
+        # accumulate fisher information
+        # compute loss = torch.exp(fisher)
+        # need to find the best regularization coefficient
+        # loss backward
         if not self.pruning:
             return
         # compute fisher
@@ -173,6 +178,7 @@ class FisherPruningHook():
         self.group_fishers()
         self.accumulate_fishers()
         self.init_temp_fishers()
+        # do pruning every interval
         if itr % self.interval == 0:
             self.channel_prune()
             self.init_accum_fishers()
@@ -328,6 +334,11 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
+            if self.fisher_norm:
+                # make sure the fisher info in the same group
+                # sum to 1, excluding pruned channels
+                sum_fisher = torch.sum(fisher*in_mask)
+                fisher /= sum_fisher
             print(name,torch.sum(fisher),fisher)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
@@ -347,6 +358,11 @@ class FisherPruningHook():
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
+            if self.fisher_norm:
+                # make sure the fisher info in the same group
+                # sum to 1, excluding pruned channels
+                sum_fisher = torch.sum(fisher*in_mask)
+                fisher /= sum_fisher
             print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']

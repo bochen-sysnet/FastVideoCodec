@@ -86,7 +86,7 @@ if not PRUNING:
 else:
     #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_50_flops_32.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, delta='flops', start_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook(pruning=True, delta='acts', start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
@@ -183,6 +183,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         scaler.scale(loss).backward()
 
         if hook is not None:
+            # backward the regularization function
             hook.after_train_iter(batch_idx, model)
 
         # update model after compress each video
