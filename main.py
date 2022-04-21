@@ -45,8 +45,8 @@ PRUNING = True
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
-seed = int(time.time())
-#seed = int(0)
+#seed = int(time.time())
+seed = int(0)
 torch.manual_seed(seed)
 use_cuda = True
 if use_cuda:
@@ -86,7 +86,7 @@ if not PRUNING:
 else:
     #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_50_flops_32.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, start_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook(pruning=True, delta='flops', start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
