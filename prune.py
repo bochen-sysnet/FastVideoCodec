@@ -186,6 +186,12 @@ class FisherPruningHook():
             self.channel_prune()
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
+            # plot figure
+            if itr % 1000 == 0:
+                plt.figure(1)
+                self.fisher_list[self.fisher_list==0] = 1e-10
+                sns.displot(np.log10(self.fisher_list), kind='hist', aspect=1.2)
+                plt.savefig(f'fisher_distribution_{iter}.png')
         self.init_flops_acts()
         exit(0)
 
@@ -369,9 +375,6 @@ class FisherPruningHook():
                 fisher /= sum_fisher
             self.fisher_list = np.concatenate((self.fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
-        plt.figure(1)
-        sns.displot(np.log10(self.fisher_list+1), kind='hist', aspect=1.2)
-        plt.savefig('fisher_distribution.png')
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
         if isinstance(module, int):
