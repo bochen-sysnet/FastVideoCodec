@@ -52,6 +52,7 @@ class FisherPruningHook():
         pruning=True,
         delta='acts',
         interval=10,
+        reg=True,
         deploy_from=None,
         resume_from=None,
         start_from=None,
@@ -61,6 +62,7 @@ class FisherPruningHook():
 
         assert delta in ('acts', 'flops')
         self.pruning = pruning
+        self.reg = reg
         self.delta = delta
         self.interval = interval
         # The key of self.input is conv module, and value of it
@@ -180,7 +182,7 @@ class FisherPruningHook():
         self.accumulate_fishers()
         self.init_temp_fishers()
         # do pruning every interval
-        if itr % self.interval == 0:
+        if (not self.reg and itr % self.interval == 0) or self.reg:
             # this makes sure model is converged before each pruning
             self.channel_prune()
             self.init_accum_fishers()
@@ -343,6 +345,7 @@ class FisherPruningHook():
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
+            self.fisher_reg += self.compute_regularization(fisher)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -353,6 +356,7 @@ class FisherPruningHook():
 
         info = {'module': None, 'channel': None, 'min': 1e9}
         self.fisher_list = np.array([])
+        self.fisher_reg = torch.Tensor(0)
         info.update(self.single_prune(info, self.group_modules))
         for group in self.groups:
             # they share the same in mask
@@ -363,16 +367,24 @@ class FisherPruningHook():
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
+            self.fisher_reg += self.compute_regularization(fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
-        # only modify in_mask is sufficient
-        if isinstance(module, int):
-            # the case for multiple modules in a group
-            for m in self.groups[module]:
-                m.in_mask[channel] = 0
-        elif module is not None:
-            # the case for single module
-            module.in_mask[channel] = 0
+        if not self.reg:
+            # only modify in_mask is sufficient
+            if isinstance(module, int):
+                # the case for multiple modules in a group
+                for m in self.groups[module]:
+                    m.in_mask[channel] = 0
+            elif module is not None:
+                # the case for single module
+                module.in_mask[channel] = 0
+            
+    def compute_regularization(self, fisher_info):
+        fisher_reg = torch.exp(torch.pow(fisher_info, 2), 2) + torch.exp(torch.pow(fisher_info-1e-5, 2), 2) + \
+                     torch.exp(torch.pow(fisher_info-1, 2), 2) + torch.exp(torch.pow(fisher_info-1e5, 2), 2)
+        fisher_reg *= 1e-4
+        return fisher_reg
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
