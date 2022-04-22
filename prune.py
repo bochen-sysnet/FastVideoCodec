@@ -478,7 +478,6 @@ class FisherPruningHook():
             def compute_fisher(input, grad_input, layer_name):
                 # information per mask channel per module
                 grads = input * grad_input
-                print(layer_name,input.requires_grad,grad_input.requires_grad,grads.requires_grad)
                 if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
                     grads = grads.sum(-1).sum(-1).sum(0)
                 elif layer_name in ['Linear']:
