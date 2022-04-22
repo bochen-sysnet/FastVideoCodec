@@ -189,13 +189,11 @@ class FisherPruningHook():
             # plot figure
             if itr % 1000 == 0:
                 plt.figure(1)
-                self.fisher_list[self.fisher_list==0] = 1e20
+                self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
-                self.fisher_list[self.fisher_list==20] = 0
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher_distribution_{itr}.png')
+                plt.savefig(f'fisher/fisher_distribution_{itr}.png')
         self.init_flops_acts()
-        exit(0)
 
     def update_flop_act(self, model, work_dir='work_dir/'):
         flops, acts = self.compute_flops_acts()
