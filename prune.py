@@ -345,7 +345,7 @@ class FisherPruningHook():
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
             # print(name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.int32)))
+            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         print(len(fisher_list))
@@ -376,7 +376,7 @@ class FisherPruningHook():
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
             #print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.int32)))
+            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         print(len(fisher_list))
         plt.figure(2)
