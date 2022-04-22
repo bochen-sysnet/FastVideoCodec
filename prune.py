@@ -345,7 +345,7 @@ class FisherPruningHook():
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
             # print(name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.float32)))
+            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
