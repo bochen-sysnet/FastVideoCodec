@@ -344,12 +344,11 @@ class FisherPruningHook():
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
-            # print(name,torch.sum(fisher),fisher)
+            print(name,torch.sum(fisher),fisher)
             fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.int32)))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
-        print(fisher_list)
         plt.figure(1)
         sns.displot(fisher_list, kind='hist', aspect=1.2, binwidth=100)
         plt.savefig('single.png')
