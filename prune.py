@@ -338,7 +338,7 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 #fisher /= (float(max(delta_acts, 1.)) / 1e6)
-                fisher /= float(max(delta_acts, 1.))
+                fisher /= (float(max(delta_acts, 1.)) / 1e3)
             if self.fisher_norm:
                 # make sure the fisher info in the same group
                 # sum to 1, excluding pruned channels
@@ -369,7 +369,7 @@ class FisherPruningHook():
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 #fisher /= float(self.acts[group] / 1e6)
-                fisher /= float(self.acts[group])
+                fisher /= float(self.acts[group] / 1e3)
             if self.fisher_norm:
                 # make sure the fisher info in the same group
                 # sum to 1, excluding pruned channels
