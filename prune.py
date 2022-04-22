@@ -347,7 +347,7 @@ class FisherPruningHook():
             fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
-        sns.displot(fisher_list, x='fisher info', kind='hist', aspect=1.2)
+        sns.displot(fisher_list, kind='hist', aspect=1.2)
         plt.savefig('single.png')
         return info
 
@@ -374,7 +374,7 @@ class FisherPruningHook():
             #print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
             fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
-        sns.displot(fisher_list, x='fisher info', kind='hist', aspect=1.2)
+        sns.displot(fisher_list, kind='hist', aspect=1.2)
         plt.savefig('group.png')
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
