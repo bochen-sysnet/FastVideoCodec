@@ -345,7 +345,6 @@ class FisherPruningHook():
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
-            print(fisher.requires_grad)
             if self.fisher_reg is None:
                 self.fisher_reg = self.compute_regularization(fisher)
             else:
@@ -492,6 +491,7 @@ class FisherPruningHook():
             layer_name = type(module).__name__
             feature = self.conv_inputs[module].pop(-1)[0]
             self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
+            print(layer_name,grad_feature.requires_grad)
             
         if inputs[0].requires_grad:
             inputs[0].register_hook(backward_hook)
