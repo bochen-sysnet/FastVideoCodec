@@ -345,7 +345,10 @@ class FisherPruningHook():
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
-            self.fisher_reg += self.compute_regularization(fisher)
+            if self.fisher_reg is None:
+                self.fisher_reg = self.compute_regularization(fisher)
+            else:
+                self.fisher_reg += self.compute_regularization(fisher)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -356,7 +359,7 @@ class FisherPruningHook():
 
         info = {'module': None, 'channel': None, 'min': 1e9}
         self.fisher_list = np.array([])
-        self.fisher_reg = torch.Tensor(0)
+        self.fisher_reg = None
         info.update(self.single_prune(info, self.group_modules))
         for group in self.groups:
             # they share the same in mask
