@@ -338,17 +338,16 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 #fisher /= (float(max(delta_acts, 1.)) / 1e6)
-                fisher /= (float(max(delta_acts, 1.)) )
+                fisher /= (float(max(delta_acts, 1.)) * 1e3)
             if self.fisher_norm:
                 # make sure the fisher info in the same group
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
             # print(name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy()))
+            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.int32)))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
-        print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
         plt.figure(1)
         sns.displot(fisher_list, kind='hist', aspect=1.2)
         plt.savefig('single.png')
