@@ -384,7 +384,7 @@ class FisherPruningHook():
         fisher_reg = torch.exp(torch.pow(fisher_info, 2)) + torch.exp(torch.pow(fisher_info-1e-5, 2)) + \
                      torch.exp(torch.pow(fisher_info-1, 2)) + torch.exp(torch.pow(fisher_info-1e5, 2))
         fisher_reg *= 1e-4
-        return fisher_reg
+        return torch.sum(fisher_reg)
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
