@@ -478,6 +478,7 @@ class FisherPruningHook():
             def compute_fisher(input, grad_input, layer_name):
                 # information per mask channel per module
                 grads = input * grad_input
+                print(layer_name,input.requires_grad,grad_input.requires_grad,grads.requires_grad)
                 if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
                     grads = grads.sum(-1).sum(-1).sum(0)
                 elif layer_name in ['Linear']:
@@ -491,7 +492,6 @@ class FisherPruningHook():
             layer_name = type(module).__name__
             feature = self.conv_inputs[module].pop(-1)[0]
             self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
-            print(layer_name,feature.requires_grad,grad_feature.requires_grad,self.temp_fisher_info[module].requires_grad)
             
         if inputs[0].requires_grad:
             inputs[0].register_hook(backward_hook)
