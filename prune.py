@@ -378,12 +378,10 @@ class FisherPruningHook():
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
         if isinstance(module, int):
-            print('Pruning:',module, channel)
             # the case for multiple modules in a group
             for m in self.groups[module]:
                 m.in_mask[channel] = 0
         elif module is not None:
-            print('Pruning:',module.name, channel)
             # the case for single module
             module.in_mask[channel] = 0
 
