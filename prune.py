@@ -343,7 +343,7 @@ class FisherPruningHook():
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
-            print(name,torch.sum(fisher),fisher)
+            #print(name,torch.sum(fisher),fisher)
             fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.float32)))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
@@ -367,19 +367,18 @@ class FisherPruningHook():
             if self.delta == 'flops':
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
-                #fisher /= float(self.acts[group] / 1e6)
-                fisher /= float(self.acts[group] / 1e3)
+                fisher /= float(self.acts[group] / 1e6)
             if self.fisher_norm:
                 # make sure the fisher info in the same group
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
             #print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.int32)))
+            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.float32)))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
         plt.figure(2)
-        sns.displot(fisher_list, kind='hist', aspect=1.2)
+        sns.displot(np.log10(fisher_list+1), kind='hist', aspect=1.2)
         plt.savefig('group.png')
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
