@@ -10,6 +10,8 @@ import torch.nn.functional as F
 from torch.nn import Conv2d, ConvTranspose2d
 from models import LSVC
 from DVC.subnet import Bitparm, GDN
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def load_checkpoint(model, filename):
     checkpoint = torch.load(filename,map_location=torch.device('cuda:1'))
@@ -98,7 +100,7 @@ class FisherPruningHook():
         self.save_acts_thr = save_acts_thr
         
         self.total_flops = self.total_acts = 0
-        self.fisher_norm = True
+        self.fisher_norm = False
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -180,10 +182,12 @@ class FisherPruningHook():
         self.init_temp_fishers()
         # do pruning every interval
         if itr % self.interval == 0:
+            # this makes sure model is converged before each pruning
             self.channel_prune()
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
         self.init_flops_acts()
+        exit(0)
 
     def update_flop_act(self, model, work_dir='work_dir/'):
         flops, acts = self.compute_flops_acts()
@@ -306,7 +310,7 @@ class FisherPruningHook():
                 channel: the index of channel need be to pruned
                 min : the value of fisher / delta
         """
-
+        fisher_list = np.array([])
         for module, name in self.conv_names.items():
             if exclude is not None and module in exclude:
                 continue
@@ -339,9 +343,12 @@ class FisherPruningHook():
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
-            print(name,torch.sum(fisher),fisher)
+            # print(name,torch.sum(fisher),fisher)
+            fisher_list = np.concatenate((fisher_list,fisher.view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
+        sns.displot(fisher_list, x='fisher info', kind='hist', aspect=1.2)
+        plt.savefig('single.png')
         return info
 
     def channel_prune(self):
@@ -350,6 +357,7 @@ class FisherPruningHook():
 
         info = {'module': None, 'channel': None, 'min': 1e9}
         info.update(self.single_prune(info, self.group_modules))
+        fisher_list = np.array([])
         for group in self.groups:
             # they share the same in mask
             in_mask = self.groups[group][0].in_mask.view(-1)
@@ -363,8 +371,11 @@ class FisherPruningHook():
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
-            print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
+            #print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
+            fisher_list = np.concatenate((fisher_list,fisher.view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
+        sns.displot(fisher_list, x='fisher info', kind='hist', aspect=1.2)
+        plt.savefig('group.png')
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
         if isinstance(module, int):
