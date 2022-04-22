@@ -349,6 +349,7 @@ class FisherPruningHook():
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
+        print(fisher_list)
         plt.figure(1)
         sns.displot(fisher_list, kind='hist', aspect=1.2, binwidth=100)
         plt.savefig('single.png')
