@@ -310,7 +310,6 @@ class FisherPruningHook():
                 channel: the index of channel need be to pruned
                 min : the value of fisher / delta
         """
-        fisher_list = np.array([])
         for module, name in self.conv_names.items():
             if exclude is not None and module in exclude:
                 continue
@@ -343,14 +342,9 @@ class FisherPruningHook():
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
-            #print(name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.float32)))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
-        print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
-        plt.figure(1)
-        sns.displot(np.log10(fisher_list+1), kind='hist')
-        plt.savefig('single.png')
         return info
 
     def channel_prune(self):
@@ -358,8 +352,8 @@ class FisherPruningHook():
         corresponding in_mask 0."""
 
         info = {'module': None, 'channel': None, 'min': 1e9}
+        self.fisher_list = np.array([])
         info.update(self.single_prune(info, self.group_modules))
-        fisher_list = np.array([])
         for group in self.groups:
             # they share the same in mask
             in_mask = self.groups[group][0].in_mask.view(-1)
@@ -373,13 +367,11 @@ class FisherPruningHook():
                 # sum to 1, excluding pruned channels
                 sum_fisher = torch.sum(fisher*in_mask)
                 fisher /= sum_fisher
-            #print(group,self.groups[group][0].name,torch.sum(fisher),fisher)
-            fisher_list = np.concatenate((fisher_list,fisher.cpu().view(-1).numpy().astype(np.float32)))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher.cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
-        print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
-        plt.figure(2)
-        sns.displot(np.log10(fisher_list+1), kind='hist', aspect=1.2)
-        plt.savefig('group.png')
+        plt.figure(1)
+        sns.displot(np.log10(self.fisher_list+1), kind='hist', aspect=1.2)
+        plt.savefig('fisher_distribution.png')
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
         if isinstance(module, int):
