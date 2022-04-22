@@ -100,7 +100,6 @@ class FisherPruningHook():
         self.save_acts_thr = save_acts_thr
         
         self.total_flops = self.total_acts = 0
-        self.fisher_norm = False
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -343,12 +342,7 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
-            if self.fisher_norm:
-                # make sure the fisher info in the same group
-                # sum to 1, excluding pruned channels
-                sum_fisher = torch.sum(fisher*in_mask)
-                fisher /= sum_fisher
-            self.fisher_list = np.concatenate((self.fisher_list,fisher.cpu().view(-1).numpy()))
+            self.fisher_list = np.concatenate((self.fisher_list[in_mask],fisher.cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -368,12 +362,7 @@ class FisherPruningHook():
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
-            if self.fisher_norm:
-                # make sure the fisher info in the same group
-                # sum to 1, excluding pruned channels
-                sum_fisher = torch.sum(fisher*in_mask)
-                fisher /= sum_fisher
-            self.fisher_list = np.concatenate((self.fisher_list,fisher.cpu().view(-1).numpy()))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask].cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
         # only modify in_mask is sufficient
