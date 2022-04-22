@@ -337,8 +337,7 @@ class FisherPruningHook():
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
-                #fisher /= (float(max(delta_acts, 1.)) / 1e6)
-                fisher /= (float(max(delta_acts, 1.)) )
+                fisher /= (float(max(delta_acts, 1.)) / 1e6)
             if self.fisher_norm:
                 # make sure the fisher info in the same group
                 # sum to 1, excluding pruned channels
@@ -350,7 +349,7 @@ class FisherPruningHook():
                 self.find_pruning_channel(module, fisher, in_mask, info))
         print(len(fisher_list),np.max(fisher_list),np.min(fisher_list))
         plt.figure(1)
-        sns.displot(np.log10(fisher_list), kind='hist')
+        sns.displot(np.log10(fisher_list+1), kind='hist')
         plt.savefig('single.png')
         return info
 
