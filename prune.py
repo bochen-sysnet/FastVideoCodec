@@ -392,7 +392,7 @@ class FisherPruningHook():
                 grad /= (float(max(delta_acts, 1.)) / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            self.grad_list = np.concatenate((self.grad_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 if self.fisher_reg is None:
                     self.fisher_reg = self.compute_regularization(fisher)
@@ -428,7 +428,7 @@ class FisherPruningHook():
                 grad /= float(self.acts[group] / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            self.grad_list = np.concatenate((self.grad_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 self.fisher_reg += self.compute_regularization(fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
