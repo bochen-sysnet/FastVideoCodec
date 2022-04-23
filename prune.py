@@ -371,7 +371,7 @@ class FisherPruningHook():
                 fisher /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
-            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 self.fisher_reg += self.compute_regularization(fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
