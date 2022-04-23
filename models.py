@@ -1698,6 +1698,8 @@ class LSVC(nn.Module):
         self.warpnet.cuda(1)
         self.resEncoder.cuda(1)
         self.resDecoder.cuda(1)
+        self.respriorEncoder.cuda(1)
+        self.respriorDecoder.cuda(1)
         self.bitEstimator_z.cuda(1)
 
     def motioncompensation(self, ref, mv):
