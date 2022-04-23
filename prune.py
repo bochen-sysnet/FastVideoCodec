@@ -799,7 +799,7 @@ def add_pruning_attrs(module, pruning=False):
         def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask
+                x = x * mask.to(x.device)
             else:
                 # if it has no ancestor
                 # we need to mask it
@@ -819,7 +819,7 @@ def add_pruning_attrs(module, pruning=False):
         def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask
+                x = x * mask.to(x.device)
             else:
                 # if it has no ancestor
                 # we need to mask it
@@ -855,7 +855,7 @@ def add_pruning_attrs(module, pruning=False):
         def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
-                x = x * mask
+                x = x * mask.to(x.device)
             output = F.linear(x, m.weight, bias=m.bias)
             m.output_size = output.size()
             return output
@@ -870,7 +870,7 @@ def add_pruning_attrs(module, pruning=False):
         def modified_forward(m, x):
             if not m.finetune:
                 mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask
+                x = x * mask.to(x.device)
             if m.final:
                 output = F.sigmoid(x * F.softplus(m.h) + m.b)
             else:
