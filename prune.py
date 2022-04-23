@@ -571,7 +571,7 @@ class FisherPruningHook():
                     exit(0)
                 return grads
                 
-            def compute_mag(input, grad_input, layer_name):
+            def compute_grad(input, grad_input, layer_name):
                 # information per mask channel per module
                 grads = torch.abs(grad_input)
                 if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
