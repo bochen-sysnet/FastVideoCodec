@@ -183,7 +183,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # backward
         if hook is not None:
             hook.set_target(loss)
-        scaler.scale(loss).backward() 
+        scaler.scale(loss).backward(retain_graph=True) 
         # graph of the derivative will be constructed, allowing to compute higher order derivative product
         # smemory is an issue
 
