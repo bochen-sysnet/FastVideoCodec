@@ -450,7 +450,7 @@ class FisherPruningHook():
     def set_target(self, target):
         for module, name in self.conv_names.items():
             for inp in self.conv_inputs[module]:
-                print(module.name, target.size(), inp.size())
+                print(module.name, target.size(), inp)
                 grad_feature = torch.autograd.grad(target, inp, create_graph=True)[0]
                 print(grad_feature.size())
 
