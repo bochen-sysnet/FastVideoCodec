@@ -496,7 +496,6 @@ class FisherPruningHook():
             layer_name = type(module).__name__
             feature = self.conv_inputs[module].pop(-1)[0]
             self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
-            print(module.name, grad_feature.size())
             
         if inputs[0].requires_grad:
             inputs[0].register_hook(backward_hook)

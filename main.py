@@ -188,8 +188,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if hook is not None:
             # backward the regularization function
             hook.after_train_iter(batch_idx, model)
-            if hook.fisher_reg is not None:
-                print(float(hook.fisher_reg))
+            if hook.fisher_reg is not None and hook.fisher_reg.requires_grad:
                 scaler.scale(hook.fisher_reg).backward()
 
         # update model after compress each video
