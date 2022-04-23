@@ -345,7 +345,7 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
-            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 if self.fisher_reg is None:
                     self.fisher_reg = self.compute_regularization(fisher)
