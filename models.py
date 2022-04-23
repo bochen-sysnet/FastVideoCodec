@@ -1687,8 +1687,6 @@ class LSVC(nn.Module):
         self.use_split = use_split
         if self.use_split:
             self.split()
-        else:
-            self = self.cuda()
         
     def split(self):
         self.opticFlow.cuda(0)
