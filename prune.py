@@ -451,7 +451,7 @@ class FisherPruningHook():
         for module, name in self.conv_names.items():
             for inp in self.conv_inputs[module]:
                 first_derivative = torch.autograd.grad(target, inp, create_graph=True)[0]
-                print(module.name, grad_feature)
+                print('1',module.name, grad_feature.size())
 
     def save_input_forward_hook(self, module, inputs, outputs):
         """Save the input and flops and acts for computing fisher and flops or
@@ -497,7 +497,7 @@ class FisherPruningHook():
             layer_name = type(module).__name__
             feature = self.conv_inputs[module].pop(-1)[0]
             self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
-            print(module.name, grad_feature)
+            print(module.name, grad_feature.size())
             
         if inputs[0].requires_grad:
             inputs[0].register_hook(backward_hook)
