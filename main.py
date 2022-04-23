@@ -38,7 +38,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1
+device = 0
 STEPS = []
 PRUNING = True
 
