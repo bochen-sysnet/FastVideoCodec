@@ -1693,7 +1693,7 @@ class LSVC(nn.Module):
     def split(self):
         self.opticFlow.cuda(0)
         self.mvEncoder.cuda(0)
-        self.nvDecoder.cuda(0)
+        self.mvDecoder.cuda(0)
         self.bitEstimator_mv.cuda(0)
         self.warpnet.cuda(1)
         self.resEncoder.cuda(1)
