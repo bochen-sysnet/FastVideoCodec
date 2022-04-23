@@ -181,9 +181,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # backward
-        scaler.scale(loss).backward() 
-        # graph of the derivative will be constructed, allowing to compute higher order derivative product
-        # smemory is an issue
+        if hook.reg:
+            scaler.scale(loss).backward(retain_graph=True) 
+        else:
+            scaler.scale(loss).backward() 
 
         if hook is not None:
             # backward the regularization function
