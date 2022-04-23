@@ -395,9 +395,9 @@ class FisherPruningHook():
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 if self.fisher_reg is None:
-                    self.fisher_reg = self.compute_regularization(fisher)
+                    self.fisher_reg = self.compute_regularization(mag)
                 else:
-                    self.fisher_reg += self.compute_regularization(fisher)
+                    self.fisher_reg += self.compute_regularization(mag)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -430,7 +430,7 @@ class FisherPruningHook():
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
-                self.fisher_reg += self.compute_regularization(fisher)
+                self.fisher_reg += self.compute_regularization(mag)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
         if not self.reg:
