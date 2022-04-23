@@ -251,12 +251,12 @@ class FisherPruningHook():
             i_mask = module.in_mask
             o_mask = module.out_mask
             flops += max_flop / (i_mask.numel() * o_mask.numel()) * (
-                int(i_mask.sum()) * int(o_mask.sum()))
+                i_mask.cpu().sum() * o_mask.cpu().sum())
             max_flops += max_flop
             max_act = self.acts[module]
-            acts += max_act / int(o_mask.numel()) * int(o_mask.sum())
+            acts += max_act / o_mask.cpu().numel() * o_mask.cpu().sum()
             max_acts += max_act
-        return flops.cpu().numpy() / max_flops, acts.cpu().numpy() / max_acts
+        return flops.numpy() / max_flops, acts.numpy() / max_acts
 
     def init_accum_fishers(self):
         """Clear accumulated fisher info."""
