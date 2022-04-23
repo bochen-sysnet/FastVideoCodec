@@ -345,10 +345,11 @@ class FisherPruningHook():
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
-            if self.fisher_reg is None:
-                self.fisher_reg = self.compute_regularization(fisher)
-            else:
-                self.fisher_reg += self.compute_regularization(fisher)
+            if self.reg:
+                if self.fisher_reg is None:
+                    self.fisher_reg = self.compute_regularization(fisher)
+                else:
+                    self.fisher_reg += self.compute_regularization(fisher)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -370,7 +371,8 @@ class FisherPruningHook():
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].cpu().view(-1).numpy()))
-            self.fisher_reg += self.compute_regularization(fisher)
+            if self.reg:
+                self.fisher_reg += self.compute_regularization(fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
         if not self.reg:
