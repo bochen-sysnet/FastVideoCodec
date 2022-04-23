@@ -40,7 +40,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif name in ['DVC-pretrained']:
         model_codec = get_DVC_pretrained(compression_level)
     elif 'LSVC' in name:
-        model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level)
+        model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -1660,7 +1660,7 @@ class SPVC(nn.Module):
 from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator,out_channel_M,out_channel_N,out_channel_mv
 
 class LSVC(nn.Module):
-    def __init__(self, name, loss_type='P', compression_level=3):
+    def __init__(self, name, loss_type='P', compression_level=3, use_split=True):
         super(LSVC, self).__init__()
         self.name = name
         self.useAttn = True if '-A' in name else False
@@ -1684,11 +1684,30 @@ class LSVC(nn.Module):
         self.channels = channels
         self.compression_level=compression_level
         init_training_params(self)
+        self.use_split = use_split
+        if self.use_split:
+            self.split()
+        else:
+            self = self.cuda()
+        
+    def split(self):
+        self.opticFlow.cuda(0)
+        self.mvEncoder.cuda(0)
+        self.nvDecoder.cuda(0)
+        self.bitEstimator_mv.cuda(0)
+        self.warpnet.cuda(1)
+        self.resEncoder.cuda(1)
+        self.resDecoder.cuda(1)
+        self.bitEstimator_z.cuda(1)
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
         inputfeature = torch.cat((warpframe, ref), 1)
+        if self.use_split:
+            inputfeature = inputfeature.cuda(1)
         a = self.warpnet(inputfeature)
+        if self.use_split:
+            a = a.cuda(0)
         prediction = a + warpframe
         return prediction, warpframe
 
@@ -1778,6 +1797,8 @@ class LSVC(nn.Module):
         return total_bits, prob
 
     def res_codec(self,input_residual):
+        if self.use_split:
+            input_residual = input_residual.cuda(1)
         feature = self.resEncoder(input_residual)
         z = self.respriorEncoder(feature)
 
@@ -1804,6 +1825,9 @@ class LSVC(nn.Module):
         total_bits_feature, _ = self.feature_probs_based_sigma(compressed_feature_renorm, recon_sigma)
         total_bits_z, _ = self.iclr18_estrate_bits_z(compressed_z)
         total_bits = total_bits_feature+total_bits_z
+        if self.use_split:
+            recon_res = recon_res.cuda(0)
+            total_bits = total_bits.cuda(0)
         return recon_res,total_bits
 
     def mv_codec(self, estmv):

@@ -59,8 +59,8 @@ if use_cuda:
 model = get_codec_model(CODEC_NAME, 
                         loss_type=loss_type, 
                         compression_level=compression_level,
-                        use_split=False)
-model = model.cuda(device)
+                        use_split=True)
+#model = model.cuda(device)
 
 # load model
 if not PRUNING:
