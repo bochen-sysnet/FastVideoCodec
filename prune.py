@@ -78,15 +78,23 @@ class FisherPruningHook():
         # The key of self.temp_fisher_info is conv module, and value
         # is a temporary variable used to estimate fisher.
         self.temp_fisher_info = {}
+        self.temp_mag_info = {}
+        self.temp_grad_info = {}
 
         # The key of self.batch_fishers is conv module, and value
         # is the estimation of fisher by single batch.
         self.batch_fishers = {}
+        self.batch_mags = {}
+        self.batch_grads = {}
 
         # The key of self.accum_fishers is conv module, and value
         # is the estimation of parameter's fisher by all the batch
         # during number of self.interval iterations.
         self.accum_fishers = {}
+        self.accum_mags = {}
+        self.accum_grads = {}
+        
+        
         self.channels = 0
         self.delta = delta
         self.deploy_from = deploy_from
@@ -152,12 +160,26 @@ class FisherPruningHook():
             self.construct_outchannel_masks()
             for conv, name in self.conv_names.items():
                 self.conv_inputs[conv] = []
-                self.temp_fisher_info[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask)) # fisher info of every in_channel
+                # fisher info
+                self.temp_fisher_info[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask)) 
                 self.accum_fishers[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask))
+                # magnitude info
+                self.temp_mag_info[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask)) 
+                self.accum_mags[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask))
+                # gradiant info    
+                self.temp_grad_info[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask)) 
+                self.accum_grads[conv] = conv.in_mask.data.new_zeros(len(conv.in_mask))
             for group_id in self.groups:
                 module = self.groups[group_id][0]
+                # fisher info
                 self.temp_fisher_info[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
                 self.accum_fishers[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
+                # magnitude info
+                self.temp_mag_info[group_id] = module.in_mask.data.new_zeros(len(module.in_mask)) 
+                self.accum_mags[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
+                # gradiant info    
+                self.temp_grad_info[group_id] = module.in_mask.data.new_zeros(len(module.in_mask)) 
+                self.accum_grads[group_id] = module.in_mask.data.new_zeros(len(module.in_mask))
             self.init_flops_acts()
             self.init_temp_fishers()
             if self.resume_from is not None:
@@ -168,7 +190,7 @@ class FisherPruningHook():
 
         self.print_model(model, print_flops_acts=False)
 
-    def after_train_iter(self, itr, model):
+    def after_train_iter(self, itr, model, loss):
         # accumulate fisher information
         # compute loss = torch.exp(fisher)
         # need to find the best regularization coefficient
@@ -189,11 +211,24 @@ class FisherPruningHook():
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
             if itr % 1000 == 0:
+                # fisher
                 plt.figure(1)
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/fisher_distribution_{itr}.png')
+                plt.savefig(f'fisher/fisher_distribution_{itr}_{loss:.2f}.png')
+                # magnitude
+                plt.figure(2)
+                self.mag_list[self.mag_list==0] = 1e-50
+                self.mag_list = np.log10(self.mag_list)
+                sns.displot(self.mag_list, kind='hist', aspect=1.2)
+                plt.savefig(f'fisher/mag_distribution_{itr}_{loss:.2f}.png')
+                # gradient
+                plt.figure(3)
+                self.grad_list[self.grad_list==0] = 1e-50
+                self.grad_list = np.log10(self.grad_list)
+                sns.displot(self.grad_list, kind='hist', aspect=1.2)
+                plt.savefig(f'fisher/grad_distribution_{itr}_{loss:.2f}.png')
         self.init_flops_acts()
 
     def update_flop_act(self, model, work_dir='work_dir/'):
@@ -262,8 +297,12 @@ class FisherPruningHook():
         """Clear accumulated fisher info."""
         for module, name in self.conv_names.items():
             self.accum_fishers[module].zero_()
+            self.accum_mags[module].zero_()
+            self.accum_grads[module].zero_()
         for group in self.groups:
             self.accum_fishers[group].zero_()
+            self.accum_mags[group].zero_()
+            self.accum_grads[group].zero_()
 
     def find_pruning_channel(self, module, fisher, in_mask, info):
         """Find the the channel of a model to pruning.
@@ -322,6 +361,8 @@ class FisherPruningHook():
             if exclude is not None and module in exclude:
                 continue
             fisher = self.accum_fishers[module]
+            mag = self.accum_mags[module]
+            grad = self.accum_grads[module]
             in_mask = module.in_mask.view(-1)
             ancestors = self.conv2ancest[module]
             if self.delta == 'flops':
@@ -338,6 +379,8 @@ class FisherPruningHook():
                     delta_flops += self.flops[ancestor] * ancestor.in_mask.sum(
                     ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
                 fisher /= (float(delta_flops) / 1e9)
+                mag /= (float(delta_flops) / 1e9)
+                grad /= (float(delta_flops) / 1e9)
             if self.delta == 'acts':
                 # activation only counts ancestors
                 delta_acts = 0
@@ -345,7 +388,11 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
+                mag /= (float(max(delta_acts, 1.)) / 1e6)
+                grad /= (float(max(delta_acts, 1.)) / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.grad_list = np.concatenate((self.grad_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 if self.fisher_reg is None:
                     self.fisher_reg = self.compute_regularization(fisher)
@@ -361,17 +408,27 @@ class FisherPruningHook():
 
         info = {'module': None, 'channel': None, 'min': 1e15}
         self.fisher_list = np.array([])
+        self.mag_list = np.array([])
+        self.grad_list = np.array([])
         self.fisher_reg = None
         info.update(self.single_prune(info, self.group_modules))
         for group in self.groups:
             # they share the same in mask
             in_mask = self.groups[group][0].in_mask.view(-1)
             fisher = self.accum_fishers[group].double()
+            mag = self.accum_mags[group].double()
+            grad = self.accum_grads[group].double()
             if self.delta == 'flops':
                 fisher /= float(self.flops[group] / 1e9)
+                mag /= float(self.flops[group] / 1e9)
+                grad /= float(self.flops[group] / 1e9)
             elif self.delta == 'acts':
                 fisher /= float(self.acts[group] / 1e6)
+                mag /= float(self.acts[group] / 1e6)
+                grad /= float(self.acts[group] / 1e6)
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.grad_list = np.concatenate((self.grad_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 self.fisher_reg += self.compute_regularization(fisher)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
@@ -397,8 +454,12 @@ class FisherPruningHook():
 
         for module, name in self.conv_names.items():
             self.accum_fishers[module] += self.batch_fishers[module]
+            self.accum_mags[module] += self.batch_mags[module]
+            self.accum_grads[module] += self.batch_grads[module]
         for group in self.groups:
             self.accum_fishers[group] += self.batch_fishers[group]
+            self.accum_mags[group] += self.batch_mags[group]
+            self.accum_grads[group] += self.batch_grads[group]
 
     def group_fishers(self):
         """Accumulate all module.in_mask's fisher and flops in same group."""
@@ -436,6 +497,8 @@ class FisherPruningHook():
         # the case for single modules
         for module, name in self.conv_names.items():
             self.batch_fishers[module] = self.temp_fisher_info[module]**2
+            self.batch_mags[module] = self.temp_mag_info[module]
+            self.batch_grads[module] = self.temp_grad_info[module]
 
     def init_flops_acts(self):
         """Clear the flops and acts of model in last iter."""
@@ -447,13 +510,12 @@ class FisherPruningHook():
         """Clear fisher info of single conv and group."""
         for module, name in self.conv_names.items():
             self.temp_fisher_info[module].zero_()
+            self.temp_mag_info[module].zero_()
+            self.temp_grad_info[module].zero_()
         for group in self.groups:
             self.temp_fisher_info[group].zero_()
-            
-    def set_target(self, target):
-        for module, name in self.conv_names.items():
-            for inp in self.conv_inputs[module]:
-                grad_feature = torch.autograd.grad(target, inp[0], create_graph=True)[0]
+            self.temp_mag_info[group].zero_()
+            self.temp_grad_info[group].zero_()
 
     def save_input_forward_hook(self, module, inputs, outputs):
         """Save the input and flops and acts for computing fisher and flops or
@@ -495,10 +557,38 @@ class FisherPruningHook():
                     print('Unrecognized in compute_fisher:',layer_name)
                     exit(0)
                 return grads
+                
+            def compute_mag(input, grad_input, layer_name):
+                # information per mask channel per module
+                grads = torch.abs(input)
+                if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
+                    grads = grads.sum(-1).sum(-1).sum(0)
+                elif layer_name in ['Linear']:
+                    grads = grads.sum(0).sum(0)
+                    grads = grads.view(module.in_rep,-1).sum(0)
+                else:
+                    print('Unrecognized in compute_fisher:',layer_name)
+                    exit(0)
+                return grads
+                
+            def compute_mag(input, grad_input, layer_name):
+                # information per mask channel per module
+                grads = torch.abs(grad_input)
+                if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
+                    grads = grads.sum(-1).sum(-1).sum(0)
+                elif layer_name in ['Linear']:
+                    grads = grads.sum(0).sum(0)
+                    grads = grads.view(module.in_rep,-1).sum(0)
+                else:
+                    print('Unrecognized in compute_fisher:',layer_name)
+                    exit(0)
+                return grads
 
             layer_name = type(module).__name__
             feature = self.conv_inputs[module].pop(-1)[0]
             self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
+            self.temp_mag_info[module] += compute_mag(feature, grad_feature, layer_name)
+            self.temp_grad_info[module] += compute_grad(feature, grad_feature, layer_name)
             
         if inputs[0].requires_grad:
             inputs[0].register_hook(backward_hook)
