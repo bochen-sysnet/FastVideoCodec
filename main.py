@@ -188,7 +188,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
 
         if hook is not None:
             # backward the regularization function
-            hook.after_train_iter(batch_idx, model, loss.cpu().data.item())
+            hook.after_train_iter(batch_idx, model, all_loss_module.avg)
             if hook.reg and hook.fisher_reg.requires_grad:
                 scaler.scale(hook.fisher_reg).backward()
 
