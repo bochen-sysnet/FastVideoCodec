@@ -181,7 +181,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # backward
-        scaler.scale(loss).backward() 
+        scaler.scale(loss).backward(create_graph=True) 
         # graph of the derivative will be constructed, allowing to compute higher order derivative product
         # smemory is an issue
 
