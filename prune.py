@@ -292,7 +292,8 @@ class FisherPruningHook():
             nonzero = in_mask.nonzero().view(-1)
             fisher = fisher[nonzero]
             min_value, argmin = fisher.min(dim=0)
-            if min_value < info['min'].to(min_value.device):
+            print(min_value,info['min'])
+            if min_value < info['min']:
                 module_info['module'] = module
                 module_info['channel'] = nonzero[argmin]
                 module_info['min'] = min_value
