@@ -59,8 +59,8 @@ if use_cuda:
 model = get_codec_model(CODEC_NAME, 
                         loss_type=loss_type, 
                         compression_level=compression_level,
-                        use_split=True)
-#model = model.cuda(device)
+                        use_split=False)
+model = model.cuda(device)
 
 # load model
 if not PRUNING:
@@ -181,7 +181,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # backward
-        scaler.scale(loss).backward(create_graph=True) 
+        scaler.scale(loss).backward() 
         # graph of the derivative will be constructed, allowing to compute higher order derivative product
         # smemory is an issue
 
