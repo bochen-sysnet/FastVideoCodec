@@ -292,7 +292,7 @@ class FisherPruningHook():
             nonzero = in_mask.nonzero().view(-1)
             fisher = fisher[nonzero]
             min_value, argmin = fisher.min(dim=0)
-            print(min_value,info['min'])
+            min_value = float(min_value)
             if min_value < info['min']:
                 module_info['module'] = module
                 module_info['channel'] = nonzero[argmin]
@@ -359,7 +359,7 @@ class FisherPruningHook():
         """Select the channel in model with smallest fisher / delta set
         corresponding in_mask 0."""
 
-        info = {'module': None, 'channel': None, 'min': 1e9}
+        info = {'module': None, 'channel': None, 'min': 1e15}
         self.fisher_list = np.array([])
         self.fisher_reg = None
         info.update(self.single_prune(info, self.group_modules))
