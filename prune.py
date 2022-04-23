@@ -482,6 +482,8 @@ class FisherPruningHook():
 
             # sum along the dim of batch
             self.batch_fishers[group] = self.temp_fisher_info[group]**2
+            self.batch_mags[group] = self.temp_mag_info[module]
+            self.batch_grads[group] = self.temp_grad_info[module]
 
             # impact on group ancestors, whose out channels are coupled with its
             # in_channels
