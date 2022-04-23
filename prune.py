@@ -494,8 +494,8 @@ class FisherPruningHook():
             layer_name = type(module).__name__
             feature = self.conv_inputs[module].pop(-1)[0]
             self.temp_fisher_info[module] += compute_fisher(feature, grad_feature, layer_name)
-            first_derivative = torch.autograd.grad(self.target, feature, create_graph=True)[0]
-            print(layer_name, grad_feature, first_derivative)
+            #first_derivative = torch.autograd.grad(self.target, feature, create_graph=True)[0]
+            #print(layer_name, grad_feature, first_derivative)
             
         if inputs[0].requires_grad:
             inputs[0].register_hook(backward_hook)
