@@ -451,7 +451,6 @@ class FisherPruningHook():
                 print(module.name,channel)
                 # the case for single module
                 module.in_mask[channel] = 0
-        exit(0)
             
     def compute_regularization(self, fisher_info):
         fisher_reg = torch.exp(torch.pow(fisher_info, 2)) + torch.exp(torch.pow(fisher_info-1e-5, 2)) + \
