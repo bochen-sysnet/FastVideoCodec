@@ -210,7 +210,7 @@ class FisherPruningHook():
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
-            if itr % 1000 == 0:
+            if itr % 10000 == 0:
                 # fisher
                 plt.figure(1)
                 self.fisher_list[self.fisher_list==0] = 1e-50
@@ -223,7 +223,6 @@ class FisherPruningHook():
                 self.mag_list = np.log10(self.mag_list)
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
                 plt.savefig(f'fisher/dist_mag_{itr}_{loss:.2f}.png')
-                exit(0)
                 # gradient
                 #plt.figure(3)
                 #self.grad_list[self.grad_list==0] = 1e-50
@@ -328,7 +327,7 @@ class FisherPruningHook():
         #     print(module.name, fisher.min())
         # else:
         #     print(module,fisher.min())
-        if fisher.sum() > 0 and in_mask.sum() > 1:
+        if in_mask.sum() > 1:
             nonzero = in_mask.nonzero().view(-1)
             fisher = fisher[nonzero]
             min_value, argmin = fisher.min(dim=0)
