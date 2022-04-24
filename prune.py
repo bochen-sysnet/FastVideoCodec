@@ -403,8 +403,7 @@ class FisherPruningHook():
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
             print(module.name)
-            print(fisher)
-            print(in_mask)
+            print(fisher[in_mask.bool()])
         return info
 
     def channel_prune(self):
@@ -437,9 +436,6 @@ class FisherPruningHook():
             if self.reg:
                 self.fisher_reg += self.compute_regularization(mag)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
-            print(group,info['min'])
-            print(fisher)
-            print(in_mask)
         module, channel = info['module'], info['channel']
         if not self.reg:
             # only modify in_mask is sufficient
