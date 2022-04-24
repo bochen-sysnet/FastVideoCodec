@@ -31,8 +31,8 @@ CODEC_NAME = 'LSVC-A'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 3 # 0,1,2,3
-#RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
-RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
+RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+#RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -85,9 +85,9 @@ if not PRUNING:
     hook = None
 else:
     #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_50_flops_32.pth')
-    #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
+    hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
     #hook = FisherPruningHook(pruning=True, delta='acts', start_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
+    #hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
     hook.after_build_model(model)
     hook.before_run(model)
 
@@ -245,7 +245,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 else:
                     print(score)
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-                save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+                if hook.reg:
+                    save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type+'R', compression_level)
+                else:
+                    save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 #test(epoch, model, test_dataset2)
                 model.train()
             else:

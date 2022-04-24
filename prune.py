@@ -52,7 +52,7 @@ class FisherPruningHook():
         pruning=True,
         delta='acts',
         interval=10,
-        reg=True,
+        reg=False,
         deploy_from=None,
         resume_from=None,
         start_from=None,
@@ -216,19 +216,19 @@ class FisherPruningHook():
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/fisher_distribution_{itr}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_fisher_{itr}_{loss:.2f}.png')
                 # magnitude
                 plt.figure(2)
                 self.mag_list[self.mag_list==0] = 1e-50
                 self.mag_list = np.log10(self.mag_list)
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/mag_distribution_{itr}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_mag_{itr}_{loss:.2f}.png')
                 # gradient
-                plt.figure(3)
-                self.grad_list[self.grad_list==0] = 1e-50
-                self.grad_list = np.log10(self.grad_list)
-                sns.displot(self.grad_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/grad_distribution_{itr}_{loss:.2f}.png')
+                #plt.figure(3)
+                #self.grad_list[self.grad_list==0] = 1e-50
+                #self.grad_list = np.log10(self.grad_list)
+                #sns.displot(self.grad_list, kind='hist', aspect=1.2)
+                #plt.savefig(f'fisher/grad_distribution_{itr}_{loss:.2f}.png')
         self.init_flops_acts()
 
     def update_flop_act(self, model, work_dir='work_dir/'):
@@ -400,6 +400,10 @@ class FisherPruningHook():
                     self.fisher_reg += self.compute_regularization(mag)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
+            
+            print(module.name)
+            print(fisher)
+            print(in_mask)
         return info
 
     def channel_prune(self):
@@ -432,16 +436,22 @@ class FisherPruningHook():
             if self.reg:
                 self.fisher_reg += self.compute_regularization(mag)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
+            print(group)
+            print(fisher)
+            print(in_mask)
         module, channel = info['module'], info['channel']
         if not self.reg:
             # only modify in_mask is sufficient
             if isinstance(module, int):
+                print(module,channel)
                 # the case for multiple modules in a group
                 for m in self.groups[module]:
                     m.in_mask[channel] = 0
             elif module is not None:
+                print(module.name,channel)
                 # the case for single module
                 module.in_mask[channel] = 0
+        exit(0)
             
     def compute_regularization(self, fisher_info):
         fisher_reg = torch.exp(torch.pow(fisher_info, 2)) + torch.exp(torch.pow(fisher_info-1e-5, 2)) + \
