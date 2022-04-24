@@ -213,7 +213,7 @@ class FisherPruningHook():
             if itr % 1000 == 0:
                 # fisher
                 plt.figure(1)
-                self.fisher_list[self.fisher_list==0] = 1e-50
+                #self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
                 plt.savefig(f'fisher/dist_fisher_{itr}_{loss:.2f}.png')
