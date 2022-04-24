@@ -213,7 +213,7 @@ class FisherPruningHook():
             if itr % 1000 == 0:
                 # fisher
                 plt.figure(1)
-                #self.fisher_list[self.fisher_list==0] = 1e-50
+                self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
                 plt.savefig(f'fisher/dist_fisher_{itr}_{loss:.2f}.png')
@@ -223,6 +223,7 @@ class FisherPruningHook():
                 self.mag_list = np.log10(self.mag_list)
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
                 plt.savefig(f'fisher/dist_mag_{itr}_{loss:.2f}.png')
+                exit(0)
                 # gradient
                 #plt.figure(3)
                 #self.grad_list[self.grad_list==0] = 1e-50
@@ -443,12 +444,12 @@ class FisherPruningHook():
         if not self.reg:
             # only modify in_mask is sufficient
             if isinstance(module, int):
-                print(module,channel)
+                print(module,channel,info['min_value'])
                 # the case for multiple modules in a group
                 for m in self.groups[module]:
                     m.in_mask[channel] = 0
             elif module is not None:
-                print(module.name,channel)
+                print(module.name,channel,info['min_value'])
                 # the case for single module
                 module.in_mask[channel] = 0
             
