@@ -332,6 +332,7 @@ class FisherPruningHook():
             nonzero = in_mask.nonzero().view(-1)
             fisher = fisher[nonzero]
             min_value, argmin = fisher.min(dim=0)
+            print(min_value,info['min'],float(min_value) < info['min'])
             min_value = float(min_value)
             if min_value < info['min']:
                 module_info['module'] = module
@@ -401,7 +402,7 @@ class FisherPruningHook():
                     self.fisher_reg += self.compute_regularization(mag)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
-            print(module.name,info['min'])
+            print(module.name)
             print(fisher)
             print(in_mask)
         return info
