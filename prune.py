@@ -189,11 +189,6 @@ class FisherPruningHook():
                 module.register_forward_hook(self.save_input_forward_hook)
 
         self.print_model(model, print_flops_acts=False)
-        
-    def after_forward(self):
-        if not self.pruning:
-            return
-        self.group_fishers()
 
     def after_backward(self, itr, model, loss):
         if not self.pruning:
@@ -202,6 +197,7 @@ class FisherPruningHook():
         # for module, name in self.conv_names.items():
         #     self.compute_fisher_backward(module)
         # do pruning every interval
+        self.group_fishers()
         self.accumulate_fishers()
         self.init_temp_fishers()
         if (not self.reg and itr % self.interval == 0) or self.reg:
@@ -487,15 +483,33 @@ class FisherPruningHook():
         for group in self.groups:
             in_mask = self.groups[group][0].in_mask.view(-1)
             module = self.groups[group][0]
-            l2norm = module.in_mask.data.new_zeros(len(module.in_mask))           
+            l2norm = module.in_mask.data.new_zeros(len(module.in_mask))  
+            flops = 0  
+            acts = 0            
             for module in self.groups[group]:
                 layer_name = type(module).__name__
+                # accumulate l2norm
                 for inp in self.conv_inputs[module]:
                     l2norm += compute_l2norm(inp[0], layer_name)
+                # accumulate flops and acts
+                if type(module).__name__ != 'Bitparm': 
+                    delta_flops = self.flops[module] // module.in_channels // \
+                        module.out_channels * module.out_mask.sum()
+                else:
+                    delta_flops = self.flops[module] // module.in_channels
+                flops += delta_flops
+            for module in self.ancest[group]:
+                if type(module).__name__ != 'Bitparm': 
+                    delta_flops = self.flops[module] // module.out_channels // \
+                            module.in_channels * module.in_mask.sum()
+                else:
+                    delta_flops = self.flops[module] // module.out_channels
+                flops += delta_flops
+                acts += self.acts[module] // module.out_channels
             if self.delta == 'flops':
-                l2norm /= float(self.flops[group] / 1e9)
+                l2norm /= float(flops / 1e9)
             elif self.delta == 'acts':
-                l2norm /= float(self.acts[group] / 1e6)
+                l2norm /= float(acts / 1e6)
             l2norm_list = torch.cat((l2norm_list,l2norm))
         
         x = l2norm_list[l2norm_list.nonzero()]

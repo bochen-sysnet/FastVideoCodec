@@ -87,7 +87,7 @@ else:
     #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_50_flops_32.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
     #hook = FisherPruningHook(pruning=True, delta='acts', start_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, reg=False, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
+    hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
     hook.after_build_model(model)
     hook.before_run(model)
 
@@ -181,7 +181,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # add regularization
-        hook.after_forward()
         if hook.reg:
             loss += hook.compute_regularization()
         
