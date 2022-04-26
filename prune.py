@@ -503,6 +503,7 @@ class FisherPruningHook():
         l2norm_np = l2norm_list.detach().cpu().numpy()
         print(min(l2norm_np),max(l2norm_np))
         l2norm_np[l2norm_np==0] = 1e-50
+        print(min(l2norm_np),max(l2norm_np))
         l2norm_np = np.log10(l2norm_np)
         sns.displot(l2norm_np, kind='hist', aspect=1.2)
         plt.savefig(f'fisher/dist_l2norm.png')
