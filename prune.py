@@ -193,9 +193,6 @@ class FisherPruningHook():
     def after_forward(self):
         if not self.pruning:
             return
-        self.group_fishers()
-        self.accumulate_fishers()
-        self.init_temp_fishers()
 
     def after_backward(self, itr, model, loss):
         if not self.pruning:
@@ -204,6 +201,9 @@ class FisherPruningHook():
         # for module, name in self.conv_names.items():
         #     self.compute_fisher_backward(module)
         # do pruning every interval
+        self.group_fishers()
+        self.accumulate_fishers()
+        self.init_temp_fishers()
         if (not self.reg and itr % self.interval == 0) or self.reg:
             # this makes sure model is converged before each pruning
             self.channel_prune()
