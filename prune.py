@@ -515,6 +515,7 @@ class FisherPruningHook():
         l2norm_list = l2norm_list.view(-1)[:50]
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = x.sort()
+        print(indices)
         print([float(a) for a in x])
         print([float(a) for a in sorted])
         print(sorted.min(),sorted.max(),sorted[0],sorted[-1])
