@@ -206,7 +206,7 @@ class FisherPruningHook():
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
-            if itr % 5000 == 0:
+            if itr % 1000 == 0:
                 # fisher
                 plt.figure(1)
                 self.fisher_list[self.fisher_list==0] = 1e-50

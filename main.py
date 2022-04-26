@@ -182,7 +182,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         # add regularization
         if hook.reg:
-            loss += hook.compute_regularization()
+            pass
+            #loss += hook.compute_regularization()
         
         # backward
         scaler.scale(loss).backward() 
