@@ -524,6 +524,7 @@ class FisherPruningHook():
                 penalty = group.sum().sqrt()*penalty_factors[i]
             else:
                 penalty += group.sum().sqrt()*penalty_factors[i]
+        print(penalty)
         return penalty
 
     def accumulate_fishers(self):
