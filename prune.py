@@ -512,7 +512,7 @@ class FisherPruningHook():
                 l2norm /= float(acts / 1e6)
             l2norm_list = torch.cat((l2norm_list,l2norm))
         
-        l2norm_list = l2norm_list[:50]
+        l2norm_list = l2norm_list
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = x.sort(dim=0)
         # negative factor?
@@ -527,6 +527,7 @@ class FisherPruningHook():
                 penalty = l2norm*penalty_factors[i]
             else:
                 penalty += l2norm*penalty_factors[i]
+        print(penalty)
         return penalty
 
     def accumulate_fishers(self):
