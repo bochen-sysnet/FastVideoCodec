@@ -527,7 +527,6 @@ class FisherPruningHook():
                 penalty = l2norm*penalty_factors[i]
             else:
                 penalty += l2norm*penalty_factors[i]
-        print(penalty)
         return penalty
 
     def accumulate_fishers(self):
