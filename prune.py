@@ -447,7 +447,7 @@ class FisherPruningHook():
             else:
                 print('Unrecognized in compute_fisher:',layer_name)
                 exit(0)
-            return grads.sqrt()
+            return grads
             
         l2norm_list = None
         for module, name in self.conv_names.items():
@@ -522,7 +522,7 @@ class FisherPruningHook():
         groups = torch.split(sorted, split_size)
         penalty = None
         for i,group in enumerate(groups):
-            l2norm = torch.pow(group,2).sum().sqrt()
+            l2norm = group.sum().sqrt()
             if penalty is None:
                 penalty = l2norm*penalty_factors[i]
             else:
