@@ -522,6 +522,8 @@ class FisherPruningHook():
         for i,group in enumerate(groups):
             if penalty is None:
                 penalty = torch.sum(group)*penalty_factors[i]
+            else:
+                penalty += torch.sum(group)*penalty_factors[i]
         return penalty
 
     def accumulate_fishers(self):

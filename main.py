@@ -40,7 +40,7 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 1
 STEPS = []
-PRUNING = False
+PRUNING = True
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
