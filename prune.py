@@ -438,7 +438,7 @@ class FisherPruningHook():
         # unimportant fisher gets more penalty, pushed harder to 0 at the same pace
         def compute_l2norm(input, layer_name):
             # information per mask channel per module
-            grads = torch.pow(input,2)
+            grads = torch.pow(input,2).sqrt()
             if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
                 grads = grads.sum(-1).sum(-1).sum(0)
             elif layer_name in ['Linear']:
@@ -522,8 +522,8 @@ class FisherPruningHook():
         groups = torch.split(sorted, split_size)
         penalty = None
         for i,group in enumerate(groups):
-            l2norm = group.sum().sqrt()
-            print(i,l2norm,len(group),min(group),max(group))
+            l2norm = torch.pow(group,2).sum().sqrt()
+            print(i,l2norm,min(group),max(group))
             if penalty is None:
                 penalty = l2norm*penalty_factors[i]
             else:
