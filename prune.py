@@ -514,12 +514,12 @@ class FisherPruningHook():
         
         l2norm_list = l2norm_list.view(-1)
         x = l2norm_list[l2norm_list.nonzero()]
-        x, indices = torch.sort(x)
+        sorted, indices = torch.sort(x)
         # negative factor?
         penalty_factors = [1e-6, 1e-8, 1e-10, 1e-12]
         num_groups = len(penalty_factors)
-        split_size = len(x)//num_groups + 1
-        groups = torch.split(x, split_size)
+        split_size = len(sorted)//num_groups + 1
+        groups = torch.split(sorted, split_size)
         penalty = None
         for i,group in enumerate(groups):
             l2norm = group.sum().sqrt()
