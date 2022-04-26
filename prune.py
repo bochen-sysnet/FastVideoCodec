@@ -523,7 +523,7 @@ class FisherPruningHook():
         penalty = None
         for i,group in enumerate(groups):
             l2norm = group.sum().sqrt()
-            print(i,l2norm,len(group))
+            print(i,l2norm,len(group),min(group),max(group))
             if penalty is None:
                 penalty = l2norm*penalty_factors[i]
             else:
