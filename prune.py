@@ -514,17 +514,20 @@ class FisherPruningHook():
         
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = torch.sort(x)
-        num_groups = 4
+        # negative factor?
+        penalty_factors = [1e-6, 1e-8, 1e-10, 1e-12]
+        num_groups = len(penalty_factors)
         split_size = len(x)//num_groups + 1
         groups = torch.split(x, split_size)
         penalty = None
-        # negative factor?
-        penalty_factors = [1e-6, 1e-8, 1e-10, 1e-12]
         for i,group in enumerate(groups):
+            l2norm = group.sum().sqrt()
             if penalty is None:
-                penalty = group.sum().sqrt()*penalty_factors[i]
+                penalty = l2norm*penalty_factors[i]
             else:
-                penalty += group.sum().sqrt()*penalty_factors[i]
+                penalty += l2norm*penalty_factors[i]
+            print(i,l2norm)
+        print(penalty)
         return penalty
 
     def accumulate_fishers(self):
