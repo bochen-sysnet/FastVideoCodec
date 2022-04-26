@@ -517,7 +517,7 @@ class FisherPruningHook():
         sorted, indices = x.sort()
         print([float(a) for a in x])
         print([float(a) for a in sorted])
-        print(min(sorted),max(sorted),sorted[0],sorted[-1])
+        print(sorted.(min),sorted.max(),sorted[0],sorted[-1])
         # negative factor?
         penalty_factors = [1e-6, 1e-8, 1e-10, 1e-12]
         num_groups = len(penalty_factors)
