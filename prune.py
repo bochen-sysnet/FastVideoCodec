@@ -216,13 +216,13 @@ class FisherPruningHook():
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_fisher_{itr}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_fisher_{self.total_flops*100:03d}_{self.total_acts*100:03d}_{loss:.2f}.png')
                 # magnitude
                 plt.figure(2)
                 self.mag_list[self.mag_list==0] = 1e-50
                 self.mag_list = np.log10(self.mag_list)
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_mag_{itr}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_mag_{self.total_flops*100:03d}_{self.total_acts*100:03d}_{loss:.2f}.png')
                 # gradient
                 #plt.figure(3)
                 #self.grad_list[self.grad_list==0] = 1e-50
@@ -395,9 +395,9 @@ class FisherPruningHook():
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             if self.reg:
                 if self.fisher_reg is None:
-                    self.fisher_reg = self.compute_regularization(mag)
+                    self.fisher_reg = self.compute_regularization(grad)
                 else:
-                    self.fisher_reg += self.compute_regularization(mag)
+                    self.fisher_reg += self.compute_regularization(grad)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -443,11 +443,24 @@ class FisherPruningHook():
                 # the case for single module
                 module.in_mask[channel] = 0
             
-    def compute_regularization(self, fisher_info):
-        fisher_reg = torch.exp(torch.pow(fisher_info, 2)) + torch.exp(torch.pow(fisher_info-1e-5, 2)) + \
-                     torch.exp(torch.pow(fisher_info-1, 2)) + torch.exp(torch.pow(fisher_info-1e5, 2))
-        fisher_reg *= 1e-4
-        return torch.sum(fisher_reg)
+    def compute_regularization(self, x):
+        # rank fisher, higher rank means smaller penalty
+        # ignore fisher=0, divide rest into several groups according to fisher
+        # unimportant fisher gets more penalty, pushed harder to 0 at the same pace
+        #fisher_reg = torch.exp(torch.pow(fisher_info, 2)) + torch.exp(torch.pow(fisher_info-1e-5, 2)) 
+        #fisher_reg *= 1e-4
+        nonzero = x.nonzero()
+        x = x[nonzero]
+        sorted, indices = torch.sort(x)
+        num_groups = 4
+        split_size = len(x)//num_groups + 1
+        groups = torch.split(x, split_size)
+        penalty = None
+        penalty_factors = [1e-(4+i) for i in range(num_groups)]
+        for i,group in enumerate(groups):
+            if penalty is None:
+                penalty = torch.sum(group)*penalty_factors[i]
+        return penalty
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
@@ -575,7 +588,7 @@ class FisherPruningHook():
                 
             def compute_grad(input, grad_input, layer_name):
                 # information per mask channel per module
-                grads = torch.abs(grad_input)
+                grads = torch.pow(input,2)
                 if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
                     grads = grads.sum(-1).sum(-1).sum(0)
                 elif layer_name in ['Linear']:
