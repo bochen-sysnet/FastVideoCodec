@@ -189,20 +189,20 @@ class FisherPruningHook():
                 module.register_forward_hook(self.save_input_forward_hook)
 
         self.print_model(model, print_flops_acts=False)
+        
+    def after_forward(self):
+        if not self.pruning:
+            return
+        self.group_fishers()
+        self.accumulate_fishers()
+        self.init_temp_fishers()
 
-    def after_train_iter(self, itr, model, loss):
-        # accumulate fisher information
-        # compute loss = torch.exp(fisher)
-        # need to find the best regularization coefficient
-        # loss backward
+    def after_backward(self, itr, model, loss):
         if not self.pruning:
             return
         # compute fisher
         # for module, name in self.conv_names.items():
         #     self.compute_fisher_backward(module)
-        self.group_fishers()
-        self.accumulate_fishers()
-        self.init_temp_fishers()
         # do pruning every interval
         if (not self.reg and itr % self.interval == 0) or self.reg:
             # this makes sure model is converged before each pruning
@@ -393,11 +393,6 @@ class FisherPruningHook():
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            if self.reg:
-                if self.fisher_reg is None:
-                    self.fisher_reg = self.compute_regularization(grad)
-                else:
-                    self.fisher_reg += self.compute_regularization(grad)
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
         return info
@@ -429,8 +424,6 @@ class FisherPruningHook():
             self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            if self.reg:
-                self.fisher_reg += self.compute_regularization(mag)
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
         module, channel = info['module'], info['channel']
         if not self.reg:
@@ -443,14 +436,73 @@ class FisherPruningHook():
                 # the case for single module
                 module.in_mask[channel] = 0
             
-    def compute_regularization(self, x):
+    def compute_regularization(self):
         # rank fisher, higher rank means smaller penalty
         # ignore fisher=0, divide rest into several groups according to fisher
         # unimportant fisher gets more penalty, pushed harder to 0 at the same pace
-        #fisher_reg = torch.exp(torch.pow(fisher_info, 2)) + torch.exp(torch.pow(fisher_info-1e-5, 2)) 
-        #fisher_reg *= 1e-4
-        nonzero = x.nonzero()
-        x = x[nonzero]
+        def compute_l2norm(input, layer_name):
+            # information per mask channel per module
+            grads = torch.pow(input,2)
+            if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
+                grads = grads.sum(-1).sum(-1).sum(0)
+            elif layer_name in ['Linear']:
+                grads = grads.sum(0).sum(0)
+                grads = grads.view(module.in_rep,-1).sum(0)
+            else:
+                print('Unrecognized in compute_fisher:',layer_name)
+                exit(0)
+            return grads
+            
+        l2norm_list = torch.tensor([])
+        for module, name in self.conv_names.items():
+            if self.group_modules is not None and module in self.group_modules:
+                continue
+            in_mask = module.in_mask.view(-1)
+            ancestors = self.conv2ancest[module]
+            layer_name = type(module).__name__
+            # calculate l2 norm
+            l2norm = module.in_mask.data.new_zeros(len(module.in_mask)) 
+            for inp in self.conv_inputs[module]:
+                l2norm += compute_l2norm(inp[0], layer_name)
+            # normalize l2 norm
+            if self.delta == 'flops':
+                in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
+                delta_flops = self.flops[module] * module.out_mask.sum() / (
+                    module.in_channels * module.out_channels) * in_rep
+                for ancestor in ancestors:
+                    out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
+                    delta_flops += self.flops[ancestor] * ancestor.in_mask.sum(
+                    ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
+                l2norm /= (float(delta_flops) / 1e9)
+            if self.delta == 'acts':
+                delta_acts = 0
+                for ancestor in ancestors:
+                    out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
+                    delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
+                l2norm /= (float(max(delta_acts, 1.)) / 1e6)
+            l2norm_list = torch.concatenate((l2norm_list,l2norm))
+        for group in self.groups:
+            in_mask = self.groups[group][0].in_mask.view(-1)
+            module = self.groups[group][0]
+            l2norm = module.in_mask.data.new_zeros(len(module.in_mask))           
+            for module in self.groups[group]:
+                layer_name = type(module).__name__
+                for inp in self.conv_inputs[module]:
+                    l2norm += compute_l2norm(inp[0], layer_name)
+            if self.delta == 'flops':
+                l2norm /= float(self.flops[group] / 1e9)
+            elif self.delta == 'acts':
+                l2norm /= float(self.acts[group] / 1e6)
+            l2norm_list = torch.concatenate((l2norm_list,l2norm))
+            
+        # plot
+        plt.figure(3)
+        l2norm_list[l2norm_list==0] = 1e-50
+        l2norm_list = np.log10(l2norm_list)
+        sns.displot(l2norm_list, kind='hist', aspect=1.2)
+        plt.savefig(f'fisher/dist_l2norm.png')
+        
+        x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = torch.sort(x)
         num_groups = 4
         split_size = len(x)//num_groups + 1
@@ -588,7 +640,7 @@ class FisherPruningHook():
                 
             def compute_grad(input, grad_input, layer_name):
                 # information per mask channel per module
-                grads = torch.pow(input,2)
+                grads = torch.abs(grad_input)
                 if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
                     grads = grads.sum(-1).sum(-1).sum(0)
                 elif layer_name in ['Linear']:

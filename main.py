@@ -180,17 +180,17 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
         
-        # backward
+        # add regularization
+        hook.after_forward()
         if hook.reg:
-            scaler.scale(loss).backward(retain_graph=True) 
-        else:
-            scaler.scale(loss).backward() 
+            loss += hook.compute_regularization()
+        
+        # backward
+        scaler.scale(loss).backward() 
 
         if hook is not None:
             # backward the regularization function
-            hook.after_train_iter(batch_idx, model, all_loss_module.avg)
-            if hook.reg and hook.fisher_reg.requires_grad:
-                scaler.scale(hook.fisher_reg).backward()
+            hook.after_backward(batch_idx, model, all_loss_module.avg)
 
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:
