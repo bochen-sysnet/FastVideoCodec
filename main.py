@@ -40,7 +40,7 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 1
 STEPS = []
-PRUNING = True
+PRUNING = False
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -182,8 +182,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         # add regularization
         if hook.reg:
-            pass
-            #loss += hook.compute_regularization()
+            loss += hook.compute_regularization()
         
         # backward
         scaler.scale(loss).backward() 
