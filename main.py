@@ -193,7 +193,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
 
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:
-            if hook is None:
+            if hook is None or hook.reg:
                 scaler.step(optimizer)
                 scaler.update()
             optimizer.zero_grad()
