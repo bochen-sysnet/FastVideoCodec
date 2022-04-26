@@ -518,13 +518,12 @@ class FisherPruningHook():
         split_size = len(x)//num_groups + 1
         groups = torch.split(x, split_size)
         penalty = None
-        penalty_factors = [1e-8*torch.pow(torch.tensor(100),torch.tensor(-i)) for i in range(num_groups)]
+        penalty_factors = [1e-13*torch.pow(torch.tensor(100),torch.tensor(-i)) for i in range(num_groups)]
         for i,group in enumerate(groups):
             if penalty is None:
                 penalty = torch.sum(group)*penalty_factors[i]
             else:
                 penalty += torch.sum(group)*penalty_factors[i]
-        print(penalty)
         return penalty
 
     def accumulate_fishers(self):
