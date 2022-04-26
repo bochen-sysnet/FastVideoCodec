@@ -517,6 +517,7 @@ class FisherPruningHook():
         sorted, indices = torch.sort(x)
         print([float(a) for a in x])
         print([float(a) for a in sorted])
+        print(torch.topk(x, 3))
         print(min(sorted),max(sorted),sorted[0],sorted[-1])
         # negative factor?
         penalty_factors = [1e-6, 1e-8, 1e-10, 1e-12]
