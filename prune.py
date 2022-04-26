@@ -512,10 +512,9 @@ class FisherPruningHook():
                 l2norm /= float(acts / 1e6)
             l2norm_list = torch.cat((l2norm_list,l2norm))
         
-        l2norm_list = l2norm_list.view(-1)[:50]
+        l2norm_list = l2norm_list[:50]
         x = l2norm_list[l2norm_list.nonzero()]
-        sorted, indices = x.sort()
-        print(x.size(),indices)
+        sorted, indices = x.sort(dim=0)
         print([float(a) for a in x])
         print([float(a) for a in sorted])
         print(sorted.min(),sorted.max(),sorted[0],sorted[-1])
