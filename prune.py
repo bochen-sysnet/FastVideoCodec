@@ -513,7 +513,7 @@ class FisherPruningHook():
             l2norm_list = torch.cat((l2norm_list,l2norm))
         
         x = l2norm_list[l2norm_list.nonzero()]
-        sorted, indices = torch.sort(x)
+        x, indices = torch.sort(x)
         # negative factor?
         penalty_factors = [1e-6, 1e-8, 1e-10, 1e-12]
         num_groups = len(penalty_factors)
