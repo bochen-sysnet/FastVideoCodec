@@ -216,13 +216,13 @@ class FisherPruningHook():
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_fisher_{self.total_flops*100:3d}_{self.total_acts*100:3d}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_fisher_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
                 # magnitude
                 plt.figure(2)
                 self.mag_list[self.mag_list==0] = 1e-50
                 self.mag_list = np.log10(self.mag_list)
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_mag_{self.total_flops*100:3d}_{self.total_acts*100:3d}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_mag_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
                 # gradient
                 #plt.figure(3)
                 #self.grad_list[self.grad_list==0] = 1e-50
