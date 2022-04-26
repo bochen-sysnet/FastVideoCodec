@@ -453,7 +453,7 @@ class FisherPruningHook():
                 exit(0)
             return grads
             
-        l2norm_list = torch.tensor([])
+        l2norm_list = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
                 continue
@@ -480,7 +480,10 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 l2norm /= (float(max(delta_acts, 1.)) / 1e6)
-            l2norm_list = torch.cat((l2norm_list,l2norm))
+            if l2norm_list is None:
+                l2norm_list = l2norm
+            else:
+                l2norm_list = torch.cat((l2norm_list,l2norm))
         for group in self.groups:
             in_mask = self.groups[group][0].in_mask.view(-1)
             module = self.groups[group][0]
