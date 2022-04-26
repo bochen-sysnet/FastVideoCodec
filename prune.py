@@ -512,7 +512,7 @@ class FisherPruningHook():
                 l2norm /= float(acts / 1e6)
             l2norm_list = torch.cat((l2norm_list,l2norm))
         
-        l2norm_list = l2norm_list.view(-1)
+        l2norm_list = l2norm_list.view(-1)[:50]
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = torch.sort(x)
         print([float(a) for a in sorted])
@@ -525,7 +525,6 @@ class FisherPruningHook():
         penalty = None
         for i,group in enumerate(groups):
             l2norm = torch.pow(group,2).sum().sqrt()
-            print(i,l2norm)
             if penalty is None:
                 penalty = l2norm*penalty_factors[i]
             else:
