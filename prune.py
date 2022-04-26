@@ -501,7 +501,7 @@ class FisherPruningHook():
         # plot
         plt.figure(3)
         l2norm_list[l2norm_list==0] = 1e-50
-        l2norm_list = np.log10(l2norm_list).detach().cpu().numpy()
+        l2norm_list = torch.log10(l2norm_list)
         sns.displot(l2norm_list, kind='hist', aspect=1.2)
         plt.savefig(f'fisher/dist_l2norm.png')
         
