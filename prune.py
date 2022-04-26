@@ -518,7 +518,8 @@ class FisherPruningHook():
         split_size = len(x)//num_groups + 1
         groups = torch.split(x, split_size)
         penalty = None
-        penalty_factors = [1e-7*torch.pow(torch.tensor(10),torch.tensor(-i)) for i in range(num_groups)]
+        # negative factor?
+        penalty_factors = [1e-6, 1e-8, -1e-8, -1e-6]
         for i,group in enumerate(groups):
             if penalty is None:
                 penalty = group.sum().sqrt()*penalty_factors[i]
