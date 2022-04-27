@@ -678,9 +678,9 @@ class FisherPruningHook():
             self.temp_mag_info[module] += compute_mag(feature, grad_feature, layer_name)
             self.temp_grad_info[module] += compute_grad(feature, grad_feature, layer_name)
             
-        if inputs[0].requires_grad:
+        #if inputs[0].requires_grad:
             #inputs[0].register_hook(backward_hook)
-            self.conv_inputs[module].append(inputs)
+        #    self.conv_inputs[module].append(inputs)
 
     def compute_fisher_backward(self, module):
         # there are some bugs in torch, not using the backward hook
