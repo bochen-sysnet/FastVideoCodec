@@ -706,7 +706,7 @@ class FisherPruningHook():
                 exit(0)
             return grads
         
-        def compute_fisher(weight, grad_weight, layer_name):
+        def compute_mag(weight, grad_weight, layer_name):
             # information per mask channel per module
             grads = torch.abs(weight)
             if layer_name in ['Conv2d', 'Bitparm']:
@@ -721,7 +721,7 @@ class FisherPruningHook():
                 exit(0)
             return grads
             
-        def compute_fisher(weight, grad_weight, layer_name):
+        def compute_grad(weight, grad_weight, layer_name):
             # information per mask channel per module
             grads = torch.abs(grad_weight)
             if layer_name in ['Conv2d', 'Bitparm']:
