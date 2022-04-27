@@ -110,6 +110,8 @@ class FisherPruningHook():
         self.save_acts_thr = save_acts_thr
         
         self.total_flops = self.total_acts = 0
+        
+        self.iter = 0
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -207,18 +209,21 @@ class FisherPruningHook():
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
             if itr % 1000 == 0:
+                self.iter += 1
                 # fisher
                 plt.figure(1)
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_fisher_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
+                #plt.savefig(f'fisher/dist_fisher_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_fisher_{self.iter:3d}_{loss:.2f}.png')
                 # magnitude
                 plt.figure(2)
                 self.mag_list[self.mag_list==0] = 1e-50
                 self.mag_list = np.log10(self.mag_list)
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_mag_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
+                #plt.savefig(f'fisher/dist_mag_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
+                plt.savefig(f'fisher/dist_mag_{self.iter:3d}_{loss:.2f}.png')
                 # gradient
                 #plt.figure(3)
                 #self.grad_list[self.grad_list==0] = 1e-50
@@ -516,7 +521,7 @@ class FisherPruningHook():
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = x.sort(dim=0)
         # negative factor?
-        penalty_factors = [1e-3, 1e-6, 1e-9, 1e-12]
+        penalty_factors = [1e-2, 1e-6, 1e-10, 1e-14]
         num_groups = len(penalty_factors)
         split_size = len(sorted)//num_groups + 1
         groups = torch.split(sorted, split_size)
