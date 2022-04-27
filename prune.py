@@ -521,6 +521,7 @@ class FisherPruningHook():
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = x.sort(dim=0)
         # negative factor?
+        # start penalty, decay rate, num of groups, pos or neg
         penalty_factors = [1e-2, 1e-6, 1e-10, 1e-14]
         num_groups = len(penalty_factors)
         split_size = len(sorted)//num_groups + 1
