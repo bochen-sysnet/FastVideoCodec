@@ -196,8 +196,8 @@ class FisherPruningHook():
         if not self.pruning:
             return
         # compute fisher
-        # for module, name in self.conv_names.items():
-        #     self.compute_fisher_backward(module)
+        for module, name in self.conv_names.items():
+            self.compute_fisher_backward(module)
         # do pruning every interval
         self.group_fishers()
         self.accumulate_fishers()
@@ -679,7 +679,7 @@ class FisherPruningHook():
             self.temp_grad_info[module] += compute_grad(feature, grad_feature, layer_name)
             
         if inputs[0].requires_grad:
-            inputs[0].register_hook(backward_hook)
+            #inputs[0].register_hook(backward_hook)
             self.conv_inputs[module].append(inputs)
 
     def compute_fisher_backward(self, module):
@@ -705,10 +705,42 @@ class FisherPruningHook():
                 print('Unrecognized in compute_fisher:',layer_name)
                 exit(0)
             return grads
+        
+        def compute_fisher(weight, grad_weight, layer_name):
+            # information per mask channel per module
+            grads = torch.abs(weight)
+            if layer_name in ['Conv2d', 'Bitparm']:
+                grads = grads.sum(-1).sum(-1).sum(0)
+            elif layer_name in ['ConvTranspose2d']:
+                grads = grads.sum(-1).sum(-1).sum(-1)
+            elif layer_name in ['Linear']:
+                grads = grads.sum(0)
+                grads = grads.view(module.in_rep,-1).sum(0)
+            else:
+                print('Unrecognized in compute_fisher:',layer_name)
+                exit(0)
+            return grads
+            
+        def compute_fisher(weight, grad_weight, layer_name):
+            # information per mask channel per module
+            grads = torch.abs(grad_weight)
+            if layer_name in ['Conv2d', 'Bitparm']:
+                grads = grads.sum(-1).sum(-1).sum(0)
+            elif layer_name in ['ConvTranspose2d']:
+                grads = grads.sum(-1).sum(-1).sum(-1)
+            elif layer_name in ['Linear']:
+                grads = grads.sum(0)
+                grads = grads.view(module.in_rep,-1).sum(0)
+            else:
+                print('Unrecognized in compute_fisher:',layer_name)
+                exit(0)
+            return grads
 
         layer_name = type(module).__name__
         weight = module.weight if layer_name not in ['Bitparm'] else module.h
         self.temp_fisher_info[module] += compute_fisher(weight, weight.grad, layer_name)
+        self.temp_mag_info[module] += compute_mag(weight, weight.grad, layer_name)
+        self.temp_grad_info[module] += compute_grad(weight, weight.grad, layer_name)
 
     def construct_outchannel_masks(self):
         """Register the `input_mask` of one conv to it's nearest ancestor conv,
