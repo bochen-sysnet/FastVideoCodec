@@ -472,7 +472,7 @@ class FisherPruningHook():
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1, 1e-2, -1e-4, -1e-2]
+        penalty_factors = [1, 0, -1e-2]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
@@ -490,14 +490,14 @@ class FisherPruningHook():
                 continue
             mask_len = len(module.in_mask.view(-1))
             penalty = penalty_list[mask_start:mask_start+mask_len]
-            #self.update_module_grad(module, penalty)
+            self.update_module_grad(module, penalty)
             mask_start += mask_len
             
         for group in self.groups:
             mask_len = len(self.groups[group][0].in_mask.view(-1))
             for module in self.groups[group]:
                 penalty = penalty_list[mask_start:mask_start+mask_len]
-                #self.update_module_grad(module, penalty)
+                self.update_module_grad(module, penalty)
             mask_start += mask_len
             
         assert(mask_start == len(self.fisher_list))
