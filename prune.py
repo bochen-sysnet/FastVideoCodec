@@ -205,8 +205,6 @@ class FisherPruningHook():
         if (not self.reg and itr % self.interval == 0) or self.reg:
             # this makes sure model is converged before each pruning
             self.channel_prune()
-            # todo:modify gradient according to fisher info
-            self.add_reg_to_grad()
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
