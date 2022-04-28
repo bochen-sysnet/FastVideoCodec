@@ -481,7 +481,7 @@ class FisherPruningHook():
         fisher_avg_list = []
         for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
             penalty_list[ind_group] += penalty_factor
-            fisher_avg_list.append(self.fisher_list[ind_group].mean())
+            fisher_avg_list.append(float(self.fisher_list[ind_group].mean()))
         print(fisher_avg_list)
         
         mask_start = 0
@@ -490,14 +490,14 @@ class FisherPruningHook():
                 continue
             mask_len = len(module.in_mask.view(-1))
             penalty = penalty_list[mask_start:mask_start+mask_len]
-            self.update_module_grad(module, penalty)
+            #self.update_module_grad(module, penalty)
             mask_start += mask_len
             
         for group in self.groups:
             mask_len = len(self.groups[group][0].in_mask.view(-1))
             for module in self.groups[group]:
                 penalty = penalty_list[mask_start:mask_start+mask_len]
-                self.update_module_grad(module, penalty)
+                #self.update_module_grad(module, penalty)
             mask_start += mask_len
             
         assert(mask_start == len(self.fisher_list))
