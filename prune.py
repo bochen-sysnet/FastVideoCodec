@@ -461,12 +461,12 @@ class FisherPruningHook():
         w = w.detach()
         raw_adjust = (w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
         new_adjust = -raw_adjust*penalty
-        print(module.name,w_grad.norm(),raw_adjust.shape,penalty.shape,raw_adjust.norm(),new_adjust.norm())
+        print(module.name,w_grad.norm(),raw_adjust.norm(),new_adjust.norm())
         if hasattr(module, 'weight'):
-            module.weight.grad = new_grad
+            module.weight.grad += new_adjust
             print(module.name,module.weight.grad.norm())
         else:
-            module.h.grad = new_grad
+            module.h.grad += new_adjust
             print(module.name,module.h.grad.norm())
             
     def add_reg_to_grad(self):
@@ -474,7 +474,7 @@ class FisherPruningHook():
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-4, 1e-6, 1e-8, 1e-10]
+        penalty_factors = [1， 1e-2, 1e-4, 1e-6]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
