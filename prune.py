@@ -202,7 +202,7 @@ class FisherPruningHook():
         self.group_fishers()
         self.accumulate_fishers()
         self.init_temp_fishers()
-        if (not self.reg and itr % self.interval == 0) or self.reg:
+        if itr % self.interval == 0:
             # this makes sure model is converged before each pruning
             self.channel_prune()
             self.init_accum_fishers()
@@ -438,6 +438,8 @@ class FisherPruningHook():
             elif module is not None:
                 # the case for single module
                 module.in_mask[channel] = 0
+        else:
+            self.add_reg_to_grad()
                 
     def update_module_grad(self, module, penalty):
         # get weight
