@@ -217,21 +217,21 @@ class FisherPruningHook():
                 plt.figure(1)
                 print(self.fisher_list.min(),self.fisher_list.max())
                 self.fisher_list[self.fisher_list==0] = 1e-50
-                self.fisher_list = np.log10(self.fisher_list)
+                self.fisher_list = torch.log10(self.fisher_list).detach().cpu().numpy()
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
                 #plt.savefig(f'fisher/dist_fisher_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
                 plt.savefig(f'fisher/dist_fisher_{self.iter}_{loss:.2f}.png')
                 # magnitude
                 plt.figure(2)
                 self.mag_list[self.mag_list==0] = 1e-50
-                self.mag_list = np.log10(self.mag_list)
+                self.mag_list = torch.log10(self.mag_list).detach().cpu().numpy()
                 sns.displot(self.mag_list, kind='hist', aspect=1.2)
                 #plt.savefig(f'fisher/dist_mag_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
                 plt.savefig(f'fisher/dist_mag_{self.iter}_{loss:.2f}.png')
                 # gradient
                 plt.figure(3)
                 self.grad_list[self.grad_list==0] = 1e-50
-                self.grad_list = np.log10(self.grad_list)
+                self.grad_list = torch.log10(self.grad_list).detach().cpu().numpy()
                 sns.displot(self.grad_list, kind='hist', aspect=1.2)
                 plt.savefig(f'fisher/dist_grad_{self.iter}_{loss:.2f}.png')
         self.init_flops_acts()
@@ -395,9 +395,9 @@ class FisherPruningHook():
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
                 mag /= (float(max(delta_acts, 1.)) / 1e6)
                 grad /= (float(max(delta_acts, 1.)) / 1e6)
-            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].view(-1)))
+            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].view(-1)))
+            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].view(-1)))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
                 
@@ -408,9 +408,9 @@ class FisherPruningHook():
         corresponding in_mask 0."""
 
         info = {'module': None, 'channel': None, 'min': 1e15}
-        self.fisher_list = np.array([])
-        self.mag_list = np.array([])
-        self.grad_list = np.array([])
+        self.fisher_list = torch.tensor([])
+        self.mag_list = torch.tensor([])
+        self.grad_list = torch.tensor([])
         self.fisher_reg = None
         info.update(self.single_prune(info, self.group_modules))
         for group in self.groups:
@@ -427,9 +427,9 @@ class FisherPruningHook():
                 fisher /= float(self.acts[group] / 1e6)
                 mag /= float(self.acts[group] / 1e6)
                 grad /= float(self.acts[group] / 1e6)
-            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
-            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
+            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].view(-1)))
+            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].view(-1)))
+            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].view(-1)))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
                 
         module, channel = info['module'], info['channel']
