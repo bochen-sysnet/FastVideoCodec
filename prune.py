@@ -112,7 +112,6 @@ class FisherPruningHook():
         self.total_flops = self.total_acts = 0
         
         self.iter = 0
-        self.reg_gamma = 1e-4
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -458,10 +457,11 @@ class FisherPruningHook():
         elif type(module).__name__ == 'Bitparm':
             penalty = penalty.view(1,-1,1,1)
         # update weight
-        print(module.name,w.grad.norm())
         w_grad = w.grad
         w = w.detach()
-        new_grad = -(w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
+        raw_adjust = (w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
+        new_adjust = -raw_adjust*penalty
+        print(module.name,w.grad.norm(),raw_adjust.norm(),new_adjust.norm())
         if hasattr(module, 'weight'):
             module.weight.grad = new_grad
             print(module.name,module.weight.grad.norm())
