@@ -467,11 +467,12 @@ class FisherPruningHook():
             module.h.grad += new_adjust
             
     def add_reg_to_grad(self):
+        # need to make sure ranking is correct and effective
         _, indices = self.fisher_list.sort(dim=0)
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1, 1e-1, 1e-2, -1e-2, -1e-1]
+        penalty_factors = [1e-2, 1e-3, 1e-4, -1e-4, -1e-3, -1e-2]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
