@@ -408,9 +408,9 @@ class FisherPruningHook():
         corresponding in_mask 0."""
 
         info = {'module': None, 'channel': None, 'min': 1e15}
-        self.fisher_list = torch.tensor([])
-        self.mag_list = torch.tensor([])
-        self.grad_list = torch.tensor([])
+        self.fisher_list = torch.tensor([]).cuda(1)
+        self.mag_list = torch.tensor([]).cuda(1)
+        self.grad_list = torch.tensor([]).cuda(1)
         self.fisher_reg = None
         info.update(self.single_prune(info, self.group_modules))
         for group in self.groups:
