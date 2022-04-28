@@ -112,6 +112,7 @@ class FisherPruningHook():
         self.total_flops = self.total_acts = 0
         
         self.iter = 0
+        self.reg_gamma = 1e-4
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -205,6 +206,8 @@ class FisherPruningHook():
         if (not self.reg and itr % self.interval == 0) or self.reg:
             # this makes sure model is converged before each pruning
             self.channel_prune()
+            # todo:modify gradient according to fisher info
+            
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
@@ -212,6 +215,7 @@ class FisherPruningHook():
                 self.iter += 1
                 # fisher
                 plt.figure(1)
+                print(self.fisher_list.min(),self.fisher_list.max())
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = np.log10(self.fisher_list)
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
@@ -396,6 +400,9 @@ class FisherPruningHook():
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
+            if self.reg:
+                self.update_module_grad(fisher)
+                
         return info
 
     def channel_prune(self):
@@ -426,6 +433,9 @@ class FisherPruningHook():
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
+            for module in self.groups[group]:
+                self.update_module_grad(fisher)
+                
         module, channel = info['module'], info['channel']
         if not self.reg:
             # only modify in_mask is sufficient
@@ -436,6 +446,19 @@ class FisherPruningHook():
             elif module is not None:
                 # the case for single module
                 module.in_mask[channel] = 0
+                
+    def update_module_grad(self, fisher):
+        if hasattr(module, 'weight'):
+            w = module.weight
+        else:
+            w = module.h
+        w_grad = w.grad
+        # fisher needs sign
+        new_grad = -self.reg_gamma*(w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
+        if hasattr(module, 'weight'):
+            module.weight.grad = new_grad
+        else:
+            module.h.grad = new_grad
             
     def compute_regularization(self):
         # rank fisher, higher rank means smaller penalty

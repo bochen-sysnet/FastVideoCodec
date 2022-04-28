@@ -180,11 +180,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
         
-        # add regularization
-        if hook is not None and hook.reg:
-            pass
-            #loss += hook.compute_regularization()
-        
         # backward
         scaler.scale(loss).backward() 
 
