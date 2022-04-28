@@ -455,20 +455,16 @@ class FisherPruningHook():
         elif type(module).__name__ == 'Linear':
             penalty = penalty.repeat(module.in_rep).view(1,-1)
         elif type(module).__name__ == 'Bitparm':
-            print(w.shape,penalty.shape)
             penalty = penalty.view(1,-1,1,1)
         # update weight
         w_grad = w.grad
         w = w.detach()
         raw_adjust = (w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
         new_adjust = -raw_adjust*penalty
-        print(module.name,w_grad.norm(),raw_adjust.norm(),new_adjust.norm(),raw_adjust.shape,new_adjust.shape)
         if hasattr(module, 'weight'):
             module.weight.grad += new_adjust
-            print(module.name,module.weight.grad.norm())
         else:
             module.h.grad += new_adjust
-            print(module.name,module.h.grad.norm())
             
     def add_reg_to_grad(self):
         _, indices = self.fisher_list.sort(dim=0)
