@@ -401,7 +401,7 @@ class FisherPruningHook():
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
             if self.reg:
-                self.update_module_grad(fisher)
+                self.update_module_grad(module, fisher)
                 
         return info
 
@@ -434,7 +434,7 @@ class FisherPruningHook():
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
             for module in self.groups[group]:
-                self.update_module_grad(fisher)
+                self.update_module_grad(module, fisher)
                 
         module, channel = info['module'], info['channel']
         if not self.reg:
@@ -447,7 +447,7 @@ class FisherPruningHook():
                 # the case for single module
                 module.in_mask[channel] = 0
                 
-    def update_module_grad(self, fisher):
+    def update_module_grad(self, module, fisher):
         if hasattr(module, 'weight'):
             w = module.weight
         else:
