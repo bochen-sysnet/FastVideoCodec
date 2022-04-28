@@ -215,7 +215,6 @@ class FisherPruningHook():
                 self.iter += 1
                 # fisher
                 plt.figure(1)
-                print(self.fisher_list.min(),self.fisher_list.max())
                 self.fisher_list[self.fisher_list==0] = 1e-50
                 self.fisher_list = torch.log10(self.fisher_list).detach().cpu().numpy()
                 sns.displot(self.fisher_list, kind='hist', aspect=1.2)
@@ -472,7 +471,7 @@ class FisherPruningHook():
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-2, 1e-4, 1e-6, 1e-8]
+        penalty_factors = [1, 1e-2, 1e-4, 1e-6]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
