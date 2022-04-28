@@ -207,7 +207,7 @@ class FisherPruningHook():
             # this makes sure model is converged before each pruning
             self.channel_prune()
             # todo:modify gradient according to fisher info
-            
+            self.add_reg_to_grad()
             self.init_accum_fishers()
             self.total_flops, self.total_acts = self.update_flop_act(model)
             # plot figure
@@ -400,8 +400,6 @@ class FisherPruningHook():
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
-            if self.reg:
-                self.update_module_grad(module, fisher)
                 
         return info
 
@@ -433,8 +431,6 @@ class FisherPruningHook():
             self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].detach().cpu().view(-1).numpy()))
             self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].detach().cpu().view(-1).numpy()))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
-            for module in self.groups[group]:
-                self.update_module_grad(module, fisher)
                 
         module, channel = info['module'], info['channel']
         if not self.reg:
@@ -447,18 +443,61 @@ class FisherPruningHook():
                 # the case for single module
                 module.in_mask[channel] = 0
                 
-    def update_module_grad(self, module, fisher):
+    def update_module_grad(self, module, penalty):
+        # get weight
         if hasattr(module, 'weight'):
             w = module.weight
         else:
             w = module.h
+        # broadcast penalty of channels to each weight
+        if type(module).__name__ == 'Conv2d':
+            penalty = penalty.view(1,-1,1,1)
+        elif type(module).__name__ == 'ConvTranspose2d':
+            penalty = penalty.view(-1,1,1,1)
+        elif type(module).__name__ == 'Linear':
+            penalty = penalty.view(1,-1,1,1)
+        elif type(module).__name__ == 'Bitparm':
+            penalty = penalty.view(1,-1,1,1)
+        # update weight
         w_grad = w.grad
-        # fisher needs sign
-        new_grad = -self.reg_gamma*(w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
+        w = w.detach()
+        new_grad = -(w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
         if hasattr(module, 'weight'):
             module.weight.grad = new_grad
         else:
             module.h.grad = new_grad
+            
+    def add_reg_to_grad(self):
+        _, indices = self.fisher_list.sort(dim=0)
+        # need to let original channel know the order or rank
+        # negative factor?
+        # start penalty, decay rate, num of groups, pos or neg
+        penalty_factors = [1e-2, 1e-4, 1e-6, 1e-8]
+        num_groups = len(penalty_factors)
+        split_size = len(self.fisher_list)//num_groups + 1
+        ind_groups = torch.split(indices, split_size)
+        # after ranking, put all group results back
+        penalty_list = torch.empty_like(self.fisher_list)
+        for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
+            penalty_list[ind_group] = torch.tensor(penalty_factor)
+        
+        mask_start = 0
+        for module, name in self.conv_names.items():
+            if exclude is not None and module in exclude:
+                continue
+            mask_len = len(module.in_mask.view(-1))
+            penalty = penalty_list[mask_start:mask_start+mask_len]
+            self.update_module_grad(module, penalty)
+            mask_start += mask_len
+            
+        for group in self.groups:
+            mask_len = len(self.groups[group][0].in_mask.view(-1))
+            for module in self.groups[group]:
+                penalty = penalty_list[mask_start:mask_start+mask_len]
+                self.update_module_grad(module, penalty)
+            mask_start += mask_len
+            
+        assert(mask_start == len(self.fisher_list))
             
     def compute_regularization(self):
         # rank fisher, higher rank means smaller penalty
@@ -540,7 +579,6 @@ class FisherPruningHook():
                 l2norm /= float(acts / 1e6)
             l2norm_list = torch.cat((l2norm_list,l2norm))
         
-        l2norm_list = l2norm_list
         x = l2norm_list[l2norm_list.nonzero()]
         sorted, indices = x.sort(dim=0)
         # negative factor?
