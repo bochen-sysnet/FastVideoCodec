@@ -481,7 +481,7 @@ class FisherPruningHook():
         fisher_avg_list = []
         for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
             penalty_list[ind_group] += penalty_factor
-            fisher_avg_list.append(self.fisher_list(ind_group).mean())
+            fisher_avg_list.append(torch.mean(self.fisher_list(ind_group)))
         print(fisher_avg_list)
         
         mask_start = 0
