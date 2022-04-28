@@ -478,8 +478,11 @@ class FisherPruningHook():
         ind_groups = torch.split(indices, split_size)
         # after ranking, put all group results back
         penalty_list = torch.zeros_like(self.fisher_list).double()
+        fisher_avg_list = []
         for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
             penalty_list[ind_group] += penalty_factor
+            fisher_avg_list.append(self.fisher_list(ind_group).mean())
+        print(fisher_avg_list)
         
         mask_start = 0
         for module, name in self.conv_names.items():
