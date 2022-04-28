@@ -482,7 +482,7 @@ class FisherPruningHook():
         for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
             penalty_list[ind_group] += penalty_factor
             fisher_avg_list.append(float(self.fisher_list[ind_group].mean()))
-        print(fisher_avg_list)
+        #print(fisher_avg_list)
         
         mask_start = 0
         for module, name in self.conv_names.items():
