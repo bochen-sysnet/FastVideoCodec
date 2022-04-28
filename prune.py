@@ -458,20 +458,23 @@ class FisherPruningHook():
         elif type(module).__name__ == 'Bitparm':
             penalty = penalty.view(1,-1,1,1)
         # update weight
+        print(module.name,w.grad.norm())
         w_grad = w.grad
         w = w.detach()
         new_grad = -(w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
         if hasattr(module, 'weight'):
             module.weight.grad = new_grad
+            print(module.name,module.weight.grad.norm())
         else:
             module.h.grad = new_grad
+            print(module.name,module.h.grad.norm())
             
     def add_reg_to_grad(self):
         _, indices = self.fisher_list.sort(dim=0)
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-2, 1e-4, 1e-6, 1e-8]
+        penalty_factors = [1e-4, 1e-6, 1e-8, 1e-10]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
