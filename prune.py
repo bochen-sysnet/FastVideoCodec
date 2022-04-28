@@ -453,8 +453,9 @@ class FisherPruningHook():
         elif type(module).__name__ == 'ConvTranspose2d':
             penalty = penalty.view(-1,1,1,1)
         elif type(module).__name__ == 'Linear':
-            penalty = penalty.view(1,-1,1,1)
+            penalty = penalty.repeat(module.in_rep).view(1,-1)
         elif type(module).__name__ == 'Bitparm':
+            print(w.shape,penalty.shape)
             penalty = penalty.view(1,-1,1,1)
         # update weight
         w_grad = w.grad
