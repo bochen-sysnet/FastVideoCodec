@@ -477,7 +477,7 @@ class FisherPruningHook():
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
         # after ranking, put all group results back
-        penalty_list = torch.empty_like(self.fisher_list)
+        penalty_list = torch.zeros_like(self.fisher_list).double()
         for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
             penalty_list[ind_group] += penalty_factor
         
