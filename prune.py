@@ -395,9 +395,9 @@ class FisherPruningHook():
                 fisher /= (float(max(delta_acts, 1.)) / 1e6)
                 mag /= (float(max(delta_acts, 1.)) / 1e6)
                 grad /= (float(max(delta_acts, 1.)) / 1e6)
-            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].view(-1)))
-            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].view(-1)))
-            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].view(-1)))
+            self.fisher_list = torch.concatenate((self.fisher_list,fisher[in_mask.bool()].view(-1)))
+            self.mag_list = torch.concatenate((self.mag_list,mag[in_mask.bool()].view(-1)))
+            self.grad_list = torch.concatenate((self.grad_list,grad[in_mask.bool()].view(-1)))
             info.update(
                 self.find_pruning_channel(module, fisher, in_mask, info))
                 
@@ -427,9 +427,9 @@ class FisherPruningHook():
                 fisher /= float(self.acts[group] / 1e6)
                 mag /= float(self.acts[group] / 1e6)
                 grad /= float(self.acts[group] / 1e6)
-            self.fisher_list = np.concatenate((self.fisher_list,fisher[in_mask.bool()].view(-1)))
-            self.mag_list = np.concatenate((self.mag_list,mag[in_mask.bool()].view(-1)))
-            self.grad_list = np.concatenate((self.grad_list,grad[in_mask.bool()].view(-1)))
+            self.fisher_list = torch.concatenate((self.fisher_list,fisher[in_mask.bool()].view(-1)))
+            self.mag_list = torch.concatenate((self.mag_list,mag[in_mask.bool()].view(-1)))
+            self.grad_list = torch.concatenate((self.grad_list,grad[in_mask.bool()].view(-1)))
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
                 
         module, channel = info['module'], info['channel']
