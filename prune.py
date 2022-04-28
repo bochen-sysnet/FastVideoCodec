@@ -479,7 +479,7 @@ class FisherPruningHook():
         # after ranking, put all group results back
         penalty_list = torch.empty_like(self.fisher_list)
         for ind_group,penalty_factor in zip(ind_groups,penalty_factors):
-            penalty_list[ind_group] = torch.tensor(penalty_factor)
+            penalty_list[ind_group] += penalty_factor
         
         mask_start = 0
         for module, name in self.conv_names.items():
