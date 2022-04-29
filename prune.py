@@ -470,7 +470,7 @@ class FisherPruningHook():
         # need to make sure ranking is correct and effective
         # remove 0?
         sorted, indices = self.fisher_list.sort(dim=0)
-        zero_count = len(self.fisher_list - torch.count_nonzero(self.fisher_list))
+        zero_count = len(self.fisher_list) - torch.count_nonzero(self.fisher_list)
         print(self.fisher_list[indices[:zero_count]].mean())
         print(sorted[:zero_count].mean())
         exit(0)
