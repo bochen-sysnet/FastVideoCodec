@@ -25,8 +25,6 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 from prune import FisherPruningHook
-from backpack import backpack
-from backpack.extensions import DiagHessian
 
 # OPTION
 CODEC_NAME = 'LSVC-A'
@@ -183,8 +181,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # backward
-        #with backpack(DiagHessian()):
-        scaler.scale(loss).backward()
+        scaler.scale(loss).backward() 
 
         if hook is not None:
             # backward the regularization function
