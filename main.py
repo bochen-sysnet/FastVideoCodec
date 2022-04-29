@@ -184,7 +184,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         # backward
         with backpack(DiagHessian()):
-            scaler.scale(loss).backward() 
+            #scaler.scale(loss).backward() 
+            loss.backward()
         for name, param in model.named_parameters():
             print(name)
             print(".grad.shape:             ", param.grad.shape)
