@@ -466,6 +466,7 @@ class FisherPruningHook():
         grad_adjust = fisher*(w_grad + w*w_grad*w_grad)
         print(w_grad.norm(),grad_adjust.norm())
         grad_adjust *= penalty
+        print(grad_adjust.norm())
         if hasattr(module, 'weight'):
             module.weight.grad += grad_adjust
         else:
