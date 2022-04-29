@@ -441,7 +441,7 @@ class FisherPruningHook():
         else:
             self.add_reg_to_grad()
                 
-    def update_module_grad(self, module, penalty):
+    def update_module_grad(self, module, penalty, fisher):
         # get weight
         if hasattr(module, 'weight'):
             w = module.weight
@@ -450,21 +450,24 @@ class FisherPruningHook():
         # broadcast penalty of channels to each weight
         if type(module).__name__ == 'Conv2d':
             penalty = penalty.view(1,-1,1,1)
+            fisher = fisher.view(1,-1,1,1)
         elif type(module).__name__ == 'ConvTranspose2d':
             penalty = penalty.view(-1,1,1,1)
+            fisher = fisher.view(-1,1,1,1)
         elif type(module).__name__ == 'Linear':
             penalty = penalty.repeat(module.in_rep).view(1,-1)
+            fisher = fisher.repeat(module.in_rep).view(1,-1)
         elif type(module).__name__ == 'Bitparm':
             penalty = penalty.view(1,-1,1,1)
+            fisher = fisher.view(1,-1,1,1)
         # update weight
         w_grad = w.grad
         w = w.detach()
-        raw_adjust = (w*w_grad*w_grad + w*w*w_grad*w_grad*w_grad)
-        new_adjust = raw_adjust*penalty
+        grad_adjust = fisher*penalty*(w_grad + w*w_grad*w_grad)
         if hasattr(module, 'weight'):
-            module.weight.grad += new_adjust
+            module.weight.grad += grad_adjust
         else:
-            module.h.grad += new_adjust
+            module.h.grad += grad_adjust
             
     def add_reg_to_grad(self):
         # need to make sure ranking is correct and effective
@@ -493,17 +496,17 @@ class FisherPruningHook():
                 continue
             mask_len = len(module.in_mask.view(-1))
             penalty = penalty_list[mask_start:mask_start+mask_len]
-            self.update_module_grad(module, penalty)
+            fisher = self.fisher_list[mask_start:mask_start+mask_len].detach()
+            self.update_module_grad(module, penalty, fisher)
             mask_start += mask_len
             
         for group in self.groups:
             mask_len = len(self.groups[group][0].in_mask.view(-1))
             for module in self.groups[group]:
                 penalty = penalty_list[mask_start:mask_start+mask_len]
-                self.update_module_grad(module, penalty)
+                fisher = self.fisher_list[mask_start:mask_start+mask_len].detach()
+                self.update_module_grad(module, penalty, fisher)
             mask_start += mask_len
-            
-        assert(mask_start == len(self.fisher_list))
             
     def compute_regularization(self):
         # rank fisher, higher rank means smaller penalty
