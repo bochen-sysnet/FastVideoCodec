@@ -471,7 +471,7 @@ class FisherPruningHook():
         # remove 0?
         sorted, indices = self.fisher_list.sort(dim=0)
         zero_count = len(self.fisher_list) - torch.count_nonzero(self.fisher_list)
-        indices = indices[:zero_count]
+        indices = indices[zero_count:]
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
