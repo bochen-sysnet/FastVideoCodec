@@ -464,9 +464,7 @@ class FisherPruningHook():
         w_grad = w.grad
         w = w.detach()
         grad_adjust = fisher*(w_grad + w*w_grad*w_grad)
-        print(w_grad.norm(),grad_adjust.norm())
         grad_adjust *= penalty
-        print(grad_adjust.norm())
         if hasattr(module, 'weight'):
             module.weight.grad += grad_adjust
         else:
@@ -595,7 +593,7 @@ class FisherPruningHook():
         sorted, indices = x.sort(dim=0)
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-2, 1e-4, 1e-6, 1e-8]
+        penalty_factors = [1e-4, 1e-6, 1e-8, 1e-10]
         num_groups = len(penalty_factors)
         split_size = len(sorted)//num_groups + 1
         groups = torch.split(sorted, split_size)
