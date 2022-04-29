@@ -473,7 +473,7 @@ class FisherPruningHook():
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [10, 1, 1e-1, 1e-2, -1e-2. -1e-1]
+        penalty_factors = [10, 1, 1e-1, 1e-2, -1e-2, -1e-1]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
