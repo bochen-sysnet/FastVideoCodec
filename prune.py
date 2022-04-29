@@ -461,9 +461,8 @@ class FisherPruningHook():
             penalty = penalty.view(1,-1,1,1)
             fisher = fisher.view(1,-1,1,1)
         # update weight
-        w_grad = w.grad
         w = w.detach()
-        grad_adjust = fisher*(w_grad + w*w_grad*w_grad)
+        grad_adjust = fisher*(w.grad + w*w.diag_h)
         grad_adjust *= -penalty
         if hasattr(module, 'weight'):
             module.weight.grad += grad_adjust
