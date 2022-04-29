@@ -25,6 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 from prune import FisherPruningHook
+from backpack import backpack
 from backpack.extensions import DiagHessian
 
 # OPTION
