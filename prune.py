@@ -593,7 +593,7 @@ class FisherPruningHook():
         sorted, indices = x.sort(dim=0)
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-8]#, 1e-8, 1e-10, 1e-12]
+        penalty_factors = [1e-10]#, 1e-8, 1e-10, 1e-12]
         num_groups = len(penalty_factors)
         split_size = len(sorted)//num_groups + 1
         groups = torch.split(sorted, split_size)
