@@ -469,9 +469,10 @@ class FisherPruningHook():
     def add_reg_to_grad(self):
         # need to make sure ranking is correct and effective
         # remove 0?
-        _, indices = self.fisher_list.sort(dim=0)
+        sorted, indices = self.fisher_list.sort(dim=0)
         zero_count = len(self.fisher_list - torch.count_nonzero(self.fisher_list))
         print(self.fisher_list[indices[:zero_count]].mean())
+        print(sorted[:10])
         exit(0)
         # need to let original channel know the order or rank
         # negative factor?
