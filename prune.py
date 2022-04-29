@@ -218,18 +218,18 @@ class FisherPruningHook():
                 #plt.savefig(f'fisher/dist_fisher_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
                 plt.savefig(f'fisher/dist_fisher_{self.iter}_{loss:.2f}.png')
                 # magnitude
-                plt.figure(2)
-                self.mag_list[self.mag_list==0] = 1e-50
-                self.mag_list = torch.log10(self.mag_list).detach().cpu().numpy()
-                sns.displot(self.mag_list, kind='hist', aspect=1.2)
+                #plt.figure(2)
+                #self.mag_list[self.mag_list==0] = 1e-50
+                #self.mag_list = torch.log10(self.mag_list).detach().cpu().numpy()
+                #sns.displot(self.mag_list, kind='hist', aspect=1.2)
                 #plt.savefig(f'fisher/dist_mag_{int(self.total_flops*100):3d}_{int(self.total_acts*100):3d}_{loss:.2f}.png')
-                plt.savefig(f'fisher/dist_mag_{self.iter}_{loss:.2f}.png')
+                #plt.savefig(f'fisher/dist_mag_{self.iter}_{loss:.2f}.png')
                 # gradient
-                plt.figure(3)
-                self.grad_list[self.grad_list==0] = 1e-50
-                self.grad_list = torch.log10(self.grad_list).detach().cpu().numpy()
-                sns.displot(self.grad_list, kind='hist', aspect=1.2)
-                plt.savefig(f'fisher/dist_grad_{self.iter}_{loss:.2f}.png')
+                #plt.figure(3)
+                #self.grad_list[self.grad_list==0] = 1e-50
+                #self.grad_list = torch.log10(self.grad_list).detach().cpu().numpy()
+                #sns.displot(self.grad_list, kind='hist', aspect=1.2)
+                #plt.savefig(f'fisher/dist_grad_{self.iter}_{loss:.2f}.png')
         self.init_flops_acts()
 
     def update_flop_act(self, model, work_dir='work_dir/'):
@@ -468,11 +468,12 @@ class FisherPruningHook():
             
     def add_reg_to_grad(self):
         # need to make sure ranking is correct and effective
+        # remove 0?
         _, indices = self.fisher_list.sort(dim=0)
         # need to let original channel know the order or rank
         # negative factor?
         # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1, 0, -1e-2]
+        penalty_factors = [10, 1, 1e-1, 1e-2, -1e-2. -1e-1]
         num_groups = len(penalty_factors)
         split_size = len(self.fisher_list)//num_groups + 1
         ind_groups = torch.split(indices, split_size)
