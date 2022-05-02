@@ -555,6 +555,7 @@ class FisherPruningHook():
             cost = torch.sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
+                print(module.name)
                 # accumulate flops and acts
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
