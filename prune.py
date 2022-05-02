@@ -279,11 +279,11 @@ class FisherPruningHook():
         if print_channel:
             for module, name in self.conv_names.items():
                 chans_i = int(module.in_mask.sum().cpu().numpy())
-                chans_o = int(torch.sigmoid(module.child.soft_mask).sum().cpu().numpy()) if hasattr(module, 'child') else module.out_channels
+                chans_o = int(F.sigmoid(module.child.soft_mask).sum().cpu().numpy()) if hasattr(module, 'child') else module.out_channels
                 print('{}: input_channels: {}/{}, out_channels: {}/{}'.format(
                         name, chans_i, len(module.in_mask), chans_o, len(module.child.in_mask)))
             for module, name in self.ln_names.items():
-                chans_o = int(torch.sigmoid(module.child.soft_mask).sum().cpu().numpy()) if hasattr(module, 'child') else module.out_channels
+                chans_o = int(F.sigmoid(module.child.soft_mask).sum().cpu().numpy()) if hasattr(module, 'child') else module.out_channels
                 print('{}: out_channels: {}/{}'.format(name, chans_o, len(module.child.in_mask)))
 
     def compute_flops_acts(self):
@@ -295,7 +295,7 @@ class FisherPruningHook():
         for module, name in self.conv_names.items():
             max_flop = self.flops[module]
             i_mask = module.in_mask
-            o_mask = torch.sigmoid(module.child.soft_mask) if hasattr(module, 'child') else o_mask.numel()
+            o_mask = F.sigmoid(module.child.soft_mask) if hasattr(module, 'child') else o_mask.numel()
             flops += max_flop / (i_mask.numel() * o_mask.numel()) * (
                 i_mask.cpu().sum() * o_mask.cpu().sum())
             max_flops += max_flop
@@ -529,15 +529,15 @@ class FisherPruningHook():
                 continue
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
-            cost = torch.sigmoid(module.soft_mask)
+            cost = F.sigmoid(module.soft_mask)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
-                real_out_channels = torch.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
+                real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
                 delta_flops = self.flops[module] * real_out_channels / (
                     module.in_channels * module.out_channels) * in_rep
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
-                    delta_flops += self.flops[ancestor] * torch.sigmoid(ancestor.soft_mask).sum(
+                    delta_flops += self.flops[ancestor] * F.sigmoid(ancestor.soft_mask).sum(
                     ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
                 cost *= (float(delta_flops) / 1e9)
             elif self.delta == 'acts':
@@ -554,12 +554,11 @@ class FisherPruningHook():
             module = self.groups[group][0]
             flops = 0  
             acts = 0            
-            print(group,self.groups[group][0].name)
-            cost = torch.sigmoid(self.groups[group][0].soft_mask)
+            cost = F.sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
                 # accumulate flops and acts
-                real_out_channels = torch.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
+                real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
                         module.out_channels * real_out_channels
@@ -569,7 +568,7 @@ class FisherPruningHook():
             for module in self.ancest[group]:
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.out_channels // \
-                            module.in_channels * torch.sigmoid(module.soft_mask).sum()
+                            module.in_channels * F.sigmoid(module.soft_mask).sum()
                 else:
                     delta_flops = self.flops[module] // module.out_channels
                 flops += delta_flops
@@ -1064,9 +1063,9 @@ class FisherPruningHook():
             def modified_forward(m, x):
                 if self.use_mask:
                     if m.trained_mask:
-                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = torch.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
                         x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
@@ -1087,9 +1086,9 @@ class FisherPruningHook():
             def modified_forward(m, x):
                 if self.use_mask:
                     if m.trained_mask:
-                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = torch.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
                         x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
@@ -1126,9 +1125,9 @@ class FisherPruningHook():
             def modified_forward(m, x):
                 if self.use_mask:
                     if m.trained_mask:
-                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = torch.sigmoid(m.soft_mask).repeat(m.in_rep).view(1,1,-1)
+                        mask = F.sigmoid(m.soft_mask).repeat(m.in_rep).view(1,1,-1)
                         x = x * mask.to(x.device)
                 output = F.linear(x, m.weight, bias=m.bias)
                 m.output_size = output.size()
@@ -1144,9 +1143,9 @@ class FisherPruningHook():
             def modified_forward(m, x):
                 if self.use_mask:
                     if m.trained_mask:
-                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = torch.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
                         x = x * mask.to(x.device)
                 if m.final:
                     output = F.sigmoid(x * F.softplus(m.h) + m.b)
