@@ -450,8 +450,6 @@ class FisherPruningHook():
             elif module is not None:
                 # the case for single module
                 module.in_mask[channel] = 0
-        else:
-            print('m')
                 
     def update_module_grad(self, module, penalty, fisher):
         # get weight
