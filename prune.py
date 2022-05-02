@@ -556,6 +556,7 @@ class FisherPruningHook():
             for module in self.groups[group]:
                 layer_name = type(module).__name__
                 # accumulate flops and acts
+                print(module.name)
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
                         module.out_channels * module.child.in_mask.sum()
@@ -791,13 +792,11 @@ class FisherPruningHook():
         feature map after pruning."""
 
         for conv, name in self.conv_names.items():
-            print('conv:',conv.name,name)
             for m, ancest in self.conv2ancest.items():
                 if conv in ancest:
                     #conv.out_mask = m.in_mask
                     conv.child = m
                     print(conv.name,'->',m.name)
-                    print([x.name for x in ancest])
                     break
 
         # make sure norm and conv output are the same  
@@ -805,7 +804,7 @@ class FisherPruningHook():
             conv_module = self.ln2ancest[bn][0]
             #bn.out_mask = conv_module.out_mask
             bn.child = conv_module
-            print(bn.name,'->',m.name)
+            print(bn.name,'->',conv_module.name)
 
     def make_groups(self):
         """The modules (convolutions and BNs) connected to the same conv need
