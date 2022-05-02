@@ -279,12 +279,12 @@ class FisherPruningHook():
         if print_channel:
             for module, name in self.conv_names.items():
                 chans_i = int(module.in_mask.sum().cpu().numpy())
-                chans_o = int(module.out_mask.sum().cpu().numpy())
+                chans_o = int(module.child.in_mask.sum().cpu().numpy())
                 print('{}: input_channels: {}/{}, out_channels: {}/{}'.format(
-                        name, chans_i, len(module.in_mask), chans_o, len(module.out_mask)))
+                        name, chans_i, len(module.in_mask), chans_o, len(module.child.in_mask)))
             for module, name in self.ln_names.items():
-                chans_o = int(module.out_mask.sum().cpu().numpy())
-                print('{}: out_channels: {}/{}'.format(name, chans_o, len(module.out_mask)))
+                chans_o = int(module.child.in_mask.sum().cpu().numpy())
+                print('{}: out_channels: {}/{}'.format(name, chans_o, len(module.child.in_mask)))
 
     def compute_flops_acts(self):
         """Computing the flops and activation remains."""
@@ -295,7 +295,7 @@ class FisherPruningHook():
         for module, name in self.conv_names.items():
             max_flop = self.flops[module]
             i_mask = module.in_mask
-            o_mask = module.out_mask
+            o_mask = module.child.in_mask
             flops += max_flop / (i_mask.numel() * o_mask.numel()) * (
                 i_mask.cpu().sum() * o_mask.cpu().sum())
             max_flops += max_flop
@@ -383,7 +383,7 @@ class FisherPruningHook():
                 # this affects both current and ancestor module
                 # flops per channel
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
-                delta_flops = self.flops[module] * module.out_mask.sum() / (
+                delta_flops = self.flops[module] * module.child.in_mask.sum() / (
                     module.in_channels * module.out_channels) * in_rep
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
@@ -521,24 +521,24 @@ class FisherPruningHook():
             
     def computation_penalty(self):
         # compute overhead based on flops or acts
+        # refer to parent/child for out channels
         cost_list = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
                 continue
-            in_mask = module.in_mask.view(-1)
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
-            cost = in_mask
+            cost = torch.sigmoid(module.soft_mask)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
-                delta_flops = self.flops[module] * module.out_mask.sum() / (
+                delta_flops = self.flops[module] * module.child.in_mask.sum() / (
                     module.in_channels * module.out_channels) * in_rep
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
-                    delta_flops += self.flops[ancestor] * ancestor.in_mask.sum(
+                    delta_flops += self.flops[ancestor] * torch.sigmoid(ancestor.soft_mask).sum(
                     ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
                 cost *= (float(delta_flops) / 1e9)
-            if self.delta == 'acts':
+            elif self.delta == 'acts':
                 delta_acts = 0
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
@@ -549,24 +549,23 @@ class FisherPruningHook():
             else:
                 cost_list = torch.cat((cost_list,cost))
         for group in self.groups:
-            in_mask = self.groups[group][0].in_mask.view(-1)
             module = self.groups[group][0]
             flops = 0  
             acts = 0            
-            cost = in_mask
+            cost = torch.sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
                 # accumulate flops and acts
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
-                        module.out_channels * module.out_mask.sum()
+                        module.out_channels * module.child.in_mask.sum()
                 else:
                     delta_flops = self.flops[module] // module.in_channels
                 flops += delta_flops
             for module in self.ancest[group]:
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.out_channels // \
-                            module.in_channels * module.in_mask.sum()
+                            module.in_channels * torch.sigmoid(module.soft_mask).sum()
                 else:
                     delta_flops = self.flops[module] // module.out_channels
                 flops += delta_flops
@@ -605,7 +604,7 @@ class FisherPruningHook():
                 # accumulate flops per in_channel per batch for each group
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
-                        module.out_channels * module.out_mask.sum()
+                        module.out_channels * module.child.in_mask.sum()
                 else:
                     delta_flops = self.flops[module] // module.in_channels
                 self.flops[group] += delta_flops
@@ -794,13 +793,15 @@ class FisherPruningHook():
         for conv, name in self.conv_names.items():
             for m, ancest in self.conv2ancest.items():
                 if conv in ancest:
-                    conv.out_mask = m.in_mask
+                    #conv.out_mask = m.in_mask
+                    conv.child = m
                     break
 
         # make sure norm and conv output are the same  
         for bn, name in self.ln_names.items():
             conv_module = self.ln2ancest[bn][0]
-            bn.out_mask = conv_module.out_mask
+            #bn.out_mask = conv_module.out_mask
+            bn.child = conv_module
 
     def make_groups(self):
         """The modules (convolutions and BNs) connected to the same conv need
@@ -1049,8 +1050,6 @@ class FisherPruningHook():
         if type(module).__name__ == 'Conv2d':
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels,), ))
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((module.out_channels,), ))
             if trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
@@ -1074,8 +1073,6 @@ class FisherPruningHook():
         if type(module).__name__ == 'ConvTranspose2d':
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels,), ))
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((module.out_channels,), ))
             if trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
@@ -1115,8 +1112,6 @@ class FisherPruningHook():
                 module.out_rep = module.in_rep = 1
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
             if trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels//module.in_rep)).to(module.weight.device))
@@ -1132,8 +1127,6 @@ class FisherPruningHook():
                 return output
             module.forward = MethodType(modified_forward, module)  
         if  type(module).__name__ == 'Bitparm':
-            module.register_buffer(
-                'out_mask', module.h.new_ones((module.h.size(1),), ))
             module.register_buffer(
                 'in_mask', module.h.new_ones((module.h.size(1),), ))
             if trained_mask:
@@ -1157,11 +1150,9 @@ class FisherPruningHook():
             module.forward = MethodType(modified_forward, module)  
         if  type(module).__name__ == 'LayerNorm':
             # no need to modify layernorm during pruning since it is not computed over channels
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((len(module.weight),), ))
+            pass
         if  type(module).__name__ == 'GDN':
-            module.register_buffer(
-                'out_mask', module.beta.new_ones((len(module.beta),), ))
+            pass
 
 
 def deploy_pruning(model):
@@ -1172,7 +1163,7 @@ def deploy_pruning(model):
         if type(module).__name__ == 'Conv2d':
             module.finetune = True
             requires_grad = module.weight.requires_grad
-            out_mask = module.out_mask.round().bool()
+            out_mask = module.child.in_mask.round().bool()
             in_mask = module.in_mask.round().bool()
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
@@ -1184,7 +1175,7 @@ def deploy_pruning(model):
         elif type(module).__name__ == 'ConvTranspose2d':
             module.finetune = True
             requires_grad = module.weight.requires_grad
-            out_mask = module.out_mask.round().bool()
+            out_mask = module.child.in_mask.round().bool()
             in_mask = module.in_mask.round().bool()
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
@@ -1195,7 +1186,7 @@ def deploy_pruning(model):
 
         elif type(module).__name__ == 'Linear':
             requires_grad = module.weight.requires_grad
-            out_mask = module.out_mask.round().bool().repeat(module.out_rep)
+            out_mask = module.child.in_mask.round().bool().repeat(module.out_rep)
             in_mask = module.in_mask.round().bool().repeat(module.in_rep)
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
@@ -1216,7 +1207,7 @@ def deploy_pruning(model):
             module.b.requires_grad = requires_grad
 
         elif type(module).__name__ == 'LayerNorm':
-            out_mask = module.out_mask.round().bool()
+            out_mask = module.child.in_mask.round().bool()
             requires_grad = module.weight.requires_grad
             module.normalized_shape = (int(out_mask.sum()),)
             module.weight = nn.Parameter(module.weight.data[out_mask].data)
@@ -1225,7 +1216,7 @@ def deploy_pruning(model):
             module.bias.requires_grad = requires_grad
             
         elif type(module).__name__ == 'GDN':
-            out_mask = module.out_mask.round().bool()
+            out_mask = module.child.in_mask.round().bool()
             requires_grad = module.beta.requires_grad
             module.beta = nn.Parameter(module.beta.data[out_mask].data)
             gamma = module.gamma.data[out_mask]
