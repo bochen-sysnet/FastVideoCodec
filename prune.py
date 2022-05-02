@@ -1059,7 +1059,7 @@ class FisherPruningHook():
                     if m.trained_mask:
                         m.in_mask[:] = torch.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = m.in_mask.view(1,-1,1,1)
+                        mask = torch.sigmoid(m.soft_mask).view(1,-1,1,1)
                         x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
@@ -1084,7 +1084,7 @@ class FisherPruningHook():
                     if m.trained_mask:
                         m.in_mask[:] = torch.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = m.in_mask.view(1,-1,1,1)
+                        mask = torch.sigmoid(m.soft_mask).view(1,-1,1,1)
                         x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
@@ -1125,7 +1125,7 @@ class FisherPruningHook():
                     if m.trained_mask:
                         m.in_mask[:] = torch.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
+                        mask = torch.sigmoid(m.soft_mask).repeat(m.in_rep).view(1,1,-1)
                         x = x * mask.to(x.device)
                 output = F.linear(x, m.weight, bias=m.bias)
                 m.output_size = output.size()
@@ -1145,7 +1145,7 @@ class FisherPruningHook():
                     if m.trained_mask:
                         m.in_mask[:] = torch.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = m.in_mask.view(1,-1,1,1)
+                        mask = torch.sigmoid(m.soft_mask).view(1,-1,1,1)
                         x = x * mask.to(x.device)
                 if m.final:
                     output = F.sigmoid(x * F.softplus(m.h) + m.b)
