@@ -793,6 +793,7 @@ class FisherPruningHook():
         for conv, name in self.conv_names.items():
             for m, ancest in self.conv2ancest.items():
                 if conv in ancest:
+                    print('~',conv,ancest)
                     #conv.out_mask = m.in_mask
                     conv.child = m
                     print(conv.name,'->',m.name)
@@ -875,7 +876,7 @@ class FisherPruningHook():
         for group in self.groups:
             self.group_modules.extend(self.groups[group])
 
-    def find_module_ancestors(self, model): # something is wrong here about ancest
+    def find_module_ancestors(self, model): 
         """find the nearest module
         Args:
             loss(Tensor): the output of the network
@@ -1029,7 +1030,6 @@ class FisherPruningHook():
                 conv2ancest[m] = []
             else:
                 ln2ancest[m] = []
-            print(n,ancest_name)
             for name in ancest_name:
                 if type(m).__name__ in ['Conv2d','ConvTranspose2d','Linear','Bitparm']:
                     conv2ancest[m] += [self.name2module[name]]
