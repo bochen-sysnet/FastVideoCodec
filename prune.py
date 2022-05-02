@@ -796,6 +796,7 @@ class FisherPruningHook():
                     #conv.out_mask = m.in_mask
                     conv.child = m
                     print(conv.name,'->',m.name)
+                    print([x.name for x in ancest])
                     break
 
         # make sure norm and conv output are the same  
@@ -1029,7 +1030,7 @@ class FisherPruningHook():
                 conv2ancest[m] = []
             else:
                 ln2ancest[m] = []
-            print(n,ancest_name)
+                
             for name in ancest_name:
                 if type(m).__name__ in ['Conv2d','ConvTranspose2d','Linear','Bitparm']:
                     conv2ancest[m] += [self.name2module[name]]
