@@ -523,13 +523,15 @@ class FisherPruningHook():
     def computation_penalty(self):
         # compute overhead based on flops or acts
         # refer to parent/child for out channels
+        def sigmoid(x):
+            return 1/((-x).exp()+1)
         cost_list = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
                 continue
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
-            cost = F.sigmoid(module.soft_mask)
+            cost = sigmoid(module.soft_mask)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
                 real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
@@ -554,7 +556,7 @@ class FisherPruningHook():
             module = self.groups[group][0]
             flops = 0  
             acts = 0            
-            cost = F.sigmoid(self.groups[group][0].soft_mask)
+            cost = sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
                 # accumulate flops and acts
