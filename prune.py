@@ -279,11 +279,11 @@ class FisherPruningHook():
         if print_channel:
             for module, name in self.conv_names.items():
                 chans_i = int(module.in_mask.sum().cpu().numpy())
-                chans_o = int(module.child.in_mask.sum().cpu().numpy())
+                chans_o = int(module.child.in_mask.sum().cpu().numpy()) if hasattr(module, 'child') else module.out_channels
                 print('{}: input_channels: {}/{}, out_channels: {}/{}'.format(
                         name, chans_i, len(module.in_mask), chans_o, len(module.child.in_mask)))
             for module, name in self.ln_names.items():
-                chans_o = int(module.child.in_mask.sum().cpu().numpy())
+                chans_o = int(module.child.in_mask.sum().cpu().numpy()) if hasattr(module, 'child') else module.out_channels
                 print('{}: out_channels: {}/{}'.format(name, chans_o, len(module.child.in_mask)))
 
     def compute_flops_acts(self):
@@ -383,7 +383,8 @@ class FisherPruningHook():
                 # this affects both current and ancestor module
                 # flops per channel
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
-                delta_flops = self.flops[module] * module.child.in_mask.sum() / (
+                real_out_channels = module.child.in_mask.sum() if hasattr(module, 'child') else module.out_channels
+                delta_flops = self.flops[module] * real_out_channels / (
                     module.in_channels * module.out_channels) * in_rep
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
@@ -603,10 +604,11 @@ class FisherPruningHook():
                 # accumulate fisher per channel per batch
                 module_fisher = self.temp_fisher_info[module]
                 self.temp_fisher_info[group] += module_fisher 
+                real_out_channels = module.child.in_mask.sum() if hasattr(module, 'child') else module.out_channels
                 # accumulate flops per in_channel per batch for each group
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
-                        module.out_channels * module.child.in_mask.sum()
+                        module.out_channels * real_out_channels
                 else:
                     delta_flops = self.flops[module] // module.in_channels
                 self.flops[group] += delta_flops
@@ -1168,35 +1170,44 @@ def deploy_pruning(model):
         if type(module).__name__ == 'Conv2d':
             module.finetune = True
             requires_grad = module.weight.requires_grad
-            out_mask = module.child.in_mask.round().bool()
             in_mask = module.in_mask.round().bool()
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
-            temp_weight = module.weight.data[out_mask]
+            if hasattr(module, 'child'):
+                out_mask = module.child.in_mask.round().bool()
+                temp_weight = module.weight.data[out_mask]
+            else:
+                temp_weight = module.weight.data
             module.weight = nn.Parameter(temp_weight[:, in_mask].data)
             module.weight.requires_grad = requires_grad
 
         elif type(module).__name__ == 'ConvTranspose2d':
             module.finetune = True
             requires_grad = module.weight.requires_grad
-            out_mask = module.child.in_mask.round().bool()
             in_mask = module.in_mask.round().bool()
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
-            temp_weight = module.weight.data[in_mask]
+            if hasattr(module, 'child'):
+                out_mask = module.child.in_mask.round().bool()
+                temp_weight = module.weight.data[in_mask]
+            else:
+                temp_weight = module.weight.data
             module.weight = nn.Parameter(temp_weight[:, out_mask].data)
             module.weight.requires_grad = requires_grad
 
         elif type(module).__name__ == 'Linear':
             requires_grad = module.weight.requires_grad
-            out_mask = module.child.in_mask.round().bool().repeat(module.out_rep)
             in_mask = module.in_mask.round().bool().repeat(module.in_rep)
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
-            temp_weight = module.weight.data[out_mask]
+            if hasattr(module, 'child'):
+                out_mask = module.child.in_mask.round().bool().repeat(module.out_rep)
+                temp_weight = module.weight.data[out_mask]
+            else:
+                temp_weight = module.weight.data
             module.weight = nn.Parameter(temp_weight[:, in_mask].data)
             module.weight.requires_grad = requires_grad
 
