@@ -554,7 +554,7 @@ class FisherPruningHook():
             module = self.groups[group][0]
             flops = 0  
             acts = 0            
-            cost = F.sigmoid(self.groups[group][0].soft_mask)
+            cost = self.groups[group][0].soft_mask.sigmoid_()
             for module in self.groups[group]:
                 layer_name = type(module).__name__
                 # accumulate flops and acts
