@@ -168,6 +168,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
+    torch.autograd.set_detect_anomaly(True)
     for batch_idx,data in enumerate(train_iter):
         data = data[0].cuda(device)
         l = data.size(0)-1
