@@ -168,7 +168,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
-    torch.autograd.set_detect_anomaly(True)
     for batch_idx,data in enumerate(train_iter):
         data = data[0].cuda(device)
         l = data.size(0)-1
@@ -190,7 +189,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # backward
         scaler.scale(loss).backward()
         
-        
         if hook.trained_mask:
             computation_penalty = hook.computation_penalty()
             hook.use_mask = False
@@ -199,6 +197,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             quality_penalty = 10.0*torch.log10(1/torch.mean(torch.pow(com_data_no_mask - com_data, 2)))
             bpp_penalty = be_loss_no_mask - be_loss
             print(computation_penalty,quality_penalty,bpp_penalty)
+            scaler.scale(loss).backward()
 
         if hook is not None:
             # backward the regularization function
