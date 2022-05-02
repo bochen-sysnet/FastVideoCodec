@@ -529,7 +529,7 @@ class FisherPruningHook():
                 continue
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
-            cost = module.soft_mask.sigmoid_()
+            cost = F.sigmoid(module.soft_mask)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
                 real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
@@ -554,7 +554,7 @@ class FisherPruningHook():
             module = self.groups[group][0]
             flops = 0  
             acts = 0            
-            cost = self.groups[group][0].soft_mask.sigmoid_()
+            cost = F.sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
                 # accumulate flops and acts
