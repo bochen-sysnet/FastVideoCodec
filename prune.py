@@ -554,6 +554,7 @@ class FisherPruningHook():
             module = self.groups[group][0]
             flops = 0  
             acts = 0            
+            print(group,self.groups[group][0].name)
             cost = torch.sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
