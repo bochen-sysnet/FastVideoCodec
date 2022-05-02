@@ -202,6 +202,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             loss2 = computation_penalty + quality_penalty + bpp_penalty
             print(batch_idx,computation_penalty,quality_penalty,bpp_penalty)
             scaler.scale(loss2).backward()
+            print('bw done')
 
         if hook is not None:
             # backward the regularization function
