@@ -124,7 +124,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def run_one_iteration(model, data)：
+def run_one_iteration(model, data):
     if model.name == 'DVC-pretrained':
         com_data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
         bpp_res_est_list = []
