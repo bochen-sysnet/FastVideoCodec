@@ -193,7 +193,9 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             # train iteratively since memory insufficient
             computation_penalty = hook.computation_penalty()
             hook.use_mask = False
+            print('s')
             com_data_no_mask, _, _, be_loss_no_mask, *_ = run_one_iteration(model, data)
+            print('e')
             hook.use_mask = True
             quality_penalty = 10.0*torch.log10(1/torch.mean(torch.pow(com_data_no_mask - com_data.detach(), 2)))
             bpp_penalty = be_loss.detach() - be_loss_no_mask # no mask should be close to with mask
