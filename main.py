@@ -189,7 +189,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # backward
         scaler.scale(loss).backward()
         
-        if hook.trained_mask and False:
+        if hook.trained_mask:
             # train iteratively since memory insufficient
             computation_penalty = hook.computation_penalty()
             hook.use_mask = False
