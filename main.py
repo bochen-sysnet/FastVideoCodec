@@ -145,7 +145,7 @@ def run_one_iteration(model, data):
     else:
         loss = model.loss(img_loss,be_loss,aux_loss)
     
-    return com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim
+    return com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim, psnr_list
         
 def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2, hook=None):
     aux_loss_module = AverageMeter()
@@ -173,7 +173,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim = run_one_iteration(model, data)
+        com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim, psnr_list = run_one_iteration(model, data)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
