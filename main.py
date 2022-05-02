@@ -187,7 +187,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         all_loss_module.update(loss.cpu().data.item(), l)
         
         # backward
-        scaler.scale(loss).backward()
+        scaler.scale(loss).backward(retain_graph=True)
         
         if hook.trained_mask:
             computation_penalty = hook.computation_penalty()
