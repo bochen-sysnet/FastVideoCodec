@@ -87,7 +87,8 @@ else:
     #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_50_flops_32.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
     #hook = FisherPruningHook(pruning=True, delta='acts', start_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
+    #hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
+    hook = FisherPruningHook(pruning=True, trained_mask=True, start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
@@ -123,6 +124,29 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
+def run_one_iteration(model, data)：
+    if model.name == 'DVC-pretrained':
+        com_data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        bpp_res_est_list = []
+    else:
+        com_data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+    
+    # aggregate loss
+    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+    be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
+    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+    psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+    msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+    if model.name == 'DVC-pretrained':
+        loss = img_loss
+    elif 'LSVC' in model.name:
+        loss = img_loss + be_loss
+    else:
+        loss = model.loss(img_loss,be_loss,aux_loss)
+    
+    return com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim
+        
 def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2, hook=None):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
@@ -149,25 +173,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        if model.name == 'DVC-pretrained':
-            _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
-            bpp_res_est_list = []
-        else:
-            _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
-        
-        # aggregate loss
-        be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-        be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
-        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-        img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        if model.name == 'DVC-pretrained':
-            loss = img_loss
-        elif 'LSVC' in model.name:
-            loss = img_loss + be_loss
-        else:
-            loss = model.loss(img_loss,be_loss,aux_loss)
+        com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim = run_one_iteration(model, data)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
@@ -179,6 +185,14 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             I_module.update(float(psnr_list[0]))
             msssim_module.update(msssim.cpu().data.item(), l)
         all_loss_module.update(loss.cpu().data.item(), l)
+        if hook.trained_mask:
+            computation_penalty = hook.computation_penalty()
+            hook.use_mask = False
+            com_data_no_mask, _, _, be_loss_no_mask, *_ = run_one_iteration(model, data)
+            hook.use_mask = True
+            quality_penalty = 10.0*torch.log10(1/torch.mean(torch.pow(com_data_no_mask - com_data, 2)))
+            bpp_penalty = be_loss_no_mask - be_loss
+            print(computation_penalty,quality_penalty,bpp_penalty)
         
         # backward
         scaler.scale(loss).backward() 
@@ -189,7 +203,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
 
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:
-            if hook is None or hook.reg:
+            if hook is None or hook.reg or hook.trained_mask:
                 scaler.step(optimizer)
                 scaler.update()
             optimizer.zero_grad()

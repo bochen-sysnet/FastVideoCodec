@@ -24,6 +24,12 @@ def load_checkpoint(model, filename):
 def save_checkpoint(model, filename, score=0):
     state = {'state_dict': model.state_dict(), 'score':score}
     torch.save(state, filename)
+    
+# todo:
+# run model with or without mask, take the difference?
+# use env var to control whether uses masks, with no_mask
+# calculate the loss in flops
+# add additional loss to total loss
 
 class FisherPruningHook():
     """Use fisher information to pruning the model, must register after
@@ -53,6 +59,7 @@ class FisherPruningHook():
         delta='acts',
         interval=10,
         reg=False,
+        trained_mask=False,
         deploy_from=None,
         resume_from=None,
         start_from=None,
@@ -63,6 +70,7 @@ class FisherPruningHook():
         assert delta in ('acts', 'flops')
         self.pruning = pruning
         self.reg = reg
+        self.trained_mask = trained_mask
         self.delta = delta
         self.interval = interval
         # The key of self.input is conv module, and value of it
@@ -112,6 +120,7 @@ class FisherPruningHook():
         self.total_flops = self.total_acts = 0
         
         self.iter = 0
+        self.use_mask = True
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -123,7 +132,7 @@ class FisherPruningHook():
         if not self.pruning:
             for n, m in model.named_modules():
                 if n: m.name = n
-                add_pruning_attrs(m, pruning=self.pruning)
+                self.add_pruning_attrs(m, pruning=self.pruning, trained_mask=self.trained_mask)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             
@@ -143,7 +152,8 @@ class FisherPruningHook():
         for n, m in model.named_modules():
             if n: m.name = n
             if self.pruning:
-                add_pruning_attrs(m, pruning=self.pruning)
+                # needs to do at least once
+                self.add_pruning_attrs(m, pruning=self.pruning, trained_mask=self.trained_mask)
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear) or isinstance(m, Bitparm):
                 self.conv_names[m] = n
                 self.name2module[n] = m
@@ -429,7 +439,9 @@ class FisherPruningHook():
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
                 
         module, channel = info['module'], info['channel']
-        if not self.reg:
+        if self.reg:
+            self.add_reg_to_grad()
+        elif not self.trained_mask:
             # only modify in_mask is sufficient
             if isinstance(module, int):
                 # the case for multiple modules in a group
@@ -438,8 +450,6 @@ class FisherPruningHook():
             elif module is not None:
                 # the case for single module
                 module.in_mask[channel] = 0
-        else:
-            self.add_reg_to_grad()
                 
     def update_module_grad(self, module, penalty, fisher):
         # get weight
@@ -509,35 +519,16 @@ class FisherPruningHook():
                 self.update_module_grad(module, penalty, fisher)
             mask_start += mask_len
             
-    def compute_regularization(self):
-        # rank fisher, higher rank means smaller penalty
-        # ignore fisher=0, divide rest into several groups according to fisher
-        # unimportant fisher gets more penalty, pushed harder to 0 at the same pace
-        def compute_l2norm(input, layer_name):
-            # information per mask channel per module
-            grads = torch.pow(input,2)
-            if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
-                grads = grads.sum(-1).sum(-1).sum(0)
-            elif layer_name in ['Linear']:
-                grads = grads.sum(0).sum(0)
-                grads = grads.view(module.in_rep,-1).sum(0)
-            else:
-                print('Unrecognized in compute_fisher:',layer_name)
-                exit(0)
-            return grads
-            
-        l2norm_list = None
+    def computation_penalty(self):
+        # compute overhead based on flops or acts
+        cost_list = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
                 continue
             in_mask = module.in_mask.view(-1)
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
-            # calculate l2 norm
-            l2norm = module.in_mask.data.new_zeros(len(module.in_mask)) 
-            for inp in self.conv_inputs[module]:
-                l2norm += compute_l2norm(inp[0], layer_name)
-            # normalize l2 norm
+            cost = in_mask
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
                 delta_flops = self.flops[module] * module.out_mask.sum() / (
@@ -546,28 +537,25 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_flops += self.flops[ancestor] * ancestor.in_mask.sum(
                     ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
-                l2norm /= (float(delta_flops) / 1e9)
+                cost *= (float(delta_flops) / 1e9)
             if self.delta == 'acts':
                 delta_acts = 0
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
-                l2norm /= (float(max(delta_acts, 1.)) / 1e6)
-            if l2norm_list is None:
-                l2norm_list = l2norm
+                cost *= (float(max(delta_acts, 1.)) / 1e6)
+            if cost_list is None:
+                cost_list = cost
             else:
-                l2norm_list = torch.cat((l2norm_list,l2norm))
+                cost_list = torch.cat((cost_list,cost))
         for group in self.groups:
             in_mask = self.groups[group][0].in_mask.view(-1)
             module = self.groups[group][0]
-            l2norm = module.in_mask.data.new_zeros(len(module.in_mask))  
             flops = 0  
             acts = 0            
+            cost = in_mask
             for module in self.groups[group]:
                 layer_name = type(module).__name__
-                # accumulate l2norm
-                for inp in self.conv_inputs[module]:
-                    l2norm += compute_l2norm(inp[0], layer_name)
                 # accumulate flops and acts
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
@@ -584,27 +572,12 @@ class FisherPruningHook():
                 flops += delta_flops
                 acts += self.acts[module] // module.out_channels
             if self.delta == 'flops':
-                l2norm /= float(flops / 1e9)
+                cost *= float(flops / 1e9)
             elif self.delta == 'acts':
-                l2norm /= float(acts / 1e6)
-            l2norm_list = torch.cat((l2norm_list,l2norm))
-        
-        x = l2norm_list[l2norm_list.nonzero()]
-        sorted, indices = x.sort(dim=0)
-        # negative factor?
-        # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-10]#, 1e-8, 1e-10, 1e-12]
-        num_groups = len(penalty_factors)
-        split_size = len(sorted)//num_groups + 1
-        groups = torch.split(sorted, split_size)
-        penalty = None
-        for i,group in enumerate(groups):
-            l2norm = group.sum().sqrt()
-            if penalty is None:
-                penalty = l2norm*penalty_factors[i]
-            else:
-                penalty += l2norm*penalty_factors[i]
-        return penalty
+                cost *= float(acts / 1e6)
+            cost_list = torch.cat((cost_list,cost))
+            
+        return cost_list.sum()
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
@@ -1061,113 +1034,134 @@ class FisherPruningHook():
         self.conv2ancest = conv2ancest
         self.ln2ancest = ln2ancest
 
-def add_pruning_attrs(module, pruning=False):
-    """When module is conv, add `finetune` attribute, register `mask` buffer
-    and change the origin `forward` function. When module is BN, add `out_mask`
-    attribute to module.
+    def add_pruning_attrs(self, module, pruning=False, trained_mask=False):
+        """When module is conv, add `finetune` attribute, register `mask` buffer
+        and change the origin `forward` function. When module is BN, add `out_mask`
+        attribute to module.
 
-    Args:
-        conv (nn.Conv2d):  The instance of `torch.nn.Conv2d`
-        pruning (bool): Indicating the state of model which
-            will make conv's forward behave differently.
-    """
-
-    if type(module).__name__ == 'Conv2d':
-        module.register_buffer(
-            'in_mask', module.weight.new_ones((module.in_channels,), ))
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((module.out_channels,), ))
+        Args:
+            conv (nn.Conv2d):  The instance of `torch.nn.Conv2d`
+            pruning (bool): Indicating the state of model which
+                will make conv's forward behave differently.
+        """
+        module.trained_mask = trained_mask
         module.finetune = not pruning
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask.to(x.device)
+        if type(module).__name__ == 'Conv2d':
+            module.register_buffer(
+                'in_mask', module.weight.new_ones((module.in_channels,), ))
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((module.out_channels,), ))
+            if trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
+            def modified_forward(m, x):
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = m.in_mask.view(1,-1,1,1)
+                        x = x * mask.to(x.device)
+                    else:
+                        # if it has no ancestor
+                        # we need to mask it
+                        if x.size(1) == len(m.in_mask):
+                            x = x[:,m.in_mask.bool(),:,:]
+                output = F.conv2d(x, m.weight, m.bias, m.stride,
+                                m.padding, m.dilation, m.groups)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)
+        if type(module).__name__ == 'ConvTranspose2d':
+            module.register_buffer(
+                'in_mask', module.weight.new_ones((module.in_channels,), ))
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((module.out_channels,), ))
+            if trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
+            def modified_forward(m, x):
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = m.in_mask.view(1,-1,1,1)
+                        x = x * mask.to(x.device)
+                    else:
+                        # if it has no ancestor
+                        # we need to mask it
+                        if x.size(1) == len(m.in_mask):
+                            x = x[:,m.in_mask.bool(),:,:]
+                output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
+                        padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)
+        if  type(module).__name__ == 'Linear':
+            module.in_channels,module.out_channels = module.weight.size(1),module.weight.size(0)
+            if 'fn.to_qkv' in module.name:
+                # qkv share the same mask
+                # 8 heads share the same mask
+                module.out_rep = 3*8
+                module.in_rep = 1
+            elif 'fn.to_out.0' in module.name:
+                # 8 heads share the same mask
+                module.out_rep = 1
+                module.in_rep = 8
+            elif 'fn.net.0' in module.name:
+                # gate and variable share the same mask in GEGLU
+                module.out_rep = 2
+                module.in_rep = 1
             else:
-                # if it has no ancestor
-                # we need to mask it
-                if x.size(1) == len(m.in_mask):
-                    x = x[:,m.in_mask.bool(),:,:]
-            output = F.conv2d(x, m.weight, m.bias, m.stride,
-                            m.padding, m.dilation, m.groups)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)
-    if type(module).__name__ == 'ConvTranspose2d':
-        module.register_buffer(
-            'in_mask', module.weight.new_ones((module.in_channels,), ))
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((module.out_channels,), ))
-        module.finetune = not pruning
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask.to(x.device)
-            else:
-                # if it has no ancestor
-                # we need to mask it
-                if x.size(1) == len(m.in_mask):
-                    x = x[:,m.in_mask.bool(),:,:]
-            output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
-                    padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)
-    if  type(module).__name__ == 'Linear':
-        module.in_channels,module.out_channels = module.weight.size(1),module.weight.size(0)
-        if 'fn.to_qkv' in module.name:
-            # qkv share the same mask
-            # 8 heads share the same mask
-            module.out_rep = 3*8
-            module.in_rep = 1
-        elif 'fn.to_out.0' in module.name:
-            # 8 heads share the same mask
-            module.out_rep = 1
-            module.in_rep = 8
-        elif 'fn.net.0' in module.name:
-            # gate and variable share the same mask in GEGLU
-            module.out_rep = 2
-            module.in_rep = 1
-        else:
-            module.out_rep = module.in_rep = 1
-        module.register_buffer(
-            'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
-        module.finetune = not pruning
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
-                x = x * mask.to(x.device)
-            output = F.linear(x, m.weight, bias=m.bias)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)  
-    if  type(module).__name__ == 'Bitparm':
-        module.register_buffer(
-            'in_mask', module.h.new_ones((module.h.size(1),), ))
-        module.register_buffer(
-            'out_mask', module.h.new_ones((module.h.size(1),), ))
-        module.finetune = not pruning
-        module.in_channels = module.out_channels = module.h.size(1)
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask.to(x.device)
-            if m.final:
-                output = F.sigmoid(x * F.softplus(m.h) + m.b)
-            else:
-                x = x * F.softplus(m.h) + m.b
-                output = x + F.tanh(x) * F.tanh(m.a)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)  
-    if  type(module).__name__ == 'LayerNorm':
-        # no need to modify layernorm during pruning since it is not computed over channels
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((len(module.weight),), ))
-    if  type(module).__name__ == 'GDN':
-        module.register_buffer(
-            'out_mask', module.beta.new_ones((len(module.beta),), ))
+                module.out_rep = module.in_rep = 1
+            module.register_buffer(
+                'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
+            if trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels//module.in_rep)).to(module.weight.device))
+            def modified_forward(m, x):
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
+                        x = x * mask.to(x.device)
+                output = F.linear(x, m.weight, bias=m.bias)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)  
+        if  type(module).__name__ == 'Bitparm':
+            module.register_buffer(
+                'out_mask', module.h.new_ones((module.h.size(1),), ))
+            module.register_buffer(
+                'in_mask', module.h.new_ones((module.h.size(1),), ))
+            if trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.h.size(1))).to(module.h.device))
+            module.in_channels = module.out_channels = module.h.size(1)
+            def modified_forward(m, x):
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = torch.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = m.in_mask.view(1,-1,1,1)
+                        x = x * mask.to(x.device)
+                if m.final:
+                    output = F.sigmoid(x * F.softplus(m.h) + m.b)
+                else:
+                    x = x * F.softplus(m.h) + m.b
+                    output = x + F.tanh(x) * F.tanh(m.a)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)  
+        if  type(module).__name__ == 'LayerNorm':
+            # no need to modify layernorm during pruning since it is not computed over channels
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((len(module.weight),), ))
+        if  type(module).__name__ == 'GDN':
+            module.register_buffer(
+                'out_mask', module.beta.new_ones((len(module.beta),), ))
 
 
 def deploy_pruning(model):
@@ -1178,8 +1172,8 @@ def deploy_pruning(model):
         if type(module).__name__ == 'Conv2d':
             module.finetune = True
             requires_grad = module.weight.requires_grad
-            out_mask = module.out_mask.bool()
-            in_mask = module.in_mask.bool()
+            out_mask = module.out_mask.round().bool()
+            in_mask = module.in_mask.round().bool()
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
@@ -1190,8 +1184,8 @@ def deploy_pruning(model):
         elif type(module).__name__ == 'ConvTranspose2d':
             module.finetune = True
             requires_grad = module.weight.requires_grad
-            out_mask = module.out_mask.bool()
-            in_mask = module.in_mask.bool()
+            out_mask = module.out_mask.round().bool()
+            in_mask = module.in_mask.round().bool()
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
@@ -1201,8 +1195,8 @@ def deploy_pruning(model):
 
         elif type(module).__name__ == 'Linear':
             requires_grad = module.weight.requires_grad
-            out_mask = module.out_mask.bool().repeat(module.out_rep)
-            in_mask = module.in_mask.bool().repeat(module.in_rep)
+            out_mask = module.out_mask.round().bool().repeat(module.out_rep)
+            in_mask = module.in_mask.round().bool().repeat(module.in_rep)
             if hasattr(module, 'bias') and module.bias is not None:
                 module.bias = nn.Parameter(module.bias.data[out_mask])
                 module.bias.requires_grad = requires_grad
@@ -1211,7 +1205,7 @@ def deploy_pruning(model):
             module.weight.requires_grad = requires_grad
 
         elif type(module).__name__ == 'Bitparm':
-            in_mask = module.in_mask.bool()
+            in_mask = module.in_mask.round().bool()
             requires_grad = module.h.requires_grad
             module.h = nn.Parameter(module.h.data[:,in_mask].data)
             module.b = nn.Parameter(module.b.data[:,in_mask].data)
@@ -1222,7 +1216,7 @@ def deploy_pruning(model):
             module.b.requires_grad = requires_grad
 
         elif type(module).__name__ == 'LayerNorm':
-            out_mask = module.out_mask.bool()
+            out_mask = module.out_mask.round().bool()
             requires_grad = module.weight.requires_grad
             module.normalized_shape = (int(out_mask.sum()),)
             module.weight = nn.Parameter(module.weight.data[out_mask].data)
@@ -1231,7 +1225,7 @@ def deploy_pruning(model):
             module.bias.requires_grad = requires_grad
             
         elif type(module).__name__ == 'GDN':
-            out_mask = module.out_mask.bool()
+            out_mask = module.out_mask.round().bool()
             requires_grad = module.beta.requires_grad
             module.beta = nn.Parameter(module.beta.data[out_mask].data)
             gamma = module.gamma.data[out_mask]
