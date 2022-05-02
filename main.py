@@ -188,6 +188,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         # backward
         scaler.scale(loss).backward() 
+        print('?')
         
         
         if hook.trained_mask:
