@@ -795,6 +795,7 @@ class FisherPruningHook():
                 if conv in ancest:
                     #conv.out_mask = m.in_mask
                     conv.child = m
+                    print(conv.name,'->',m.name)
                     break
 
         # make sure norm and conv output are the same  
@@ -802,6 +803,7 @@ class FisherPruningHook():
             conv_module = self.ln2ancest[bn][0]
             #bn.out_mask = conv_module.out_mask
             bn.child = conv_module
+            print(bn.name,'->',conv_module.name)
 
     def make_groups(self):
         """The modules (convolutions and BNs) connected to the same conv need
