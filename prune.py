@@ -200,7 +200,7 @@ class FisherPruningHook():
             for module, name in self.conv_names.items():
                 module.register_forward_hook(self.save_input_forward_hook)
 
-        self.print_model(model, print_flops_acts=False, print_channel=False)
+        self.print_model(model, print_flops_acts=False, print_channel=True)
 
     def after_backward(self, itr, model, loss):
         if not self.pruning:
@@ -555,7 +555,6 @@ class FisherPruningHook():
             cost = torch.sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
-                print(module.name)
                 # accumulate flops and acts
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
@@ -804,7 +803,7 @@ class FisherPruningHook():
             conv_module = self.ln2ancest[bn][0]
             #bn.out_mask = conv_module.out_mask
             bn.child = conv_module
-            print(bn.name,'->',conv_module.name)
+            print(bn.name,'->',m.name)
 
     def make_groups(self):
         """The modules (convolutions and BNs) connected to the same conv need
