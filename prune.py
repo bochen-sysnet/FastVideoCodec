@@ -791,6 +791,7 @@ class FisherPruningHook():
         feature map after pruning."""
 
         for conv, name in self.conv_names.items():
+            print('conv:',conv.name,name)
             for m, ancest in self.conv2ancest.items():
                 if conv in ancest:
                     #conv.out_mask = m.in_mask
