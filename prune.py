@@ -126,7 +126,7 @@ class FisherPruningHook():
         if not self.pruning:
             for n, m in model.named_modules():
                 if n: m.name = n
-                add_pruning_attrs(m, pruning=self.pruning)
+                add_pruning_attrs(self, m, pruning=self.pruning)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             
@@ -146,7 +146,7 @@ class FisherPruningHook():
         for n, m in model.named_modules():
             if n: m.name = n
             if self.pruning:
-                add_pruning_attrs(m, pruning=self.pruning)
+                add_pruning_attrs(self, m, pruning=self.pruning)
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear) or isinstance(m, Bitparm):
                 self.conv_names[m] = n
                 self.name2module[n] = m
@@ -1064,113 +1064,113 @@ class FisherPruningHook():
         self.conv2ancest = conv2ancest
         self.ln2ancest = ln2ancest
 
-def add_pruning_attrs(module, pruning=False):
-    """When module is conv, add `finetune` attribute, register `mask` buffer
-    and change the origin `forward` function. When module is BN, add `out_mask`
-    attribute to module.
+    def add_pruning_attrs(self, module, pruning=False):
+        """When module is conv, add `finetune` attribute, register `mask` buffer
+        and change the origin `forward` function. When module is BN, add `out_mask`
+        attribute to module.
 
-    Args:
-        conv (nn.Conv2d):  The instance of `torch.nn.Conv2d`
-        pruning (bool): Indicating the state of model which
-            will make conv's forward behave differently.
-    """
+        Args:
+            conv (nn.Conv2d):  The instance of `torch.nn.Conv2d`
+            pruning (bool): Indicating the state of model which
+                will make conv's forward behave differently.
+        """
 
-    if type(module).__name__ == 'Conv2d':
-        module.register_buffer(
-            'in_mask', module.weight.new_ones((module.in_channels,), ))
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((module.out_channels,), ))
-        module.finetune = not pruning
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask.to(x.device)
+        if type(module).__name__ == 'Conv2d':
+            module.register_buffer(
+                'in_mask', module.weight.new_ones((module.in_channels,), ))
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((module.out_channels,), ))
+            module.finetune = not pruning
+            def modified_forward(m, x):
+                if not m.finetune:
+                    mask = m.in_mask.view(1,-1,1,1)
+                    x = x * mask.to(x.device)
+                else:
+                    # if it has no ancestor
+                    # we need to mask it
+                    if x.size(1) == len(m.in_mask):
+                        x = x[:,m.in_mask.bool(),:,:]
+                output = F.conv2d(x, m.weight, m.bias, m.stride,
+                                m.padding, m.dilation, m.groups)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)
+        if type(module).__name__ == 'ConvTranspose2d':
+            module.register_buffer(
+                'in_mask', module.weight.new_ones((module.in_channels,), ))
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((module.out_channels,), ))
+            module.finetune = not pruning
+            def modified_forward(m, x):
+                if not m.finetune:
+                    mask = m.in_mask.view(1,-1,1,1)
+                    x = x * mask.to(x.device)
+                else:
+                    # if it has no ancestor
+                    # we need to mask it
+                    if x.size(1) == len(m.in_mask):
+                        x = x[:,m.in_mask.bool(),:,:]
+                output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
+                        padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)
+        if  type(module).__name__ == 'Linear':
+            module.in_channels,module.out_channels = module.weight.size(1),module.weight.size(0)
+            if 'fn.to_qkv' in module.name:
+                # qkv share the same mask
+                # 8 heads share the same mask
+                module.out_rep = 3*8
+                module.in_rep = 1
+            elif 'fn.to_out.0' in module.name:
+                # 8 heads share the same mask
+                module.out_rep = 1
+                module.in_rep = 8
+            elif 'fn.net.0' in module.name:
+                # gate and variable share the same mask in GEGLU
+                module.out_rep = 2
+                module.in_rep = 1
             else:
-                # if it has no ancestor
-                # we need to mask it
-                if x.size(1) == len(m.in_mask):
-                    x = x[:,m.in_mask.bool(),:,:]
-            output = F.conv2d(x, m.weight, m.bias, m.stride,
-                            m.padding, m.dilation, m.groups)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)
-    if type(module).__name__ == 'ConvTranspose2d':
-        module.register_buffer(
-            'in_mask', module.weight.new_ones((module.in_channels,), ))
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((module.out_channels,), ))
-        module.finetune = not pruning
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask.to(x.device)
-            else:
-                # if it has no ancestor
-                # we need to mask it
-                if x.size(1) == len(m.in_mask):
-                    x = x[:,m.in_mask.bool(),:,:]
-            output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
-                    padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)
-    if  type(module).__name__ == 'Linear':
-        module.in_channels,module.out_channels = module.weight.size(1),module.weight.size(0)
-        if 'fn.to_qkv' in module.name:
-            # qkv share the same mask
-            # 8 heads share the same mask
-            module.out_rep = 3*8
-            module.in_rep = 1
-        elif 'fn.to_out.0' in module.name:
-            # 8 heads share the same mask
-            module.out_rep = 1
-            module.in_rep = 8
-        elif 'fn.net.0' in module.name:
-            # gate and variable share the same mask in GEGLU
-            module.out_rep = 2
-            module.in_rep = 1
-        else:
-            module.out_rep = module.in_rep = 1
-        module.register_buffer(
-            'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
-        module.finetune = not pruning
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
-                x = x * mask.to(x.device)
-            output = F.linear(x, m.weight, bias=m.bias)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)  
-    if  type(module).__name__ == 'Bitparm':
-        module.register_buffer(
-            'in_mask', module.h.new_ones((module.h.size(1),), ))
-        module.register_buffer(
-            'out_mask', module.h.new_ones((module.h.size(1),), ))
-        module.finetune = not pruning
-        module.in_channels = module.out_channels = module.h.size(1)
-        def modified_forward(m, x):
-            if not m.finetune:
-                mask = m.in_mask.view(1,-1,1,1)
-                x = x * mask.to(x.device)
-            if m.final:
-                output = F.sigmoid(x * F.softplus(m.h) + m.b)
-            else:
-                x = x * F.softplus(m.h) + m.b
-                output = x + F.tanh(x) * F.tanh(m.a)
-            m.output_size = output.size()
-            return output
-        module.forward = MethodType(modified_forward, module)  
-    if  type(module).__name__ == 'LayerNorm':
-        # no need to modify layernorm during pruning since it is not computed over channels
-        module.register_buffer(
-            'out_mask', module.weight.new_ones((len(module.weight),), ))
-    if  type(module).__name__ == 'GDN':
-        module.register_buffer(
-            'out_mask', module.beta.new_ones((len(module.beta),), ))
+                module.out_rep = module.in_rep = 1
+            module.register_buffer(
+                'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
+            module.finetune = not pruning
+            def modified_forward(m, x):
+                if not m.finetune:
+                    mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
+                    x = x * mask.to(x.device)
+                output = F.linear(x, m.weight, bias=m.bias)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)  
+        if  type(module).__name__ == 'Bitparm':
+            module.register_buffer(
+                'in_mask', module.h.new_ones((module.h.size(1),), ))
+            module.register_buffer(
+                'out_mask', module.h.new_ones((module.h.size(1),), ))
+            module.finetune = not pruning
+            module.in_channels = module.out_channels = module.h.size(1)
+            def modified_forward(m, x):
+                if not m.finetune:
+                    mask = m.in_mask.view(1,-1,1,1)
+                    x = x * mask.to(x.device)
+                if m.final:
+                    output = F.sigmoid(x * F.softplus(m.h) + m.b)
+                else:
+                    x = x * F.softplus(m.h) + m.b
+                    output = x + F.tanh(x) * F.tanh(m.a)
+                m.output_size = output.size()
+                return output
+            module.forward = MethodType(modified_forward, module)  
+        if  type(module).__name__ == 'LayerNorm':
+            # no need to modify layernorm during pruning since it is not computed over channels
+            module.register_buffer(
+                'out_mask', module.weight.new_ones((len(module.weight),), ))
+        if  type(module).__name__ == 'GDN':
+            module.register_buffer(
+                'out_mask', module.beta.new_ones((len(module.beta),), ))
 
 
 def deploy_pruning(model):
