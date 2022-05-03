@@ -126,7 +126,7 @@ class FisherPruningHook():
         if not self.pruning:
             for n, m in model.named_modules():
                 if n: m.name = n
-                add_pruning_attrs(self, m, pruning=self.pruning)
+                self.add_pruning_attrs(m, pruning=self.pruning)
             load_checkpoint(model, self.deploy_from)
             deploy_pruning(model)
             
@@ -146,7 +146,7 @@ class FisherPruningHook():
         for n, m in model.named_modules():
             if n: m.name = n
             if self.pruning:
-                add_pruning_attrs(self, m, pruning=self.pruning)
+                self.add_pruning_attrs(m, pruning=self.pruning)
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear) or isinstance(m, Bitparm):
                 self.conv_names[m] = n
                 self.name2module[n] = m
