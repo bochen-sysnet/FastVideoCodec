@@ -191,14 +191,14 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         if hook is not None and hook.trained_mask:
             # train iteratively since memory insufficient
-            computation_penalty,max_p = hook.computation_penalty()
+            computation_penalty = hook.computation_penalty()
             hook.use_mask = False
             com_data_no_mask, _, _, be_loss_no_mask, *_ = run_one_iteration(model, data)
             hook.use_mask = True
             quality_penalty = torch.mean(torch.pow(com_data_no_mask - com_data.detach(), 2))
             bpp_penalty = be_loss.detach() - be_loss_no_mask # no mask should be close to with mask
-            loss2 = 1e-3*computation_penalty + model.r*quality_penalty + bpp_penalty
-            print(batch_idx,computation_penalty,max_p,quality_penalty,bpp_penalty)
+            loss2 = computation_penalty + model.r*quality_penalty + bpp_penalty
+            print(batch_idx,computation_penalty,quality_penalty,bpp_penalty)
             scaler.scale(loss2).backward()
 
         if hook is not None:

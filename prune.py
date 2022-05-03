@@ -582,7 +582,7 @@ class FisherPruningHook():
             max_cost += self.groups[group][0].in_channels*delta
             cost_list = torch.cat((cost_list,cost))
             
-        return cost_list.sum(),max_cost
+        return cost_list.sum()/max_cost
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
