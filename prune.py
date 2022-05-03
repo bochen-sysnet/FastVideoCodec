@@ -848,6 +848,12 @@ class FisherPruningHook():
                 self.groups[idx] = modules
                 self.ancest[idx] = groups_ancest[group]
                 idx += 1
+        if self.trained_mask:
+            for modules in self.groups:
+                module0 = modules[0]
+                for module in modules[1:]:
+                    module.soft_mask = module0.soft_mask
+            
         # the conv's name in same group, just for debug
         # TODO remove this
         self.conv_names_group = [[item.name for item in v]
@@ -1051,7 +1057,7 @@ class FisherPruningHook():
             pruning (bool): Indicating the state of model which
                 will make conv's forward behave differently.
         """
-
+        # same group same softmask
         module.trained_mask = self.trained_mask
         module.finetune = not pruning
         if type(module).__name__ == 'Conv2d':
