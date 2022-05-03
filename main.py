@@ -198,7 +198,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             quality_penalty = torch.mean(torch.pow(com_data_no_mask - com_data.detach(), 2))
             bpp_penalty = be_loss.detach() - be_loss_no_mask # no mask should be close to with mask
             loss2 = computation_penalty + model.r*quality_penalty + bpp_penalty
-            print(batch_idx,computation_penalty,quality_penalty,bpp_penalty)
             scaler.scale(loss2).backward()
 
         if hook is not None:
@@ -223,6 +222,15 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"MC: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
                 f"WP: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
+                f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
+        elif hook.trained_mask:
+            train_iter.set_description(
+                f"{batch_idx:6}. "
+                f"C: {computation_penalty.cpu().data.item():.4f}. MSE: {quality_penalty.cpu().data.item():.4f}. BPP: {bpp_penalty.cpu().data.item():.4f}. "
+                f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+                f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+                f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
         else:
             train_iter.set_description(
