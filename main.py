@@ -122,7 +122,30 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-        
+     
+def run_one_iteration(model, data):
+    if model.name == 'DVC-pretrained':
+        com_data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        bpp_res_est_list = []
+    else:
+        com_data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+    
+    # aggregate loss
+    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+    be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
+    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+    psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+    msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+    if model.name == 'DVC-pretrained':
+        loss = img_loss
+    elif 'LSVC' in model.name:
+        loss = img_loss + be_loss
+    else:
+        loss = model.loss(img_loss,be_loss,aux_loss)
+    
+    return com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim, psnr_list
+    
 def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2, hook=None):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
@@ -149,25 +172,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        if model.name == 'DVC-pretrained':
-            _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
-            bpp_res_est_list = []
-        else:
-            _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
-        
-        # aggregate loss
-        be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-        be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
-        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-        img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        if model.name == 'DVC-pretrained':
-            loss = img_loss
-        elif 'LSVC' in model.name:
-            loss = img_loss + be_loss
-        else:
-            loss = model.loss(img_loss,be_loss,aux_loss)
+        com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim, psnr_list = run_one_iteration(model, data)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
