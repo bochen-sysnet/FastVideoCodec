@@ -40,7 +40,7 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 1
 STEPS = []
-PRUNING = False
+PRUNING = True
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -174,7 +174,26 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim, psnr_list = run_one_iteration(model, data)
+        if model.name == 'DVC-pretrained':
+            com_data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+            bpp_res_est_list = []
+        else:
+            com_data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_ = parallel_compression(model,data,True)
+        
+        # aggregate loss
+        be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+        be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
+        aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+        img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+        psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+        msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+        if model.name == 'DVC-pretrained':
+            loss = img_loss
+        elif 'LSVC' in model.name:
+            loss = img_loss + be_loss
+        else:
+            loss = model.loss(img_loss,be_loss,aux_loss)
+        #com_data, loss, img_loss, be_loss, be_res_loss, aux_loss, psnr, msssim, psnr_list = run_one_iteration(model, data)
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
