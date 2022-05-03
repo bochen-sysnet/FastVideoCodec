@@ -189,7 +189,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # backward
         scaler.scale(loss).backward() 
         
-        if hook is not None and hook.trained_mask:
+        if False and hook is not None and hook.trained_mask:
             # train iteratively since memory insufficient
             # make this bigger for more to be masked
             computation_penalty = hook.computation_penalty() 
@@ -200,7 +200,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             bpp_penalty = be_loss_mask# - be_loss.detach()  # no mask should be close to with mask
             psnr2 = 10.0*torch.log10(1/torch.mean(torch.pow(data[1:] - com_data_mask, 2)))
             loss2 = computation_penalty + quality_penalty + bpp_penalty
-            #scaler.scale(loss2).backward()
+            scaler.scale(loss2).backward()
 
         if hook is not None:
             # backward the regularization function
@@ -228,8 +228,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         elif hook.trained_mask:
             train_iter.set_description(
                 f"{batch_idx:6}. "
-                f"C: {computation_penalty.cpu().data.item():.4f}. MSE_mask: {quality_penalty.cpu().data.item():.4f}. "
-                f"BPP_mask: {bpp_penalty.cpu().data.item():.4f}. PSNR_mask: {psnr2.cpu().data.item():.4f}. "
+                #f"C: {computation_penalty.cpu().data.item():.4f}. MSE_mask: {quality_penalty.cpu().data.item():.4f}. "
+                #f"BPP_mask: {bpp_penalty.cpu().data.item():.4f}. PSNR_mask: {psnr2.cpu().data.item():.4f}. "
                 f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
                 f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
                 f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
