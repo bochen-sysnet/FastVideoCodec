@@ -40,7 +40,7 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 1
 STEPS = []
-PRUNING = False
+PRUNING = True
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -87,8 +87,8 @@ else:
     #hook = FisherPruningHook(pruning=False, deploy_from='work_dir/acts_50_flops_32.pth')
     #hook = FisherPruningHook(pruning=True, resume_from=RESUME_CODEC_PATH)
     #hook = FisherPruningHook(pruning=True, delta='acts', start_from=RESUME_CODEC_PATH)
-    hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
-    #hook = FisherPruningHook(pruning=True, trained_mask=True, start_from=RESUME_CODEC_PATH)
+    #hook = FisherPruningHook(pruning=True, reg=True, delta='acts', start_from=RESUME_CODEC_PATH) # no regularization
+    hook = FisherPruningHook(pruning=True, trained_mask=True, start_from=RESUME_CODEC_PATH)
     hook.after_build_model(model)
     hook.before_run(model)
 
