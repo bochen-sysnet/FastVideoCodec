@@ -260,15 +260,16 @@ def parallel_compression(model, data, compressI=False):
             B,_,H,W = data.size()
             hidden = model.init_hidden(H,W,data.device)
             mv_prior_latent = res_prior_latent = None
-            x_hat = data[0:1]
+            x_prev = data[0:1]
+            x_hat_list = []
             for i in range(1,B):
                 if model.training:
-                    x_hat,hidden,bpp_est,bpp_res_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
-                        model(x_hat, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
+                    x_prev,hidden,bpp_est,bpp_res_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                        model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 else:
-                    x_hat,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
-                        model(x_hat, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
-                x_hat = x_hat.detach()
+                    x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                        model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
+                x_prev = x_prev.detach()
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
                 bpp_est_list += [bpp_est.to(data.device)]
@@ -277,19 +278,24 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [msssim.to(data.device)]
                 if model.training:
                     bpp_res_est_list += [bpp_res_est.to(data.device)]
+                x_hat_list.append(x_prev)
+            x_hat = torch.cat(x_hat_list,dim=0)
         elif model.name in ['DVC-pretrained']:
             B,_,H,W = data.size()
-            x_hat = data[0:1]
+            x_prev = data[0:1]
+            x_hat_list = []
             for i in range(1,B):
-                x_hat, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
-                    model(data[i:i+1],x_hat)
-                x_hat = x_hat.detach()
+                x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
+                    model(data[i:i+1],x_prev)
+                x_prev = x_prev.detach()
                 img_loss_list += [2048*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                x_hat_list.append(x_prev)
+            x_hat = torch.cat(x_hat_list,dim=0)
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
@@ -316,9 +322,9 @@ def parallel_compression(model, data, compressI=False):
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
 
     if model.training:
-        return data,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+        return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     else:
-        return data,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+        return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     
 def write_image(x, prefix):
     for j in range(x.size(0)):
