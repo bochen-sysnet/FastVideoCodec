@@ -205,7 +205,6 @@ class FisherPruningHook():
     def after_backward(self, itr, model, loss):
         if not self.pruning or self.trained_mask:
             return
-        print('no')
         # compute fisher
         for module, name in self.conv_names.items():
             self.compute_fisher_backward(module)

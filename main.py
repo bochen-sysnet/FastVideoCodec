@@ -40,7 +40,7 @@ END_EPOCH = 10
 WARMUP_EPOCH = 5
 device = 1
 STEPS = []
-PRUNING = True
+PRUNING = False
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -191,7 +191,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # backward
         scaler.scale(loss).backward()
         
-        if hook.trained_mask and False:
+        if hook is not None and hook.trained_mask and False:
             # train iteratively since memory insufficient
             computation_penalty = hook.computation_penalty()
             hook.use_mask = False
