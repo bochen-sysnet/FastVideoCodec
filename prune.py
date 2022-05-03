@@ -528,7 +528,6 @@ class FisherPruningHook():
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
             cost = sigmoid(module.soft_mask)
-            print(name,cost)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
                 real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels

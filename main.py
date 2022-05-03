@@ -45,8 +45,8 @@ PRUNING = True
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
-#seed = int(time.time())
-seed = int(0)
+seed = int(time.time())
+#seed = int(0)
 torch.manual_seed(seed)
 use_cuda = True
 if use_cuda:
