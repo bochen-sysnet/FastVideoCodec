@@ -1060,6 +1060,7 @@ class FisherPruningHook():
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
             def modified_forward(m, x):
                 if self.use_mask:
+                    print(m.soft_mask.requires_grad)
                     if m.trained_mask:
                         m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
