@@ -576,7 +576,7 @@ class FisherPruningHook():
             elif self.delta == 'acts':
                 delta = float(acts / 1e6)
             cost *= delta
-            max_cost += self.groups[group][0].in_channels
+            max_cost += self.groups[group][0].in_channels*delta
             cost_list = torch.cat((cost_list,cost))
             
         return cost_list.sum(),max_cost
