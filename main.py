@@ -198,7 +198,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             hook.use_mask = False
             quality_penalty = model.r*torch.mean(torch.pow(com_data_mask - com_data.detach(), 2))
             bpp_penalty = be_loss_mask# - be_loss.detach()  # no mask should be close to with mask
-            psnr2 = 10.0*torch.log10(1/torch.mean(torch.pow(data[1:] - com_data, 2)))
+            psnr2 = 10.0*torch.log10(1/torch.mean(torch.pow(data[1:] - com_data_mask, 2)))
             loss2 = computation_penalty + quality_penalty + bpp_penalty
             scaler.scale(loss2).backward()
 
