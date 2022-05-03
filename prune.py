@@ -53,7 +53,6 @@ class FisherPruningHook():
         delta='acts',
         interval=10,
         reg=False,
-        trained_mask=False,
         deploy_from=None,
         resume_from=None,
         start_from=None,
@@ -64,7 +63,6 @@ class FisherPruningHook():
         assert delta in ('acts', 'flops')
         self.pruning = pruning
         self.reg = reg
-        self.trained_mask = trained_mask
         self.delta = delta
         self.interval = interval
         # The key of self.input is conv module, and value of it
@@ -114,7 +112,6 @@ class FisherPruningHook():
         self.total_flops = self.total_acts = 0
         
         self.iter = 0
-        self.use_mask = True
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
