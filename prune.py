@@ -114,7 +114,7 @@ class FisherPruningHook():
         self.total_flops = self.total_acts = 0
         
         self.iter = 0
-        self.use_mask = True
+        self.use_mask = False
 
     def after_build_model(self, model):
         """Remove all pruned channels in finetune stage.
@@ -1075,21 +1075,26 @@ class FisherPruningHook():
                 will make conv's forward behave differently.
         """
 
+        module.trained_mask = self.trained_mask
+        module.finetune = not pruning
         if type(module).__name__ == 'Conv2d':
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels,), ))
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((module.out_channels,), ))
-            module.finetune = not pruning
+            if self.trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
             def modified_forward(m, x):
-                if not m.finetune:
-                    mask = m.in_mask.view(1,-1,1,1)
-                    x = x * mask.to(x.device)
-                else:
-                    # if it has no ancestor
-                    # we need to mask it
-                    if x.size(1) == len(m.in_mask):
-                        x = x[:,m.in_mask.bool(),:,:]
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        x = x * mask.to(x.device)
+                    else:
+                        # if it has no ancestor
+                        # we need to mask it
+                        if x.size(1) == len(m.in_mask):
+                            x = x[:,m.in_mask.bool(),:,:]
                 output = F.conv2d(x, m.weight, m.bias, m.stride,
                                 m.padding, m.dilation, m.groups)
                 m.output_size = output.size()
@@ -1098,18 +1103,21 @@ class FisherPruningHook():
         if type(module).__name__ == 'ConvTranspose2d':
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels,), ))
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((module.out_channels,), ))
-            module.finetune = not pruning
+            if self.trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
             def modified_forward(m, x):
-                if not m.finetune:
-                    mask = m.in_mask.view(1,-1,1,1)
-                    x = x * mask.to(x.device)
-                else:
-                    # if it has no ancestor
-                    # we need to mask it
-                    if x.size(1) == len(m.in_mask):
-                        x = x[:,m.in_mask.bool(),:,:]
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        x = x * mask.to(x.device)
+                    else:
+                        # if it has no ancestor
+                        # we need to mask it
+                        if x.size(1) == len(m.in_mask):
+                            x = x[:,m.in_mask.bool(),:,:]
                 output = F.conv_transpose2d(x, m.weight, bias=m.bias, stride=m.stride,
                         padding=m.padding, output_padding=m.output_padding, groups=m.groups, dilation=m.dilation)
                 m.output_size = output.size()
@@ -1134,13 +1142,16 @@ class FisherPruningHook():
                 module.out_rep = module.in_rep = 1
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((module.out_channels//module.out_rep,), ))
-            module.finetune = not pruning
+            if self.trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels//module.in_rep)).to(module.weight.device))
             def modified_forward(m, x):
-                if not m.finetune:
-                    mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
-                    x = x * mask.to(x.device)
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = F.sigmoid(m.soft_mask).repeat(m.in_rep).view(1,1,-1)
+                        x = x * mask.to(x.device)
                 output = F.linear(x, m.weight, bias=m.bias)
                 m.output_size = output.size()
                 return output
@@ -1148,14 +1159,17 @@ class FisherPruningHook():
         if  type(module).__name__ == 'Bitparm':
             module.register_buffer(
                 'in_mask', module.h.new_ones((module.h.size(1),), ))
-            module.register_buffer(
-                'out_mask', module.h.new_ones((module.h.size(1),), ))
-            module.finetune = not pruning
+            if self.trained_mask:
+                module.register_buffer(
+                    'soft_mask', torch.nn.Parameter(torch.randn(module.h.size(1))).to(module.h.device))
             module.in_channels = module.out_channels = module.h.size(1)
             def modified_forward(m, x):
-                if not m.finetune:
-                    mask = m.in_mask.view(1,-1,1,1)
-                    x = x * mask.to(x.device)
+                if self.use_mask:
+                    if m.trained_mask:
+                        m.in_mask[:] = F.sigmoid(m.soft_mask)
+                    if not m.finetune:
+                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        x = x * mask.to(x.device)
                 if m.final:
                     output = F.sigmoid(x * F.softplus(m.h) + m.b)
                 else:
@@ -1166,11 +1180,9 @@ class FisherPruningHook():
             module.forward = MethodType(modified_forward, module)  
         if  type(module).__name__ == 'LayerNorm':
             # no need to modify layernorm during pruning since it is not computed over channels
-            module.register_buffer(
-                'out_mask', module.weight.new_ones((len(module.weight),), ))
+            pass
         if  type(module).__name__ == 'GDN':
-            module.register_buffer(
-                'out_mask', module.beta.new_ones((len(module.beta),), ))
+            pass
 
 
 def deploy_pruning(model):
