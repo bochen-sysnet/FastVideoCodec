@@ -528,6 +528,7 @@ class FisherPruningHook():
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
             cost = sigmoid(module.soft_mask)
+            print(name,cost)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
                 real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
@@ -547,10 +548,10 @@ class FisherPruningHook():
             cost *= delta
             if cost_list is None:
                 cost_list = cost
-                max_cost = module.in_channels * delta
+                max_cost = cost.numel() * delta
             else:
                 cost_list = torch.cat((cost_list,cost))
-                max_cost += module.in_channels * delta
+                max_cost += cost.numel() * delta
         for group in self.groups:
             module = self.groups[group][0]
             flops = 0  
@@ -579,7 +580,7 @@ class FisherPruningHook():
             elif self.delta == 'acts':
                 delta = float(acts / 1e6)
             cost *= delta
-            max_cost += self.groups[group][0].in_channels*delta
+            max_cost += cost.numel()*delta
             cost_list = torch.cat((cost_list,cost))
             
         return cost_list.sum()/max_cost
