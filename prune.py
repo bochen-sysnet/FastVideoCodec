@@ -196,7 +196,10 @@ class FisherPruningHook():
         self.print_model(model, print_flops_acts=False, print_channel=False)
 
     def after_backward(self, itr, model, loss):
-        if not self.pruning or self.trained_mask:
+        if not self.pruning:
+            return
+        if self.trained_mask:
+            self.init_flops_acts()
             return
         # compute fisher
         for module, name in self.conv_names.items():
