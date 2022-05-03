@@ -849,9 +849,9 @@ class FisherPruningHook():
                 self.ancest[idx] = groups_ancest[group]
                 idx += 1
         if self.trained_mask:
-            for modules in self.groups:
-                module0 = modules[0]
-                for module in modules[1:]:
+            for id in self.groups:
+                module0 = self.groups[id][0]
+                for module in self.groups[id][1:]:
                     module.soft_mask = module0.soft_mask
             
         # the conv's name in same group, just for debug
