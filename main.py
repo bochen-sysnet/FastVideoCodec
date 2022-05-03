@@ -178,7 +178,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
         img_loss_module.update(img_loss.cpu().data.item(), l)
         be_loss_module.update(be_loss.cpu().data.item(), l)
-        be_res_loss_module.update(be_res_loss.cpu().data.item() if bpp_res_est_list else 0, l)
+        be_res_loss_module.update(be_res_loss.cpu().data.item() if be_res_loss!=0 else 0, l)
         if not torch.isinf(psnr):
             psnr_module.update(psnr.cpu().data.item(),l)
             I_module.update(float(psnr_list[0]))
