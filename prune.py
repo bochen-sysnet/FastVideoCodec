@@ -583,7 +583,6 @@ class FisherPruningHook():
             max_cost += cost.numel()*delta
             cost_list = torch.cat((cost_list,cost*delta))
             mask_list = torch.cat((mask_list,cost))
-            print(mask_list.mean())
             
         return cost_list.sum()/max_cost
 
