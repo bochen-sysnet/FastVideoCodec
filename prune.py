@@ -518,6 +518,7 @@ class FisherPruningHook():
         def sigmoid(x):
             return 1/((-x).exp()+1)
         cost_list = None
+        max_cost = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
                 continue
@@ -533,17 +534,20 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_flops += self.flops[ancestor] * F.sigmoid(ancestor.soft_mask).sum(
                     ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
-                cost *= (float(delta_flops) / 1e9)
+                delta = (float(delta_flops) / 1e9)
             elif self.delta == 'acts':
                 delta_acts = 0
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
-                cost *= (float(max(delta_acts, 1.)) / 1e6)
+                delta = (float(max(delta_acts, 1.)) / 1e6)
+            cost *= delta
             if cost_list is None:
                 cost_list = cost
+                max_cost = module.in_channels * delta
             else:
                 cost_list = torch.cat((cost_list,cost))
+                max_cost += module.in_channels * delta
         for group in self.groups:
             module = self.groups[group][0]
             flops = 0  
@@ -568,12 +572,14 @@ class FisherPruningHook():
                 flops += delta_flops
                 acts += self.acts[module] // module.out_channels
             if self.delta == 'flops':
-                cost *= float(flops / 1e9)
+                delta = float(flops / 1e9)
             elif self.delta == 'acts':
-                cost *= float(acts / 1e6)
+                delta = float(acts / 1e6)
+            cost *= delta
+            max_cost += self.groups[group][0].in_channels
             cost_list = torch.cat((cost_list,cost))
             
-        return cost_list.sum()
+        return cost_list.sum(),max_cost
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
