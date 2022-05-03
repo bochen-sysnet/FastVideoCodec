@@ -521,6 +521,7 @@ class FisherPruningHook():
         def sigmoid(x):
             return 1/((-x).exp()+1)
         cost_list = None
+        mask_list = None
         max_cost = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
@@ -544,12 +545,13 @@ class FisherPruningHook():
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
                 delta = (float(max(delta_acts, 1.)) / 1e6)
-            cost *= delta
             if cost_list is None:
-                cost_list = cost
+                cost_list = cost*delta
+                mask_list = cost
                 max_cost = cost.numel() * delta
             else:
-                cost_list = torch.cat((cost_list,cost))
+                cost_list = torch.cat((cost_list,cost*delta))
+                mask_list = torch.cat((mask_list,cost))
                 max_cost += cost.numel() * delta
         for group in self.groups:
             module = self.groups[group][0]
@@ -578,9 +580,10 @@ class FisherPruningHook():
                 delta = float(flops / 1e9)
             elif self.delta == 'acts':
                 delta = float(acts / 1e6)
-            cost *= delta
             max_cost += cost.numel()*delta
-            cost_list = torch.cat((cost_list,cost))
+            cost_list = torch.cat((cost_list,cost*delta))
+            mask_list = torch.cat((mask_list,cost))
+            print(mask_list.mean())
             
         return cost_list.sum()/max_cost
 

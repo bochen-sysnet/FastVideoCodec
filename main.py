@@ -45,8 +45,8 @@ PRUNING = True
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
-seed = int(time.time())
-#seed = int(0)
+#seed = int(time.time())
+seed = int(0)
 torch.manual_seed(seed)
 use_cuda = True
 if use_cuda:
@@ -197,7 +197,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             hook.use_mask = True
             quality_penalty = model.r*torch.mean(torch.pow(com_data_no_mask - com_data.detach(), 2))
             bpp_penalty = be_loss_no_mask# - be_loss.detach()  # no mask should be close to with mask
-            loss2 = 1e3*computation_penalty + quality_penalty + bpp_penalty
+            loss2 = computation_penalty + quality_penalty + bpp_penalty
             scaler.scale(loss2).backward()
 
         if hook is not None:
