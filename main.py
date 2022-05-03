@@ -227,7 +227,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         elif hook.trained_mask:
             train_iter.set_description(
                 f"{batch_idx:6}. "
-                f"C: {computation_penalty.cpu().data.item():.4f}. MSE: {quality_penalty.cpu().data.item():.4f}. BPP: {bpp_penalty.cpu().data.item():.4f}. "
+                #f"C: {computation_penalty.cpu().data.item():.4f}. MSE: {quality_penalty.cpu().data.item():.4f}. BPP: {bpp_penalty.cpu().data.item():.4f}. "
                 f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
                 f"BE: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
                 f"AL: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
