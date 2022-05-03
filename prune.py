@@ -512,102 +512,68 @@ class FisherPruningHook():
                 self.update_module_grad(module, penalty, fisher)
             mask_start += mask_len
             
-    def compute_regularization(self):
-        # rank fisher, higher rank means smaller penalty
-        # ignore fisher=0, divide rest into several groups according to fisher
-        # unimportant fisher gets more penalty, pushed harder to 0 at the same pace
-        def compute_l2norm(input, layer_name):
-            # information per mask channel per module
-            grads = torch.pow(input,2)
-            if layer_name in ['Conv2d', 'ConvTranspose2d', 'Bitparm']:
-                grads = grads.sum(-1).sum(-1).sum(0)
-            elif layer_name in ['Linear']:
-                grads = grads.sum(0).sum(0)
-                grads = grads.view(module.in_rep,-1).sum(0)
-            else:
-                print('Unrecognized in compute_fisher:',layer_name)
-                exit(0)
-            return grads
-            
-        l2norm_list = None
+    def computation_penalty(self):
+        # compute overhead based on flops or acts
+        # refer to parent/child for out channels
+        def sigmoid(x):
+            return 1/((-x).exp()+1)
+        cost_list = None
         for module, name in self.conv_names.items():
             if self.group_modules is not None and module in self.group_modules:
                 continue
-            in_mask = module.in_mask.view(-1)
             ancestors = self.conv2ancest[module]
             layer_name = type(module).__name__
-            # calculate l2 norm
-            l2norm = module.in_mask.data.new_zeros(len(module.in_mask)) 
-            for inp in self.conv_inputs[module]:
-                l2norm += compute_l2norm(inp[0], layer_name)
-            # normalize l2 norm
+            cost = sigmoid(module.soft_mask)
             if self.delta == 'flops':
                 in_rep = module.in_rep if type(module).__name__ == 'Linear' else 1
-                delta_flops = self.flops[module] * module.out_mask.sum() / (
+                real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
+                delta_flops = self.flops[module] * real_out_channels / (
                     module.in_channels * module.out_channels) * in_rep
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
-                    delta_flops += self.flops[ancestor] * ancestor.in_mask.sum(
+                    delta_flops += self.flops[ancestor] * F.sigmoid(ancestor.soft_mask).sum(
                     ) / (ancestor.in_channels * ancestor.out_channels) * out_rep
-                l2norm /= (float(delta_flops) / 1e9)
-            if self.delta == 'acts':
+                cost *= (float(delta_flops) / 1e9)
+            elif self.delta == 'acts':
                 delta_acts = 0
                 for ancestor in ancestors:
                     out_rep = ancestor.out_rep if type(module).__name__ == 'Linear' else 1
                     delta_acts += self.acts[ancestor] / ancestor.out_channels * out_rep
-                l2norm /= (float(max(delta_acts, 1.)) / 1e6)
-            if l2norm_list is None:
-                l2norm_list = l2norm
+                cost *= (float(max(delta_acts, 1.)) / 1e6)
+            if cost_list is None:
+                cost_list = cost
             else:
-                l2norm_list = torch.cat((l2norm_list,l2norm))
+                cost_list = torch.cat((cost_list,cost))
         for group in self.groups:
-            in_mask = self.groups[group][0].in_mask.view(-1)
             module = self.groups[group][0]
-            l2norm = module.in_mask.data.new_zeros(len(module.in_mask))  
             flops = 0  
             acts = 0            
+            cost = sigmoid(self.groups[group][0].soft_mask)
             for module in self.groups[group]:
                 layer_name = type(module).__name__
-                # accumulate l2norm
-                for inp in self.conv_inputs[module]:
-                    l2norm += compute_l2norm(inp[0], layer_name)
                 # accumulate flops and acts
+                real_out_channels = F.sigmoid(module.child.soft_mask).sum() if hasattr(module, 'child') else module.out_channels
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
-                        module.out_channels * module.out_mask.sum()
+                        module.out_channels * real_out_channels
                 else:
                     delta_flops = self.flops[module] // module.in_channels
                 flops += delta_flops
             for module in self.ancest[group]:
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.out_channels // \
-                            module.in_channels * module.in_mask.sum()
+                            module.in_channels * F.sigmoid(module.soft_mask).sum()
                 else:
                     delta_flops = self.flops[module] // module.out_channels
                 flops += delta_flops
                 acts += self.acts[module] // module.out_channels
             if self.delta == 'flops':
-                l2norm /= float(flops / 1e9)
+                cost *= float(flops / 1e9)
             elif self.delta == 'acts':
-                l2norm /= float(acts / 1e6)
-            l2norm_list = torch.cat((l2norm_list,l2norm))
-        
-        x = l2norm_list[l2norm_list.nonzero()]
-        sorted, indices = x.sort(dim=0)
-        # negative factor?
-        # start penalty, decay rate, num of groups, pos or neg
-        penalty_factors = [1e-10]#, 1e-8, 1e-10, 1e-12]
-        num_groups = len(penalty_factors)
-        split_size = len(sorted)//num_groups + 1
-        groups = torch.split(sorted, split_size)
-        penalty = None
-        for i,group in enumerate(groups):
-            l2norm = group.sum().sqrt()
-            if penalty is None:
-                penalty = l2norm*penalty_factors[i]
-            else:
-                penalty += l2norm*penalty_factors[i]
-        return penalty
+                cost *= float(acts / 1e6)
+            cost_list = torch.cat((cost_list,cost))
+            
+        return cost_list.sum()
 
     def accumulate_fishers(self):
         """Accumulate all the fisher during self.interval iterations."""
