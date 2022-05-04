@@ -852,7 +852,7 @@ class FisherPruningHook():
             for id in self.groups:
                 module0 = self.groups[id][0]
                 for module in self.groups[id]:
-                    module.group_master = module0
+                    module.group_master = module0.name
             
         # the conv's name in same group, just for debug
         # TODO remove this
@@ -1071,7 +1071,7 @@ class FisherPruningHook():
                     if not m.finetune:
                         if m.trained_mask:
                             if hasattr(m, 'group_master'):
-                                mask = F.sigmoid(m.group_master.soft_mask)
+                                mask = F.sigmoid(self.name2module[m.group_master].soft_mask)
                             else:
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
@@ -1100,7 +1100,7 @@ class FisherPruningHook():
                     if not m.finetune:
                         if m.trained_mask:
                             if hasattr(m, 'group_master'):
-                                mask = F.sigmoid(m.group_master.soft_mask)
+                                mask = F.sigmoid(self.name2module[m.group_master].soft_mask)
                             else:
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
@@ -1145,7 +1145,7 @@ class FisherPruningHook():
                     if not m.finetune:
                         if m.trained_mask:
                             if hasattr(m, 'group_master'):
-                                mask = F.sigmoid(m.group_master.soft_mask)
+                                mask = F.sigmoid(self.name2module[m.group_master].soft_mask)
                             else:
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
@@ -1171,7 +1171,7 @@ class FisherPruningHook():
                     if not m.finetune:
                         if m.trained_mask:
                             if hasattr(m, 'group_master'):
-                                mask = F.sigmoid(m.group_master.soft_mask)
+                                mask = F.sigmoid(self.name2module[m.group_master].soft_mask)
                             else:
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
