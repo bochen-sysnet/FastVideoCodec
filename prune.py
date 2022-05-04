@@ -851,8 +851,8 @@ class FisherPruningHook():
         if self.trained_mask:
             for id in self.groups:
                 module0 = self.groups[id][0]
-                for module in self.groups[id][1:]:
-                    module.soft_mask = module0.soft_mask
+                for module in self.groups[id]:
+                    module.group_master = module0
             
         # the conv's name in same group, just for debug
         # TODO remove this
@@ -1068,10 +1068,16 @@ class FisherPruningHook():
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
             def modified_forward(m, x):
                 if self.use_mask:
-                    if m.trained_mask:
-                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        if m.trained_mask:
+                            if hasattr(m, 'group_master'):
+                                mask = F.sigmoid(m.group_master.soft_mask)
+                            else:
+                                mask = F.sigmoid(m.soft_mask)
+                            m.in_mask[:] = mask.data
+                            mask = mask.view(1,-1,1,1)
+                        else:
+                            mask = m.in_mask.view(1,-1,1,1)
                         x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
@@ -1091,10 +1097,16 @@ class FisherPruningHook():
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
             def modified_forward(m, x):
                 if self.use_mask:
-                    if m.trained_mask:
-                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        if m.trained_mask:
+                            if hasattr(m, 'group_master'):
+                                mask = F.sigmoid(m.group_master.soft_mask)
+                            else:
+                                mask = F.sigmoid(m.soft_mask)
+                            m.in_mask[:] = mask.data
+                            mask = mask.view(1,-1,1,1)
+                        else:
+                            mask = m.in_mask.view(1,-1,1,1)
                         x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
@@ -1130,10 +1142,16 @@ class FisherPruningHook():
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels//module.in_rep)).to(module.weight.device))
             def modified_forward(m, x):
                 if self.use_mask:
-                    if m.trained_mask:
-                        m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = F.sigmoid(m.soft_mask).repeat(m.in_rep).view(1,1,-1)
+                        if m.trained_mask:
+                            if hasattr(m, 'group_master'):
+                                mask = F.sigmoid(m.group_master.soft_mask)
+                            else:
+                                mask = F.sigmoid(m.soft_mask)
+                            m.in_mask[:] = mask.data
+                            mask = mask.repeat(m.in_rep).view(1,1,-1)
+                        else:
+                            mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
                         x = x * mask.to(x.device)
                 output = F.linear(x, m.weight, bias=m.bias)
                 m.output_size = output.size()
@@ -1151,7 +1169,15 @@ class FisherPruningHook():
                     if m.trained_mask:
                         m.in_mask[:] = F.sigmoid(m.soft_mask)
                     if not m.finetune:
-                        mask = F.sigmoid(m.soft_mask).view(1,-1,1,1)
+                        if m.trained_mask:
+                            if hasattr(m, 'group_master'):
+                                mask = F.sigmoid(m.group_master.soft_mask)
+                            else:
+                                mask = F.sigmoid(m.soft_mask)
+                            m.in_mask[:] = mask.data
+                            mask = mask.view(1,-1,1,1)
+                        else:
+                            mask = m.in_mask.view(1,-1,1,1)
                         x = x * mask.to(x.device)
                 if m.final:
                     output = F.sigmoid(x * F.softplus(m.h) + m.b)

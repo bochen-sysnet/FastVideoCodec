@@ -192,6 +192,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if False and hook is not None and hook.trained_mask:
             # train iteratively since memory insufficient
             # make this bigger for more to be masked
+            # todo:add reg
             computation_penalty = hook.computation_penalty() 
             hook.use_mask = False
             com_data_mask, _, _, be_loss_mask, *_ = run_one_iteration(model, data)
