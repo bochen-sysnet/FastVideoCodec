@@ -611,9 +611,10 @@ class FisherPruningHook():
                 module_fisher = self.temp_fisher_info[module]
                 self.temp_fisher_info[group] += module_fisher 
                 # accumulate flops per in_channel per batch for each group
+                real_out_channels = module.child.in_mask.sum() if hasattr(module, 'child') else module.out_channels
                 if type(module).__name__ != 'Bitparm': 
                     delta_flops = self.flops[module] // module.in_channels // \
-                        module.out_channels * module.out_mask.sum()
+                        module.out_channels * real_out_channels
                 else:
                     delta_flops = self.flops[module] // module.in_channels
                 self.flops[group] += delta_flops
