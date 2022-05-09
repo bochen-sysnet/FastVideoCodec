@@ -54,6 +54,7 @@ class FisherPruningHook():
         interval=10,
         reg=False,
         trained_mask=False,
+        noise_mask=False,
         deploy_from=None,
         resume_from=None,
         start_from=None,
@@ -65,6 +66,7 @@ class FisherPruningHook():
         self.pruning = pruning
         self.reg = reg
         self.trained_mask = trained_mask
+        self.noise_mask = noise_mask
         self.delta = delta
         self.interval = interval
         # The key of self.input is conv module, and value of it
@@ -197,9 +199,6 @@ class FisherPruningHook():
 
     def after_backward(self, itr, model, loss):
         if not self.pruning:
-            return
-        if self.trained_mask:
-            self.init_flops_acts()
             return
         # compute fisher
         for module, name in self.conv_names.items():
@@ -435,7 +434,11 @@ class FisherPruningHook():
             info.update(self.find_pruning_channel(group, fisher, in_mask, info))
                 
         module, channel = info['module'], info['channel']
-        if not self.reg:
+        if self.reg:
+            self.add_reg_to_grad()
+        elif self.trained_mask or self.noise_mask:
+            pass
+        else:
             # only modify in_mask is sufficient
             if isinstance(module, int):
                 # the case for multiple modules in a group
@@ -444,8 +447,6 @@ class FisherPruningHook():
             elif module is not None:
                 # the case for single module
                 module.in_mask[channel] = 0
-        else:
-            self.add_reg_to_grad()
                 
     def update_module_grad(self, module, penalty, fisher):
         # get weight
@@ -848,7 +849,7 @@ class FisherPruningHook():
                 self.groups[idx] = modules
                 self.ancest[idx] = groups_ancest[group]
                 idx += 1
-        if self.trained_mask:
+        if self.trained_mask or self.noise_mask:
             for id in self.groups:
                 module0 = self.groups[id][0]
                 for module in self.groups[id]:
@@ -1059,6 +1060,8 @@ class FisherPruningHook():
         """
         # same group same softmask
         module.trained_mask = self.trained_mask
+        limit = float(0.1)
+        module.noise_mask = self.noise_mask
         module.finetune = not pruning
         if type(module).__name__ == 'Conv2d':
             module.register_buffer(
@@ -1076,9 +1079,14 @@ class FisherPruningHook():
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
                             mask = mask.view(1,-1,1,1)
+                            x = x * mask.to(x.device)
+                        elif m.noise_mask:
+                            mask = m.in_mask.view(1,-1,1,1).to(x.device)
+                            noise = torch.empty_like(x).uniform_(-limit, limit)*mask
+                            x = x + noise
                         else:
                             mask = m.in_mask.view(1,-1,1,1)
-                        x = x * mask.to(x.device)
+                            x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
                         # we need to mask it
@@ -1105,9 +1113,14 @@ class FisherPruningHook():
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
                             mask = mask.view(1,-1,1,1)
+                            x = x * mask.to(x.device)
+                        elif m.noise_mask:
+                            mask = m.in_mask.view(1,-1,1,1).to(x.device)
+                            noise = torch.empty_like(x).uniform_(-limit, limit)*mask
+                            x = x + noise
                         else:
                             mask = m.in_mask.view(1,-1,1,1)
-                        x = x * mask.to(x.device)
+                            x = x * mask.to(x.device)
                     else:
                         # if it has no ancestor
                         # we need to mask it
@@ -1150,9 +1163,14 @@ class FisherPruningHook():
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
                             mask = mask.repeat(m.in_rep).view(1,1,-1)
+                            x = x * mask.to(x.device)
+                        elif m.noise_mask:
+                            mask = m.in_mask.repeat(m.in_rep).view(1,1,-1).to(x.device)
+                            noise = torch.empty_like(x).uniform_(-limit, limit)*mask
+                            x = x + noise
                         else:
                             mask = m.in_mask.repeat(m.in_rep).view(1,1,-1)
-                        x = x * mask.to(x.device)
+                            x = x * mask.to(x.device)
                 output = F.linear(x, m.weight, bias=m.bias)
                 m.output_size = output.size()
                 return output
@@ -1176,9 +1194,14 @@ class FisherPruningHook():
                                 mask = F.sigmoid(m.soft_mask)
                             m.in_mask[:] = mask.data
                             mask = mask.view(1,-1,1,1)
+                            x = x * mask.to(x.device)
+                        elif m.noise_mask:
+                            mask = m.in_mask.view(1,-1,1,1).to(x.device)
+                            noise = torch.empty_like(x).uniform_(-limit, limit)*mask
+                            x = x + noise
                         else:
                             mask = m.in_mask.view(1,-1,1,1)
-                        x = x * mask.to(x.device)
+                            x = x * mask.to(x.device)
                 if m.final:
                     output = F.sigmoid(x * F.softplus(m.h) + m.b)
                 else:
