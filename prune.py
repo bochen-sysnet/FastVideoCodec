@@ -297,7 +297,7 @@ class FisherPruningHook():
             max_act = self.acts[module]
             acts += max_act / module.out_channels * real_out_channels
             max_acts += max_act
-        return flops.numpy() / max_flops, acts.numpy() / max_acts
+        return flops / max_flops, acts / max_acts
 
     def init_accum_fishers(self):
         """Clear accumulated fisher info."""
