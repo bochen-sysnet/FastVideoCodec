@@ -291,7 +291,6 @@ class FisherPruningHook():
             max_flop = self.flops[module]
             i_mask = module.in_mask
             real_out_channels = module.child.in_mask.cpu().sum() if hasattr(module, 'child') else module.out_channels
-            o_mask = module.out_mask
             flops += max_flop / (i_mask.numel() * module.out_channels) * (
                 i_mask.cpu().sum() * real_out_channels)
             max_flops += max_flop
