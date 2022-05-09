@@ -1067,6 +1067,8 @@ class FisherPruningHook():
         if type(module).__name__ == 'Conv2d':
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels,), ))
+            if module.noise_mask:
+                module.in_mask[module.in_channels//2:] = 0
             if self.trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
@@ -1101,6 +1103,8 @@ class FisherPruningHook():
         if type(module).__name__ == 'ConvTranspose2d':
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels,), ))
+            if module.noise_mask:
+                module.in_mask[module.in_channels//2:] = 0
             if self.trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels)).to(module.weight.device))
@@ -1151,6 +1155,8 @@ class FisherPruningHook():
                 module.out_rep = module.in_rep = 1
             module.register_buffer(
                 'in_mask', module.weight.new_ones((module.in_channels//module.in_rep,), ))
+            if module.noise_mask:
+                module.in_mask[module.in_channels//module.in_rep//2:] = 0
             if self.trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.in_channels//module.in_rep)).to(module.weight.device))
@@ -1179,6 +1185,8 @@ class FisherPruningHook():
         if  type(module).__name__ == 'Bitparm':
             module.register_buffer(
                 'in_mask', module.h.new_ones((module.h.size(1),), ))
+            if module.noise_mask:
+                module.in_mask[module.h.size(1)//2:] = 0
             if self.trained_mask:
                 module.register_buffer(
                     'soft_mask', torch.nn.Parameter(torch.randn(module.h.size(1))).to(module.h.device))
