@@ -1061,7 +1061,7 @@ class FisherPruningHook():
         """
         # same group same softmask
         module.trained_mask = self.trained_mask
-        limit = float(1e-2)
+        limit = float(1e-4)
         module.noise_mask = self.noise_mask
         module.finetune = not pruning
         if type(module).__name__ == 'Conv2d':
