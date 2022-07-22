@@ -66,7 +66,7 @@ for test_num in 1 2 3 4 5
 do
 	for task in RLVC DVC SPVC
 	do
-		python3 eval.py --task $task --encoder_test --role client
-		#python3 eval.py --task $task 
+		#python3 eval.py --task $task --encoder_test --role client
+		python3 eval.py --task $task 
 	done
 done

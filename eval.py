@@ -1119,7 +1119,7 @@ if __name__ == '__main__':
     parser.set_defaults(use_ep=False)
     parser.add_argument('--use_disp', dest='use_disp', action='store_true')
     parser.add_argument('--no-use_disp', dest='use_disp', action='store_false')
-    parser.set_defaults(use_disp=True)
+    parser.set_defaults(use_disp=False)
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
