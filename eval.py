@@ -1154,6 +1154,8 @@ if __name__ == '__main__':
     parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
     parser.add_argument('--fps', type=float, default=30., help='frame rate of sender')
     parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
+    parser.add_argument("--width", type=int, default=256, help="Input width")
+    parser.add_argument("--height", type=int, default=256, help="Input height")
     args = parser.parse_args()
     
     # check gpu
@@ -1167,14 +1169,14 @@ if __name__ == '__main__':
     # setup streaming parameters
     # print(args)
     # assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(256,256))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.height,args.width))
         
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
         dynamic_simulation(args, test_dataset)
     else:
-        assert(args.task in ['x264','x265','RLVC2','DVC-pretrained'] or 'LSVC' in args.task)
-        if args.task in ['x264','x265']:
+        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'x26' in args.task)
+        if 'x26' in args.task:
             static_simulation_x26x(args, test_dataset)
         elif args.task in ['RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
