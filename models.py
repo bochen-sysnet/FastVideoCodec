@@ -1699,7 +1699,6 @@ class LSVC(nn.Module):
         self.compression_level=compression_level
         init_training_params(self)
         self.use_split = use_split
-        print('...............',use_split)
         if self.use_split:
             self.split()
         
