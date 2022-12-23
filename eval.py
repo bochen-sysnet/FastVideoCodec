@@ -236,7 +236,12 @@ def static_bench_x26x():
 def static_simulation_model(args, test_dataset):
     for lvl in range(4):
         if args.Q_option != 'Slow' and lvl<3:continue
-        model = LoadModel(args.task,compression_level=lvl).cuda()
+        model = LoadModel(args.task,compression_level=lvl)
+        if args.use_cuda:
+            if not args.use_split:
+                model = model.cuda()
+        else:
+            model = model.cpu()
         model.eval()
         aux_loss_module = AverageMeter()
         img_loss_module = AverageMeter()
@@ -260,7 +265,11 @@ def static_simulation_model(args, test_dataset):
                 continue
                 
             with torch.no_grad():
-                data = torch.stack(data, dim=0).cuda()
+                data = torch.stack(data, dim=0)
+                if args.use_cuda:
+                    data = data.cuda()
+                else:
+                    data = data.cpu()
                 l = data.size(0)
                 
                 # compress GoP
