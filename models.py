@@ -306,6 +306,8 @@ def parallel_compression(model, data, compressI=False):
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
+            print(data.size())
+            exit(0)
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
