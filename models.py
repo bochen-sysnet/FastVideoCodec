@@ -325,7 +325,10 @@ def parallel_compression(model, data, compressI=False):
             psnr_list += PSNR(vidseg[1:], x_hat, use_list=True)
             msssim_list += PSNR(vidseg[1:], x_mc, use_list=True)
             aux_loss_list += PSNR(vidseg[1:], x_wp, use_list=True)
-            x_hat = torch.cat([data[0:1,:,::2,::2],x_hat], dim=0)
+            if W==1920:
+                x_hat = torch.cat([data[0:1,:,::2,::2],x_hat], dim=0)
+            else:
+                x_hat = torch.cat([data[0:1],x_hat], dim=0)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(vidseg.device)]
                 if model.training:
