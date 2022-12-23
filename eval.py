@@ -118,8 +118,8 @@ class VideoDataset(Dataset):
                 # skip black frames
                 if np.sum(img) == 0:continue
                 img = Image.fromarray(img)
-                # if self._frame_size is not None:
-                #     img = img.resize(self._frame_size) 
+                if self._frame_size is not None:
+                    img = img.resize(self._frame_size) 
                 self._clip.append(img)
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
@@ -1161,8 +1161,8 @@ if __name__ == '__main__':
     parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
     parser.add_argument('--fps', type=float, default=30., help='frame rate of sender')
     parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
-    parser.add_argument("--width", type=int, default=1920, help="Input width")
-    parser.add_argument("--height", type=int, default=1280, help="Input height")
+    parser.add_argument("--width", type=int, default=256, help="Input width")
+    parser.add_argument("--height", type=int, default=256, help="Input height")
     args = parser.parse_args()
     
     # check gpu
