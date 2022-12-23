@@ -302,6 +302,8 @@ for i in range(4):
             'Frame Index',ylabel,xticks=range(1,14),yticks=ytick_list[i],
             lfsize=lfsize,legloc=legloc)
 
+# UVG
+
 Ubpps = [[0.12,0.18,0.266,0.37],#,0.50],
 		[0.12,0.20,0.33,0.54],
 		[0.14,0.24,0.40,0.67],
@@ -325,6 +327,18 @@ line_plot(Ubpps,UPSNRs,labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
 		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
 		xticks=[.2,.4,.6],yticks=range(30,37))
+
+# other x265 modes
+# very fast
+bpp = [0.14,0.24,0.40,0.67]
+PSNR = [31.53,33.05,34.33,35.36]
+# medium
+bpp = [0.1112,0.1788,0.2829,0.4411]
+PSNR = [31.45,32.96,34.22,35.21]
+# very slow
+bpp = [0.1099,0.1784,0.2847,0.4486]
+PSNR = [31.60,33.17,34.45,35.43]
+
 
 Mbpps = [[0.14,0.21,0.30,0.41],#,0.538],
 		[0.14,0.23,0.38,0.63],

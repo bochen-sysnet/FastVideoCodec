@@ -57,7 +57,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 
     ####### Codec model 
-    model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=False)
+    model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
