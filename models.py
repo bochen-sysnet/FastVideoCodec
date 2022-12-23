@@ -237,7 +237,6 @@ def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
     # we can record PSNR wrt the distance to I-frame to show error propagation)
         
 def parallel_compression(model, data, compressI=False):
-    print(data.size())
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     
     if compressI:
@@ -247,7 +246,6 @@ def parallel_compression(model, data, compressI=False):
         bpp_act_list += [bpp_act.to(data.device)]
         psnr_list += [psnr.to(data.device)]
         data[0:1] = x_hat
-        print('i',data.size())
     
     
     # P compression, not including I frame
@@ -323,6 +321,7 @@ def parallel_compression(model, data, compressI=False):
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
             msssim_list += PSNR(data[1:], x_mc, use_list=True)
             aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
+            x_hat = torch.stack([data[0:1],x_hat], dim=0)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
