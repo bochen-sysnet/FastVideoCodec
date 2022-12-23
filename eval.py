@@ -118,6 +118,8 @@ class VideoDataset(Dataset):
                 # skip black frames
                 if np.sum(img) == 0:continue
                 img = Image.fromarray(img)
+                if self._file_counter == 0 and len(self._clip) == 0:
+                    print('Frame size:',img.shape)
                 if self._frame_size is not None:
                     img = img.resize(self._frame_size) 
                 self._clip.append(img)
@@ -1091,6 +1093,31 @@ def dynamic_simulation(args, test_dataset):
 # x265    0.18,35.79  0.19,35.26  0.29,33.46
 # LSVC-A  0.27,32.65  0.22,36.06  0.39,33.31
 # RLVC    0.18,32.07  0.14,35.12  0.24,32.46
+
+
+# fix gamma_p, change V and max buffer size (0-70s)
+# bola-basic
+# γ corresponds to how strongly we want to avoid rebuffering
+# V buffer-perf metrics trade-off
+# set γp = 5 and varied V for different buffer sizes.
+def BOLA_simulation():
+    # how to derive bola parameters from S1,S2,v1,v2,v_M,Q_low,Q_max
+    # alpha = (S1 * v2 - S2 * v1)/(S2 - S1)
+    # V = (Q_max - Q_low) / (v_M - alpha)
+    # gamma_p = (v_M * Q_low - alpha * Q_max) / (Q_max - Q_low)
+
+    V = .93 
+    gamma_p = 5
+    # S_m: bits per segment, p: second per segment
+    # v_m: utility or PSNR,υ_m = ln(S_m/S_1)
+    p = 1
+    T_k = 1
+    v_m = 35.0
+    Q = 0
+    S_m = 1
+    rho = (V * v_m + V * gamma_p - Q)/S_m
+    Q_next = max(Q-T_k/p) + 1
+    return
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
