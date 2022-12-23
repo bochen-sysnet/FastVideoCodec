@@ -247,6 +247,7 @@ def parallel_compression(model, data, compressI=False):
         bpp_act_list += [bpp_act.to(data.device)]
         psnr_list += [psnr.to(data.device)]
         data[0:1] = x_hat
+        print('i',data.size())
     
     
     # P compression, not including I frame
