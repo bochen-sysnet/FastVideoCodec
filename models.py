@@ -322,7 +322,7 @@ def parallel_compression(model, data, compressI=False):
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
             msssim_list += PSNR(data[1:], x_mc, use_list=True)
             aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
-            # x_hat = torch.cat([data[0:1],x_hat], dim=0)
+            x_hat = torch.cat([data[0:1],x_hat], dim=0)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
