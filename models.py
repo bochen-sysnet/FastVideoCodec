@@ -237,6 +237,7 @@ def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
     # we can record PSNR wrt the distance to I-frame to show error propagation)
         
 def parallel_compression(model, data, compressI=False):
+    print(data.size())
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     
     if compressI:
