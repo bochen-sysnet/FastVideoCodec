@@ -1032,7 +1032,7 @@ class MEBasic(nn.Module):
         self.conv5.weight.data, self.conv5.bias.data = loadweightformnp(layername + '_F-5')
 
     def forward(self, x):
-        print(x.device,conv1.weight.device)
+        print(x.device,self.conv1.weight.device)
         x = self.relu1(self.conv1(x))
         x = self.relu2(self.conv2(x))
         x = self.relu3(self.conv3(x))
