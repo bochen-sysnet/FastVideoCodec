@@ -306,6 +306,8 @@ def parallel_compression(model, data, compressI=False):
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
+            if H==1280 and W==1920:
+                data = data[:,:,::2,::2]
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
@@ -328,9 +330,6 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [(bpp).to(data.device)]
                 # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-            print(psnr_list,msssim_list,aux_loss_list,img_loss_list)
-            exit(0)
-
     if model.training:
         return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
     else:
