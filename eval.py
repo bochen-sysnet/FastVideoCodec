@@ -118,8 +118,6 @@ class VideoDataset(Dataset):
                 # skip black frames
                 if np.sum(img) == 0:continue
                 img = Image.fromarray(img)
-                if self._file_counter == 0 and len(self._clip) == 0:
-                    print('Frame size:',img.size)
                 if self._frame_size is not None:
                     img = img.resize(self._frame_size) 
                 self._clip.append(img)
@@ -1169,7 +1167,7 @@ if __name__ == '__main__':
     # setup streaming parameters
     # print(args)
     # assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.height,args.width))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
         
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
