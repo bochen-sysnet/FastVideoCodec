@@ -275,9 +275,6 @@ def static_simulation_model(args, test_dataset):
                 # compress GoP
                 if l>args.fP+1:
                     com_imgs,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1 = parallel_compression(model,torch.flip(data[:args.fP+1],[0]),True)
-                    print(psnr_list1)
-                    print(data.size(),com_imgs.size())
-                    exit(0)
                     data[args.fP:args.fP+1] = com_imgs[0:1]
                     _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2 = parallel_compression(model,data[args.fP:],False)
                     if args.use_ep:
