@@ -239,13 +239,13 @@ def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
 def parallel_compression(model, data, compressI=False):
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     
+    name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
+    x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=name)
+    data[0:1] = x_hat
     if compressI:
-        name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
-        x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=name)
         bpp_est_list += [bpp_est.to(data.device)]
         bpp_act_list += [bpp_act.to(data.device)]
         psnr_list += [psnr.to(data.device)]
-        data[0:1] = x_hat
     
     
     # P compression, not including I frame
@@ -306,7 +306,7 @@ def parallel_compression(model, data, compressI=False):
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
-            if H==1280 and W==1920:
+            if W==1920:
                 vidseg = data[:,:,::2,::2]
             else:
                 vidseg = data
