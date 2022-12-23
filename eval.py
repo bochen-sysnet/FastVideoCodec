@@ -120,11 +120,7 @@ class VideoDataset(Dataset):
                 img = Image.fromarray(img)
                 # if self._frame_size is not None:
                 #     img = img.resize(self._frame_size) 
-                # self._clip.append(img)
-                self._clip.append(img.crop((0,0,self._frame_size[0]//2,self._frame_size[1]//2)))
-                self._clip.append(img.crop((self._frame_size[0]//2,0,self._frame_size[0],self._frame_size[1]//2)))
-                self._clip.append(img.crop((0,self._frame_size[1]//2,self._frame_size[0]//2,self._frame_size[1])))
-                self._clip.append(img.crop((self._frame_size[0]//2,self._frame_size[1]//2,self._frame_size[0],self._frame_size[1])))
+                self._clip.append(img)
             self._file_counter +=1
             self._dataset_nums.append(len(self._clip))
             self._frame_counter = 0
