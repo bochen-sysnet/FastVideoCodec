@@ -58,9 +58,9 @@ def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
     model.stage = 'REC'
     
-    psnr_list = [256,512,1024,2048,4096,8192]
+    psnr_list = [256,512,1024,2048,4096,8192,16384]
     msssim_list = [8,16,32,64]
-    I_lvl_list = [37,32,27,22,17,12]
+    I_lvl_list = [37,32,27,22,17,12,7]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
     # print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
