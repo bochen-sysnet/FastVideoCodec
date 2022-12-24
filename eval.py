@@ -234,8 +234,10 @@ def static_bench_x26x():
     exit(0)
     
 def static_simulation_model(args, test_dataset):
-    for lvl in range(4):
+    max_level = max(4,args.target_level)
+    for lvl in range(max_level):
         if args.Q_option != 'Slow' and lvl<3:continue
+        if args.target_level != -1 and lvl != args.target_level:continue
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
             if not args.use_split:
@@ -1163,6 +1165,7 @@ if __name__ == '__main__':
     parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
     parser.add_argument("--width", type=int, default=1920, help="Input width")
     parser.add_argument("--height", type=int, default=1280, help="Input height")
+    parser.add_argument("--target_level", type=int, default=-1, help="Chosen level to evaluate")
     args = parser.parse_args()
     
     # check gpu
