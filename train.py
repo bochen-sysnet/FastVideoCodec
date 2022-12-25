@@ -86,6 +86,10 @@ elif CODEC_NAME in ['LSVC-A']:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
     #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
+elif CODEC_NAME in ['DVC-pretrained']:
+    pretrained_model_path = 'DVC/snapshot/2048.model'
+    from DVC.net import load_model
+    load_model(model, pretrained_model_path)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
@@ -156,7 +160,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
         if model.name == 'DVC-pretrained':
-            loss = img_loss
+            loss = img_loss + be_loss
         elif 'LSVC' in model.name:
             loss = img_loss + be_loss
         else:

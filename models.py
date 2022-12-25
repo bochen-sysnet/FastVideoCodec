@@ -296,7 +296,7 @@ def parallel_compression(model, data, compressI=False):
                 x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
                     model(data[i:i+1],x_prev)
                 x_prev = x_prev.detach()
-                img_loss_list += [2048*mseloss.to(data.device)]
+                img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
@@ -306,11 +306,7 @@ def parallel_compression(model, data, compressI=False):
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'LSVC' in model.name:
             B,_,H,W = data.size()
-            if W==1920:
-                vidseg = data[:,:,::2,::2]
-            else:
-                vidseg = data
-            x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(vidseg.detach())
+            x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
             if model.stage == 'MC':
                 img_loss = mc_loss*model.r
             elif model.stage == 'REC':
@@ -322,18 +318,15 @@ def parallel_compression(model, data, compressI=False):
                 exit(1)
             img_loss_list = [img_loss]
             N = B-1
-            psnr_list += PSNR(vidseg[1:], x_hat, use_list=True)
-            msssim_list += PSNR(vidseg[1:], x_mc, use_list=True)
-            aux_loss_list += PSNR(vidseg[1:], x_wp, use_list=True)
-            if W==1920:
-                x_hat = torch.cat([data[0:1,:,::2,::2],x_hat], dim=0)
-            else:
-                x_hat = torch.cat([data[0:1],x_hat], dim=0)
+            psnr_list += PSNR(data[1:], x_hat, use_list=True)
+            msssim_list += PSNR(data[1:], x_mc, use_list=True)
+            aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
+            x_hat = torch.cat([data[0:1],x_hat], dim=0)
             for pos in range(N):
-                bpp_est_list += [(bpp).to(vidseg.device)]
+                bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
-                    bpp_res_est_list += [(bpp_res).to(vidseg.device)]
-                bpp_act_list += [(bpp).to(vidseg.device)]
+                    bpp_res_est_list += [(bpp_res).to(data.device)]
+                bpp_act_list += [(bpp).to(data.device)]
                 # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
     if model.training:
@@ -2184,13 +2177,12 @@ def get_DVC_pretrained(level):
     model.name = 'DVC-pretrained'
     model.compression_level = level
     model.loss_type = 'P'
-    ratio_list = [256,512,1024,2048]
-    I_lvl_list = [37,32,27,22]
+    ratio_list = [256,512,1024,2048,2048*2,2048*4,2048*8]
+    I_lvl_list = [37,32,27,22,17,12,7]
     model.I_level = I_lvl_list[level]
-    def loss(pix_loss, bpp_loss, aux_loss):
-        return pix_loss + bpp_loss + aux_loss
-    model.loss = loss
-    global_step = load_model(model, f'DVC/snapshot/{ratio_list[level]}.model')
+    model.r = ratio_list[level]
+    if level<4:
+        global_step = load_model(model, f'DVC/snapshot/{ratio_list[level]}.model')
     net = model.cuda()
     return net
             
