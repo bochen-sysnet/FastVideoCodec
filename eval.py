@@ -237,7 +237,6 @@ def static_simulation_model(args, test_dataset):
     max_level = max(4,args.target_level)
     for lvl in range(max_level+1):
         if args.Q_option != 'Slow' and lvl<3:continue
-        if lvl<3:continue
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
             if not args.use_split:

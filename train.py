@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'LSVC-A'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 6 # 0,1,2,3
+compression_level = 0 # 0,1,2,3
 #RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1#compression_level%2
+device = 0#compression_level%2
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -321,7 +321,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
     
-    is_best = score[0] <= best_codec_score[0] or score[1] >= best_codec_score[1]
+    is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
     if is_best:
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score
