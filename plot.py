@@ -174,9 +174,10 @@ x640960_bpp = [
 ]
 
 line_plot(x640960_bpp,x640960_PSNR,labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/x640_960.eps',
+		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/x640_960.eps',
 		'bpp','',ncol=0,
 		xticks=[.2,.4,.6],yticks=range(33,41))
+exit(0)
 x448_bpp = [
 [0.107,0.15,0.22,0.317],
 [0.094,0.16,0.27,0.45],
