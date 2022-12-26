@@ -82,8 +82,8 @@ elif CODEC_NAME in ['LSVC-L-128']:
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
     else:
-        model.load_state_dict(checkpoint)
-        # load_state_dict_whatever(model, checkpoint)
+        # model.load_state_dict(checkpoint)
+        load_state_dict_whatever(model, checkpoint)
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
     # with open(f'DVC/snapshot/512.model', 'rb') as f:
