@@ -76,16 +76,17 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['LSVC-L']:
     # load what exists
-    pretrained_model_path = f'backup/LSVC/LSVC-0P_best.pth'
+    pretrained_model_path = 'DVC/snapshot/512.model'#'backup/LSVC/LSVC-0P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
-    # with open(f'DVC/snapshot/2048.model', 'rb') as f:
+    # with open(f'DVC/snapshot/512.model', 'rb') as f:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
     #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
+       del pretrained_dict
 elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/2048.model'
     from DVC.net import load_model
