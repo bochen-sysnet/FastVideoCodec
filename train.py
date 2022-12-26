@@ -86,7 +86,7 @@ elif CODEC_NAME in ['LSVC-L']:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
     #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
-       del pretrained_dict
+       # del pretrained_dict
 elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/2048.model'
     from DVC.net import load_model
