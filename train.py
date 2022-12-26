@@ -78,16 +78,12 @@ elif CODEC_NAME in ['LSVC-L']:
     # load what exists
     pretrained_model_path = 'DVC/snapshot/512.model'#'backup/LSVC/LSVC-0P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
-    print(checkpoint.keys())
-    for k in model.state_dict().keys():
-        if k not in checkpoint.keys():
-            print(k)
-    exit(0)
     best_codec_score = checkpoint['score'] if 'score' in checkpoint.keys() else 0
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
     else:
-        load_state_dict_whatever(model, checkpoint)
+        model.load_state_dict(checkpoint)
+        # load_state_dict_whatever(model, checkpoint)
     del checkpoint
     print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
     # with open(f'DVC/snapshot/512.model', 'rb') as f:
