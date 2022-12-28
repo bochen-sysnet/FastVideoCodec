@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-L-128'
+CODEC_NAME = 'LSVC-A-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -74,9 +74,9 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['LSVC-L-128']:
+elif CODEC_NAME in ['LSVC-A-L-128']:
     # load what exists
-    pretrained_model_path = 'DVC/snapshot/512.model'#'backup/LSVC/LSVC-0P_best.pth'
+    pretrained_model_path = 'backup/LSVC-A-L-128/LSVC-A-L-128-0P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
@@ -213,7 +213,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 1 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0 and batch_idx>0:
             if True:
                 print('testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
