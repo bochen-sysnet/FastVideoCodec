@@ -1873,7 +1873,6 @@ class LSVC(nn.Module):
         ref_index = refidx_from_graph(g,bs)
         estmv = self.opticFlow(input_image, x[ref_index])
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
-        print('ckpt0')
 
         # tree compensation
         MC_frame_list = [None for _ in range(bs)]
@@ -1899,12 +1898,10 @@ class LSVC(nn.Module):
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
-                print('ckpt1')
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
                 res_hat,res_bits = self.res_codec(res_tensors)
-                print('ckpt2')
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
@@ -1919,12 +1916,15 @@ class LSVC(nn.Module):
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
 
+        print('ckpt0')
         rec_loss = torch.mean((com_frames - input_image).pow(2))
         warp_loss = torch.mean((warped_frames - input_image).pow(2))
         mc_loss = torch.mean((MC_frames - input_image).pow(2))
+        print('ckpt1')
         
         bpp_res = total_bits_res / (bs * h * w)
         bpp_mv = total_bits_mv / (bs * h * w)
+        print('ckpt2')
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
         
