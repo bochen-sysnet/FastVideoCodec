@@ -1723,7 +1723,6 @@ class LSVC(nn.Module):
         self.respriorDecoder.cuda(1)
         self.bitEstimator_z.cuda(1)
     def parallel(self):
-        print('parallel')
         self.opticFlow = torch.nn.DataParallel(self.opticFlow).cuda()
         self.mvDecoder = torch.nn.DataParallel(self.mvDecoder).cuda()
         self.resDecoder = torch.nn.DataParallel(self.resDecoder).cuda()
