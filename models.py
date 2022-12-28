@@ -241,9 +241,13 @@ def parallel_compression(model, data, compressI=False):
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
+        modle_name = model.module.name
+        model_r = model.module.r
     else:
         name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
         I_level = model.I_level
+        modle_name = model.name
+        model_r = model.r
     x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], I_level, model_name=name)
     data[0:1] = x_hat
     if compressI:
@@ -254,7 +258,7 @@ def parallel_compression(model, data, compressI=False):
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if 'SPVC' in model.name:
+        if 'SPVC' in model_name:
             if model.training:
                 _, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
             else:
@@ -268,7 +272,7 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [bpp_act[pos].to(data.device)]
                 psnr_list += [psnr[pos].to(data.device)]
                 msssim_list += [msssim[pos].to(data.device)]
-        elif model.name in ['DVC','RLVC','RLVC2']:
+        elif model_name in ['DVC','RLVC','RLVC2']:
             B,_,H,W = data.size()
             hidden = model.init_hidden(H,W,data.device)
             mv_prior_latent = res_prior_latent = None
@@ -292,7 +296,7 @@ def parallel_compression(model, data, compressI=False):
                     bpp_res_est_list += [bpp_res_est.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
-        elif model.name in ['DVC-pretrained']:
+        elif model_name in ['DVC-pretrained']:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
@@ -308,18 +312,19 @@ def parallel_compression(model, data, compressI=False):
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
-        elif 'LSVC' in model.name:
+        elif 'LSVC' in model_name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
-            if model.stage == 'MC':
-                img_loss = mc_loss*model.r
-            elif model.stage == 'REC':
-                img_loss = rec_loss*model.r
-            elif model.stage == 'WP':
-                img_loss = warp_loss*model.r
-            else:
-                print('unknown stage')
-                exit(1)
+            # if model.stage == 'MC':
+            #     img_loss = mc_loss*model.r
+            # elif model.stage == 'REC':
+            #     img_loss = rec_loss*model.r
+            # elif model.stage == 'WP':
+            #     img_loss = warp_loss*model.r
+            # else:
+            #     print('unknown stage')
+            #     exit(1)
+            img_loss = rec_loss*model_r
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
