@@ -241,12 +241,12 @@ def parallel_compression(model, data, compressI=False):
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
-        modle_name = model.module.name
+        model_name = model.module.name
         model_r = model.module.r
     else:
         name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
         I_level = model.I_level
-        modle_name = model.name
+        model_name = model.name
         model_r = model.r
     x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], I_level, model_name=name)
     data[0:1] = x_hat
