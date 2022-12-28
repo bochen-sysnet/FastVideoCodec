@@ -315,7 +315,6 @@ def parallel_compression(model, data, compressI=False):
         elif 'LSVC' in model_name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
-            print('ckpt1')
             # if model.stage == 'MC':
             #     img_loss = mc_loss*model.r
             # elif model.stage == 'REC':
@@ -985,7 +984,7 @@ def torch_warp(tensorInput, tensorFlow):
             Backward_tensorGrid[str(tensorFlow.size())] = torch.cat([ tensorHorizontal, tensorVertical ], 1)
 
     tensorFlow = torch.cat([tensorFlow[:, 0:1, :, :] / ((tensorInput.size(3) - 1.0) / 2.0), tensorFlow[:, 1:2, :, :] / ((tensorInput.size(2) - 1.0) / 2.0) ], 1)
-
+    
     return torch.nn.functional.grid_sample(input=tensorInput, grid=(Backward_tensorGrid[str(tensorFlow.size())].to(device_id) + tensorFlow).permute(0, 2, 3, 1), mode='bilinear', padding_mode='border')
 
 def log10(x):
@@ -1926,7 +1925,6 @@ class LSVC(nn.Module):
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
         bpp = bpp_res + bpp_mv
         
-        print('ckpt0')
         return com_frames, MC_frames, warped_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
        
         
