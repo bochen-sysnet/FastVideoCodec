@@ -240,7 +240,11 @@ def static_simulation_model(args, test_dataset):
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
             if not args.use_split:
-                model = model.cuda()
+                if 'LSVC' in args.task:
+                    model.parallel()
+                else:
+                    model = model.cuda()
+
         else:
             model = model.cpu()
         model.eval()

@@ -984,7 +984,7 @@ def torch_warp(tensorInput, tensorFlow):
             Backward_tensorGrid[str(tensorFlow.size())] = torch.cat([ tensorHorizontal, tensorVertical ], 1)
 
     tensorFlow = torch.cat([tensorFlow[:, 0:1, :, :] / ((tensorInput.size(3) - 1.0) / 2.0), tensorFlow[:, 1:2, :, :] / ((tensorInput.size(2) - 1.0) / 2.0) ], 1)
-    
+
     return torch.nn.functional.grid_sample(input=tensorInput, grid=(Backward_tensorGrid[str(tensorFlow.size())].to(device_id) + tensorFlow).permute(0, 2, 3, 1), mode='bilinear', padding_mode='border')
 
 def log10(x):
@@ -1722,6 +1722,15 @@ class LSVC(nn.Module):
         self.respriorEncoder.cuda(1)
         self.respriorDecoder.cuda(1)
         self.bitEstimator_z.cuda(1)
+    def parallel(self):
+        print('parallel')
+        self.opticFlow = torch.nn.DataParallel(self.opticFlow).cuda()
+        self.mvDecoder = torch.nn.DataParallel(self.mvDecoder).cuda()
+        self.resDecoder = torch.nn.DataParallel(self.resDecoder).cuda()
+        self.respriorDecoder = torch.nn.DataParallel(self.respriorDecoder).cuda()
+        self.warpnet = torch.nn.DataParallel(self.warpnet).cuda()
+        self.bitEstimator_z = torch.nn.DataParallel(self.bitEstimator_z).cuda()
+        self.bitEstimator_mv = torch.nn.DataParallel(self.bitEstimator_mv).cuda()
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
