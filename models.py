@@ -984,7 +984,7 @@ def torch_warp(tensorInput, tensorFlow):
             Backward_tensorGrid[str(tensorFlow.size())] = torch.cat([ tensorHorizontal, tensorVertical ], 1).to(device_id)
 
     tensorFlow = torch.cat([tensorFlow[:, 0:1, :, :] / ((tensorInput.size(3) - 1.0) / 2.0), tensorFlow[:, 1:2, :, :] / ((tensorInput.size(2) - 1.0) / 2.0) ], 1)
-    print(device_id,tensorFlow.device.index)
+    print(device_id,tensorFlow.device.index,Backward_tensorGrid[str(tensorFlow.size())].device.index)
 
     return torch.nn.functional.grid_sample(input=tensorInput, grid=(Backward_tensorGrid[str(tensorFlow.size())] + tensorFlow).permute(0, 2, 3, 1), mode='bilinear', padding_mode='border')
 
