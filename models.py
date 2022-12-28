@@ -984,7 +984,7 @@ def torch_warp(tensorInput, tensorFlow):
             Backward_tensorGrid[str(tensorFlow.size())] = torch.cat([ tensorHorizontal, tensorVertical ], 1)
 
     tensorFlow = torch.cat([tensorFlow[:, 0:1, :, :] / ((tensorInput.size(3) - 1.0) / 2.0), tensorFlow[:, 1:2, :, :] / ((tensorInput.size(2) - 1.0) / 2.0) ], 1)
-    
+
     return torch.nn.functional.grid_sample(input=tensorInput, grid=(Backward_tensorGrid[str(tensorFlow.size())].to(device_id) + tensorFlow).permute(0, 2, 3, 1), mode='bilinear', padding_mode='border')
 
 def log10(x):
@@ -1873,6 +1873,7 @@ class LSVC(nn.Module):
         ref_index = refidx_from_graph(g,bs)
         estmv = self.opticFlow(input_image, x[ref_index])
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
+        print('ckpt0')
 
         # tree compensation
         MC_frame_list = [None for _ in range(bs)]
@@ -1898,10 +1899,12 @@ class LSVC(nn.Module):
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
+                print('ckpt1')
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
                 res_hat,res_bits = self.res_codec(res_tensors)
+                print('ckpt2')
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
