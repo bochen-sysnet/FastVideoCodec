@@ -238,8 +238,10 @@ def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
         
 def parallel_compression(model, data, compressI=False):
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
-    
-    name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
+    if isinstance(model,nn.DataParallel):
+        name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
+    else:
+        name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
     x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], model.I_level, model_name=name)
     data[0:1] = x_hat
     if compressI:
