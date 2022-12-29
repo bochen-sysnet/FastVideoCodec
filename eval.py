@@ -182,7 +182,7 @@ class AverageMeter(object):
 def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
     
-    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [23]
+    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [15]
     for Q in Q_list:
         data = []
         ba_loss_module = AverageMeter()
@@ -236,7 +236,7 @@ def static_bench_x26x():
 def static_simulation_model(args, test_dataset):
     max_level = max(4,args.target_level)
     for lvl in range(max_level+1):
-        if args.Q_option != 'Slow' and lvl<3:continue
+        if args.Q_option != 'Slow' and lvl>0:continue
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
             if not args.use_split:
