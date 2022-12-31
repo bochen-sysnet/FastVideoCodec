@@ -125,7 +125,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset,test_dataset2):
+def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset):
     aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
@@ -314,14 +314,14 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+# test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
     r = adjust_learning_rate(optimizer, epoch)
     
     print('training at epoch %d, r=%.2f' % (epoch,r))
-    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, test_dataset2)
+    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
@@ -334,4 +334,4 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
 
-    test(epoch, model, test_dataset2)
+    # test(epoch, model, test_dataset2)
