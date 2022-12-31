@@ -1708,20 +1708,7 @@ class LSVC(nn.Module):
         self.compression_level=compression_level
         init_training_params(self)
         self.use_split = use_split
-        if self.use_split:
-            self.split()
         
-    def split(self):
-        self.opticFlow.cuda(0)
-        self.mvEncoder.cuda(0)
-        self.mvDecoder.cuda(0)
-        self.bitEstimator_mv.cuda(0)
-        self.warpnet.cuda(1)
-        self.resEncoder.cuda(1)
-        self.resDecoder.cuda(1)
-        self.respriorEncoder.cuda(1)
-        self.respriorDecoder.cuda(1)
-        self.bitEstimator_z.cuda(1)
     def parallel(self):
         # self.opticFlow = torch.nn.parallel.DistributedDataParallel(self.opticFlow)
         # self.mvDecoder = torch.nn.parallel.DistributedDataParallel(self.mvDecoder)
