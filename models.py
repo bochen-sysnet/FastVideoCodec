@@ -1708,7 +1708,7 @@ class LSVC(nn.Module):
         self.compression_level=compression_level
         init_training_params(self)
         self.use_split = use_split
-        
+
     def parallel(self):
         # self.opticFlow = torch.nn.parallel.DistributedDataParallel(self.opticFlow)
         # self.mvDecoder = torch.nn.parallel.DistributedDataParallel(self.mvDecoder)
@@ -1728,6 +1728,7 @@ class LSVC(nn.Module):
         self.mvEncoder = self.mvEncoder.cuda()
         self.resEncoder = self.resEncoder.cuda()
         self.respriorEncoder = self.respriorEncoder.cuda()
+        print('parallel')
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
