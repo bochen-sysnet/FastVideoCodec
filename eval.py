@@ -243,7 +243,7 @@ def static_simulation_model(args, test_dataset):
                 model = model.cuda()
             else:
                 if 'LSVC' in args.task:
-                    model = model.cuda()
+                    # model = model.cuda()
                     model.parallel()
                 else:
                     model = model.cuda()
