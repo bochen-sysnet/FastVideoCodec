@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'LSVC-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 5 # 0,1,2,3
+compression_level = 6 # 0,1,2,3
 RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1#compression_level%2
+device = 0#compression_level%2
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
