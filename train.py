@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'RLVC2'#'LSVC-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 6 # 0,1,2,3
+compression_level = 4 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
@@ -85,7 +85,7 @@ elif CODEC_NAME in ['RLVC2']:
         # model.load_state_dict(checkpoint)
         load_state_dict_whatever(model, checkpoint)
     del checkpoint
-    print("Load whatever exists for",CODEC_NAME,'from',pretrained_model_path,best_codec_score)
+    print("Load whatever exists for",RESUME_CODEC_PATH,'from',pretrained_model_path,best_codec_score)
     # with open(f'DVC/snapshot/512.model', 'rb') as f:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
