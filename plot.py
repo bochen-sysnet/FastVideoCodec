@@ -56,7 +56,7 @@ def get_arr_from(pos,filename):
 	return arr
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=labelsize_b-8,legloc='best',
-				xticks=None,yticks=None,ncol=None, yerr=None,
+				xticks=None,yticks=None,ncol=None, yerr=None,markers=markers,
 				use_arrow=False,arrow_coord=(0.4,30)):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
@@ -81,12 +81,16 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 		ax.text(
 		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=lbsize-8,
 		    bbox=dict(boxstyle="larrow,pad=0.3", fc="white", ec="black", lw=2))
-	plt.tight_layout()
 	if ncol!=0:
 		if ncol is None:
 			plt.legend(loc=legloc,fontsize = lfsize)
 		else:
-			plt.legend(loc=legloc,fontsize = lfsize,ncol=ncol)
+			plt.legend(loc=legloc,fontsize = lfsize,ncol=ncol,bbox_to_anchor=(1.1,1.2))
+	
+	xleft, xright = ax.get_xlim()
+	ybottom, ytop = ax.get_ylim()
+	ratio = 1
+	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
 	# plt.xlim((0.8,3.2))
 	# plt.ylim((-40,90))
 	plt.tight_layout()
@@ -171,28 +175,37 @@ def hbar_plot(avg,std,label,path,color,xlabel):
 # 10893
 x640960_PSNR = [
 [34.66,36.22,37.92,39.31,40.28,41.05,41.67],
-[33.90,35.42,36.70,37.69],
-[34.79,36.06,37.11,37.93],
-[34.67,35.97,37.06,37.92],
-[],
 [33.20,35.25,36.92,38.02],
 [33.14,35.27,36.93,38.15],
+
+[33.90,35.42,36.70,37.69],
+[35.11,36.40,37.48,38.31],
+[34.95,36.32,37.45,38.32],
+
+[34.79,36.06,37.11,37.93],
+[34.67,35.97,37.06,37.92],
+[34.81,36.15,37.26,38.12],
 ]
 x640960_bpp = [
 [0.087,0.118,0.17,0.25,0.3565,0.5170,0.7261],
-[0.08,0.13,0.22,0.38],
-[0.08,0.13,0.35,0.57],
-[0.0569,0.0931,0.1529,0.2528],
-[],
 [0.05,0.07,0.11,0.17],
 [0.044,0.07,0.11,0.17],
+
+[0.08,0.13,0.22,0.38],
+[0.0846,0.1379,0.2256,0.3684],
+[0.0797,0.1301,0.2135,0.3507],
+
+[0.08,0.13,0.35,0.57],
+[0.0569,0.0931,0.1529,0.2528],
+[0.0570,0.0940,0.1554,0.2577],
 ]
-labels_tmp = ['LSVC','x264-veryfast','x265-veryfast','x265-medium','x265-veryslow','DVC','RLVC']
-colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5,'#3490dc','#6574cd','#9561e2','#f66d9b']
+labels_tmp = ['LSVC','DVC','RLVC','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']
+colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+markers_tmp = ['o','P','s','>','>','>','D','D','D','^']
 line_plot(x640960_bpp,x640960_PSNR,labels_tmp,colors_tmp,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/x640_960.eps',
-		'bpp','',ncol=0,
-		xticks=[.2,.4,.6],yticks=range(33,41))
+		'bpp','PSNR (dB)',markers=markers_tmp,ncol=1,
+		xticks=[.2,.4,.6,.8],yticks=range(33,44))
 exit(0)
 x448_bpp = [
 [0.107,0.15,0.22,0.317],

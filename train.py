@@ -25,10 +25,10 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-A-L-128'
+CODEC_NAME = 'LSVC-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 4 # 0,1,2,3
 RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
