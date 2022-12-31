@@ -76,7 +76,7 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['RLVC2']:
     # load what exists
-    pretrained_model_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-3{loss_type}_ckpt.pth'
+    pretrained_model_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-3{loss_type}_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
