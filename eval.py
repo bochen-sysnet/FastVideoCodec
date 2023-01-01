@@ -54,7 +54,8 @@ def get_gpu_memory_map():
 
 def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     loss_type = 'P'
-    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+    best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+    ckpt_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 
     ####### Codec model 
     model = get_codec_model(CODEC_NAME,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
@@ -65,11 +66,15 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
         return model
 
     ####### Load codec model 
-    if os.path.isfile(RESUME_CODEC_PATH):
-        # print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cpu'))
+    if os.path.isfile(best_path):
+        checkpoint = torch.load(best_path,map_location=torch.device('cpu'))
         load_state_dict_all(model, checkpoint['state_dict'])
-        # print("Loaded model codec score: ", checkpoint['score'])
+        print("Loaded model codec score: ", checkpoint['score'])
+        del checkpoint
+    elif os.path.isfile(ckpt_path):
+        checkpoint = torch.load(ckpt_path,map_location=torch.device('cpu'))
+        load_state_dict_all(model, checkpoint['state_dict'])
+        print("Loaded model codec score: ", checkpoint['score'])
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
@@ -235,7 +240,7 @@ def static_bench_x26x():
     
 def static_simulation_model(args, test_dataset):
     max_level = max(4,args.target_level)
-    for lvl in range(max_level):
+    for lvl in [4,5,6]:#range(max_level):
         if args.Q_option != 'Slow' and lvl>0:continue
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
@@ -1110,6 +1115,7 @@ def dynamic_simulation(args, test_dataset):
 # bola-basic
 # γ corresponds to how strongly we want to avoid rebuffering
 # V buffer-perf metrics trade-off
+# Q: buffer size
 # set γp = 5 and varied V for different buffer sizes.
 def BOLA_simulation():
     # how to derive bola parameters from S1,S2,v1,v2,v_M,Q_low,Q_max
