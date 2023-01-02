@@ -1690,13 +1690,14 @@ class LSVC(nn.Module):
         self.opticFlow = ME_Spynet()
         self.Q = None
         useAttn = ('-A' in name)
+        useSynAttn = ('-S' in name)
         channels = 128 if '-128' in name else out_channel_M 
         self.mvEncoder = Analysis_mv_net(useAttn=useAttn,channels=channels)
-        self.mvDecoder = Synthesis_mv_net(channels=channels)
+        self.mvDecoder = Synthesis_mv_net(channels=channels,useAttn=useSynAttn)
         self.resEncoder = Analysis_net(useAttn=useAttn)
-        self.resDecoder = Synthesis_net()
+        self.resDecoder = Synthesis_net(useAttn=useSynAttn)
         self.respriorEncoder = Analysis_prior_net(useAttn=useAttn)
-        self.respriorDecoder = Synthesis_prior_net()
+        self.respriorDecoder = Synthesis_prior_net(useAttn=useSynAttn)
         self.bitEstimator_mv = BitEstimator(channels)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warpnet = Warp_net()
