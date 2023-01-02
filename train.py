@@ -25,10 +25,10 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC2'#'LSVC-L-128'
+CODEC_NAME = 'LSVC-A-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 4 # 0,1,2,3
+compression_level = 0 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
@@ -74,9 +74,9 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['RLVC2']:
+elif CODEC_NAME in ['LSVC-A-128']:
     # load what exists
-    pretrained_model_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-3{loss_type}_best.pth'
+    pretrained_model_path = f'backup/LSVC-L-128/LSVC-L-128-0P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])

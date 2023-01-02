@@ -240,7 +240,7 @@ def static_bench_x26x():
     
 def static_simulation_model(args, test_dataset):
     max_level = max(4,args.target_level)
-    for lvl in [4,5,6]:#range(max_level):
+    for lvl in range(max_level):
         if args.Q_option != 'Slow' and lvl>0:continue
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
