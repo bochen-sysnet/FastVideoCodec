@@ -188,7 +188,7 @@ def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
     quality_levels = [3,7,11,15,19,23,27]
     
-    Q_list = quality_levels[args.level_range[0],args.level_range[1]] if args.Q_option == 'Slow' else [15]
+    Q_list = quality_levels[args.level_range[0]:args.level_range[1]] if args.Q_option == 'Slow' else [15]
     for Q in Q_list:
         data = []
         ba_loss_module = AverageMeter()
