@@ -124,6 +124,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         exit(1)
     # bgr24, rgb24, rgb?
     #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
+    t_0 = time.perf_counter()
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     for img in raw_clip:
         process.stdin.write(np.array(img).tobytes())
@@ -133,10 +134,13 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     process.wait()
     # Terminate the sub-process
     process.terminate()
+    # compression time
+    compt = time.perf_counter() - t_0
     # check video size
     video_size = os.path.getsize(output_filename)*8
     # Use OpenCV to read video
     clip = []
+    t_0 = time.perf_counter()
     cap = cv2.VideoCapture(output_filename)
     # Check if camera opened successfully
     if (cap.isOpened()== False):
@@ -149,6 +153,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         clip.append(transforms.ToTensor()(img))
     # When everything done, release the video capture object
     cap.release()
+    # decompression time
+    decompt = time.perf_counter() - t_0
     assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
     # create cache
     psnr_list = [];msssim_list = [];bpp_act_list = []
@@ -160,7 +166,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         msssim_list += [MSSSIM(Y1_raw, Y1_com)]
         bpp_act_list += torch.FloatTensor([bpp])
         
-    return psnr_list,msssim_list,bpp_act_list
+    return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
         
 # depending on training or testing
 # the compression time should be recorded accordinglly

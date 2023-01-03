@@ -201,7 +201,7 @@ def static_simulation_x26x(args,test_dataset):
                 continue
             l = len(data)
                 
-            psnr_list,msssim_list,bpp_act_list = compress_whole_video(args.task,data,Q,*test_dataset._frame_size)
+            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
@@ -220,6 +220,14 @@ def static_simulation_x26x(args,test_dataset):
                 f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+
+            # write result
+            psnr_list = torch.stack(psnr_list,dim=0).tolist()
+            bpp_list = torch.stack(bpp_act_list,dim=0).tolist()
+            with open(f'{args.task}.log','a') as f:
+                f.write(f'{psnr_module.avg:.2f},{ba_loss_module.avg:.4f},{compt:.4f},{decompt:.4f}')
+                f.write(str(psnr_list))
+                f.write(str(bpp_list))
                 
             # clear input
             data = []
