@@ -186,8 +186,9 @@ class AverageMeter(object):
                         
 def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
+    quality_levels = [3,7,11,15,19,23,27]
     
-    Q_list = [15,19,23,27] if args.Q_option == 'Slow' else [15]
+    Q_list = quality_levels[args.level_range[0],args.level_range[1]] if args.Q_option == 'Slow' else [15]
     for Q in Q_list:
         data = []
         ba_loss_module = AverageMeter()
@@ -225,9 +226,9 @@ def static_simulation_x26x(args,test_dataset):
             psnr_list = torch.stack(psnr_list,dim=0).tolist()
             bpp_list = torch.stack(bpp_act_list,dim=0).tolist()
             with open(f'{args.task}.log','a') as f:
-                f.write(f'{psnr_module.avg:.2f},{ba_loss_module.avg:.4f},{compt:.4f},{decompt:.4f}')
-                f.write(str(psnr_list))
-                f.write(str(bpp_list))
+                f.write(f'{psnr_module.avg:.2f},{ba_loss_module.avg:.4f},{compt:.4f},{decompt:.4f}\n')
+                f.write(str(psnr_list)+'\n')
+                f.write(str(bpp_list)+'\n')
                 
             # clear input
             data = []
@@ -247,8 +248,7 @@ def static_bench_x26x():
     exit(0)
     
 def static_simulation_model(args, test_dataset):
-    max_level = max(4,args.target_level)
-    for lvl in range(max_level):
+    for lvl in range(args.level_range[0],args.level_range[1]):
         if args.Q_option != 'Slow' and lvl>0:continue
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
         if args.use_cuda:
@@ -1181,7 +1181,9 @@ if __name__ == '__main__':
     parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
     parser.add_argument("--width", type=int, default=1920, help="Input width")
     parser.add_argument("--height", type=int, default=1280, help="Input height")
-    parser.add_argument("--target_level", type=int, default=-1, help="Chosen level to evaluate")
+    parser.add_argument("--max_level", type=int, default=4, help="Chosen level to evaluate")
+    parser.add_argument("--min_level", type=int, default=0, help="Chosen level to evaluate")
+    parser.add_argument('--level_range', type=int, nargs='+', default=[0,4])
     args = parser.parse_args()
     
     # check gpu

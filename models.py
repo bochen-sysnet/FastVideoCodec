@@ -321,16 +321,15 @@ def parallel_compression(model, data, compressI=False):
         elif 'LSVC' in model_name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
-            # if model.stage == 'MC':
-            #     img_loss = mc_loss*model.r
-            # elif model.stage == 'REC':
-            #     img_loss = rec_loss*model.r
-            # elif model.stage == 'WP':
-            #     img_loss = warp_loss*model.r
-            # else:
-            #     print('unknown stage')
-            #     exit(1)
-            img_loss = rec_loss*model_r
+            if model.stage == 'MC':
+                img_loss = mc_loss*model.r
+            elif model.stage == 'REC':
+                img_loss = rec_loss*model.r
+            elif model.stage == 'WP':
+                img_loss = warp_loss*model.r
+            else:
+                print('unknown stage')
+                exit(1)
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
