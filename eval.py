@@ -186,7 +186,7 @@ class AverageMeter(object):
                         
 def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
-    quality_levels = [3,7,11,15,19,23,27]
+    quality_levels = [7,11,15,19,23,27,31]
     
     Q_list = quality_levels[args.level_range[0]:args.level_range[1]] if args.Q_option == 'Slow' else [15]
     for Q in Q_list:
@@ -228,7 +228,6 @@ def static_simulation_x26x(args,test_dataset):
             with open(f'{args.task}.log','a') as f:
                 f.write(f'{psnr_module.avg:.2f},{ba_loss_module.avg:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
-                f.write(str(bpp_list)+'\n')
                 
             # clear input
             data = []
@@ -1131,17 +1130,21 @@ def BOLA_simulation():
     # V = (Q_max - Q_low) / (v_M - alpha)
     # gamma_p = (v_M * Q_low - alpha * Q_max) / (Q_max - Q_low)
 
-    V = .93 
-    gamma_p = 5
-    # S_m: bits per segment, p: second per segment
-    # v_m: utility or PSNR,υ_m = ln(S_m/S_1)
-    p = 1
-    T_k = 1
-    v_m = 35.0
-    Q = 0
-    S_m = 1
-    rho = (V * v_m + V * gamma_p - Q)/S_m
-    Q_next = max(Q-T_k/p) + 1
+    # V = .93 
+    # gamma_p = 5
+    # # S_m: bits per segment, p: second per segment
+    # # v_m: utility or PSNR,υ_m = ln(S_m/S_1)
+    # p = 1
+    # T_k = 1
+    # v_m = 35.0
+    # Q = 0
+    # S_m = 1
+    # rho = (V * v_m + V * gamma_p - Q)/S_m
+    # Q_next = max(Q-T_k/p) + 1
+
+    with open(f'{args.task}.log','r') as f:
+        for l in f.readlines():
+            print(len(l))
     return
 
 if __name__ == '__main__':
@@ -1154,14 +1157,11 @@ if __name__ == '__main__':
     parser.add_argument('--srdy_port', type=str, default='8847', help='Port to check if server is ready')
     parser.add_argument('--crdy_port', type=str, default='8848', help='Port to check if client is ready')
     parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
-    parser.add_argument('--task', type=str, default='RLVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
-    parser.add_argument('--mode', type=str, default='dynamic', help='dynamic or static simulation')
+    parser.add_argument('--task', type=str, default='x264-veryfast', help='RLVC,DVC,SPVC,AE3D,x265,x264')
+    parser.add_argument('--mode', type=str, default='static', help='dynamic or static simulation')
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
     parser.set_defaults(use_split=False)
-    parser.add_argument('--use_psnr', dest='use_psnr', action='store_true')
-    parser.add_argument('--no-use_psnr', dest='use_psnr', action='store_false')
-    parser.set_defaults(use_psnr=False)
     parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
     parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
     parser.set_defaults(use_cuda=True)
@@ -1174,16 +1174,14 @@ if __name__ == '__main__':
     parser.add_argument("--fP", type=int, default=6, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=6, help="The number of backward P frames")
     parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
-    parser.add_argument('--no-encoder_test', dest='use_psnr', action='store_false')
+    parser.add_argument('--no-encoder_test', dest='encoder_test', action='store_false')
     parser.set_defaults(encoder_test=False)
     parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
-    parser.add_argument('--fps', type=float, default=30., help='frame rate of sender')
+    parser.add_argument('--fps', type=float, default=1000., help='frame rate of sender')
     parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
-    parser.add_argument("--width", type=int, default=1920, help="Input width")
-    parser.add_argument("--height", type=int, default=1280, help="Input height")
-    parser.add_argument("--max_level", type=int, default=4, help="Chosen level to evaluate")
-    parser.add_argument("--min_level", type=int, default=0, help="Chosen level to evaluate")
-    parser.add_argument('--level_range', type=int, nargs='+', default=[0,4])
+    parser.add_argument("--width", type=int, default=960, help="Input width")
+    parser.add_argument("--height", type=int, default=640, help="Input height")
+    parser.add_argument('--level_range', type=int, nargs='+', default=[0,7])
     args = parser.parse_args()
     
     # check gpu
@@ -1195,16 +1193,19 @@ if __name__ == '__main__':
         args.role = 'client'
 
     # setup streaming parameters
-    # print(args)
-    # assert args.dataset in ['UVG','MCL-JCV','Xiph','HEVC']
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
+    if args.mode in['static','dynamic']:
+        test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
         
     if args.mode == 'dynamic':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
         dynamic_simulation(args, test_dataset)
-    else:
+    elif args.mode == 'static':
         assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'x26' in args.task)
         if 'x26' in args.task:
             static_simulation_x26x(args, test_dataset)
         elif args.task in ['RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
+    elif args.mode == 'bola':
+        BOLA_simulation()
+    else:
+        print('Unknown mode:',args.mode)
