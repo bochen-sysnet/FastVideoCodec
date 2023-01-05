@@ -92,10 +92,10 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # optimize bpp and app loss only
     # model.r_img, model.r_bpp, model.r_aux = 1,1,1
     # setup training weights
-    if epoch <= 1:
+    if epoch <= 0:
         model.stage = 'WP' # WP->MC->REC
         model.r_bpp = 0
-    elif epoch <= 2:
+    elif epoch <= 0:
         model.stage = 'MC'
         model.r_bpp = 1
     else:
