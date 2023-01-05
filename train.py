@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-A-128'
+CODEC_NAME = 'LSVC-A-S-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -74,6 +74,14 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
+elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score']
+    load_state_dict_all(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'])
+    del checkpoint
 elif CODEC_NAME in ['LSVC-A-128']:
     # load what exists
     pretrained_model_path = f'backup/LSVC-A-128/LSVC-A-128-3P_best.pth'
@@ -91,14 +99,6 @@ elif CODEC_NAME in ['LSVC-A-128']:
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
     #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
        # del pretrained_dict
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    # BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
 elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/2048.model'
     from DVC.net import load_model
