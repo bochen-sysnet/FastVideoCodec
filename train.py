@@ -25,10 +25,10 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-A-S-128'
+CODEC_NAME = 'LSVC-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 4 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
@@ -74,15 +74,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    # BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
-elif CODEC_NAME in ['LSVC-A-S-128']:
+elif CODEC_NAME in ['LSVC-L-128']:
     # load what exists
     pretrained_model_path = f'backup/LSVC-L-128/LSVC-L-128-0P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
@@ -99,6 +91,14 @@ elif CODEC_NAME in ['LSVC-A-S-128']:
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
     #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
        # del pretrained_dict
+elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score']
+    load_state_dict_all(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'])
+    del checkpoint
 elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/2048.model'
     from DVC.net import load_model
