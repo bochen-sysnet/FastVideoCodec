@@ -90,13 +90,14 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # warmup with all gamma set to 1
     # optimize for bpp,img loss and focus only reconstruction loss
     # optimize bpp and app loss only
-    
+    model.r_img, model.r_bpp, model.r_aux = 1,1,1
     # setup training weights
-    if epoch <= warmup_epoch:
-        model.r_img, model.r_bpp, model.r_aux = 1,1,1
-        model.stage = 'REC' # WP->MC->REC
+    if epoch <= 1:
+        model.stage = 'WP' # WP->MC->REC
+    elif epoch <= 2:
+        model.stage = 'MC'
     else:
-        model.r_img, model.r_bpp, model.r_aux = 1,1,1
+        model.stage = 'REC'
     
     model.epoch = epoch
     print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.stage)
