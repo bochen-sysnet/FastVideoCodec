@@ -90,14 +90,17 @@ def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
     # warmup with all gamma set to 1
     # optimize for bpp,img loss and focus only reconstruction loss
     # optimize bpp and app loss only
-    model.r_img, model.r_bpp, model.r_aux = 1,1,1
+    # model.r_img, model.r_bpp, model.r_aux = 1,1,1
     # setup training weights
     if epoch <= 1:
         model.stage = 'WP' # WP->MC->REC
+        model.r_bpp = 0
     elif epoch <= 2:
         model.stage = 'MC'
+        model.r_bpp = 1
     else:
         model.stage = 'REC'
+        model.r_bpp = 1
     
     model.epoch = epoch
     print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.stage)
@@ -1937,7 +1940,7 @@ class LSVC(nn.Module):
         bpp_res = total_bits_res / (bs * h * w)
         bpp_mv = total_bits_mv / (bs * h * w)
         if self.stage == 'MC' or self.stage == 'WP': bpp_res = bpp_res.detach()
-        bpp = bpp_res + bpp_mv
+        bpp = (bpp_res + bpp_mv) * self.r_bpp
         
         return com_frames, MC_frames, warped_frames, rec_loss, warp_loss, mc_loss, bpp_res, bpp
        
