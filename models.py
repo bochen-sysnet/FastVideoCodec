@@ -263,6 +263,7 @@ def parallel_compression(model, data, compressI=False):
         psnr_list += [psnr.to(data.device)]
     
     
+    encoding_time = decoding_time = 0
     # P compression, not including I frame
     if data.size(0) > 1: 
         if 'SPVC' in model_name:
@@ -302,7 +303,11 @@ def parallel_compression(model, data, compressI=False):
                 if model.training:
                     bpp_res_est_list += [bpp_res_est.to(data.device)]
                 x_hat_list.append(x_prev)
+                encoding_time += model.encoding_time
+                decoding_time += model.decoding_time
             x_hat = torch.cat(x_hat_list,dim=0)
+            encoding_time /= (B-1)
+            decoding_time /= (B-1)
         elif model_name in ['DVC-pretrained']:
             B,_,H,W = data.size()
             x_prev = data[0:1]
@@ -344,10 +349,12 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [(bpp).to(data.device)]
                 # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+            encoding_time = model.encoding_time/N
+            decoding_time = model.decoding_time/N
     if model.training:
-        return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+        return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
     else:
-        return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list
+        return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
     
 def write_image(x, prefix):
     for j in range(x.size(0)):
@@ -1301,6 +1308,8 @@ class IterPredVideoCodecs(nn.Module):
         # otherwise, it's P frame
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
+        # encoding time start
+        t0_enc = time.perf_counter()
         # estimate optical flow
         t_0 = time.perf_counter()
         # replace
@@ -1316,6 +1325,8 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['D-MV'].update(self.mv_codec.dec_t)
             self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
+        # decoding time start
+        t0_dec = time.perf_counter()
         # motion compensation
         t_0 = time.perf_counter()
         # replace
@@ -1336,6 +1347,9 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
+        # record time
+        self.encoding_time = time.perf_counter() - t0_enc
+        self.decoding_time = time.perf_counter() - t0_dec
         ##### compute bits
         # estimated bits
         bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
@@ -1885,10 +1899,12 @@ class LSVC(nn.Module):
 
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         ref_index = refidx_from_graph(g,bs)
+        t0_enc = time.perf_counter()
         estmv = self.opticFlow(input_image, x[ref_index])
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
         # tree compensation
+        t0_dec = time.perf_counter()
         MC_frame_list = [None for _ in range(bs)]
         warped_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
@@ -1926,6 +1942,9 @@ class LSVC(nn.Module):
                     total_bits_res = res_bits
                 else:
                     total_bits_res += res_bits
+
+        self.encoding_time = time.perf_counter() - t0_enc
+        self.decoding_time = time.perf_counter() - t0_dec
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
