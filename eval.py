@@ -312,7 +312,7 @@ def static_simulation_model(args, test_dataset):
                     bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
                     bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
                     l1,l2 = len(img_loss_list1),len(img_loss_list2)
-                    encoding_time,decoding_time = (encoding_time1*l1+encoding_time2*l2)/(l1+l2),(decoding_time1*l1,decoding_time2*l2)/(l1+l2)
+                    encoding_time,decoding_time = (encoding_time1*l1+encoding_time2*l2)/(l1+l2),(decoding_time1*l1+decoding_time2*l2)/(l1+l2)
                 else:
                     _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time = parallel_compression(model,torch.flip(data,[0]),True)
                     
