@@ -306,8 +306,8 @@ def parallel_compression(model, data, compressI=False):
                 encoding_time += model.encoding_time
                 decoding_time += model.decoding_time
             x_hat = torch.cat(x_hat_list,dim=0)
-            encoding_time /= (B-1)
-            decoding_time /= (B-1)
+            encoding_time /= (B)
+            decoding_time /= (B)
         elif model_name in ['DVC-pretrained']:
             B,_,H,W = data.size()
             x_prev = data[0:1]
@@ -349,8 +349,8 @@ def parallel_compression(model, data, compressI=False):
                 bpp_act_list += [(bpp).to(data.device)]
                 # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-            encoding_time = model.encoding_time/N
-            decoding_time = model.decoding_time/N
+            encoding_time = model.encoding_time/B
+            decoding_time = model.decoding_time/B
     if model.training:
         return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
     else:
