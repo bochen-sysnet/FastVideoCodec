@@ -67,14 +67,21 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
 
     ####### Load codec model 
     if os.path.isfile(best_path):
-        checkpoint = torch.load(best_path,map_location=torch.device('cpu'))
+        checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model codec score: ", checkpoint['score'])
         del checkpoint
     elif os.path.isfile(ckpt_path):
-        checkpoint = torch.load(ckpt_path,map_location=torch.device('cpu'))
+        checkpoint = torch.load(ckpt_path,map_location=torch.device('cuda:0'))
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model codec score: ", checkpoint['score'])
+        del checkpoint
+    elif 'LSVC-L-128' in CODEC_NAME:
+        psnr_list = [256,512,1024,2048]
+        DVC_ckpt_name = f'DVC/snapshot/{psnr_list[compression_level]}.model'
+        checkpoint = torch.load(DVC_ckpt_name,map_location=torch.device('cuda:0'))
+        load_state_dict_all(model, checkpoint)
+        print(f"Loaded model codec from {DVC_ckpt_name}")
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
