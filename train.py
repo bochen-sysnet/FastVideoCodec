@@ -232,6 +232,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 print('')
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+            exit(0)
     return best_codec_score
     
 def test(epoch, model, test_dataset):
@@ -307,9 +308,10 @@ def adjust_learning_rate(optimizer, epoch):
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level):
     import shutil
-    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}-{state['epoch']}_ckpt.pth')
+    epoch = state['epoch']
+    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}-{epoch}_ckpt.pth')
     if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}-{state['epoch']}_ckpt.pth',
+        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}-{epoch}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
