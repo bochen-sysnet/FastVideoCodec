@@ -1904,11 +1904,11 @@ class LSVC(nn.Module):
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
         # tree compensation
-        t0_dec = time.perf_counter()
         MC_frame_list = [None for _ in range(bs)]
         warped_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
         total_bits_res = None
+        self.decoding_time = 0
         x_tar = x[1:]
         for layer in layers:
             ref = [] # reference frame
@@ -1929,15 +1929,11 @@ class LSVC(nn.Module):
                 target_frames = torch.cat(target,dim=0)
                 t0_dec = time.perf_counter()
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
-                self.decoding_time = time.perf_counter() - t0_dec
-                print('1',ref.size(),diff.size(),self.decoding_time)
+                self.decoding_time += time.perf_counter() - t0_dec
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
-                t0_dec = time.perf_counter()
                 res_hat,res_bits = self.res_codec(res_tensors)
-                self.decoding_time = time.perf_counter() - t0_dec
-                print('2',res_tensors.size(),self.decoding_time)
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
