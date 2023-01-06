@@ -53,7 +53,7 @@ def BOLA_simulation(seed=0):
     num_segments = all_psnr.shape[1]
     print('Numer of segments:',num_segments)
 
-    trace_dur = 5
+    trace_dur = 1
     max_trace_num = num_segments*GOP/FPS/trace_dur*10
     # read network traces
     downthrpt = []
@@ -74,8 +74,7 @@ def BOLA_simulation(seed=0):
                 latency += [float(row["latency"])/1e6]
             if len(downthrpt) >= max_trace_num:
                 break
-
-    
+    print('Network trace loaded.')
 
     # T_k = 1
     # Q_next = max(Q-T_k/p) + 1
@@ -85,30 +84,38 @@ def BOLA_simulation(seed=0):
     # V = 0.93
     # V = (Q_max - p) / (39 + gamma * p)
     # how to derive bola parameters from S1,S2,v1,v2,v_max,Q_low,Q_max
-    S1 = all_bitrate.mean(axis=-1).sort()[0] * p
-    S2 = all_bitrate.mean(axis=-1).sort()[1] * p
-    v1 = all_psnr.mean(axis=-1).sort()[0]
-    v2 = all_psnr.mean(axis=-1).sort()[1]
-    v_max = all_psnr.mean(axis=-1)[0]
+    avail_bitrates = all_bitrate.mean(axis=-1)
+    avail_bitrates.sort()
+    avail_psnr = all_psnr.mean(axis=-1)
+    avail_psnr.sort()
+    S1 = avail_bitrates[0] * p
+    S2 = avail_bitrates[1] * p
+    v1 = avail_psnr[0]
+    v2 = avail_psnr[1]
+    v_max = all_psnr.max(axis=-1)[0]
     alpha = (S1 * v2 - S2 * v1)/(S2 - S1)
     V = (Q_max - Q_low) / (v_max - alpha)
     gamma = (v_max * Q_low - alpha * Q_max) / (Q_max - Q_low) / p
-    
+    # less gamma less V
+
     curr_seg = 0 # try to download this segment
     curr_t = 0 # current time in seconds
     curr_Q = 0 # current buffer level in seconds
     remain_segments = num_segments
     mean_quality = 0
-
+    selection_counter = [0 for i in range(1+num_levels)]
     while remain_segments > 0:
         # decide bitrate based on buffer level
         rho_max = -1000
         selected_level = -1
+        curr_seg = num_segments - remain_segments
         for lvl in range(num_levels):
-            rho = (V * all_psnr[lvl,curr_seg] + V * gamma * p - Q)/(all_bitrate[lvl,curr_seg] * p)
+            rho = (V * all_psnr[lvl,curr_seg] + V * gamma * p - curr_Q)/(all_bitrate[lvl,curr_seg] * p)
             if rho >= 0 and rho > rho_max:
                 rho_max = rho
                 selected_level = lvl
+        selection_counter[selected_level] += 1
+        # print('Options:',all_psnr[:,curr_seg],all_bitrate[:,curr_seg])
         if selected_level == -1:
             # wait until buffer is enough
             delta_T = curr_Q - (V * all_psnr[:,curr_seg].max() + V * gamma * p)
@@ -121,10 +128,12 @@ def BOLA_simulation(seed=0):
             start_t = curr_t
             # size of a segment
             remain_size = all_bitrate[selected_level,curr_seg] * p
+            # print('Trying to download size (bits):',remain_size)
             while remain_size > 0:
                 # find current bandwidth
-                trace_idx = curr_t//trace_dur
+                trace_idx = int(curr_t/trace_dur)
                 trace_end = (trace_idx+1)*trace_dur
+                # print('Using bandwidth (bps):',downthrpt[trace_idx])
                 # transmission + propagation + decoding
                 downloadable = (trace_end - curr_t) * downthrpt[trace_idx] + latency[trace_idx] + all_dect[selected_level,curr_seg]
                 if downloadable >= remain_size:
@@ -135,19 +144,25 @@ def BOLA_simulation(seed=0):
                     remain_size -= downloadable
             # accumulate time
             delta_T = curr_t - start_t
+            # print('Time to download (s):',delta_T)
             # reduce segments
             remain_segments -= 1
             # consume and add to buffer
             curr_Q = p + max(curr_Q - delta_T, 0)
             # add to quality
             mean_quality += all_psnr[lvl,curr_seg]
+        if selected_level in [1,2]:
+            print('#Remain:',remain_segments,'Selected level',selected_level,'Buffer level (s):',curr_Q)
     # replay what is left in buffer
     curr_t += curr_Q
     # rebuffering
     rebuffer_ratio = curr_t / (num_segments * p) - 1
     # quality
     mean_quality /= num_segments
-
+    # QOE
+    QoE = mean_quality - gamma * rebuffer_ratio
+    print(f'QoE:{QoE},Quality:{mean_quality},rebuffer_ratio:{rebuffer_ratio}')
+    print('Selection_counter',selection_counter)
     return
 
 if __name__ == '__main__':
