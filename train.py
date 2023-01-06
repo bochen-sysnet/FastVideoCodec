@@ -29,14 +29,15 @@ CODEC_NAME = 'LSVC-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 4 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/tmp.pth'
+# RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1#compression_level%2
+device = 0#compression_level%2
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -213,25 +214,25 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        # if batch_idx % 10000 == 0 and batch_idx>0:
-        #     if True:
-        #         print('testing at batch_idx %d' % (batch_idx))
-        #         score = test(epoch, model, test_dataset)
+        if batch_idx % 10000 == 0 and batch_idx>0:
+            if True:
+                print('testing at batch_idx %d' % (batch_idx))
+                score = test(epoch, model, test_dataset)
                 
-        #         is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
-        #         if is_best:
-        #             print("New best score: ", score, ". Previous: ", best_codec_score)
-        #             best_codec_score = score
-        #         else:
-        #             print(score)
-        #         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-        #         save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
-        #         #test(epoch, model, test_dataset2)
-        #         model.train()
-        #     else:
-        #         print('')
-        #         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-        #         save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+                is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
+                if is_best:
+                    print("New best score: ", score, ". Previous: ", best_codec_score)
+                    best_codec_score = score
+                else:
+                    print(score)
+                state = {'epoch': batch_idx, 'state_dict': model.state_dict(), 'score': score}
+                save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+                #test(epoch, model, test_dataset2)
+                model.train()
+            else:
+                print('')
+                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
+                save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     return best_codec_score
     
 def test(epoch, model, test_dataset):
@@ -334,5 +335,5 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
-
+    exit(0)
     # test(epoch, model, test_dataset2)
