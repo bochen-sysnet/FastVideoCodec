@@ -189,7 +189,7 @@ def static_simulation_x26x(args,test_dataset):
     quality_levels = [7,11,15,19,23,27,31]
     
     Q_list = quality_levels[args.level_range[0]:args.level_range[1]] if args.Q_option == 'Slow' else [15]
-    for Q in Q_list:
+    for lvl,Q in enumerate(Q_list):
         data = []
         ba_loss_module = AverageMeter()
         psnr_module = AverageMeter()
@@ -225,7 +225,7 @@ def static_simulation_x26x(args,test_dataset):
             # write result
             psnr_list = torch.stack(psnr_list,dim=0).tolist()
             with open(f'{args.task}.log','a') as f:
-                f.write(f'{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
+                f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
                 
             # clear input
@@ -360,7 +360,7 @@ def static_simulation_model(args, test_dataset):
 
             if eof:
                 with open(f'{args.task}.log','a') as f:
-                    f.write(f'{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f}\n')
+                    f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f}\n')
                     f.write(str(all_psnr_list)+'\n')
                 all_psnr_list = []
                 compt_module.reset()
