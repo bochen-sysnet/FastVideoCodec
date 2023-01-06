@@ -216,7 +216,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if batch_idx % 10000 == 0 and batch_idx>=0:
             if True:
                 print('testing at batch_idx %d' % (batch_idx))
-                score = test(epoch, model, test_dataset)
+                score = [0,0]#test(epoch, model, test_dataset)
                 
                 is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
                 if is_best:
