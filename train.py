@@ -36,7 +36,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1#compression_level%2
+device = 0#compression_level%2
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
