@@ -1930,14 +1930,14 @@ class LSVC(nn.Module):
                 t0_dec = time.perf_counter()
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 self.decoding_time = time.perf_counter() - t0_dec
-                print('1',self.decoding_time)
+                print('1',ref.size(),diff.size(),self.decoding_time)
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
                 t0_dec = time.perf_counter()
                 res_hat,res_bits = self.res_codec(res_tensors)
                 self.decoding_time = time.perf_counter() - t0_dec
-                print('2',self.decoding_time)
+                print('2',res_tensors.size(),self.decoding_time)
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
