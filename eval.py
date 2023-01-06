@@ -326,7 +326,7 @@ def static_simulation_model(args, test_dataset):
                 # aggregate loss
                 ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
                 psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-                all_psnr_list += [torch.stack(psnr_list,dim=0).tolist()]
+                all_psnr_list += torch.stack(psnr_list,dim=0).tolist()
                 
                 # record loss
                 ba_loss_module.update(ba_loss.cpu().data.item(), l)
