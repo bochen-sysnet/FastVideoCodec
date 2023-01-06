@@ -1945,6 +1945,7 @@ class LSVC(nn.Module):
 
         self.encoding_time = time.perf_counter() - t0_enc
         self.decoding_time = time.perf_counter() - t0_dec
+        print(self.decoding_time)
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
