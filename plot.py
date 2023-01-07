@@ -161,36 +161,12 @@ def hbar_plot(avg,std,label,path,color,xlabel):
 	fig.savefig(path,bbox_inches='tight')
 
 
-# UVG
-Ubpps = [[0.12,0.18,0.266,0.37,0.50],
-		[0.12,0.20,0.33,0.54],
-		[0.14,0.24,0.40,0.67],
-		[0.08,0.12,0.19,0.27,0.52,0.68,0.895],
-		[0.06,0.11,0.164,0.24,0.3399,0.4767,0.6794],
-		]
-UPSNRs = [[30.63,32.17,33.52,34.39,35.01],
-		[30.58,32.26,33.75,34.97],
-		[31.53,33.05,34.33,35.36],
-		[29.52,31.30,32.52,33.28,34.97,35.46,35.77],
-		[29.42,31.30,32.60,33.42,33.92,34.23,34.88],
-		]
-# Ubpps = np.array(Ubpps)
-# UPSNRs = np.array(UPSNRs)
-line_plot(Ubpps,UPSNRs,labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/rate-distortion-UVG.eps',
-		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
-		xticks=[.2,.4,.6,.8],yticks=range(30,37))
-exit(0)
-line_plot(Ubpps,UPSNRs,labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
-		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
-		xticks=[.2,.4,.6],yticks=range(30,37))
-
 ######################OTHER SIZE########################
 # 10893
 x640960_PSNR = [
 [34.66,36.22,37.92,39.31,40.28,41.05,41.67],
-[33.20,35.25,36.92,38.02,40.43,41.37,42.05],
+# [33.20,35.25,36.92,38.02,40.43,41.37,42.05],
+[34.6,35.08,36.88,38.10,40.35,41.25,41.90],
 [33.14,35.27,36.93,38.15,38.97,39.51,40.68],
 
 [33.90,35.42,36.70,37.69],
@@ -203,7 +179,8 @@ x640960_PSNR = [
 ]
 x640960_bpp = [
 [0.087,0.118,0.17,0.25,0.3565,0.5170,0.7261],
-[0.05,0.07,0.11,0.17,0.3069,0.4279,0.6158],
+# [0.05,0.07,0.11,0.17,0.3069,0.4279,0.6158],
+[0.0783,0.0806,0.1192,0.1765,0.3737,0.5183,0.7109],
 [0.044,0.07,0.11,0.17,0.2483,0.3682,0.5396],
 
 [0.08,0.13,0.22,0.38],
@@ -274,6 +251,31 @@ for i in range(4):
             lfsize=lfsize,legloc=legloc)
 
 
+
+# UVG
+Ubpps = [[0.12,0.18,0.266,0.37,0.50],
+		[0.12,0.20,0.33,0.54],
+		[0.14,0.24,0.40,0.67],
+		[0.08,0.12,0.19,0.27,0.52,0.68,0.895],
+		[0.06,0.11,0.164,0.24,0.3399,0.4767,0.6794],
+		]
+UPSNRs = [[30.63,32.17,33.52,34.39,35.01],
+		[30.58,32.26,33.75,34.97],
+		[31.53,33.05,34.33,35.36],
+		[29.52,31.30,32.52,33.28,34.97,35.46,35.77],
+		[29.42,31.30,32.60,33.42,33.92,34.23,34.88],
+		]
+# Ubpps = np.array(Ubpps)
+# UPSNRs = np.array(UPSNRs)
+line_plot(Ubpps,UPSNRs,labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/rate-distortion-UVG.eps',
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
+		xticks=[.2,.4,.6,.8],yticks=range(30,37))
+
+line_plot(Ubpps,UPSNRs,labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
+		xticks=[.2,.4,.6],yticks=range(30,37))
 # other x265 modes
 # very fast
 bpp = [0.14,0.24,0.40,0.67]

@@ -1749,7 +1749,6 @@ class LSVC(nn.Module):
         self.mvEncoder = self.mvEncoder.cuda()
         self.resEncoder = self.resEncoder.cuda()
         self.respriorEncoder = self.respriorEncoder.cuda()
-        print('parallel')
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
