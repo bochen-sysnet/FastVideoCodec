@@ -25,19 +25,18 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'LSVC-L-128'
+CODEC_NAME = 'RLVC2'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 6 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/tmp.pth'
-# RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+compression_level = 7 # 0,1,2,3
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-6{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1#compression_level%2
+device = 0#compression_level%2
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):

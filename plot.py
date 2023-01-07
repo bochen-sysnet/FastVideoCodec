@@ -57,7 +57,7 @@ def get_arr_from(pos,filename):
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=labelsize_b-8,legloc='best',
 				xticks=None,yticks=None,ncol=None, yerr=None,markers=markers,
-				use_arrow=False,arrow_coord=(0.4,30)):
+				use_arrow=False,arrow_coord=(0.4,30),ratio=1):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
 	for i in range(len(XX)):
@@ -87,10 +87,11 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 		else:
 			plt.legend(loc=legloc,fontsize = lfsize,ncol=ncol,bbox_to_anchor=(1.1,1.2))
 	
-	xleft, xright = ax.get_xlim()
-	ybottom, ytop = ax.get_ylim()
-	ratio = 1
-	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
+	if ratio is not None:
+		xleft, xright = ax.get_xlim()
+		ybottom, ytop = ax.get_ylim()
+		ratio = 1
+		ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
 	# plt.xlim((0.8,3.2))
 	# plt.ylim((-40,90))
 	plt.tight_layout()
@@ -196,8 +197,8 @@ colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574
 markers_tmp = ['o','P','s','>','>','>','D','D','D','^']
 line_plot(x640960_bpp,x640960_PSNR,labels_tmp,colors_tmp,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/x640_960.eps',
-		'bpp','PSNR (dB)',markers=markers_tmp,ncol=1,
-		xticks=[.2,.4,.6,.8],yticks=range(33,44))
+		'bpp','PSNR (dB)',markers=markers_tmp,ncol=0,
+		xticks=[.2,.4,.6,.8],yticks=range(33,44),ratio=None)
 exit(0)
 x448_bpp = [
 [0.107,0.15,0.22,0.317],
