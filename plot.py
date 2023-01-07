@@ -159,17 +159,32 @@ def hbar_plot(avg,std,label,path,color,xlabel):
 	plt.tight_layout()
 	fig.text(0.55, 0, xlabel, ha='center', fontsize = labelsize_b-8)
 	fig.savefig(path,bbox_inches='tight')
-    
-# 1920*640
-# PSNR = [[35.20,36.84,38.53,39.96,41.10],
-# [34.26,36.37,38.15,39.40],
-# [34.16,36.00,37.67,39.02],
-# [35.78,37.04,38.06,38.85]]
-# bpp = [[0.08,0.12,0.15,0.22,0.33],
-# [0.0455,0.0667,0.0987,0.1473],
-# [0.0439,0.0713,0.1084,0.1644],
-# [0.0460,0.0762,0.1264,0.2103]]
 
+
+# UVG
+Ubpps = [[0.12,0.18,0.266,0.37,0.50],
+		[0.12,0.20,0.33,0.54],
+		[0.14,0.24,0.40,0.67],
+		[0.08,0.12,0.19,0.27,0.52,0.68,0.895],
+		[0.06,0.11,0.164,0.24,0.3399,0.4767,0.6794],
+		]
+UPSNRs = [[30.63,32.17,33.52,34.39,35.01],
+		[30.58,32.26,33.75,34.97],
+		[31.53,33.05,34.33,35.36],
+		[29.52,31.30,32.52,33.28,34.97,35.46,35.77],
+		[29.42,31.30,32.60,33.42,33.92,34.23,34.88],
+		]
+# Ubpps = np.array(Ubpps)
+# UPSNRs = np.array(UPSNRs)
+line_plot(Ubpps,UPSNRs,labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/rate-distortion-UVG.eps',
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
+		xticks=[.2,.4,.6,.8],yticks=range(30,37))
+exit(0)
+line_plot(Ubpps,UPSNRs,labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
+		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
+		xticks=[.2,.4,.6],yticks=range(30,37))
 
 ######################OTHER SIZE########################
 # 10893
@@ -258,30 +273,6 @@ for i in range(4):
             'Frame Index',ylabel,xticks=range(1,14),yticks=ytick_list[i],
             lfsize=lfsize,legloc=legloc)
 
-# UVG
-Ubpps = [[0.12,0.18,0.266,0.37],#,0.50],
-		[0.12,0.20,0.33,0.54],
-		[0.14,0.24,0.40,0.67],
-		[0.08,0.12,0.19,0.27],
-		[0.06,0.11,0.164,0.24],
-		]
-UPSNRs = [[30.63,32.17,33.52,34.39],#,35.01],
-		[30.58,32.26,33.75,34.97],
-		[31.53,33.05,34.33,35.36],
-		[29.52,31.30,32.52,33.28],
-		[29.42,31.30,32.60,33.42],
-		]
-Ubpps = np.array(Ubpps)
-UPSNRs = np.array(UPSNRs)
-line_plot(Ubpps,UPSNRs,labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/rate-distortion-UVG.eps',
-		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
-		xticks=[.2,.4,.6],yticks=range(30,37))
-
-line_plot(Ubpps,UPSNRs,labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM22/images/motivation0.eps',
-		'bpp','PSNR (dB)',use_arrow=True,arrow_coord=(0.1,34),
-		xticks=[.2,.4,.6],yticks=range(30,37))
 
 # other x265 modes
 # very fast
