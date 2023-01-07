@@ -25,11 +25,11 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'RLVC2'
+CODEC_NAME = 'LSVC-L-128'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 7 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-6{loss_type}_ckpt.pth'
+compression_level = 4 # 0,1,2,3
+# RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
@@ -74,17 +74,9 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    # BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
-    del checkpoint
 elif CODEC_NAME in ['LSVC-L-128']:
     # load what exists
-    pretrained_model_path = f'backup/LSVC-L-128/LSVC-L-128-4P_ckpt.pth'
+    pretrained_model_path = f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
@@ -99,6 +91,14 @@ elif CODEC_NAME in ['LSVC-L-128']:
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
     #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
        # del pretrained_dict
+elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
+    best_codec_score = checkpoint['score']
+    load_state_dict_all(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'])
+    del checkpoint
 elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/2048.model'
     from DVC.net import load_model
@@ -224,7 +224,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                     best_codec_score = score
                 else:
                     print(score)
-                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+                state = {'epoch': epoch*100000+batch_idx, 'state_dict': model.state_dict(), 'score': score}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 #test(epoch, model, test_dataset2)
                 model.train()
@@ -308,9 +308,9 @@ def adjust_learning_rate(optimizer, epoch):
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level):
     import shutil
     epoch = state['epoch']
-    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
+    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}{epoch}_ckpt.pth')
     if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
+        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}{epoch}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
