@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 CODEC_NAME = 'RLVC2'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 7 # 0,1,2,3
+compression_level = 6 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-6{loss_type}_best.pth'
 # RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
