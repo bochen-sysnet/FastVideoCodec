@@ -240,7 +240,6 @@ def static_simulation_x26x(args,test_dataset):
         test_dataset.reset()
         
 
-    
 def static_bench_x26x():
     # optionaly try x264,x265
     test_dataset = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
@@ -273,6 +272,7 @@ def static_simulation_model(args, test_dataset):
         all_loss_module = AverageMeter()
         compt_module = AverageMeter()
         decompt_module = AverageMeter()
+        decompt_list = []
         video_bpp_module = AverageMeter()
         ds_size = len(test_dataset)
         GoP = args.fP + args.bP +1
@@ -334,6 +334,9 @@ def static_simulation_model(args, test_dataset):
                 compt_module.update(encoding_time,l)
                 decompt_module.update(decoding_time,l)
                 video_bpp_module.update(ba_loss,l)
+                decompt_list += [decompt]
+                decompt_mean = np.array(decompt_list).mean()
+                decompt_std = np.array(decompt_list).std()
 
                 if aux_loss_list:
                     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
@@ -359,7 +362,7 @@ def static_simulation_model(args, test_dataset):
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
                 f"A: {aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
                 f"I: {float(max(psnr_list)):.2f}. "
-                f"E: {compt_module.avg:.3f} D: {decompt_module.avg:.3f}. ")
+                f"E: {compt_module.avg:.3f} D: {decompt_mean:.3f} ({decompt_std:.3f}). ")
                 
             # clear input
             data = []
