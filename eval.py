@@ -362,7 +362,7 @@ def static_simulation_model(args, test_dataset):
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
                 f"A: {aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
                 f"I: {float(max(psnr_list)):.2f}. "
-                f"E: {compt_module.avg:.3f} D: {decompt_mean:.3f} ({decompt_std:.3f}). ")
+                f"E: {compt_module.avg:.3f} D: {decompt_mean:.5f} ({decompt_std:.5f}). ")
                 
             # clear input
             data = []
