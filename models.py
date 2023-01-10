@@ -1331,7 +1331,6 @@ class IterPredVideoCodecs(nn.Module):
         t0_dec = time.perf_counter()
         # replace
         Y1_MC, Y1_warp = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
-        self.decoding_time = time.perf_counter() - t0_dec
         t_comp = time.perf_counter() - t_0
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
@@ -1341,6 +1340,7 @@ class IterPredVideoCodecs(nn.Module):
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
             self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag,prior_latent=res_prior_latent)
+        self.decoding_time = time.perf_counter() - t0_dec
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
