@@ -334,7 +334,7 @@ def static_simulation_model(args, test_dataset):
                 compt_module.update(encoding_time,l)
                 decompt_module.update(decoding_time,l)
                 video_bpp_module.update(ba_loss,l)
-                decompt_list += [decompt]
+                decompt_list += [decoding_time]
                 decompt_mean = np.array(decompt_list).mean()
                 decompt_std = np.array(decompt_list).std()
 
