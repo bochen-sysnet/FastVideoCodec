@@ -1325,10 +1325,10 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['D-MV'].update(self.mv_codec.dec_t)
             self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
-        # motion compensation
-        t_0 = time.perf_counter()
         # decoding time start
         t0_dec = time.perf_counter()
+        # motion compensation
+        t_0 = time.perf_counter()
         # replace
         Y1_MC, Y1_warp = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
         t_comp = time.perf_counter() - t_0
@@ -1340,7 +1340,6 @@ class IterPredVideoCodecs(nn.Module):
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
             self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag,prior_latent=res_prior_latent)
-        self.decoding_time = time.perf_counter() - t0_dec
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
@@ -1350,7 +1349,7 @@ class IterPredVideoCodecs(nn.Module):
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # record time
         self.encoding_time = time.perf_counter() - t0_enc
-        # self.decoding_time = time.perf_counter() - t0_dec
+        self.decoding_time = time.perf_counter() - t0_dec
         ##### compute bits
         # estimated bits
         bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
@@ -1904,7 +1903,7 @@ class LSVC(nn.Module):
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
         # tree compensation
-        # t0_dec = time.perf_counter()
+        t0_dec = time.perf_counter()
         MC_frame_list = [None for _ in range(bs)]
         warped_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
@@ -1927,13 +1926,11 @@ class LSVC(nn.Module):
                     ref = ref.detach()
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
-                t0_dec = time.perf_counter()
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
                 res_hat,res_bits = self.res_codec(res_tensors)
-                self.decoding_time = time.perf_counter() - t0_dec
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
                     if tar>bs:continue
@@ -1946,7 +1943,7 @@ class LSVC(nn.Module):
                     total_bits_res += res_bits
 
         self.encoding_time = time.perf_counter() - t0_enc
-        # self.decoding_time = time.perf_counter() - t0_dec
+        self.decoding_time = time.perf_counter() - t0_dec
         MC_frames = torch.cat(MC_frame_list,dim=0)
         warped_frames = torch.cat(warped_frame_list,dim=0)
         com_frames = torch.cat(com_frame_list,dim=0)
