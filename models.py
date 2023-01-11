@@ -945,10 +945,10 @@ def generate_graph(graph_type='default'):
     # BFS or DFS?
     if graph_type == 'default':
         g = {}
-        for k in range(14):
+        for k in range(30):
             g[k] = [k+1]
-        layers = [[i+1] for i in range(14)] # elements in layers
-        parents = {i+1:i for i in range(14)}
+        layers = [[i+1] for i in range(30)] # elements in layers
+        parents = {i+1:i for i in range(30)}
     elif graph_type == 'onehop':    
         g = {0:[i+1 for i in range(14)]}
         layers = [[i+1 for i in range(14)]]
