@@ -13,6 +13,7 @@ import torch.nn.init as init
 from torch.nn.parameter import Parameter
 from DVC.subnet import *
 import torchac
+import time
 
 def save_model(model, iter):
     torch.save(model.state_dict(), "./snapshot/iter{}.model".format(iter))
@@ -74,7 +75,7 @@ class VideoCompressor(nn.Module):
         else:
             quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
-
+        t0_dec = time.perf_counter()
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
 
         input_residual = input_image - prediction
@@ -214,6 +215,7 @@ class VideoCompressor(nn.Module):
         bpp_z = total_bits_z / (batch_size * im_shape[2] * im_shape[3])
         bpp_mv = total_bits_mv / (batch_size * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
+        self.decoding_time = time.perf_counter() - t0_dec
         
         return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp
         
