@@ -149,7 +149,7 @@ def get_arr_from(pos,filename):
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=labelsize_b-8,legloc='best',
 				xticks=None,yticks=None,ncol=None, yerr=None,markers=markers,
-				use_arrow=False,arrow_coord=(0.4,30),ratio=1,bbox_to_anchor=(1.1,1.2)):
+				use_arrow=False,arrow_coord=(0.4,30),ratio=None,bbox_to_anchor=(1.1,1.2)):
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
 	for i in range(len(XX)):
@@ -355,59 +355,25 @@ def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],
 
 
 # scale
-# [0.0195,0.028,0.0526],[0.0324,0.0402,0.0632]
+# 2080:[0.0195,0.028,0.0526],1080:[0.0324,0.0402,0.0632]
+# LSVC
 [0.05225,0.05759,0.02927,0.02591,0.02473]
+# DVC
+[0.02850,0.03048,0.04040,0.04458,]
 
 
 ######################SCALABILITY##########################
 # motivation show duration
 scalability_labels = ['LSVC','DVC','RLVC']
-# read
-fps_avg_list = []
-fps_std_list = []
-gpu_avg_list = []
-gpu_std_list = []
-with open('scalability.log','r') as f:
-	count = 0
-	fps_arr = []
-	gpu_arr = []
-	for idx,line in enumerate(f.readlines()):
-		line = line.strip()
-		line = line.split(' ')
-		fps_arr += [float(line[3])]
-		gpu_arr += [float(line[6])]
-		if idx%4==3:
-			fps_arr = np.array(fps_arr)
-			gpu_arr = np.array(gpu_arr)/8117
-			fps_avg,fps_std = np.mean(fps_arr),np.std(fps_arr)
-			gpu_avg,gpu_std = np.mean(gpu_arr),np.std(gpu_arr)
-			fps_avg_list.append(fps_avg)
-			fps_std_list.append(fps_std)
-			gpu_avg_list.append(gpu_avg)
-			gpu_std_list.append(gpu_std)
-			fps_arr = []
-			gpu_arr = []
-
-fps_avg_list = np.array(fps_avg_list)
-fps_avg_list.resize(len(scalability_labels),30)
-fps_std_list = np.array(fps_std_list)
-fps_std_list.resize(len(scalability_labels),30)
-gpu_avg_list = np.array(gpu_avg_list)
-gpu_avg_list.resize(len(scalability_labels),30)
-gpu_std_list = np.array(gpu_std_list)
-gpu_std_list.resize(len(scalability_labels),30)
-
 show_indices = [0,1,5,13,29] # 1,2,6,14,30
 GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(len(scalability_labels))]
-print(fps_avg_list[:,show_indices].tolist())
-line_plot(GOP_size,fps_avg_list[:,show_indices],scalability_labels,colors,
+fps_avg_list = [[16.53, 24.952500000000004, 28.792499999999997, 32.2175, 33.235], 
+[23.847500000000004, 25.012500000000003, 25.73, 26.175, 26.1875], 
+[21.565, 19.09, 17.615, 17.207500000000003, 17.0325]]
+line_plot(GOP_size,fps_avg_list,scalability_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/scalability_fps.eps',
 		'GOP Size','FPS',yerr=fps_std_list[:,show_indices],ncol=0,
 		yticks=range(10,50,10),xticks=range(0,61,10))
-# line_plot(GOP_size,100*gpu_avg_list[:,show_indices],scalability_labels,colors,
-# 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/scalability_gpu.eps',
-# 		'GOP Size','GPU Usage (%)',xticks=range(0,61,10),yticks=[20,30,40,50],legloc='upper left',
-# 		yerr=gpu_std_list[:,show_indices])
 
 SPSNRs = [
 [30.91,32.62,33.89,34.57],
