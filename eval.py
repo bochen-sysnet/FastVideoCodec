@@ -249,6 +249,40 @@ def static_bench_x26x():
     static_simulation_x26x(test_dataset,'x264')
     static_simulation_x26x(test_dataset,'x265')
     exit(0)
+
+def speed_test():
+    model = LoadModel('LSVC-L-128',compression_level=0,use_split=False)
+    model = model.cuda()
+    model.eval()
+    flt,mct,rest,mvt = [],[],[],[]
+    for b in range(1,11):
+        inp1,inp2 = torch.rand(b,3,256,256),torch.rand(b,3,256,256)
+        inp3,inp4 = torch.rand(b, 3, 256, 256),torch.rand(b, 2, 256, 256)
+        inp5 = torch.rand(b, 3, 256, 256)
+        inp6 = torch.rand(b, 2, 256, 256)
+
+        t0 = time.perf_counter()
+        for it in range(10):
+            model.opticFlow(inp1,inp2)
+        flt += [(time.perf_counter()-t0)/10]
+
+        t0 = time.perf_counter()
+        for it in range(10):
+            model.motioncompensation(inp3,inp4)
+        mct += [(time.perf_counter()-t0)/10]
+        t0 = time.perf_counter()
+        for it in range(10):
+            model.res_codec(inp5)
+        rest += [(time.perf_counter()-t0)/10]
+        t0 = time.perf_counter()
+        for it in range(10):
+            model.mv_codec(inp6)
+        mvt += [(time.perf_counter()-t0)/10]
+    print(flt)
+    print(mct)
+    print(rest)
+    print(mvt)
+
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
@@ -1235,7 +1269,7 @@ if __name__ == '__main__':
             static_simulation_x26x(args, test_dataset)
         elif args.task in ['RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
-    elif args.mode == 'bola':
-        BOLA_simulation()
+    elif args.mode == 'speed_test':
+        speed_test()
     else:
         print('Unknown mode:',args.mode)
