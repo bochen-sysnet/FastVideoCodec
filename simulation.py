@@ -38,18 +38,15 @@ for i, (name, linestyle) in enumerate(linestyle_dict.items()):
     
 
 GOP = 13
-FPS = 30
 width,height = 960,640
 pix_per_frame = width*height
-pix_per_seg = pix_per_frame*GOP
-pix_per_sec = pix_per_frame*FPS
 trace_dur = 1
 
 def BOLA_simulation(total_traces = 100,
     tasks = ['LSVC-A','LSVC-L-128','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
     # read network traces
     import csv
-    single_trace_len = 500#num_segments*GOP/FPS/trace_dur
+    single_trace_len = 500
     downthrpt = []
     latency = []
     with open('../curr_videostream.csv', mode='r') as csv_file:
@@ -58,6 +55,10 @@ def BOLA_simulation(total_traces = 100,
         for row in csv_reader:
             if args.hardware == '1080':
                 if line_cnt < single_trace_len * total_traces:
+                    line_cnt += 1
+                    continue
+            elif args.hardware == '3090':
+                if line_cnt < single_trace_len * total_traces /10:
                     line_cnt += 1
                     continue
             # bytes per second to bps
@@ -102,7 +103,7 @@ def BOLA_simulation(total_traces = 100,
     # print(rebuffer_matrix.mean(axis=1),rebuffer_matrix.std(axis=1))
     print(all_mean_psnr)
     print(all_mean_bpp)
-    # print(all_dect_mean,all_dect_std)
+    print(all_dect_mean,all_dect_std)
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,legloc='best',linestyles=linestyles,
                 xticks=None,yticks=None,ncol=None, yerr=None, xticklabel=None,yticklabel=None,xlim=None,ylim=None,ratio=None,
@@ -192,7 +193,9 @@ def task_to_video_trace(task):
                     if args.hardware == '2080':
                         dect_list = [0.0195,0.028,0.0526]
                     elif args.hardware == '1080':
-                        dect_list = [0.0324,0.0402,0.0632]
+                        dect_list = [0.0310,0.0382,0.0581]
+                    elif args.hardware == '3090':
+                        dect_list = [0.0102,0.01,0.012]
                     else:
                         print('Unknown hardware:',args.hardware)
                         exit(0)
@@ -221,6 +224,7 @@ def task_to_video_trace(task):
     all_psnr = []
     all_bitrate = []
     all_dect = []
+    pix_per_sec = pix_per_frame*args.fps
     num_segments = len(frame_psnr_dict[0])//GOP
     for lvl in range(len(frame_psnr_dict.keys())):
         frame_psnr_dict[lvl] = np.array(frame_psnr_dict[lvl][:GOP*num_segments]).reshape(num_segments,GOP).mean(axis=-1)
@@ -250,7 +254,7 @@ def task_to_video_trace(task):
 def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx):
     # T_k = 1
     # Q_next = max(Q-T_k/p) + 1
-    p = 1.*(GOP/FPS) # seconds per segment
+    p = 1.*(GOP/args.fps) # seconds per segment
     # how to derive bola parameters from S1,S2,v1,v2,v_max,Q_low,Q_max
     avail_bitrates = all_bitrate.mean(axis=-1)
     avail_bitrates.sort()
@@ -373,11 +377,10 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
-    # parser.add_argument('--task', type=str, default='x264-veryfast', help='RLVC,DVC,SPVC,AE3D,x265,x264')
-    parser.add_argument('--hardware', type=str, default='2080', help='2080,1080')
+    parser.add_argument('--hardware', type=str, default='1080', help='3090,2080,1080')
     parser.add_argument("--Q_max", type=int, default=60, help="Max buffer")
     parser.add_argument("--Q_low", type=int, default=10, help="Low buffer")
-    # parser.add_argument("--seed", type=int, default=0, help="Seed for trace")
+    parser.add_argument("--fps", type=int, default=30, help="frame per second")
     parser.add_argument('--psnr', dest='psnr', action='store_true')
     parser.add_argument('--no-psnr', dest='psnr', action='store_false')
     parser.set_defaults(psnr=False)
