@@ -416,7 +416,44 @@ H is the hatch used for identification of the different dataframe"""
     fig.savefig(filename, bbox_inches='tight')
     plt.close()
     return axe
-
+scalability_labels = ['LSVC','DVC','RLVC']
+# read
+fps_avg_list = []
+fps_std_list = []
+gpu_avg_list = []
+gpu_std_list = []
+with open('scalability.log','r') as f:
+	count = 0
+	fps_arr = []
+	gpu_arr = []
+	for idx,line in enumerate(f.readlines()):
+		line = line.strip()
+		line = line.split(' ')
+		fps_arr += [float(line[3])]
+		gpu_arr += [float(line[6])]
+		if idx%4==3:
+			fps_arr = np.array(fps_arr)
+			gpu_arr = np.array(gpu_arr)/8117
+			fps_avg,fps_std = np.mean(fps_arr),np.std(fps_arr)
+			gpu_avg,gpu_std = np.mean(gpu_arr),np.std(gpu_arr)
+			fps_avg_list.append(fps_avg)
+			fps_std_list.append(fps_std)
+			gpu_avg_list.append(gpu_avg)
+			gpu_std_list.append(gpu_std)
+			fps_arr = []
+			gpu_arr = []
+fps_avg_list = np.array(fps_avg_list)
+fps_avg_list.resize(len(scalability_labels),30)
+fps_std_list = np.array(fps_std_list)
+fps_std_list.resize(len(scalability_labels),30)
+gpu_avg_list = np.array(gpu_avg_list)
+gpu_avg_list.resize(len(scalability_labels),30)
+gpu_std_list = np.array(gpu_std_list)
+gpu_std_list.resize(len(scalability_labels),30)
+show_indices = [0,1,5,13,29] # 1,2,6,14,30
+GOP_size = [[(i+1)*2+1 for i in show_indices] for _ in range(len(scalability_labels))]
+print(100*gpu_avg_list[:,show_indices])
+exit(0)
 
 ######################SCALABILITY##########################
 decompt =[ [0.02196,0.01354,0.0100,0.00785,0.00689],

@@ -1900,6 +1900,7 @@ class LSVC(nn.Module):
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         ref_index = refidx_from_graph(g,bs)
         t0_enc = time.perf_counter()
+        print(input_image.size(),x[ref_index].size())
         estmv = self.opticFlow(input_image, x[ref_index])
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
@@ -1927,10 +1928,12 @@ class LSVC(nn.Module):
                     ref = ref.detach()
                 diff = torch.cat(diff,dim=0)
                 target_frames = torch.cat(target,dim=0)
+                print(ref.size(),diff.size())
                 MC_frames,warped_frames = self.motioncompensation(ref, diff)
                 #print(PSNR(target_frames, MC_frames, use_list=True))
                 approx_frames = MC_frames
                 res_tensors = target_frames - approx_frames
+                print(res_tensors.size())
                 res_hat,res_bits = self.res_codec(res_tensors)
                 com_frames = torch.clip(res_hat + approx_frames, min=0, max=1)
                 for i,tar in enumerate(layer):
@@ -1942,7 +1945,7 @@ class LSVC(nn.Module):
                     total_bits_res = res_bits
                 else:
                     total_bits_res += res_bits
-
+        exit(0)
         self.encoding_time = time.perf_counter() - t0_enc
         self.decoding_time = time.perf_counter() - t0_dec
         MC_frames = torch.cat(MC_frame_list,dim=0)
