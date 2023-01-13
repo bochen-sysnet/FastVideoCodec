@@ -255,7 +255,7 @@ def speed_test():
     model = model.cuda()
     model.eval()
     flt,mct,rest,mvt = [],[],[],[]
-    for b in range(1,11):
+    for b in range(1,65):
         inp1,inp2 = torch.rand(b,3,256,256).cuda(),torch.rand(b,3,256,256).cuda()
         inp3,inp4 = torch.rand(b, 3, 256, 256).cuda(),torch.rand(b, 2, 256, 256).cuda()
         inp5 = torch.rand(b, 3, 256, 256).cuda()
@@ -264,20 +264,20 @@ def speed_test():
         t0 = time.perf_counter()
         for it in range(10):
             model.opticFlow(inp1,inp2)
-        flt += [(time.perf_counter()-t0)/10]
+        flt += [(time.perf_counter()-t0)/10/b]
 
         t0 = time.perf_counter()
         for it in range(10):
             model.motioncompensation(inp3,inp4)
-        mct += [(time.perf_counter()-t0)/10]
+        mct += [(time.perf_counter()-t0)/10/b]
         t0 = time.perf_counter()
         for it in range(10):
             model.res_codec(inp5)
-        rest += [(time.perf_counter()-t0)/10]
+        rest += [(time.perf_counter()-t0)/10/b]
         t0 = time.perf_counter()
         for it in range(10):
             model.mv_codec(inp6)
-        mvt += [(time.perf_counter()-t0)/10]
+        mvt += [(time.perf_counter()-t0)/10/b]
     print(flt)
     print(mct)
     print(rest)
