@@ -255,12 +255,12 @@ def speed_test():
     model = model.cuda()
     model.eval()
     flt,mct,rest,mvt = [],[],[],[]
-    for b in range(1,33):
+    for b in range(1,17):
         print('batch:',b)
-        inp1,inp2 = torch.rand(b,3,256,256).cuda(),torch.rand(b,3,256,256).cuda()
-        inp3,inp4 = torch.rand(b, 3, 256, 256).cuda(),torch.rand(b, 2, 256, 256).cuda()
-        inp5 = torch.rand(b, 3, 256, 256).cuda()
-        inp6 = torch.rand(b, 2, 256, 256).cuda()
+        inp1,inp2 = torch.zeros(b,3,256,256).cuda(),torch.zeros(b,3,256,256).cuda()
+        inp3,inp4 = torch.zeros(b, 3, 256, 256).cuda(),torch.zeros(b, 2, 256, 256).cuda()
+        inp5 = torch.zeros(b, 3, 256, 256).cuda()
+        inp6 = torch.zeros(b, 2, 256, 256).cuda()
 
         t0 = time.perf_counter()
         for it in range(10):

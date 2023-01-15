@@ -40,7 +40,6 @@ for i, (name, linestyle) in enumerate(linestyle_dict.items()):
 GOP = 13
 width,height = 960,640
 pix_per_frame = width*height
-trace_dur = 1
 
 def BOLA_simulation(total_traces = 100,
     tasks = ['LSVC-A','LSVC-L-128','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
@@ -49,25 +48,40 @@ def BOLA_simulation(total_traces = 100,
     single_trace_len = 500
     downthrpt = []
     latency = []
-    with open('../curr_videostream.csv', mode='r') as csv_file:
+    if args.trace_id == 0:
+        trace_file = '../curr_videostream.csv'
+        args.trace_dur = 10
+    else:
+        trace_file = '../curr_httpgetmt.csv'
+        args.trace_dur = 5
+    with open(trace_file, mode='r') as csv_file:
         csv_reader = csv.DictReader(csv_file)
         line_cnt = 0
         for row in csv_reader:
-            if args.hardware == '1080':
-                if line_cnt < single_trace_len * total_traces:
-                    line_cnt += 1
-                    continue
-            elif args.hardware == '3090':
-                if line_cnt < single_trace_len * total_traces /10:
-                    line_cnt += 1
-                    continue
+            # if args.hardware == '1080':
+            #     if line_cnt < single_trace_len * total_traces:
+            #         line_cnt += 1
+            #         continue
+            # elif args.hardware == '3090':
+            #     if line_cnt < single_trace_len * total_traces /10:
+            #         line_cnt += 1
+            #         continue
             # bytes per second to bps
             # micro seconds to sec
-            if float(row["downthrpt"])>0.125e6:
-                downthrpt += [float(row["downthrpt"])*8]
-                latency += [float(row["latency"])/1e6]
+            if args.trace_id == 0:
+                downthrpt_sample = float(row["downthrpt"])*8
+                latency_sample = float(row["latency"])/1e6
+            else:
+                if row["bytes_sec_interval"] == 'NULL':
+                    continue
+                downthrpt_sample = float(row["bytes_sec_interval"])*8
+                latency_sample = 0
+            if downthrpt_sample>1e6 and downthrpt_sample<100e6:
+                downthrpt += [downthrpt_sample]
+                latency += [latency_sample]
             if len(downthrpt) >= single_trace_len * total_traces:
                 break
+    print('Trace stats:',np.array(downthrpt).mean(),np.array(downthrpt).std(),np.array(downthrpt).max(),np.array(downthrpt).min())
 
     QoE_matrix = []
     quality_matrix = []
@@ -95,12 +109,12 @@ def BOLA_simulation(total_traces = 100,
                 f"rebuffer:{rebuffer:.4f}. ")
         QoE_matrix += [QoE_list];quality_matrix += [quality_list];rebuffer_matrix += [rebuffer_list]
         sim_iter.reset()
-    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/QoE_{args.large_scale}_{args.hardware}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(QoE_matrix))
     QoE_matrix = np.array(QoE_matrix);quality_matrix = np.array(quality_matrix);rebuffer_matrix = np.array(rebuffer_matrix)
     print(QoE_matrix.mean(axis=1).tolist(),QoE_matrix.std(axis=1).tolist())
-    # print(quality_matrix.mean(axis=1),quality_matrix.std(axis=1))
-    # print(rebuffer_matrix.mean(axis=1),rebuffer_matrix.std(axis=1))
+    print(quality_matrix.mean(axis=1),quality_matrix.std(axis=1))
+    print(rebuffer_matrix.mean(axis=1),rebuffer_matrix.std(axis=1))
     print(all_mean_psnr)
     print(all_mean_bpp)
     print(all_dect_mean,all_dect_std)
@@ -333,8 +347,8 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
             # print('Trying to download size (bits):',remain_size)
             while remain_size > 0:
                 # find current bandwidth
-                trace_idx = int(curr_t/trace_dur)
-                trace_end = (trace_idx+1)*trace_dur
+                trace_idx = int(curr_t/args.trace_dur)
+                trace_end = (trace_idx+1)*args.trace_dur
                 # print('Using bandwidth (bps):',downthrpt[trace_idx])
                 # transmission + propagation
                 downloadable = (trace_end - curr_t) * downthrpt[trace_idx]
@@ -378,6 +392,7 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--hardware', type=str, default='1080', help='3090,2080,1080')
+    parser.add_argument("--trace_id", type=int, default=0, help="0:curr_videostream,1:curr_httpgetmt")
     parser.add_argument("--Q_max", type=int, default=60, help="Max buffer")
     parser.add_argument("--Q_low", type=int, default=10, help="Low buffer")
     parser.add_argument("--fps", type=int, default=30, help="frame per second")
@@ -393,4 +408,5 @@ if __name__ == '__main__':
     if args.large_scale:
         BOLA_simulation(total_traces=args.num_traces)
     else:    
-        BOLA_simulation(total_traces=args.num_traces,tasks=['LSVC-L-128','RLVC2','x264-veryfast','x265-veryfast'])
+        BOLA_simulation(total_traces=args.num_traces,
+            tasks=['LSVC-L-128','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
