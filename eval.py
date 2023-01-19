@@ -85,6 +85,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
+        exit(1)
     return model
     
 class VideoDataset(Dataset):
@@ -1264,10 +1265,10 @@ if __name__ == '__main__':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
         dynamic_simulation(args, test_dataset)
     elif args.mode == 'static':
-        assert(args.task in ['RLVC','RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'x26' in args.task)
+        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'x26' in args.task)
         if 'x26' in args.task:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC','RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
     elif args.mode == 'speed_test':
         speed_test()

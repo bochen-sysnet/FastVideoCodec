@@ -855,9 +855,9 @@ class Coder2D(nn.Module):
                 latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden, prior_latent=prior_latent)
             
         # add in the time in entropy bottleneck
-        if not self.noMeasure:
-            self.enc_t += self.entropy_bottleneck.enc_t
-            self.dec_t += self.entropy_bottleneck.dec_t
+        # if not self.noMeasure:
+        #     self.enc_t += self.entropy_bottleneck.enc_t
+        #     self.dec_t += self.entropy_bottleneck.dec_t
         
         # calculate bpp (estimated) if it is training else it will be set to 0
         if self.noMeasure:
