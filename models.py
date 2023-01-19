@@ -1309,11 +1309,8 @@ class IterPredVideoCodecs(nn.Module):
         # otherwise, it's P frame
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
-        # encoding time start
-        t0_enc = time.perf_counter()
         # estimate optical flow
         t_0 = time.perf_counter()
-        # replace
         # mv_tensors, l0, l1, l2, l3, l4 = self.opticFlow(Y0_com, Y1_raw)
         mv_tensors = self.opticFlow(Y1_raw, Y0_com)
         if not self.noMeasure:
@@ -1326,8 +1323,6 @@ class IterPredVideoCodecs(nn.Module):
             self.meters['D-MV'].update(self.mv_codec.dec_t)
             self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
             self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
-        # decoding time start
-        t0_dec = time.perf_counter()
         # motion compensation
         t_0 = time.perf_counter()
         # replace
@@ -1349,8 +1344,8 @@ class IterPredVideoCodecs(nn.Module):
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # record time
-        self.encoding_time = time.perf_counter() - t0_enc
-        self.decoding_time = time.perf_counter() - t0_dec
+        self.encoding_time = self.meters['E-FL'].avg + self.meters['E-MV'].avg + self.meters['eEMV'].avg + self.meters['E-MC'].avg + self.meters['E-RES'].avg + self.meters['eERES'].avg
+        self.decoding_time = self.meters['D-MV'].avg + self.meters['eDMV'].avg + self.meters['D-MC'].avg + self.meters['D-RES'].avg + self.meters['eDRES'].avg
         ##### compute bits
         # estimated bits
         bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
