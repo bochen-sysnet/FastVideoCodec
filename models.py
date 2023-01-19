@@ -1288,7 +1288,6 @@ class IterPredVideoCodecs(nn.Module):
         self.use_split = use_split
         if self.use_split:
             self.split()
-        print('........',noMeasure)
 
     def split(self):
         self.opticFlow.cuda(0)

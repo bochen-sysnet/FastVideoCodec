@@ -85,7 +85,6 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
-        exit(1)
     return model
     
 class VideoDataset(Dataset):
