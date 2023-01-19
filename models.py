@@ -834,6 +834,7 @@ class Coder2D(nn.Module):
                 latent_hat = latent + noise
             else:
                 latent_hat = torch.round(latent)
+            t_0 = time.perf_counter()
             if RPM_flag:
                 assert prior_latent is not None, 'prior latent is none!'
                 sigma, mu, rpm_hidden = self.RPM(prior_latent, rpm_hidden)
@@ -843,6 +844,8 @@ class Coder2D(nn.Module):
                 likelihoods = gaussian.cdf(latent_hat + 0.5) - gaussian.cdf(latent_hat - 0.5)
             else:
                 likelihoods = self.entropy_bottleneck(latent_hat + 0.5) - self.entropy_bottleneck(latent_hat - 0.5)
+            self.entropy_bottleneck.enc_t = time.perf_counter() - t_0
+            self.entropy_bottleneck.dec_t = time.perf_counter() - t_0
             prior_latent = torch.round(latent).detach()
         else:
             self.entropy_bottleneck.set_RPM(RPM_flag)
@@ -855,9 +858,9 @@ class Coder2D(nn.Module):
                 latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latent.size()[-2:], rpm_hidden, prior_latent=prior_latent)
             
         # add in the time in entropy bottleneck
-        # if not self.noMeasure:
-        #     self.enc_t += self.entropy_bottleneck.enc_t
-        #     self.dec_t += self.entropy_bottleneck.dec_t
+        if not self.noMeasure:
+            self.enc_t += self.entropy_bottleneck.enc_t
+            self.dec_t += self.entropy_bottleneck.dec_t
         
         # calculate bpp (estimated) if it is training else it will be set to 0
         if self.noMeasure:
@@ -1321,8 +1324,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
-            # self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
-            # self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
+            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
         # replace
@@ -1339,8 +1342,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
-            # self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
-            # self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
+            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # record time
