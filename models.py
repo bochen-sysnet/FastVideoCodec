@@ -1288,6 +1288,7 @@ class IterPredVideoCodecs(nn.Module):
         self.use_split = use_split
         if self.use_split:
             self.split()
+        print('........',noMeasure)
 
     def split(self):
         self.opticFlow.cuda(0)
@@ -1344,8 +1345,8 @@ class IterPredVideoCodecs(nn.Module):
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # record time
-        self.encoding_time = self.meters['E-FL'].avg + self.meters['E-MV'].avg + self.meters['eEMV'].avg + self.meters['E-MC'].avg + self.meters['E-RES'].avg + self.meters['eERES'].avg
-        self.decoding_time = self.meters['D-MV'].avg + self.meters['eDMV'].avg + self.meters['D-MC'].avg + self.meters['D-RES'].avg + self.meters['eDRES'].avg
+        self.encoding_time = self.meters['E-FL'].avg + self.meters['E-MV'].avg + self.meters['E-MC'].avg + self.meters['E-RES'].avg
+        self.decoding_time = self.meters['D-MV'].avg + self.meters['D-MC'].avg + self.meters['D-RES'].avg
         ##### compute bits
         # estimated bits
         bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
