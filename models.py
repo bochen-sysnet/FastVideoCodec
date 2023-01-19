@@ -1321,8 +1321,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
-            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
-            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
+            # self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
+            # self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
         # motion compensation
         t_0 = time.perf_counter()
         # replace
@@ -1339,8 +1339,8 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-RES'].update(self.res_codec.enc_t)
             self.meters['D-RES'].update(self.res_codec.dec_t)
-            self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
-            self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
+            # self.meters['eERES'].update(self.res_codec.entropy_bottleneck.enc_t)
+            # self.meters['eDRES'].update(self.res_codec.entropy_bottleneck.dec_t)
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # record time
