@@ -1777,7 +1777,7 @@ class MyMENet(nn.Module):
         for intLevel in range(self.L - 1):
             im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
             im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
-            if self.recursive_flow:
+            if self.recursive_flow and 'mv' in priors:
                 prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
 
         shape_fine = im2list[self.L - 1].size()
