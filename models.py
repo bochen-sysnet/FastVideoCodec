@@ -1027,9 +1027,9 @@ class MEBasic(nn.Module):
     '''
     Get flow
     '''
-    def __init__(self, layername):
+    def __init__(self, layername, inshape=8):
         super(MEBasic, self).__init__()
-        self.conv1 = nn.Conv2d(8, 32, 7, 1, padding=3)
+        self.conv1 = nn.Conv2d(inshape, 32, 7, 1, padding=3)
         # self.conv1.weight.data, self.conv1.bias.data = loadweightformnp(layername + '_F-1')
         self.relu1 = nn.ReLU()
         self.conv2 = nn.Conv2d(32, 64, 7, 1, padding=3)
@@ -1751,10 +1751,56 @@ def get_DVC_pretrained(level):
 
 
 # ---------------------------------BASE MODEL--------------------------------------
+
+class MyMENet(nn.Module):
+    '''
+    Get flow
+    '''
+    def __init__(self, layername='motion_estimation',recursive_flow=False):
+        super(MyMENet, self).__init__()
+        self.L = 4
+        inshape = 10 if recursive_flow else 8
+        self.moduleBasic = torch.nn.ModuleList([ MEBasic(layername + 'modelL' + str(intLevel + 1),inshape=inshape) for intLevel in range(4) ])
+        self.recursive_flow = recursive_flow
+        
+    def forward(self, im1, im2, priors):
+        batchsize = im1.size()[0]
+        im1_pre = im1
+        im2_pre = im2
+        if self.recursive_flow and 'mv' in priors:
+            prior_flow_pre = priors['mv']
+
+        im1list = [im1_pre]
+        im2list = [im2_pre]
+        if self.recursive_flow:
+            prior_flow_list = [prior_flow_pre]
+        for intLevel in range(self.L - 1):
+            im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
+            im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
+            if self.recursive_flow:
+                prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
+
+        shape_fine = im2list[self.L - 1].size()
+        zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
+        device_id = im1.device.index
+        flowfileds = torch.zeros(zeroshape, dtype=torch.float32, device=device_id)
+        for intLevel in range(self.L):
+            flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
+            if self.recursive_flow:
+                priorflow = prior_flow_list[intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
+                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
+                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
+                                                                            prior_flow_list[i], # prior flow
+                                                                            flowfiledsUpsample], 1)) # current flow
+            else:
+                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
+                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
+                                                                            flowfiledsUpsample], 1)) # current flow
+        return flowfileds
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        self.opticFlow = ME_Spynet()
+        self.opticFlow = MyMENet()
         self.mvEncoder = Analysis_mv_net()
         self.Q = None
         self.mvDecoder = Synthesis_mv_net()
@@ -1772,7 +1818,7 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.refine_flow = True
+        self.recursive_flow = True
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1781,16 +1827,11 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors):
-        if self.refine_flow and 'mv' in priors:
-            # use previous reconstructed motion 
-            # to recover part of the image
-            # 
-            referframe_tmp, _ = self.motioncompensation(referframe, priors['mv'])
-        if self.refine_flow and 'mv' in priors:
-            estmv = self.opticFlow(input_image, referframe_tmp)
+        estmv = self.opticFlow(input_image, referframe, priors)
+        if self.recursive_flow and 'mv' in priors:
+            mvfeature = self.mvEncoder(estmv - priors['mv'])
         else:
-            estmv = self.opticFlow(input_image, referframe)
-        mvfeature = self.mvEncoder(estmv)
+            mvfeature = self.mvEncoder(estmv)
         if self.training:
             half = float(0.5)
             quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -1799,12 +1840,12 @@ class Base(nn.Module):
             quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
-        if self.refine_flow and 'mv' in priors:
-            prediction, warpframe = self.motioncompensation(referframe_tmp, quant_mv_upsample)
+        if self.recursive_flow and 'mv' in priors:
+            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
         else:
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
 
-        priors['mv'] = quant_mv_upsample.detach()
+        priors['mv'] = quant_mv_upsample.detach() + priors['mv']
         input_residual = input_image - prediction
 
         feature = self.resEncoder(input_residual)
