@@ -1772,7 +1772,7 @@ class MyMENet(nn.Module):
 
         im1list = [im1_pre]
         im2list = [im2_pre]
-        if self.recursive_flow:
+        if self.recursive_flow and 'mv' in priors:
             prior_flow_list = [prior_flow_pre]
         for intLevel in range(self.L - 1):
             im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
