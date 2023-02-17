@@ -1779,9 +1779,6 @@ class MyMENet(nn.Module):
             im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
             if self.recursive_flow and 'mv' in priors:
                 prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
-        if self.recursive_flow and 'mv' in priors:
-            for l in prior_flow_list:
-                print(l.size())
         shape_fine = im2list[self.L - 1].size()
         zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
         device_id = im1.device.index
@@ -1789,8 +1786,7 @@ class MyMENet(nn.Module):
         for intLevel in range(self.L):
             flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
             if self.recursive_flow:
-                priorflow = prior_flow_list[intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
-                print(intLevel,flowfiledsUpsample.size(),priorflow.size())
+                priorflow = prior_flow_list[self.L - 1 - intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
                 flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
                                                                             priorflow, # prior flow
