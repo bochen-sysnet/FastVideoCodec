@@ -1781,12 +1781,12 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors):
-        if refine_flow and 'mv' in priors:
+        if self.refine_flow and 'mv' in priors:
             # use previous reconstructed motion 
             # to recover part of the image
             # 
             referframe_tmp, _ = self.motioncompensation(referframe, priors['mv'])
-        if refine_flow and 'mv' in priors:
+        if self.refine_flow and 'mv' in priors:
             estmv = self.opticFlow(input_image, referframe_tmp)
         else:
             estmv = self.opticFlow(input_image, referframe)
@@ -1800,7 +1800,7 @@ class Base(nn.Module):
         quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
         priors['mv'] = quant_mv_upsample.detach()
-        if refine_flow and 'mv' in priors:
+        if self.refine_flow and 'mv' in priors:
             prediction, warpframe = self.motioncompensation(referframe_tmp, quant_mv_upsample)
         else:
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
