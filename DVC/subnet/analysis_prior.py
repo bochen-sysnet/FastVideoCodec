@@ -61,13 +61,12 @@ class Analysis_prior_net(nn.Module):
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu2(self.conv2(x))
         if self.useRec:
-            print(x.size(),self.hidden.size())
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         return self.conv3(x)
 
     def init_hidden(self, x):
         h,w = x.shape[:2]
-        self.hidden = torch.zeros(1,out_channel_N*2,h//16,w//16)
+        self.hidden = torch.zeros(1,out_channel_N*2,h//32,w//32)
 
 
 def build_model():

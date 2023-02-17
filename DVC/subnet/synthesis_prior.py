@@ -67,7 +67,7 @@ class Synthesis_prior_net(nn.Module):
 
     def init_hidden(self, x):
         h,w = x.shape[:2]
-        self.hidden = torch.zeros(1,out_channel_N*2,h//8,w//8)
+        self.hidden = torch.zeros(1,out_channel_N*2,h//32,w//32)
 
 
 def build_model():
