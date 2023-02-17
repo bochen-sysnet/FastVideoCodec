@@ -1830,7 +1830,7 @@ class Base(nn.Module):
 
     def init_hidden(self,x):
         self.mvEncoder.init_hidden(x)
-        self.mvDecoder
+        self.mvDecoder.init_hidden(x)
         self.resEncoder.init_hidden(x)
         self.resDecoder.init_hidden(x)
         self.respriorEncoder.init_hidden(x)
