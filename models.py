@@ -214,9 +214,10 @@ def parallel_compression(model, data, compressI=False):
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
+            priors = {}
             for i in range(1,B):
-                x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
-                    model(data[i:i+1],x_prev)
+                x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
+                    model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
@@ -943,37 +944,6 @@ def loadweightformnp(layername):
 
         return torch.from_numpy(weightnp), torch.from_numpy(biasnp)
         # return init_weight, init_bias
-
-class MEBasic(nn.Module):
-    '''
-    Get flow
-    '''
-    def __init__(self, layername):
-        super(MEBasic, self).__init__()
-        self.conv1 = nn.Conv2d(8, 32, 7, 1, padding=3)
-        self.conv1.weight.data, self.conv1.bias.data = loadweightformnp(layername + '_F-1')
-        self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(32, 64, 7, 1, padding=3)
-        self.conv2.weight.data, self.conv2.bias.data = loadweightformnp(layername + '_F-2')
-        self.relu2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(64, 32, 7, 1, padding=3)
-        self.conv3.weight.data, self.conv3.bias.data = loadweightformnp(layername + '_F-3')
-        self.relu3 = nn.ReLU()
-        self.conv4 = nn.Conv2d(32, 16, 7, 1, padding=3)
-        self.conv4.weight.data, self.conv4.bias.data = loadweightformnp(layername + '_F-4')
-        self.relu4 = nn.ReLU()
-        self.conv5 = nn.Conv2d(16, 2, 7, 1, padding=3)
-        self.conv5.weight.data, self.conv5.bias.data = loadweightformnp(layername + '_F-5')
-
-    def forward(self, x):
-        x = self.relu1(self.conv1(x))
-        x = self.relu2(self.conv2(x))
-        x = self.relu3(self.conv3(x))
-        x = self.relu4(self.conv4(x))
-        x = self.conv5(x)
-        return x
-
-
 def bilinearupsacling(inputfeature):
     inputheight = inputfeature.size()[2]
     inputwidth = inputfeature.size()[3]
@@ -1052,6 +1022,36 @@ class Warp_net(nn.Module):
         c5 = self.conv6(c5)
         return c5
 
+
+class MEBasic(nn.Module):
+    '''
+    Get flow
+    '''
+    def __init__(self, layername):
+        super(MEBasic, self).__init__()
+        self.conv1 = nn.Conv2d(8, 32, 7, 1, padding=3)
+        # self.conv1.weight.data, self.conv1.bias.data = loadweightformnp(layername + '_F-1')
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(32, 64, 7, 1, padding=3)
+        # self.conv2.weight.data, self.conv2.bias.data = loadweightformnp(layername + '_F-2')
+        self.relu2 = nn.ReLU()
+        self.conv3 = nn.Conv2d(64, 32, 7, 1, padding=3)
+        # self.conv3.weight.data, self.conv3.bias.data = loadweightformnp(layername + '_F-3')
+        self.relu3 = nn.ReLU()
+        self.conv4 = nn.Conv2d(32, 16, 7, 1, padding=3)
+        # self.conv4.weight.data, self.conv4.bias.data = loadweightformnp(layername + '_F-4')
+        self.relu4 = nn.ReLU()
+        self.conv5 = nn.Conv2d(16, 2, 7, 1, padding=3)
+        # self.conv5.weight.data, self.conv5.bias.data = loadweightformnp(layername + '_F-5')
+
+    def forward(self, x):
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.relu3(self.conv3(x))
+        x = self.relu4(self.conv4(x))
+        x = self.conv5(x)
+        return x
+
 class ME_Spynet(nn.Module):
     '''
     Get flow
@@ -1078,7 +1078,9 @@ class ME_Spynet(nn.Module):
         flowfileds = torch.zeros(zeroshape, dtype=torch.float32, device=device_id)
         for intLevel in range(self.L):
             flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
-            flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), flowfiledsUpsample], 1))# residualflow
+            flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
+                                                                        flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
+                                                                        flowfiledsUpsample], 1)) # current flow
 
         return flowfileds
     
@@ -1770,6 +1772,7 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
+        self.refine_flow = True
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1777,8 +1780,16 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe):
-        estmv = self.opticFlow(input_image, referframe)
+    def forward(self, input_image, referframe, priors):
+        if refine_flow and 'mv' in priors:
+            # use previous reconstructed motion 
+            # to recover part of the image
+            # 
+            referframe_tmp, _ = self.motioncompensation(referframe, priors['mv'])
+        if refine_flow and 'mv' in priors:
+            estmv = self.opticFlow(input_image, referframe_tmp)
+        else:
+            estmv = self.opticFlow(input_image, referframe)
         mvfeature = self.mvEncoder(estmv)
         if self.training:
             half = float(0.5)
@@ -1787,7 +1798,12 @@ class Base(nn.Module):
         else:
             quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
-        prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+        # add rec_motion to priors to reduce bpp
+        priors['mv'] = quant_mv_upsample.detach()
+        if refine_flow and 'mv' in priors:
+            prediction, warpframe = self.motioncompensation(referframe_tmp, quant_mv_upsample)
+        else:
+            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
 
         input_residual = input_image - prediction
 
@@ -1922,4 +1938,4 @@ class Base(nn.Module):
         bpp_mv = total_bits_mv / (batch_size * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
         
-        return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp
+        return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors
