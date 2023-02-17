@@ -1844,8 +1844,10 @@ class Base(nn.Module):
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
         else:
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-
-        priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+        if 'mv' in priors:
+            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+        else:
+            priors['mv'] = quant_mv_upsample.detach()
         input_residual = input_image - prediction
 
         feature = self.resEncoder(input_residual)
