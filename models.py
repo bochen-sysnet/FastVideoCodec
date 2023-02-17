@@ -210,7 +210,24 @@ def parallel_compression(model, data, compressI=False):
     encoding_time = decoding_time = 0
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if 'SPVC' in model_name:
+        if model_name in ['Base']:
+            B,_,H,W = data.size()
+            x_prev = data[0:1]
+            x_hat_list = []
+            for i in range(1,B):
+                x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
+                    model(data[i:i+1],x_prev)
+                x_prev = x_prev.detach()
+                img_loss_list += [model.r*mseloss.to(data.device)]
+                aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                bpp_est_list += [bpp.to(data.device)]
+                bpp_act_list += [bpp.to(data.device)]
+                psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                x_hat_list.append(x_prev)
+                decoding_time += model.decoding_time/(B-1)
+            x_hat = torch.cat(x_hat_list,dim=0)
+        elif 'SPVC' in model_name:
             if model.training:
                 _, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
             else:
