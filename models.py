@@ -221,6 +221,7 @@ def parallel_compression(model, data, compressI=False):
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
+                bpp_res_est_list += [(bpp_feature + bpp_z).to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
