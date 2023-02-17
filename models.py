@@ -1779,7 +1779,8 @@ class MyMENet(nn.Module):
             im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
             if self.recursive_flow and 'mv' in priors:
                 prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
-
+            for l in prior_flow_list:
+                print(l.size())
         shape_fine = im2list[self.L - 1].size()
         zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
         device_id = im1.device.index
