@@ -1756,7 +1756,7 @@ class MyMENet(nn.Module):
     '''
     Get flow
     '''
-    def __init__(self, layername='motion_estimation',recursive_flow=False):
+    def __init__(self, layername='motion_estimation',recursive_flow=True):
         super(MyMENet, self).__init__()
         self.L = 4
         inshape = 10 if recursive_flow else 8
@@ -1844,6 +1844,7 @@ class Base(nn.Module):
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
         else:
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+        # need an improved way to estimate
         if 'mv' in priors:
             priors['mv'] = quant_mv_upsample.detach() + priors['mv']
         else:
