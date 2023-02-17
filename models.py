@@ -1799,12 +1799,12 @@ class Base(nn.Module):
             quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
-        priors['mv'] = quant_mv_upsample.detach()
         if self.refine_flow and 'mv' in priors:
             prediction, warpframe = self.motioncompensation(referframe_tmp, quant_mv_upsample)
         else:
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
 
+        priors['mv'] = quant_mv_upsample.detach()
         input_residual = input_image - prediction
 
         feature = self.resEncoder(input_residual)
