@@ -164,9 +164,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        if model.name == 'DVC-pretrained':
-            loss = img_loss + be_loss
-        elif 'LSVC' in model.name:
+        if model.name == ['DVC-pretrained','Base','LSVC']:
             loss = img_loss + be_loss
         else:
             loss = model.loss(img_loss,be_loss,aux_loss)
