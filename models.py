@@ -211,6 +211,8 @@ def parallel_compression(model, data, compressI=False):
     # P compression, not including I frame
     if data.size(0) > 1: 
         if 'Base' in model_name:
+            if model.useRec:
+                model.init_hidden(data[2:])
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
