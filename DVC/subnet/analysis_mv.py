@@ -69,6 +69,7 @@ class Analysis_mv_net(nn.Module):
         x = self.relu3(self.conv3(x))
         x = self.relu4(self.conv4(x))
         if self.useRec:
+            print(x.size(),self.hidden.size())
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         x = self.relu5(self.conv5(x))
         x = self.relu6(self.conv6(x)) 
