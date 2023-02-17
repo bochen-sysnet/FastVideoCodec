@@ -9,7 +9,7 @@ class Synthesis_net(nn.Module):
     '''
     Decode residual
     '''
-    def __init__(self, useAttn = False, channels=None):
+    def __init__(self, useAttn = False, channels=None, useRec=False):
         super(Synthesis_net, self).__init__()
         if channels is None:
             in_channels = out_channel_M
@@ -43,6 +43,9 @@ class Synthesis_net(nn.Module):
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
+        self.useRec = useRec
+        if self.useRec:
+            self.lstm = ConvLSTM(conv_channels)
         
     def forward(self, x):
         if self.useAttn:
@@ -58,9 +61,15 @@ class Synthesis_net(nn.Module):
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.igdn1(self.deconv1(x))
         x = self.igdn2(self.deconv2(x))
+        if self.useRec:
+            x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         x = self.igdn3(self.deconv3(x))
         x = self.deconv4(x)
         return x
+
+    def init_hidden(self, x):
+        h,w = x.shape[:2]
+        self.hidden = torch.zeros(1,out_channel_N*2,h//4,w//4)
 
 
 def build_model():

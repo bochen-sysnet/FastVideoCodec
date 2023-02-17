@@ -210,7 +210,7 @@ def parallel_compression(model, data, compressI=False):
     encoding_time = decoding_time = 0
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if model_name in ['Base']:
+        if 'Base' in model_name:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
@@ -1769,7 +1769,6 @@ class MyMENet(nn.Module):
         im2_pre = im2
         if self.recursive_flow and 'mv' in priors:
             prior_flow_pre = priors['mv']
-
         im1list = [im1_pre]
         im2list = [im2_pre]
         if self.recursive_flow and 'mv' in priors:
@@ -1799,15 +1798,16 @@ class MyMENet(nn.Module):
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
+        useRec = True if 'RNN' in name else False
         self.opticFlow = MyMENet()
-        self.mvEncoder = Analysis_mv_net()
+        self.mvEncoder = Analysis_mv_net(useRec=True)
         self.Q = None
-        self.mvDecoder = Synthesis_mv_net()
+        self.mvDecoder = Synthesis_mv_net(useRec=True)
         self.warpnet = Warp_net()
-        self.resEncoder = Analysis_net()
-        self.resDecoder = Synthesis_net()
-        self.respriorEncoder = Analysis_prior_net()
-        self.respriorDecoder = Synthesis_prior_net()
+        self.resEncoder = Analysis_net(useRec=True)
+        self.resDecoder = Synthesis_net(useRec=True)
+        self.respriorEncoder = Analysis_prior_net(useRec=True)
+        self.respriorDecoder = Synthesis_prior_net(useRec=True)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
@@ -1818,12 +1818,21 @@ class Base(nn.Module):
         self.loss_type = loss_type
         init_training_params(self)
         self.recursive_flow = True
+        self.useRec = useRec
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
         inputfeature = torch.cat((warpframe, ref), 1)
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
+
+    def init_hidden(self,x):
+        self.mvEncoder.init_hidden(x)
+        self.mvDecoder
+        self.resEncoder.init_hidden(x)
+        self.resDecoder.init_hidden(x)
+        self.respriorEncoder.init_hidden(x)
+        self.respriorDecoder.init_hidden(x)
 
     def forward(self, input_image, referframe, priors):
         estmv = self.opticFlow(input_image, referframe, priors)
@@ -1844,6 +1853,8 @@ class Base(nn.Module):
         else:
             prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
         # need an improved way to estimate
+        # use methods to approximate the estimation as much as possible to allow decoder to infer it
+        # how to do this without sending new tensors
         if 'mv' in priors:
             priors['mv'] = quant_mv_upsample.detach() + priors['mv']
         else:

@@ -10,7 +10,7 @@ class Synthesis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, channels=None):
+    def __init__(self, useAttn=False, channels=None, useRec=False):
         super(Synthesis_mv_net, self).__init__()
         if channels is None:
             in_channels = conv_channels = out_channel_mv
@@ -60,6 +60,9 @@ class Synthesis_mv_net(nn.Module):
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
+        self.useRec = useRec
+        if self.useRec:
+            self.lstm = ConvLSTM(conv_channels)
         
     def forward(self, x):
         if self.useAttn:
@@ -77,10 +80,16 @@ class Synthesis_mv_net(nn.Module):
         x = self.relu2(self.deconv2(x))
         x = self.relu3(self.deconv3(x))
         x = self.relu4(self.deconv4(x))
+        if self.useRec:
+            x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         x = self.relu5(self.deconv5(x))
         x = self.relu6(self.deconv6(x))
         x = self.relu7(self.deconv7(x))
         return self.deconv8(x)
+
+    def init_hidden(self, x):
+        h,w = x.shape[:2]
+        self.hidden = torch.zeros(1,out_channel_mv*2,h//4,w//4)
 
 
 
