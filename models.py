@@ -1733,7 +1733,7 @@ def get_DVC_pretrained(level):
 # ---------------------------------BASE MODEL--------------------------------------
 class Base(nn.Module):
     def __init__(self,name,compression_level=0):
-        super(VideoCompressor, self).__init__()
+        super(Base, self).__init__()
         self.opticFlow = ME_Spynet()
         self.mvEncoder = Analysis_mv_net()
         self.Q = None
