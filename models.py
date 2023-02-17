@@ -42,7 +42,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'LSVC' in name:
         model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     elif 'Base' in name:
-        model_codec = Base(name,compression_level=compression_level)
+        model_codec = Base(name, loss_type='P', compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -1732,7 +1732,7 @@ def get_DVC_pretrained(level):
 
 # ---------------------------------BASE MODEL--------------------------------------
 class Base(nn.Module):
-    def __init__(self,name,compression_level=0):
+    def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
         self.opticFlow = ME_Spynet()
         self.mvEncoder = Analysis_mv_net()
@@ -1750,6 +1750,7 @@ class Base(nn.Module):
         self.calrealbits = False
         self.name = name
         self.compression_level = compression_level
+        self.loss_type = loss_type
         init_training_params(self)
 
     def motioncompensation(self, ref, mv):
