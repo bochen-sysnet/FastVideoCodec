@@ -212,8 +212,7 @@ def parallel_compression(model, data, compressI=False):
     if data.size(0) > 1: 
         if 'Base' in model_name:
             if model.useRec:
-                print(data[2:].size())
-                model.init_hidden(data[2:])
+                model.init_hidden(data[0,0,])
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
