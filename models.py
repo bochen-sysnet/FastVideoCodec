@@ -1790,7 +1790,7 @@ class MyMENet(nn.Module):
                 priorflow = prior_flow_list[intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
                 flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
-                                                                            prior_flow_list[i], # prior flow
+                                                                            priorflow, # prior flow
                                                                             flowfiledsUpsample], 1)) # current flow
             else:
                 flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
