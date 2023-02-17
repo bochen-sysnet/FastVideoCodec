@@ -86,6 +86,7 @@ def BOLA_simulation(total_traces = 100,
     QoE_matrix = []
     quality_matrix = []
     rebuffer_matrix = []
+    stall_matrix = []
     all_mean_psnr,all_mean_bpp = [],[]
     all_dect_mean = [];all_dect_std = []
     for task in tasks:
@@ -94,102 +95,38 @@ def BOLA_simulation(total_traces = 100,
         all_mean_bpp += [mean_bpp]
         all_dect_mean += [all_dect.mean()/GOP]
         all_dect_std += [all_dect.std()/GOP]
-        QoE_list = [];quality_list = [];rebuffer_list = []
+        QoE_list = [];quality_list = [];rebuffer_list = [];stall_list = []
         sim_iter = tqdm(range(total_traces))
         for _,i in enumerate(sim_iter):
             trace_start = i * single_trace_len
             trace_end = trace_start + single_trace_len
-            QoE,quality,rebuffer = simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt[trace_start:trace_end],latency[trace_start:trace_end],i)
-            QoE_list += [QoE];quality_list += [quality];rebuffer_list += [rebuffer]
+            QoE,quality,rebuffer,stall_freq = simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt[trace_start:trace_end],latency[trace_start:trace_end],i)
+            QoE_list += [QoE];quality_list += [quality];rebuffer_list += [rebuffer];stall_list += [stall_freq]
             sim_iter.set_description(
                 f"{i:3}. "
                 f"Task:{task}. "
                 f"QoE:{QoE:.1f}."
                 f"quality:{quality:.1f}. "
-                f"rebuffer:{rebuffer:.4f}. ")
-        QoE_matrix += [QoE_list];quality_matrix += [quality_list];rebuffer_matrix += [rebuffer_list]
+                f"rebuffer:{rebuffer:.4f}. "
+                f"stall:{stall_freq:.3f}. ")
+        QoE_matrix += [QoE_list];quality_matrix += [quality_list];rebuffer_matrix += [rebuffer_list];stall_matrix += [stall_list]
         sim_iter.reset()
-    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(QoE_matrix))
-    QoE_matrix = np.array(QoE_matrix);quality_matrix = np.array(quality_matrix);rebuffer_matrix = np.array(rebuffer_matrix)
-    print(QoE_matrix.mean(axis=1).tolist(),QoE_matrix.std(axis=1).tolist())
-    print(quality_matrix.mean(axis=1),quality_matrix.std(axis=1))
-    print(rebuffer_matrix.mean(axis=1),rebuffer_matrix.std(axis=1))
-    print(all_mean_psnr)
-    print(all_mean_bpp)
-    print(all_dect_mean,all_dect_std)
-
-def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,legloc='best',linestyles=linestyles,
-                xticks=None,yticks=None,ncol=None, yerr=None, xticklabel=None,yticklabel=None,xlim=None,ylim=None,ratio=None,
-                use_arrow=False,arrow_coord=(0.4,30),markersize=8,bbox_to_anchor=None,get_ax=0,linewidth=2,logx=False,use_doublearrow=False,rotation=None):
-    if get_ax==1:
-        ax = plt.subplot(211)
-    elif get_ax==2:
-        ax = plt.subplot(212)
-    else:
-        fig, ax = plt.subplots()
-    ax.grid(zorder=0)
-    for i in range(len(XX)):
-        xx,yy = XX[i],YY[i]
-        if logx:
-            xx = np.log10(np.array(xx))
-        if yerr is None:
-            plt.plot(xx, yy, color = color[i], marker = markers[i], 
-                # linestyle = linestyles[i], 
-                label = label[i], 
-                linewidth=linewidth, markersize=markersize)
-        else:
-            if markersize > 0:
-                plt.errorbar(xx, yy, yerr=yerr[i], color = color[i],
-                    marker = markers[i], label = label[i], 
-                    linestyle = linestyles[i], 
-                    linewidth=linewidth, markersize=markersize,
-                    capsize=4)
-            else:
-                plt.errorbar(xx, yy, yerr=yerr[i], color = color[i],
-                    label = label[i], 
-                    linestyle = linestyles[i], 
-                    linewidth=linewidth,
-                    capsize=4)
-    plt.xlabel(xlabel, fontsize = lbsize)
-    plt.ylabel(ylabel, fontsize = lbsize)
-    if xlim is not None:
-        ax.set_xlim(xlim)
-    if ylim is not None:
-        ax.set_ylim(ylim)
-    if xticks is not None:
-        plt.xticks(xticks,fontsize=lbsize)
-    if yticks is not None:
-        plt.yticks(yticks,fontsize=lbsize)
-    if xticklabel is not None:
-        ax.set_xticklabels(xticklabel)
-    if yticklabel is not None:
-        ax.set_yticklabels(yticklabel)
-    if use_arrow:
-        ax.text(
-            arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=lbsize-8,
-            bbox=dict(boxstyle="larrow,pad=0.3", fc="white", ec="black", lw=2))
-    if use_doublearrow:
-        ax.annotate(text='', xy=(10,81), xytext=(10,18), arrowprops=dict(arrowstyle='<->',lw=linewidth))
-        ax.text(
-            7, 48, "4.5X more likely", ha="center", va="center", rotation='vertical', size=lbsize,fontweight='bold')
-    if ncol!=0:
-        if ncol is None:
-            plt.legend(loc=legloc,fontsize = lbsize)
-        else:
-            if bbox_to_anchor is None:
-                plt.legend(loc=legloc,fontsize = lbsize,ncol=ncol)
-            else:
-                plt.legend(loc=legloc,fontsize = lbsize,ncol=ncol,bbox_to_anchor=bbox_to_anchor)
-    if ratio is not None:
-        xleft, xright = ax.get_xlim()
-        ybottom, ytop = ax.get_ylim()
-        ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
-    plt.tight_layout()
-    if get_ax!=0:
-        return ax
-    fig.savefig(path,bbox_inches='tight')
-    plt.close()
+    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/quality_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+        f.write(str(quality_matrix))
+    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/rebuffer_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+        f.write(str(rebuffer_matrix))
+    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/stall_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+        f.write(str(stall_matrix))
+    QoE_matrix = np.array(QoE_matrix);quality_matrix = np.array(quality_matrix);rebuffer_matrix = np.array(rebuffer_matrix);stall_matrix = np.array(stall_matrix)
+    print('QOE:',QoE_matrix.mean(axis=1).tolist(),QoE_matrix.std(axis=1).tolist())
+    print('Quality:',quality_matrix.mean(axis=1).tolist(),quality_matrix.std(axis=1).tolist())
+    print('Rebuffer:',rebuffer_matrix.mean(axis=1).tolist(),rebuffer_matrix.std(axis=1).tolist())
+    print('Stall:',stall_matrix.mean(axis=1).tolist(),stall_matrix.std(axis=1).tolist())
+    # print(all_mean_psnr)
+    # print(all_mean_bpp)
+    # print(all_dect_mean,all_dect_std)
 
 def task_to_video_trace(task):
     frame_psnr_dict = {}
@@ -304,13 +241,16 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
     num_levels = len(all_psnr)
     num_segments = all_bitrate.shape[1]
     curr_seg = 0 # try to download this segment
-    curr_t = 0 # current time in seconds
-    curr_Q = 0 # current buffer level in seconds
+    download_finish_time = 0 # current time in seconds
+    curr_Q = 0 # current buffer level in seconds, virtual buffer
+    curr_real_Q = 0 # real buffer with frames
+    bitstream_Q = 0
     remain_segments = num_segments
     mean_quality = 0
     selection_psnr = [[] for i in range(1+num_levels)]
     selection_bitrate = [[] for i in range(1+num_levels)]
     decode_finish_time = 0
+    freq = 0
     while remain_segments > 0:
         # decide bitrate based on buffer level
         rho_max = -1000
@@ -338,47 +278,61 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
                 delta_T = curr_Q - (V * np.log(all_bitrate[:,curr_seg].max()/S1) + V * gamma * p)
                 curr_Q = V * np.log(all_bitrate[:,curr_seg].max()/S1) + V * gamma * p
             # accumulate time
-            curr_t += delta_T
+            download_finish_time += delta_T
         else:
             # download segment based on bandwidth
-            start_t = curr_t
+            start_t = download_finish_time
             # size of a segment
             remain_size = all_bitrate[selected_level,curr_seg] * p
             # print('Trying to download size (bits):',remain_size)
             while remain_size > 0:
                 # find current bandwidth
-                trace_idx = int(curr_t/args.trace_dur)
+                trace_idx = int(download_finish_time/args.trace_dur)
                 trace_end = (trace_idx+1)*args.trace_dur
                 # print('Using bandwidth (bps):',downthrpt[trace_idx])
                 # transmission + propagation
-                downloadable = (trace_end - curr_t) * downthrpt[trace_idx]
+                downloadable = (trace_end - download_finish_time) * downthrpt[trace_idx]
                 if downloadable >= remain_size:
-                    curr_t += remain_size / downthrpt[trace_idx]
+                    download_finish_time += remain_size / downthrpt[trace_idx]
                     remain_size = 0
                 else:
-                    curr_t = trace_end
+                    download_finish_time = trace_end
                     remain_size -= downloadable
-            curr_t += latency[trace_idx]
+            download_finish_time += latency[trace_idx]
             # accumulate time
-            delta_T = curr_t - start_t
+            delta_T = download_finish_time - start_t
             # print('Time to download (s):',delta_T)
             # reduce segments
             remain_segments -= 1
-            # consume and add to buffer
-            curr_Q = p + max(curr_Q - delta_T, 0)
             # add to quality
             mean_quality += all_psnr[selected_level,curr_seg]
             # decoding
-            decode_finish_time = max(decode_finish_time,curr_t) + all_dect[selected_level,curr_seg]
-        # print(sim_idx,'#Remain:',remain_segments,'Selected level',selected_level,'Buffer level (s):',curr_Q,'Current time:',curr_t,'delta_T:',delta_T)
+            last_decT = decode_finish_time
+            decode_finish_time = max(decode_finish_time,download_finish_time) + all_dect[selected_level,curr_seg]
+            if curr_real_Q < (decode_finish_time - last_decT):
+                freq += 1
+            # consume and add to buffer
+            curr_Q = p + max(curr_Q - (decode_finish_time - last_decT), 0)
+
+            # if all_dect[selected_level,curr_seg] < p:
+            #     curr_Q = p + max(curr_Q - (download_finish_time - start_t), 0)
+            # else:
+            #     curr_Q = p + max(curr_Q - (download_finish_time - start_t)*p/all_dect[selected_level,curr_seg], 0)
+            curr_real_Q = p + max(curr_real_Q - (decode_finish_time - last_decT), 0)
+        # print(sim_idx,'#Remain:',remain_segments,'Selected level',selected_level,'Buffer level (s):',curr_Q,'Current time:',download_finish_time,'finish:',decode_finish_time,num_segments * p)
     mean_bw = 0
     for tidx in range(0,trace_idx+1):
         mean_bw += downthrpt[trace_idx]
     mean_bw /= trace_idx+1
     # replay what is left in buffer
     finish_time = decode_finish_time + curr_Q
+    # if all_dect[0,0]<p:
+    #     finish_time = decode_finish_time + curr_Q
+    # else:
+    #     finish_time = decode_finish_time + curr_Q * all_dect[0,0] / p
     # rebuffering
     rebuffer_ratio = finish_time / (num_segments * p) - 1
+    rebuffer_freq = freq / num_segments
     # quality
     mean_quality /= num_segments
     # QOE
@@ -387,7 +341,7 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
     # print('Selection_counter:',[len(level) for level in selection_psnr])
     # print('Mean PSNR in each selection',[sum(level)/len(level) if level else 0 for level in selection_psnr])
     # print('Mean bitrate in each selection',[sum(level)/len(level) if level else 0 for level in selection_bitrate])
-    return QoE,mean_quality,rebuffer_ratio * gamma
+    return QoE,mean_quality,rebuffer_ratio,rebuffer_freq
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')

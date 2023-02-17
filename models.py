@@ -41,18 +41,12 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = get_DVC_pretrained(compression_level)
     elif 'LSVC' in name:
         model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
+    elif 'Base' in name:
+        model_codec = Base(name,compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
     return model_codec
-
-def compress_video(model, frame_idx, cache, startNewClip):
-    if model.name in ['MLVC','RLVC','DVC']:
-        compress_video_sequential(model, frame_idx, cache, startNewClip)
-    elif model.name in ['x265','x264']:
-        compress_video_group(model, frame_idx, cache, startNewClip)
-    elif model.name in ['SCVC','AE3D'] or 'SPVC' in model.name:
-        compress_video_batch(model, frame_idx, cache, startNewClip)
             
 def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
@@ -168,56 +162,6 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         bpp_act_list += torch.FloatTensor([bpp])
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
-        
-# depending on training or testing
-# the compression time should be recorded accordinglly
-def compress_video_sequential(model, frame_idx, cache, startNewClip):
-    # process the involving GOP
-    # if process in order, some frames need later frames to compress
-    L = len(cache['clip'])
-    if startNewClip:
-        # create cache
-        cache['bpp_est'] = {}
-        cache['img_loss'] = {}
-        cache['aux'] = {}
-        cache['bpp_act'] = {}
-        cache['msssim'] = {}
-        cache['psnr'] = {}
-        cache['end_of_batch'] = [False for _ in range(L)]
-        cache['hidden'] = None
-        cache['max_proc'] = -1
-        # the first frame to be compressed in a video
-    assert frame_idx>=1, 'Frame index less than 1'
-    if cache['max_proc'] >= frame_idx-1:
-        cache['max_seen'] = frame_idx-1
-    else:
-        ranges, cache['max_seen'], cache['max_proc'] = index2GOP(frame_idx-1, len(cache['clip']))
-        for _range in ranges:
-            prev_j = -1
-            for loc,j in enumerate(_range):
-                progressive_compression(model, j, prev_j, cache, loc==1, loc>=2)
-                prev_j = j
-        
-def compress_video_batch(model, frame_idx, cache, startNewClip):
-    # process the involving GOP
-    # how to deal with backward P frames?
-    # if process in order, some frames need later frames to compress
-    L = len(cache['clip'])
-    if startNewClip:
-        # create cache
-        cache['bpp_est'] = {}
-        cache['img_loss'] = {}
-        cache['aux'] = {}
-        cache['bpp_act'] = {}
-        cache['msssim'] = {}
-        cache['psnr'] = {}
-        cache['end_of_batch'] = [False for _ in range(L)]
-        cache['max_proc'] = -1
-    if cache['max_proc'] >= frame_idx-1:
-        cache['max_seen'] = frame_idx-1
-    else:
-        ranges, cache['max_seen'], cache['max_proc'] = index2GOP(frame_idx-1, L)
-        parallel_compression(model, ranges, cache)
       
 def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
     # frame shape
@@ -356,56 +300,6 @@ def parallel_compression(model, data, compressI=False):
         return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
     else:
         return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
-    
-def write_image(x, prefix):
-    for j in range(x.size(0)):
-        img = transforms.ToPILImage()(x[j])
-        img.save(prefix + str(j) + '.jpg')
-            
-def index2GOP(i, clip_len, fP = 6, bP = 6):
-    # bi: fP=bP=6
-    # uni:fP=12,bp=0
-    # input: 
-    # - idx: the frame index of interest
-    # output: 
-    # - ranges: the range(s) of GOP involving this frame
-    # - max_seen: max index has been seen
-    # - max_proc: max processed index
-    # normally progressive coding will get 1 or 2 range(s)
-    # parallel coding will get 1 range
-    
-    GOP = fP + bP + 1
-    # 0 1  2  3  4  5  6  7  8  9  10 11 12 13
-    # I fP fP fP fP fP fP bP bP bP bP bP bP I 
-    ranges = []
-    # <      case 1    >  
-    # first time calling this function will mostly fall in case 1
-    # case 1 will create one range
-    if i%GOP <= fP:
-        # e.g.: i=4,left=0,right=6,mid=0
-        mid = i
-        left = i
-        right = min(i//GOP*GOP+fP,clip_len-1)
-        _range = [j for j in range(mid,right+1)]
-        ranges += [_range]
-    #                     <      case 2   >
-    # later calling this function will fall in case 2
-    # case 2 will create one range if parallel or two ranges if progressive
-    else:
-        # e.g.: i=8,left=7,right=19,mid=13
-        mid = min((i//GOP+1)*GOP,clip_len-1)
-        left = i
-        right = min((i//GOP+1)*GOP+fP,clip_len-1)
-        possible_I = (i//GOP+1)*GOP
-        # first backward
-        _range = [j for j in range(mid,left-1,-1)]
-        ranges += [_range]
-        # then forward
-        if right >= mid+1:
-            _range = [j for j in range(mid+1,right+1)]
-            ranges += [_range]
-    max_seen, max_proc = i, right
-    return ranges, max_seen, max_proc
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
@@ -517,10 +411,6 @@ class ConvLSTM(nn.Module):
         h = o * self._activation(c)
 
         return h, torch.cat((c, h),dim=1)
-
-def set_model_grad(model,requires_grad=True):
-    for k,v in model.named_parameters():
-        v.requires_grad = requires_grad
     
 def get_actual_bits(self, string):
     bits_act = torch.FloatTensor([len(b''.join(string))*8]).squeeze(0)
@@ -551,7 +441,7 @@ class Coder2D(nn.Module):
             self.igdn1 = GDN(channels, inverse=True)
             self.igdn2 = GDN(channels, inverse=True)
             self.igdn3 = GDN(channels, inverse=True)
-        if keyword in ['MLVC','RLVC','rpm']:
+        if keyword in ['RLVC','rpm']:
             # for recurrent sequential model
             self.entropy_bottleneck = RecProbModel(channels)
             self.conv_type = 'rec'
@@ -1267,7 +1157,7 @@ def refidx_from_graph(g,bs):
             ref_index[k-1] = start
     return ref_index
         
-# DVC,RLVC,MLVC
+# DVC,RLVC
 # Need to measure time and implement decompression for demo
 # cache should store start/end-of-GOP information for the action detector to stop; test will be based on it
 class IterPredVideoCodecs(nn.Module):
@@ -1347,7 +1237,7 @@ class IterPredVideoCodecs(nn.Module):
         # reconstruction
         Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1)
         # record time
-        self.encoding_time = self.meters['E-FL'].avg + self.meters['E-MV'].avg + self.meters['E-MC'].avg + self.meters['E-RES'].avg
+        self.encoding_time = self.meters['E-FL'].avg + self.meters['E-MV'].avg + self.meters['E-MC'].avg + self.meters['E-RES'].avg + self.meters['D-MV'].avg + self.meters['D-MC'].avg + self.meters['D-RES'].avg
         self.decoding_time = self.meters['D-MV'].avg + self.meters['D-MC'].avg + self.meters['D-RES'].avg
         ##### compute bits
         # estimated bits
@@ -1546,158 +1436,6 @@ def TreeFrameReconDecompress(warpnet,res_codec,x_ref,res_string,bs,mv_hat,layers
     com_frames = torch.cat(com_frame_list,dim=0)
     return com_frames
 
-class SPVC(nn.Module):
-    def __init__(self, name, channels=64, noMeasure=True, loss_type='P', 
-            compression_level=2, use_split=True, entropy_trick=True):
-        super(SPVC, self).__init__()
-        self.name = name 
-        #self.opticFlow = OpticalFlowNet()
-        #self.warpnet = MCNet()
-        self.opticFlow = ME_Spynet()
-        self.warpnet = Warp_net()
-            
-        if '96' in self.name:
-            channels = 96
-        elif '128' in self.name:
-            channels = 128
-        if '-L' in self.name:
-            entropy_trick = False
-        # use attention in encoder and entropy model
-        self.mv_codec = Coder2D('mshp', in_channels=2, channels=channels, kernel=3, padding=1, noMeasure=noMeasure, entropy_trick=entropy_trick)
-        if '-P' in self.name:
-            res_type = 'mshp' # plain type
-        else:
-            res_type = 'attn'
-        self.res_codec = Coder2D(res_type, in_channels=3, channels=channels, kernel=5, padding=2, noMeasure=noMeasure, entropy_trick=entropy_trick)
-        self.channels = channels
-        self.loss_type=loss_type
-        self.compression_level=compression_level
-        self.use_psnr = loss_type=='P'
-        init_training_params(self)
-        self.use_split = use_split
-        if self.use_split:
-            self.split()
-        else:
-            self = self.cuda()
-        self.noMeasure = noMeasure
-        self.entropy_trick = entropy_trick
-
-    def split(self):
-        self.opticFlow.cuda(0)
-        self.mv_codec.cuda(0)
-        self.warpnet.cuda(1)
-        self.res_codec.cuda(1)
-        
-    def compress(self, x):
-        bs, c, h, w = x[1:].size()
-        
-        # BATCH:compute optical flow
-        t_0 = time.perf_counter()
-        # obtain reference frames from a graph
-        x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name)) # or one-hop?
-        ref_index = refidx_from_graph(g,bs)
-        mv_tensors = self.opticFlow(x_tar,x[ref_index])
-        self.meters['E-FL'].update(time.perf_counter() - t_0)
-            
-        # BATCH motion compression
-        mv_hat,mv_string,_,_,mv_act,mv_size,_ = self.mv_codec.compress(mv_tensors,decodeLatent=True)
-        self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
-        self.meters['eEMV'].update(self.mv_codec.AC_t)
-        
-        # SEQ:motion compensation
-        t_0 = time.perf_counter()
-        res_string,res_act = TreeFrameReconCompress(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
-        t_comp = time.perf_counter() - t_0
-        self.meters['E-MC'].update(t_comp)
-        
-        # actual bits
-        # self.bitscounter['M'].update(float(mv_act)) 
-        # self.bitscounter['R'].update(float(torch.sum(res_act))) 
-        bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
-        bpp_act = [bpp for bpp in bpp_act]
-        
-        return mv_string,res_string,bpp_act
-        
-    def decompress(self, x_ref, mv_string,res_string,bs):
-        latent_size = torch.Size([bs,16,16]) if self.entropy_trick else torch.Size([16,16])
-        # BATCH motion decode
-        mv_hat,_,_,_ = self.mv_codec.decompress(mv_string, latentSize=latent_size)
-        self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
-        self.meters['eDMV'].update(self.mv_codec.AC_t)
-        
-        # graph
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
-        
-        t_0 = time.perf_counter()
-        com_frames = TreeFrameReconDecompress(self.warpnet,self.res_codec,x_ref,res_string,bs,mv_hat,layers,parents)
-        t_comp = time.perf_counter() - t_0
-        self.meters['D-MC'].update(t_comp)
-        
-        return com_frames
-        
-    def forward(self, x):
-        bs, c, h, w = x[1:].size()
-        
-        # BATCH:compute optical flow
-        t_0 = time.perf_counter()
-        # obtain reference frames from a graph
-        x_tar = x[1:]
-        g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
-        ref_index = refidx_from_graph(g,bs)
-        mv_tensors = self.opticFlow(x_tar,x[ref_index])
-        if not self.noMeasure:
-            self.meters['E-FL'].update(time.perf_counter() - t_0)
-            
-        # BATCH:compress optical flow
-        mv_hat,_,_,mv_act,mv_est,mv_aux,_ = self.mv_codec(mv_tensors)
-        if not self.noMeasure:
-            self.meters['E-MV'].update(self.mv_codec.enc_t)
-            self.meters['D-MV'].update(self.mv_codec.dec_t)
-            self.meters['eEMV'].update(self.mv_codec.entropy_bottleneck.enc_t)
-            self.meters['eDMV'].update(self.mv_codec.entropy_bottleneck.dec_t)
-
-        # new compression way
-        com_frames,MC_frames,warped_frames,res_act,res_est,res_aux = TreeFrameReconForward(self.warpnet,self.res_codec,x,bs,mv_hat,layers,parents)
-            
-        ##### compute bits
-        # estimated bits
-        bpp_est = ((mv_est) + \
-                (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(h * w)
-        bpp_res_est = (res_est)/(h * w)
-        # actual bits
-        bpp_act = (mv_act + res_act.to(mv_act.device))/(h * w)
-        # auxilary loss
-        aux_loss = (mv_aux) + \
-                    (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))
-        aux_loss = aux_loss.repeat(bs)
-        # calculate metrics/loss
-        psnr = PSNR(x_tar, com_frames, use_list=True)
-        msssim = PSNR(x_tar, MC_frames, use_list=True)
-        #print([float(m) for m in msssim])
-        mc_loss = calc_loss(x_tar, MC_frames, self.r, True)
-        #warp_loss = calc_loss(x_tar, warped_frames, self.r, True)
-        rec_loss = calc_loss(x_tar, com_frames, self.r, self.use_psnr)
-        if self.stage == 'MC':
-            img_loss = mc_loss
-        elif self.stage == 'REC':
-            img_loss = rec_loss
-        else:
-            print('unknown stage')
-            exit(1)
-        img_loss = img_loss.repeat(bs)
-        
-        if self.training:
-            return com_frames, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim
-        else:
-            return com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-    
-    def loss(self, pix_loss, bpp_loss, aux_loss):
-        loss = self.r_img*pix_loss.cuda(0) + self.r_bpp*bpp_loss.cuda(0) + self.r_aux*aux_loss.cuda(0)
-        return loss
-        
-    def init_hidden(self, h, w, device):
-        return None
 
 from DVC.subnet import Analysis_mv_net,Synthesis_mv_net,Analysis_prior_net,Synthesis_prior_net,Analysis_net,Synthesis_net,BitEstimator,out_channel_M,out_channel_N,out_channel_mv
 
@@ -1902,7 +1640,6 @@ class LSVC(nn.Module):
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
         # tree compensation
-        t0_dec = time.perf_counter()
         MC_frame_list = [None for _ in range(bs)]
         warped_frame_list = [None for _ in range(bs)]
         com_frame_list = [None for _ in range(bs)]
@@ -1976,77 +1713,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-        
-def test_batch_proc(name = 'SPVC',batch_size = 6):
-    print('------------',name,'------------')
-    
-    h = w = 256
-    channels = 96
-    x = torch.randn(batch_size+1,3,h,w).cuda()
-    if 'SPVC' in name:
-        model = SPVC(name,channels,noMeasure=False,use_split=False)
-    elif name == 'AE3D':
-        model = AE3D(name,noMeasure=False,use_split=False)
-    else:
-        print('Not implemented.')
-    from tqdm import tqdm
-    timer = AverageMeter()
-    train_iter = tqdm(range(0,1))
-    model.eval()
-    # warmup
-    mv_string,res_string,bpp_act = model.compress(x)
-    for i,_ in enumerate(train_iter):
-        # measure start
-        bs = x.size(0)-1
-        t_0 = time.perf_counter()
-        mv_string,res_string,bpp_act = model.compress(x)
-        # x_hat = model.decompress(x[:1],mv_string,res_string,bs)
-        # com_frames, bpp_est, img_loss, aux_loss, bpp_act, psnr, sim = model(x)
-        d = (time.perf_counter() - t_0)
-        timer.update(d)
-        # measure end
-        usage = torch.cuda.memory_allocated()/(1024**3)
-        
-        train_iter.set_description(
-            f"{batch_size}: {i:4}. "
-            f"bits_act: {float(bpp_act[-1]):.2f}. "
-            f"duration: {timer.sum:.3f}. "
-            f"gpu usage: {usage:.3f}. ")
-    _,_,enc,dec = showTimer(model)
-    return timer.sum
-            
-def test_seq_proc(name='RLVC',batch_size = 13):
-    print('------------',name,'------------')
-    h = w = 224
-    x = torch.rand(1,3,h,w).cuda()
-    model = IterPredVideoCodecs(name,noMeasure=False,use_split=False)
-    from tqdm import tqdm
-    timer = AverageMeter()
-    hidden_states = model.init_hidden(h,w)
-    train_iter = tqdm(range(0,batch_size))
-    model.eval()
-    x_hat_prev = x
-    mv_prior_latent=res_prior_latent=None
-    # warm-up
-    x_hat,mv_string,res_string,hidden_states,mv_prior_latent,res_prior_latent = \
-        model.compress(x, x_hat_prev, hidden_states, False, mv_prior_latent, res_prior_latent)
-    for i,_ in enumerate(train_iter):
-        # measure start
-        t_0 = time.perf_counter()
-        x_hat,mv_string,res_string,hidden_states,mv_prior_latent,res_prior_latent = \
-            model.compress(x, x_hat_prev, hidden_states, i!=0, mv_prior_latent, res_prior_latent)
-        d = time.perf_counter() - t_0
-        timer.update(d)
-        # measure end
-        x_hat_prev = x_hat.detach()
-        usage = torch.cuda.memory_allocated()/(1024**3)
-        
-        train_iter.set_description(
-            f"Batch: {i:4}. "
-            f"duration: {timer.sum:.3f}. "
-            f"gpu usage: {usage:.3f}. ")
-    _,_,enc,dec = showTimer(model)
-    return timer.sum
 
 def get_DVC_pretrained(level):
     from DVC.net import VideoCompressor, load_model
@@ -2062,38 +1728,173 @@ def get_DVC_pretrained(level):
         global_step = load_model(model, f'DVC/snapshot/{ratio_list[level]}.model')
     net = model.cuda()
     return net
+
+
+# ---------------------------------BASE MODEL--------------------------------------
+class Base(nn.Module):
+    def __init__(self,name,compression_level=0):
+        super(VideoCompressor, self).__init__()
+        self.opticFlow = ME_Spynet()
+        self.mvEncoder = Analysis_mv_net()
+        self.Q = None
+        self.mvDecoder = Synthesis_mv_net()
+        self.warpnet = Warp_net()
+        self.resEncoder = Analysis_net()
+        self.resDecoder = Synthesis_net()
+        self.respriorEncoder = Analysis_prior_net()
+        self.respriorDecoder = Synthesis_prior_net()
+        self.bitEstimator_z = BitEstimator(out_channel_N)
+        self.bitEstimator_mv = BitEstimator(out_channel_mv)
+        self.warp_weight = 0
+        self.mxrange = 150
+        self.calrealbits = False
+        self.name = name
+        self.compression_level = compression_level
+        init_training_params(self)
+
+    def motioncompensation(self, ref, mv):
+        warpframe = flow_warp(ref, mv)
+        inputfeature = torch.cat((warpframe, ref), 1)
+        prediction = self.warpnet(inputfeature) + warpframe
+        return prediction, warpframe
+
+    def forward(self, input_image, referframe, quant_noise_feature=None, quant_noise_z=None, quant_noise_mv=None):
+        estmv = self.opticFlow(input_image, referframe)
+        mvfeature = self.mvEncoder(estmv)
+        if self.training:
+            quant_mv = mvfeature + quant_noise_mv
+        else:
+            quant_mv = torch.round(mvfeature)
+        quant_mv_upsample = self.mvDecoder(quant_mv)
+        prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+
+        input_residual = input_image - prediction
+
+        feature = self.resEncoder(input_residual)
+        batch_size = feature.size()[0]
+
+        z = self.respriorEncoder(feature)
+
+        if self.training:
+            compressed_z = z + quant_noise_z
+        else:
+            compressed_z = torch.round(z)
+
+        recon_sigma = self.respriorDecoder(compressed_z)
+
+        feature_renorm = feature
+
+        if self.training:
+            compressed_feature_renorm = feature_renorm + quant_noise_feature
+        else:
+            compressed_feature_renorm = torch.round(feature_renorm)
+
+        recon_res = self.resDecoder(compressed_feature_renorm)
+        recon_image = prediction + recon_res
+
+        clipped_recon_image = recon_image.clamp(0., 1.)
+
+        mse_loss = torch.mean((recon_image - input_image).pow(2))
+
+        warploss = torch.mean((warpframe - input_image).pow(2))
+        interloss = torch.mean((prediction - input_image).pow(2))
+        
+
+        def feature_probs_based_sigma(feature, sigma):
             
-# integrate all codec models
-# measure the speed of all codecs
-# two types of test
-# 1. (de)compress random images, faster
-# 2. (de)compress whole datasets, record time during testing 
-# need to implement 3D-CNN compression
-# ***************each model can have a timer member that counts enc/dec time
-# in training, counts total time, in testing, counts enc/dec time
-# how to deal with big batch in training? hybrid mode
-# update CNN alternatively?
-    
-if __name__ == '__main__':
-    emb = Embeddings()
-    x = torch.zeros(2,3)
-    output = emb(x)
-    print(output)
-    exit(0)
-    result_dvc = []
-    result_rlvc = []
-    result_spvc = []
-    for B in range(1,15):
-        dvc_t = test_seq_proc('DVC',B)
-        rlvc_t = test_seq_proc('RLVC',B)
-        spvc_t = test_batch_proc('SPVC', B)
-        result_dvc += [dvc_t]
-        result_rlvc += [rlvc_t]
-        result_spvc += [spvc_t]
-    print(result_dvc)
-    print(result_rlvc)
-    print(result_spvc)
-    test_batch_proc('AE3D')
-    test_batch_proc('SPVC-L')
-    test_batch_proc('SPVC-R')
-    test_batch_proc('SCVC')
+            def getrealbitsg(x, gaussian):
+                # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
+                cdfs = []
+                x = x + self.mxrange
+                n,c,h,w = x.shape
+                for i in range(-self.mxrange, self.mxrange):
+                    cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
+                cdfs = torch.cat(cdfs, 4).cpu().detach()
+                
+                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+                real_bits = torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda()
+
+                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+                return sym_out - self.mxrange, real_bits
+
+
+            mu = torch.zeros_like(sigma)
+            sigma = sigma.clamp(1e-5, 1e10)
+            gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+            probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+            total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+            
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbitsg(feature, gaussian)
+                total_bits = real_bits
+
+            return total_bits, probs
+
+        def iclr18_estrate_bits_z(z):
+            
+            def getrealbits(x):
+                cdfs = []
+                x = x + self.mxrange
+                n,c,h,w = x.shape
+                for i in range(-self.mxrange, self.mxrange):
+                    cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
+                cdfs = torch.cat(cdfs, 4).cpu().detach()
+                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+                return sym_out - self.mxrange, real_bits
+
+            prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
+            total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbits(z)
+                total_bits = real_bits
+
+            return total_bits, prob
+
+
+        def iclr18_estrate_bits_mv(mv):
+
+            def getrealbits(x):
+                cdfs = []
+                x = x + self.mxrange
+                n,c,h,w = x.shape
+                for i in range(-self.mxrange, self.mxrange):
+                    cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
+                cdfs = torch.cat(cdfs, 4).cpu().detach()
+                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+                return sym_out - self.mxrange, real_bits
+
+            prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
+            total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbits(mv)
+                total_bits = real_bits
+
+            return total_bits, prob
+
+        total_bits_feature, _ = feature_probs_based_sigma(compressed_feature_renorm, recon_sigma)
+        total_bits_z, _ = iclr18_estrate_bits_z(compressed_z)
+        total_bits_mv, _ = iclr18_estrate_bits_mv(quant_mv)
+
+        im_shape = input_image.size()
+
+        bpp_feature = total_bits_feature / (batch_size * im_shape[2] * im_shape[3])
+        bpp_z = total_bits_z / (batch_size * im_shape[2] * im_shape[3])
+        bpp_mv = total_bits_mv / (batch_size * im_shape[2] * im_shape[3])
+        bpp = bpp_feature + bpp_z + bpp_mv
+        
+        return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp

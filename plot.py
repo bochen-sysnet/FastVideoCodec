@@ -149,9 +149,13 @@ def get_arr_from(pos,filename):
 	return arr
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=labelsize_b-8,legloc='best',
-				xticks=None,yticks=None,ncol=None, yerr=None,markers=markers,
+				xticks=None,yticks=None,xticklabel=None,ncol=None, yerr=None,markers=markers,
 				use_arrow=False,arrow_coord=(0.4,30),ratio=None,bbox_to_anchor=(1.1,1.2),use_doublearrow=False,
-				linestyles=None,use_text_arrow=False):
+				linestyles=None,use_text_arrow=False,fps_double_arrow=False,linewidth=None,markersize=None):
+	if linewidth is None:
+		linewidth = 2
+	if markersize is None:
+		markersize = 8
 	fig, ax = plt.subplots()
 	ax.grid(zorder=0)
 	for i in range(len(XX)):
@@ -161,21 +165,25 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 				plt.plot(xx, yy, color = color[i], marker = markers[i], 
 					linestyle = linestyles[i], 
 					label = label[i], 
-					linewidth=2, markersize=8)
+					linewidth=linewidth, markersize=markersize)
 			else:
 				plt.plot(xx, yy, color = color[i], marker = markers[i], 
 					label = label[i], 
-					linewidth=2, markersize=8)
+					linewidth=linewidth, markersize=markersize)
 		else:
 			plt.errorbar(xx, yy, yerr=yerr[i], color = color[i], 
 				marker = markers[i], label = label[i], 
-				linewidth=2, markersize=8)
+				linewidth=linewidth, markersize=markersize)
 	plt.xlabel(xlabel, fontsize = lbsize)
 	plt.ylabel(ylabel, fontsize = lbsize)
 	if xticks is not None:
-		plt.xticks(xticks,fontsize=lfsize)
+		if xticklabel is None:
+			plt.xticks(xticks,fontsize=lfsize)
+		else:
+			plt.xticks(xticks,xticklabel,fontsize=lfsize)
+	ax.tick_params(axis='both', which='major', labelsize=lbsize)
 	if yticks is not None:
-		plt.yticks(yticks,fontsize=lfsize)
+		plt.yticks(yticks,fontsize=lbsize)
 	if use_arrow:
 		ax.text(
 		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=lbsize,
@@ -189,6 +197,11 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 		ax.annotate(text='', xy=(6,YY[2,0]), xytext=(6,YY[2,5]), arrowprops=dict(arrowstyle='<->',lw=2, color = color[2]))
 		ax.text(
 		    6.5, 23, "87% less time", ha="center", va="center", rotation='vertical', size=lfsize,color = color[2])
+	if fps_double_arrow:
+		for i in range(3):
+			ax.annotate(text='', xy=(31+i*0.5,YY[3*i,0]), xytext=(31+i*0.5,YY[0+3*i,-1]), arrowprops=dict(arrowstyle='<->',lw=2, color = color[i*3]))
+			ax.text(
+			    32+i*0.5, (YY[3*i,-1]+YY[i*3,0])/2+i*0.5, f"{YY[3*i,-1]/YY[3*i,0]:.1f}X", ha="center", va="center", rotation='vertical', size=lfsize, color = color[i*3])
 	if use_text_arrow:
 		ax.annotate('Better speed and\ncoding efficiency trade-off', xy=(XX[2][-1]+1, YY[2,-1]+20),  xycoords='data',
             xytext=(0.25, 0.4), textcoords='axes fraction',
@@ -212,7 +225,7 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	fig.savefig(path,bbox_inches='tight')
 	plt.close()
 
-def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
+def bar_plot(avg,std,label,path,color,ylabel,labelsize=24,yticks=None):
 	N = len(avg)
 	ind = np.arange(N)  # the x locations for the groups
 	width = 0.5       # the width of the bars
@@ -230,11 +243,11 @@ def bar_plot(avg,std,label,path,color,ylabel,yticks=None):
 	ax.set_xticklabels(label, fontsize = labelsize)
 	ax.bar_label(hbar, fmt='%.2f', fontsize = labelsize,fontweight='bold',padding=8)
 	if yticks is not None:
-		plt.yticks( yticks,fontsize=labelsize )
-	xleft, xright = ax.get_xlim()
-	ybottom, ytop = ax.get_ylim()
-	ratio = 0.3
-	ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
+		plt.yticks( yticks,fontsize=18 )
+	# xleft, xright = ax.get_xlim()
+	# ybottom, ytop = ax.get_ylim()
+	# ratio = 0.3
+	# ax.set_aspect(abs((xright-xleft)/(ybottom-ytop))*ratio)
 	plt.tight_layout()
 	fig.savefig(path,bbox_inches='tight')
 	plt.close()
@@ -384,7 +397,7 @@ def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],colors=
 	fig.savefig(path, bbox_inches='tight')
 	plt.close()
 
-def plot_clustered_stacked(dfall, filename, labels=None, xlabel='', ylabel='',**kwargs):
+def plot_clustered_stacked(dfall, filename, labels=None, horizontal=False, xlabel='', ylabel='',**kwargs):
     """Given a list of dataframes, with identical columns and index, create a clustered stacked bar plot. 
 labels is a list of the names of the dataframe, used for the legend
 title is a string for the title of the plot
@@ -411,77 +424,179 @@ H is the hatch used for identification of the different dataframe"""
         for j, pa in enumerate(h[i:i+n_col]):
             for rect in pa.patches: # for each index
                 rect.set_x(rect.get_x() + 1 / float(n_df + 1) * i / float(n_col))
-                rect.set_hatch(hatches[i]) #edited part     
+                rect.set_hatch(hatches[i//n_col]) #edited part     
                 rect.set_width(1 / float(n_df + 1))
 
     axe.set_xticks((np.arange(0, 2 * n_ind, 2) + 1 / float(n_df + 1)) / 2.)
     axe.set_xticklabels(df.index, rotation = 0)
-    axe.set_xlabel(xlabel, size=18)
-    axe.set_ylabel(ylabel, size=18)
+    axe.tick_params(axis='both', which='major', labelsize=20)
+    axe.set_xlabel(xlabel, size=24)
+    axe.set_ylabel(ylabel, size=24)
 
     # Add invisible data to add another legend
     n=[]        
     for i in range(n_df):
-        n.append(axe.bar(0, 0, color="gray", hatch=hatches[i]))
+        n.append(axe.bar(0, 0, color="white", hatch=hatches[i],edgecolor='black'))
 
-    l1 = axe.legend(h[:n_col], l[:n_col], loc=[.01, 0.78], fontsize=18)
+    n2 = []
+    for i,clr in enumerate(['#DB1F48','#1C4670',]):
+    	n2.append(axe.bar(0, 0, color=clr))
+
     if labels is not None:
-        l2 = plt.legend(n, labels, loc=[.01, 0.48], fontsize=18) 
-    axe.add_artist(l1)
+        if not horizontal:
+            # l1 = axe.legend(h[:n_col], l[:n_col], loc=[.01, 0.78], fontsize=18)
+            l3 = plt.legend(n2, ['Motion','Residual'], loc=[.01, 0.78], fontsize=18) 
+            l2 = plt.legend(n, labels, loc=[.01, 0.47], fontsize=18) 
+        else:
+            # l1 = axe.legend(h[:n_col], l[:n_col], loc=[.68, 0.78], fontsize=18)
+            l3 = axe.legend(n2, ['Enc','Dec'], loc=[.68, 0.78], fontsize=18) 
+            l2 = plt.legend(n, labels, loc=[.68, 0.47], fontsize=18) 
+    axe.add_artist(l3)
     plt.tight_layout()
     fig.savefig(filename, bbox_inches='tight')
     plt.close()
     return axe
-######################SCALABILITY##########################
-decompt =[ [0.02196,0.01354,0.0100,0.00785,0.00689],
-[0.014,0.011,0.010,0.009,0.009],
-[0.013,0.012,0.012,0.012,0.012],
-[0.03416528925619835, 0.02003305785123967, 0.0195, 0.01668595041322314, 0.0161900826446281],
-[0.03349720670391061, 0.025944134078212295, 0.028, 0.026748603351955308, 0.026837988826815644],
-[0.057956135770234986, 0.060977545691906006, 0.0526, 0.053080678851174935, 0.05349268929503916],
-[0.060496067755595885, 0.04007614467488227, 0.03473126682295737, 0.031039031582214632, 0.030088761847449977], 
-[0.04193311667889715, 0.039980009995002494, 0.0388651379712398, 0.038204393505253106, 0.03818615751789976], 
-[0.04637143519591931, 0.05238344683080147, 0.05676979846721544, 0.058114194391980234, 0.05871128724497285],]
-decompt =[ [0.01354,0.0100,0.00785,0.00689],
-[0.011,0.010,0.009,0.009],
-[0.012,0.012,0.012,0.012],
-[0.02003305785123967, 0.0195, 0.01668595041322314, 0.0161900826446281],
-[0.025944134078212295, 0.028, 0.026748603351955308, 0.026837988826815644],
-[0.060977545691906006, 0.0526, 0.053080678851174935, 0.05349268929503916],
-[0.04007614467488227, 0.03473126682295737, 0.031039031582214632, 0.030088761847449977], 
-[0.039980009995002494, 0.0388651379712398, 0.038204393505253106, 0.03818615751789976], 
-[0.05238344683080147, 0.05676979846721544, 0.058114194391980234, 0.05871128724497285],]
-decompt = 1/np.array(decompt)
-# motivation show duration
-scalability_labels = ['Ours (3090)','DVC (3090)','RLVC (3090)','Ours (2080)','DVC (2080)','RLVC (2080)','Ours (1080)','DVC (1080)','RLVC (1080)']
-show_indices = [1,5,13,29] # 1,2,6,14,30
-GOP_size = [[(i+1) for i in show_indices] for _ in range(len(scalability_labels))]
+
+##############################Overall#############################
+# 16543747 bps=15.8Mbps
+# 4074145 mbps=3.9Mbps
+labels_tmp = ['Ours','DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
 colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-line_plot(GOP_size,decompt,scalability_labels,colors_tmp,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/scalability_fps.eps',
-		'Capacity (#Frame)','Frame Rate (fps)',ncol=3,legloc='upper center',bbox_to_anchor=(0.45,-.16),lbsize=18,lfsize=14,ratio=.6,
-		xticks=range(0,31,10),yticks=range(0,151,30),linestyles=linestyles)
+metric_list = []
+for trace in range(2):
+	for k,metric in enumerate(['QoE','quality','rebuffer']):
+		meanQoE_all = [];stdQoE_all = []
+		for hw in [1080,2080,3090]:
+			datafile = f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_vb/{metric}_{trace}_{hw}_1000.data'
+			with open(datafile,'r') as f:
+				line = f.readlines()[0]
+			QoE_matrix = eval(line)
+			QoE_matrix = np.array(QoE_matrix)
+			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
+			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
+			measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_vb/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
+				colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24)
+			meanQoE = QoE_matrix.mean(axis=1)
+			stdQoE = QoE_matrix.std(axis=1)
+			meanQoE_all += [meanQoE]
+			stdQoE_all += [stdQoE]
+		meanQoE_all = np.stack(meanQoE_all).reshape(3,9)
+		# print(meanQoE_all.tolist())
+		stdQoE_all = np.stack(stdQoE_all).reshape(3,9)
+		names = ['QoE','Quality','Rebuffer Rate']
+		if k == 0:
+			ncol = 1
+			labelsize=18
+		else:
+			labelsize=24
+			ncol = 0
+		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
+			f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_vb/{metric}mean_{trace}.eps',methods=labels_tmp,colors=colors_tmp,
+			envs=['1080','2080','3090'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='Hardware',ratio=.7)
+		if metric == 'QoE':
+			for line in meanQoE_all.tolist():
+				ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
+				m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
+				metric_list += [[m1,m2]]
+metric_list = np.array(metric_list)
+print(metric_list)
+print(metric_list.mean(axis=0))
+print(metric_list[:3].mean(axis=0))
+print(metric_list[3:].mean(axis=0))
+exit(0)
+
+# [0.101,0.088],[0.053,0.04731],[0.061,0.04164]
+ratio = [[[0.088/0.101,1],[19.5/29.7,1],[32.4/46,1]],
+[[0.047/0.053,1],[28/39,1],[40.2/51.9,1]],
+[[0.042/0.061,1],[52.6/64.4,1],[63.2/79.0,1]]]
+dect = [
+[[0.0310]*2,[0.0195]*2,[0.010]*2,],
+[[0.0382]*2,[0.028]*2,[0.01]*2,],
+[[0.0581]*2,[0.0526]*2,[0.012]*2]]
+# dect = [[[0.0310]*2,[0.0382]*2,[0.0581]*2,],
+# [[0.0195]*2,[0.028]*2,[0.0526]*2,],
+# [[0.010]*2,[0.01]*2,[0.012]*2,],]
+ratio = np.flip(np.array(ratio),axis=1)
+dect=np.array(dect)
+encdec = (ratio*dect)*1000
+
+indices = ["GTX 1080 Ti","RTX 2080 Ti", "RTX 3090 Ti"]
+columns = ["Enc", "Dec"]
+df1 = pd.DataFrame(encdec[0],
+                   index=indices,
+                   columns=columns)
+df2 = pd.DataFrame(encdec[1],
+                   index=indices,
+                   columns=columns)
+df3 = pd.DataFrame(encdec[2],
+                   index=indices,
+                   columns=columns)
+
+plot_clustered_stacked([df1, df2, df3],'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/encdec.eps',labels=['Ours','DVC','RLVC'],
+	xlabel='Hardware',ylabel='Millisecond',horizontal=True)
+
+bit_dist = [0.025, 0.078,
+0.033, 0.106,
+0.045, 0.150,
+0.063, 0.217,
+0.026, 0.023,
+0.034, 0.040,
+0.046, 0.063,
+0.068, 0.100,
+0.016, 0.019,
+0.025, 0.031,
+0.034, 0.050,
+0.050, 0.081]
+bit_dist = np.array(bit_dist).reshape(12,2)
+
+df1 = pd.DataFrame(bit_dist[:4],
+                   index=["256", "512",'1024','2048'],
+                   columns=["Motion", "Residual"])
+df2 = pd.DataFrame(bit_dist[4:8],
+                   index=["256", "512",'1024','2048'],
+                   columns=["Motion", "Residual"])
+df3 = pd.DataFrame(bit_dist[8:],
+                   index=["256", "512",'1024','2048'],
+                   columns=["Motion", "Residual"])
+
+plot_clustered_stacked([df1, df2, df3],'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/bits_dist.eps',labels=['Ours','DVC','RLVC'],xlabel='$\lambda$',ylabel='Bit per pixel')
 
 SPSNRs = [
-# [30.91,32.62,33.89,34.57],
+[30.91,32.62,33.89,34.57],
 [30.94,32.58,33.87,34.60],
 [30.63,32.17,33.52,34.39],
 [30.17,31.72,33.12,34.07],
 [29.72,31.29,32.74,33.76],
 ]
 Sbpps = [
-# [0.23,0.36,0.54,0.74],
+[0.23,0.36,0.54,0.74],
 [0.21,0.30,0.44,0.61],
 [0.12,0.18,0.266,0.37],
 [0.11,0.16,0.22,0.31],
 [0.10,0.15,0.21,0.30],
 ]
-sc_labels = ['Capacity=2','Capacity=6','Capacity=14','Capacity=30']
+sc_labels = ['Capacity=1','Capacity=2','Capacity=6','Capacity=14','Capacity=30']
 line_plot(Sbpps,SPSNRs,sc_labels,colors,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/scalability_rdtradeoff.eps',
-		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,34),lbsize=24,lfsize=24,
+		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,34),lbsize=24,lfsize=18,
 		xticks=[0.1,0.2,.3,.4,.5,.6,.7],yticks=range(30,35))
 exit(0)
+
+y = [[0.0310,0.0382,0.0581,],
+[0.0195,0.028,0.0526,],
+[0.010,0.01,0.012,],]
+
+y = 1/np.array(y)
+labels_tmp = ['Ours','DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
+additional_y = [0.004889435564435564, 0.005005499857285572, 0.005083814399885828, 
+0.0074054160125588695, 0.0058336038961038965, 0.006322325888397318]
+additional_y = 1/np.array(additional_y)
+colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+
+groupedbar(y,None,'Frame Rate (fps)', 
+	'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/FPS_all.eps',methods=labels_tmp,colors=colors_tmp,
+	envs=['1080','2080','3090'],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=16,yticks=range(0,240,30),
+	additional_y=additional_y,bbox_to_anchor=(.15,1.1),xlabel='Hardware')
 
 # RD tradeoff all
 x640960_PSNR = [[33.916125480707116, 35.48593550438171, 37.016464507544086, 38.199682581079344, 39.118539617969084, 39.627869858965646, 40.20787336157038], 
@@ -506,8 +621,79 @@ labels_tmp = ['Ours','DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s
 colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
 line_plot(x640960_bpp,x640960_PSNR,labels_tmp,colors_tmp,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/RD_tradeoff.eps',
-		'Bit Per Pixel','PSNR (dB)',markers=markers,ncol=2,ratio=None,bbox_to_anchor=(1,.1),legloc='lower right',lbsize=18,lfsize=16,
+		'Bit Per Pixel','PSNR (dB)',markers=markers,ncol=2,ratio=None,bbox_to_anchor=(1,.1),legloc='lower right',lbsize=24,lfsize=16,
 		use_arrow=True,arrow_coord=(0.15,39))
+exit(0)
+
+labels_tmp = ['Ours','DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
+colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+for k,metric in enumerate(['QoE','quality','rebuffer']):
+	meanQoE_all = [];stdQoE_all = []
+	for trace in range(2):
+		hw = 1080
+
+		datafile = f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_novb/{metric}_{trace}_{hw}_1000.data'
+		with open(datafile,'r') as f:
+			line = f.readlines()[0]
+		QoE_matrix = eval(line)
+		QoE_matrix = np.array(QoE_matrix)
+		QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
+		QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
+		# measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
+		# 	colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1)
+		meanQoE = QoE_matrix.mean(axis=1)
+		stdQoE = QoE_matrix.std(axis=1)
+		meanQoE_all += [meanQoE]
+		stdQoE_all += [stdQoE]
+
+	meanQoE_all = np.stack(meanQoE_all).reshape(2,9)
+	stdQoE_all = np.stack(stdQoE_all).reshape(2,9)
+	names = ['QoE','Quality','Rebuffer Rate']
+	if k == 0:
+		ncol = 1;labelsize=18
+	else:
+		ncol = 0;labelsize=24
+	groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
+		f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_novb/{metric}mean_cmp.eps',methods=labels_tmp,colors=colors_tmp,
+		envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
+exit(0)
+
+#######################ERROR PROP########################
+eplabels = ['Ours','DVC','RLVC'] # UVG,r=2048
+frame_loc = [[i for i in range(7)] for _ in range(len(eplabels))]
+DVC_error = [
+[29.17373275756836, 29.27086639404297, 29.370689392089844, 29.497406005859375, 29.661972045898438, 29.852237701416016, 30.150089263916016, 29.852378845214844, 29.661556243896484, 29.503952026367188, 29.374088287353516, 29.260000228881836, 29.161962509155273],
+[30.87851333618164, 30.991844177246094, 31.11360740661621, 31.27014923095703, 31.462120056152344, 31.68387794494629, 32.09651565551758, 31.678407669067383, 31.453895568847656, 31.26244354248047, 31.11084747314453, 30.96697235107422, 30.851476669311523],
+[32.132972717285156, 32.243431091308594, 32.35715866088867, 32.50340270996094, 32.68071746826172, 32.86759948730469, 33.17623519897461, 32.866546630859375, 32.67479705810547, 32.504638671875, 32.3599967956543, 32.226200103759766, 32.11112594604492],
+[32.98991012573242, 33.08746337890625, 33.17982864379883, 33.293479919433594, 33.42365646362305, 33.544105529785156, 33.5637092590332, 33.54086685180664, 33.418758392333984, 33.292877197265625, 33.18037414550781, 33.075035095214844, 32.984283447265625],
+]
+RLVC_error = [
+[28.934640884399414, 29.0654354095459, 29.188518524169922, 29.363454818725586, 29.605087280273438, 30.001672744750977, 30.150089263916016, 29.993770599365234, 29.60120391845703, 29.366622924804688, 29.19466209411621, 29.043128967285156, 28.91464614868164],
+[30.781314849853516, 30.918954849243164, 31.047901153564453, 31.23015785217285, 31.494022369384766, 31.950214385986328, 32.09651565551758, 31.95067596435547, 31.49615478515625, 31.236337661743164, 31.052120208740234, 30.89519691467285, 30.753807067871094],
+[32.05003356933594, 32.206790924072266, 32.35562515258789, 32.55833435058594, 32.83184051513672, 33.269229888916016, 33.17623519897461, 33.277217864990234, 32.842647552490234, 32.578739166259766, 32.3740234375, 32.1959228515625, 32.042484283447266],
+[32.94842529296875, 33.0999755859375, 33.23988723754883, 33.43804168701172, 33.688114166259766, 34.05646896362305, 33.5637092590332, 34.05782699584961, 33.69127655029297, 33.450496673583984, 33.25787353515625, 33.094661712646484, 32.95338439941406],
+]
+ELVC_error = [
+[30.324174880981445, 30.538787841796875, 30.67068862915039, 30.49388313293457, 30.715848922729492, 31.25832176208496, 30.150089263916016, 31.260454177856445, 30.7042293548584, 30.511245727539062, 30.683881759643555, 30.523727416992188, 30.34703254699707],
+[31.795574188232422, 32.01017379760742, 32.13482666015625, 32.016048431396484, 32.25210189819336, 32.848426818847656, 32.09651565551758, 32.85036849975586, 32.24248123168945, 32.039222717285156, 32.14407730102539, 31.9993953704834, 31.81879997253418],
+[33.16758728027344, 33.39623260498047, 33.38203430175781, 33.413753509521484, 33.68014144897461, 34.21955108642578, 33.17623519897461, 34.22688674926758, 33.68741989135742, 33.44963455200195, 33.401241302490234, 33.39918518066406, 33.20851516723633],
+[34.112457275390625, 34.34897232055664, 34.174808502197266, 34.358848571777344, 34.64569854736328, 35.04032516479492, 33.5637092590332, 35.05060958862305, 34.66664505004883, 34.40544891357422, 34.20201110839844, 34.366241455078125, 34.17375183105469],
+]
+ytick_list = [range(29,32),range(31,34),range(32,35),range(33,36)]
+bboxes = [(.5,.45),(.6,.55),(.6,.55),(.6,.35)]
+for i in range(4):
+    PSNRs = [ELVC_error[i],DVC_error[i],RLVC_error[i]]
+    ylabel = 'PSNR (dB)' 
+    legloc = 'best'
+    PSNRs = np.array(PSNRs)
+    PSNRs = (np.flip(PSNRs[:,:7],axis=1) + PSNRs[:,6:])/2
+    qoe_mean,qoe_std = PSNRs[:,1:].mean(axis=1),PSNRs[:,1:].std(axis=1)
+    ncol = 1 
+    line_plot(frame_loc,PSNRs,eplabels,colors,
+            f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/error_prop_{i}.eps',
+            'Frame Location',ylabel,xticks=range(7),xticklabel=['I']+[f'P{i}' for i in range(1,7)],yticks=ytick_list[i],lbsize=28,lfsize=22,ncol=ncol,linewidth=4,
+           	legloc=legloc,bbox_to_anchor=bboxes[i])
+exit(0)
 
 d = np.arange(1,6)
 chain_cost = 2**(d+1)-2
@@ -516,12 +702,97 @@ bt_cost = np.array([3,11,31,79,191]) #prev*2+1+2^d
 allcost = np.stack((chain_cost,oh_cost,bt_cost))
 alldepth = [chain_cost,[1 for _ in range(5)],d]
 x = [2**(d+1)-2 for _ in range(3)]
-line_plot(x,allcost,['Chain','One-hop Tree','Binary Tree'],colors,
+line_plot(x,allcost,['Chain','One-hop','Binary'],colors,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/graph_analysis_cost.eps',
-		'#Frame','Reference Cost',ncol=1,legloc='best',lbsize=24,lfsize=24,bbox_to_anchor=None)
-line_plot(x,alldepth,['Chain','One-hop Tree','Binary Tree'],colors,
+		'#Frame','Reference Cost',ncol=1,legloc='upper left',lbsize=32,lfsize=24,bbox_to_anchor=None,linewidth=8,markersize=16)
+line_plot(x,alldepth,['Chain','One-hop','Binary'],colors,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/graph_analysis_depth.eps',
-		'#Frame','Reference Depth',ncol=1,legloc='best',lbsize=24,lfsize=24,bbox_to_anchor=None)
+		'#Frame','Reference Depth',ncol=1,legloc='upper left',lbsize=32,lfsize=24,bbox_to_anchor=None,linewidth=8,markersize=16)
+exit(0)
+labels_tmp = ['DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
+colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+for trace in range(1):
+	for hw in [1080]:
+		meanQoE_all = [];stdQoE_all = []
+		for k,metric in enumerate(['rebuffer','stall']):
+			datafile = f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_novb/{metric}_{trace}_{hw}_1000.data'
+			with open(datafile,'r') as f:
+				line = f.readlines()[0]
+			QoE_matrix = eval(line)
+			QoE_matrix = np.array(QoE_matrix)
+			print(QoE_matrix.shape)
+			# QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
+			# QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
+			# measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_vb/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
+			# 	colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1)
+			meanQoE = QoE_matrix.mean(axis=1)
+			stdQoE = QoE_matrix.std(axis=1)
+			meanQoE_all += [meanQoE]
+			stdQoE_all += [stdQoE]
+		meanQoE_all = np.stack(meanQoE_all).reshape(2,9)
+		print(meanQoE_all.tolist())
+		stdQoE_all = np.stack(stdQoE_all).reshape(2,9)
+		meanQoE_all = meanQoE_all[:,1:]
+		stdQoE_all = stdQoE_all[:,1:]
+		groupedbar(meanQoE_all,stdQoE_all,f'Rebuffer/Stall Rate', 
+			f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data_novb/mot_allmetric.eps',methods=labels_tmp,colors=colors_tmp,
+			envs=['Rebuffer','Stall'],ncol=1,sep=1,width=0.1,labelsize=18,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
+exit(0)
+########################ABLATION####################################
+# UVG
+ab_labels = ['Default','w/o VCL','Chain','One-hop']
+bpps = [[0.12,0.18,0.266,0.37],
+		[0.12,0.20,0.30,0.41],
+        [0.10,0.15,0.23,0.33],
+		[0.11,0.17,0.27,0.41],
+		]
+PSNRs = [[30.63,32.17,33.52,34.39],
+		[29.83,31.25,32.74,34.05],
+        [29.33,31.15,32.76,33.74],
+		[29.77,31.62,32.99,33.92],
+		]
+line_plot(bpps,PSNRs,ab_labels,colors,
+		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/ablation_rdtradeoff.eps',
+		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.13,33.5),lbsize=28,lfsize=24,
+		xticks=[.1,.2,.3,.4],yticks=range(30,35))
+
+ab_labels = ['Default','w/o VCL','Chain','One-hop']
+fps_avg_list = [32.21, 32.63, 16.17, 32.98]
+bar_plot(fps_avg_list,None,ab_labels,
+		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/ablation_speed.eps',
+		'#4f646f','Frame Rate (fps)',yticks=range(0,45,5),labelsize=28)
+exit(0)
+
+######################SCALABILITY##########################
+decompt =[ [0.02196,0.01354,0.0100,0.00785,0.00689],
+[0.014,0.011,0.010,0.009,0.009],
+[0.013,0.012,0.012,0.012,0.012],
+[0.03416528925619835, 0.02003305785123967, 0.0195, 0.01668595041322314, 0.0161900826446281],
+[0.03349720670391061, 0.025944134078212295, 0.028, 0.026748603351955308, 0.026837988826815644],
+[0.057956135770234986, 0.060977545691906006, 0.0526, 0.053080678851174935, 0.05349268929503916],
+[0.060496067755595885, 0.04007614467488227, 0.03473126682295737, 0.031039031582214632, 0.030088761847449977], 
+[0.04193311667889715, 0.039980009995002494, 0.0388651379712398, 0.038204393505253106, 0.03818615751789976], 
+[0.04637143519591931, 0.05238344683080147, 0.05676979846721544, 0.058114194391980234, 0.05871128724497285],]
+# decompt =[ [0.01354,0.0100,0.00785,0.00689],
+# [0.011,0.010,0.009,0.009],
+# [0.012,0.012,0.012,0.012],
+# [0.02003305785123967, 0.0195, 0.01668595041322314, 0.0161900826446281],
+# [0.025944134078212295, 0.028, 0.026748603351955308, 0.026837988826815644],
+# [0.060977545691906006, 0.0526, 0.053080678851174935, 0.05349268929503916],
+# [0.04007614467488227, 0.03473126682295737, 0.031039031582214632, 0.030088761847449977], 
+# [0.039980009995002494, 0.0388651379712398, 0.038204393505253106, 0.03818615751789976], 
+# [0.05238344683080147, 0.05676979846721544, 0.058114194391980234, 0.05871128724497285],]
+decompt = 1/np.array(decompt)
+# motivation show duration
+scalability_labels = ['Ours (3090)','DVC (3090)','RLVC (3090)','Ours (2080)','DVC (2080)','RLVC (2080)','Ours (1080)','DVC (1080)','RLVC (1080)']
+show_indices = [0,1,5,13,29] # 1,2,6,14,30
+GOP_size = [[(i+1) for i in show_indices] for _ in range(len(scalability_labels))]
+colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+line_plot(GOP_size,decompt,scalability_labels,colors_tmp,
+		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/scalability_fps.eps',
+		'Capacity (#Frame)','Frame Rate (fps)',ncol=1,legloc='center right',bbox_to_anchor=(1.2,.5),lbsize=18,lfsize=12,ratio=.6,
+		xticks=range(0,41,5),yticks=range(0,151,30),linestyles=linestyles,fps_double_arrow=True)#(0.45,-.16)
+exit(0)
 
 y = [[0.014343031600003543, 0.01041380439999955, 0.010020919000000579, 0.0099386924749993, 0.009637096180000526, 0.009600869550000841, 0.01225261787142894, 0.010805716924999587, 0.013351780355555497, 0.01012761901000033, 0.009969255518181667, 0.007719925508333367, 0.007699777169230733, 0.007648280071428612, 0.010007865553333205, 0.008840933706250099],
 [0.006625925800000232, 0.006346201299999165, 0.006341402133332015, 0.006342856949999032, 0.006327184579999994, 0.006357724933333013, 0.006347319628571313, 0.006374761762499759, 0.006373157866666664, 0.0062588391100001665, 0.006265954209090875, 0.006284894324999849, 0.006266073861538556, 0.006278202685714161, 0.006285975300000171, 0.006274069393749926],
@@ -541,7 +812,7 @@ y = y[[1,2,3,5,6,7,]]
 x = [range(1,y.shape[1]+1) for _ in range(y.shape[0])]
 
 colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-line_plot(x,y,['FP(1080)','MC(1080)','RC(1080)','FP(2080)','MC(2080)','RC(2080)'],colors,
+line_plot(x,y,['MC(1080)','Mc(1080)','Rc(1080)','MC(2080)','Mc(2080)','Rc(2080)'],colors,
 		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/mot_parallel.eps',
 		'Batch Size','Avg. Processing Time (ms)',ncol=2,legloc='best',lbsize=24,lfsize=18,bbox_to_anchor=None,xticks=range(0,17,2),
 		use_doublearrow=False)
@@ -553,6 +824,9 @@ y = np.array(y).reshape(-1,1);yerr = np.array(yerr).reshape(-1,1)
 groupedbar(y,yerr,'Rebuffer Rate', 
 	'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/mot_rebuffer.eps',methods=['QoE'],colors=['#4f646f'],
 	envs=labels_tmp,ncol=0,labelsize=24,rotation=45)
+
+exit(0)
+
 
 
 # motivation
@@ -572,12 +846,6 @@ Ubpps = [[0.0635721028971029, 0.09370483266733268, 0.13689532967032966, 0.197880
 [0.052209752747252744, 0.08867724775224775, 0.15350600649350649, 0.27385037462537465, 0.5003003621378621, 0.9180783216783216, 1.5802436813186813], 
 [0.042274475524475524, 0.06967703546453546, 0.11463427822177823, 0.19173451548451548, 0.32591756993006993, 0.5685101148851149, 0.989252072927073], 
 [0.04214488011988012, 0.07000197302697303, 0.11528716283716285, 0.19448647602397603, 0.3312023601398601, 0.5897757242757242, 1.0536495129870131]]
-
-# for i in range(2):
-# 	for j in range(2,8):
-# 		bdrate = BD_RATE(np.array(Ubpps[i]),UPSNRs[i],np.array(Ubpps[j]),UPSNRs[j])
-# 		print(bdrate)
-
 
 colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
 labels_tmp = ['DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
@@ -607,155 +875,3 @@ y = 1/np.array(y).reshape(-1,1)
 groupedbar(y,None,'Frame Rate (fps)', 
 	'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/mot_FPS.eps',methods=['QoE'],colors=['#4f646f'],labelsize=24,ylim=(0,230),
 	envs=labels_tmp,ncol=0,rotation=45,use_realtime_line=True,bar_label_dxdy=(-0.4,5),yticks=range(0,250,30))
-
-
-########################ABLATION####################################
-# UVG
-ab_labels = ['Default','w/o Attn','Linear','One-hop']
-bpps = [[0.12,0.18,0.266,0.37],
-		[0.12,0.20,0.30,0.41],
-        [0.10,0.15,0.23,0.33],
-		[0.11,0.17,0.27,0.41],
-		]
-PSNRs = [[30.63,32.17,33.52,34.39],
-		[29.83,31.25,32.74,34.05],
-        [29.33,31.15,32.76,33.74],
-		[29.77,31.62,32.99,33.92],
-		]
-line_plot(bpps,PSNRs,ab_labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/ablation_rdtradeoff.eps',
-		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,33),lbsize=24,lfsize=24,
-		xticks=[.1,.2,.3,.4],yticks=range(30,35))
-
-ab_labels = ['Default','w/o Attn','Linear','One-hop']
-fps_avg_list = [32.21, 32.63, 16.17, 32.98]
-bar_plot(fps_avg_list,None,ab_labels,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/ablation_speed.eps',
-		'#4f646f','Frame Rate (fps)',yticks=range(0,40,10))
-
-# [0.101,0.088],[0.053,0.04731]
-df1 = pd.DataFrame([[29.7,19.5],[46,32.4]],
-                   index=["RTX 2080 Ti", "GTX 1080 Ti"],
-                   columns=["Encoding", "Decoding"])
-df2 = pd.DataFrame([[39,28],[0051.9,40.2]],
-                   index=["RTX 2080 Ti", "GTX 1080 Ti"],
-                   columns=["Encoding", "Decoding"])
-df3 = pd.DataFrame([[64.4,52.6],[79.0,63.2]],
-                   index=["RTX 2080 Ti", "GTX 1080 Ti"],
-                   columns=["Encoding", "Decoding"])
-
-plot_clustered_stacked([df1, df2, df3],'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/encdec.eps',labels=['Ours','DVC','RLVC'],xlabel='Hardware',ylabel='Millisecond')
-
-bit_dist = [0.025, 0.078,
-0.033, 0.106,
-0.045, 0.150,
-0.063, 0.217,
-0.026, 0.023,
-0.034, 0.040,
-0.046, 0.063,
-0.068, 0.100,
-0.016, 0.019,
-0.025, 0.031,
-0.034, 0.050,
-0.050, 0.081]
-bit_dist = np.array(bit_dist).reshape(12,2)
-
-df1 = pd.DataFrame(bit_dist[:4],
-                   index=["256", "512",'1024','2048'],
-                   columns=["Motion", "Residual"])
-df2 = pd.DataFrame(bit_dist[4:8],
-                   index=["256", "512",'1024','2048'],
-                   columns=["Motion", "Residual"])
-df3 = pd.DataFrame(bit_dist[8:],
-                   index=["256", "512",'1024','2048'],
-                   columns=["Motion", "Residual"])
-
-plot_clustered_stacked([df1, df2, df3],'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/bits_dist.eps',labels=['ELVC','DVC','RLVC'],xlabel='$\lambda$',ylabel='Bit per pixel')
-
-
-#######################ERROR PROP########################
-eplabels = ['Ours','DVC','RLVC'] # UVG,r=2048
-frame_loc = [[i for i in range(1,14)] for _ in range(len(eplabels))]
-DVC_error = [
-[29.17373275756836, 29.27086639404297, 29.370689392089844, 29.497406005859375, 29.661972045898438, 29.852237701416016, 30.150089263916016, 29.852378845214844, 29.661556243896484, 29.503952026367188, 29.374088287353516, 29.260000228881836, 29.161962509155273],
-[30.87851333618164, 30.991844177246094, 31.11360740661621, 31.27014923095703, 31.462120056152344, 31.68387794494629, 32.09651565551758, 31.678407669067383, 31.453895568847656, 31.26244354248047, 31.11084747314453, 30.96697235107422, 30.851476669311523],
-[32.132972717285156, 32.243431091308594, 32.35715866088867, 32.50340270996094, 32.68071746826172, 32.86759948730469, 33.17623519897461, 32.866546630859375, 32.67479705810547, 32.504638671875, 32.3599967956543, 32.226200103759766, 32.11112594604492],
-[32.98991012573242, 33.08746337890625, 33.17982864379883, 33.293479919433594, 33.42365646362305, 33.544105529785156, 33.5637092590332, 33.54086685180664, 33.418758392333984, 33.292877197265625, 33.18037414550781, 33.075035095214844, 32.984283447265625],
-]
-RLVC_error = [
-[28.934640884399414, 29.0654354095459, 29.188518524169922, 29.363454818725586, 29.605087280273438, 30.001672744750977, 30.150089263916016, 29.993770599365234, 29.60120391845703, 29.366622924804688, 29.19466209411621, 29.043128967285156, 28.91464614868164],
-[30.781314849853516, 30.918954849243164, 31.047901153564453, 31.23015785217285, 31.494022369384766, 31.950214385986328, 32.09651565551758, 31.95067596435547, 31.49615478515625, 31.236337661743164, 31.052120208740234, 30.89519691467285, 30.753807067871094],
-[32.05003356933594, 32.206790924072266, 32.35562515258789, 32.55833435058594, 32.83184051513672, 33.269229888916016, 33.17623519897461, 33.277217864990234, 32.842647552490234, 32.578739166259766, 32.3740234375, 32.1959228515625, 32.042484283447266],
-[32.94842529296875, 33.0999755859375, 33.23988723754883, 33.43804168701172, 33.688114166259766, 34.05646896362305, 33.5637092590332, 34.05782699584961, 33.69127655029297, 33.450496673583984, 33.25787353515625, 33.094661712646484, 32.95338439941406],
-]
-ELVC_error = [
-[30.324174880981445, 30.538787841796875, 30.67068862915039, 30.49388313293457, 30.715848922729492, 31.25832176208496, 30.150089263916016, 31.260454177856445, 30.7042293548584, 30.511245727539062, 30.683881759643555, 30.523727416992188, 30.34703254699707],
-[31.795574188232422, 32.01017379760742, 32.13482666015625, 32.016048431396484, 32.25210189819336, 32.848426818847656, 32.09651565551758, 32.85036849975586, 32.24248123168945, 32.039222717285156, 32.14407730102539, 31.9993953704834, 31.81879997253418],
-[33.16758728027344, 33.39623260498047, 33.38203430175781, 33.413753509521484, 33.68014144897461, 34.21955108642578, 33.17623519897461, 34.22688674926758, 33.68741989135742, 33.44963455200195, 33.401241302490234, 33.39918518066406, 33.20851516723633],
-[34.112457275390625, 34.34897232055664, 34.174808502197266, 34.358848571777344, 34.64569854736328, 35.04032516479492, 33.5637092590332, 35.05060958862305, 34.66664505004883, 34.40544891357422, 34.20201110839844, 34.366241455078125, 34.17375183105469],
-]
-ytick_list = [range(29,32),range(31,34),range(32,35),range(33,36)]
-for i in range(4):
-    PSNRs = [ELVC_error[i],DVC_error[i],RLVC_error[i]]
-    ylabel = 'PSNR (dB)' if i==0 else ''
-    legloc = 'lower center' if i==0 else 'best'
-    line_plot(frame_loc,PSNRs,eplabels,colors,
-            f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/error_prop_{i}.eps',
-            'Frame Index',ylabel,xticks=range(1,14),yticks=ytick_list[i],lbsize=24,lfsize=18,
-           	legloc=legloc)
-
-
-
-res_list = [[0.72794914,0.60694917,0.70361536],
- [0.6231096,0.59466921,0.57731455],
- [0.63353535,0.62445458,0.58033916],
- [0.85463595,0.71327592,0.78941494],
- [0.8853408,0.81136836,0.76439376],
- [0.8649348,0.82762628,0.71820717]]
-
-for ours,t_top1,l_top1 in res_list:
-	print((ours - t_top1)/t_top1,(ours - l_top1)/l_top1)
-
-##############################High Bandwidth#############################
-# 16543747 bps=15.8Mbps
-# 4074145 mbps=3.9Mbps
-labels_tmp = ['Ours','DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
-colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-for trace in range(2):
-	meanQoE_all = [];stdQoE_all = []
-	for hw in [1080,2080,3090]:
-		datafile = f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/QoE_{trace}_{hw}_1000.data'
-		with open(datafile,'r') as f:
-			line = f.readlines()[0]
-		QoE_matrix = eval(line)
-		QoE_matrix = np.array(QoE_matrix)
-		QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
-		QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
-		measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/QoEcdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
-			colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1)
-		meanQoE = QoE_matrix.mean(axis=1)
-		stdQoE = QoE_matrix.std(axis=1)
-		meanQoE_all += [meanQoE]
-		stdQoE_all += [stdQoE]
-	meanQoE_all = np.stack(meanQoE_all).reshape(3,9)
-	print(meanQoE_all)
-	stdQoE_all = np.stack(stdQoE_all).reshape(3,9)
-	groupedbar(meanQoE_all,stdQoE_all,'Normalized QoE', 
-		f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/QoEmean_{trace}.eps',methods=labels_tmp,colors=colors_tmp,
-		envs=['1080','2080','3090'],ncol=1,sep=1,width=0.1,labelsize=18,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='Hardware',ratio=.7)
-
-y = [[0.0310,0.0382,0.0581,],
-[0.0195,0.028,0.0526,],
-[0.010,0.01,0.012,],]
-
-y = 1/np.array(y)
-labels_tmp = ['Ours','DVC','RLVC','x264f','x264m','x264s','x265f','x265m','x265s']
-additional_y = [0.004889435564435564, 0.005005499857285572, 0.005083814399885828, 
-0.0074054160125588695, 0.0058336038961038965, 0.006322325888397318]
-additional_y = 1/np.array(additional_y)
-colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-
-groupedbar(y,None,'Frame Rate (fps)', 
-	'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/FPS_all.eps',methods=labels_tmp,colors=colors_tmp,
-	envs=['1080','2080','3090'],ncol=1,sep=1,width=0.3,labelsize=18,lfsize=16,yticks=range(0,240,30),
-	additional_y=additional_y,bbox_to_anchor=(.15,1.1),xlabel='Hardware')
