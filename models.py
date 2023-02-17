@@ -1776,10 +1776,12 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, quant_noise_feature=None, quant_noise_z=None, quant_noise_mv=None):
+    def forward(self, input_image, referframe):
         estmv = self.opticFlow(input_image, referframe)
         mvfeature = self.mvEncoder(estmv)
         if self.training:
+            half = float(0.5)
+            quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
             quant_mv = mvfeature + quant_noise_mv
         else:
             quant_mv = torch.round(mvfeature)
@@ -1794,6 +1796,8 @@ class Base(nn.Module):
         z = self.respriorEncoder(feature)
 
         if self.training:
+            half = float(0.5)
+            quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
         else:
             compressed_z = torch.round(z)
@@ -1803,6 +1807,8 @@ class Base(nn.Module):
         feature_renorm = feature
 
         if self.training:
+            half = float(0.5)
+            quant_noise_feature = torch.empty_like(feature_renorm).uniform_(-half, half)
             compressed_feature_renorm = feature_renorm + quant_noise_feature
         else:
             compressed_feature_renorm = torch.round(feature_renorm)
