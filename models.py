@@ -1788,7 +1788,7 @@ class MyMENet(nn.Module):
             flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
             if self.recursive_flow:
                 priorflow = prior_flow_list[intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
-                print(flowfiledsUpsample.size(),priorflow.size())
+                print(intLevel,flowfiledsUpsample.size(),priorflow.size())
                 flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
                                                                             priorflow, # prior flow
