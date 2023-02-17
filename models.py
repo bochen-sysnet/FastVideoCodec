@@ -225,7 +225,7 @@ def parallel_compression(model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 x_hat_list.append(x_prev)
-                decoding_time += model.decoding_time/(B-1)
+                decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'SPVC' in model_name:
             if model.training:
