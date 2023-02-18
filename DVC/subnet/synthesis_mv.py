@@ -103,7 +103,6 @@ class Synthesis_mv_net(nn.Module):
         self.hidden = torch.zeros(1,out_channel_mv*2,h//4,w//4)
 
 
-
 def build_model():
     input_image = torch.zeros([4, 2, 256, 256])
     analysis_mv_net = Analysis_mv_net()

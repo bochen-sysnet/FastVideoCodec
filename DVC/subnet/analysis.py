@@ -73,7 +73,7 @@ class Analysis_net(nn.Module):
         h,w = x.shape[:2]
         self.hidden = torch.zeros(1,out_channel_N*2,h//4,w//4)
 
-class Analysis_DM(nn.Module):
+class Analysis_MV(nn.Module):
     '''
     Compress residual
     '''
@@ -90,6 +90,105 @@ class Analysis_DM(nn.Module):
         self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
         self.blocks.append(DMBlock(conv_channels))
         self.blocks.append(TransitionBlock(conv_channels,  out_channels, avg_pool=False))
+        self.blocks = nn.Sequential(*self.blocks)
+
+    def forward(self, x):
+        return self.blocks(x)
+
+class Synthesis_MV(nn.Module):
+    def __init__(self):
+        super(Synthesis_DM, self).__init__()
+        in_channels = 96
+        conv_channels = 64
+        self.blocks = []
+        self.blocks.append(TransitionBlock(in_channels,  conv_channels, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=1, padding=1, avg_pool=False))
+        self.blocks.append(TransitionBlock(conv_channels,  32, kernel_size=1, stride=1, padding=0, avg_pool=False))
+        self.blocks.append(TransitionBlock(32,  32, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(TransitionBlock(32,  2, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks = nn.Sequential(*self.blocks)
+
+    def forward(self, x):
+        return self.blocks(x)
+
+
+class Analysis_RES(nn.Module):
+    '''
+    Compress residual
+    '''
+    def __init__(self):
+        super(Analysis_RES, self).__init__()
+        conv_channels = 256
+        out_channels = 96
+        self.blocks = []
+        self.blocks.append(TransitionBlock(3,  conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  out_channels, avg_pool=False))
+        self.blocks = nn.Sequential(*self.blocks)
+
+    def forward(self, x):
+        return self.blocks(x)
+
+class Synthesis_RES(nn.Module):
+    def __init__(self):
+        super(Synthesis_RES, self).__init__()
+        in_channels = 96
+        conv_channels = 128
+        self.blocks = []
+        self.blocks.append(TransitionBlock(in_channels,  conv_channels, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  64, kernel_size=3, stride=1, padding=1, avg_pool=False))
+        self.blocks.append(TransitionBlock(64,  48, kernel_size=1, stride=1, padding=0, avg_pool=False))
+        self.blocks.append(TransitionBlock(48,  48, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(TransitionBlock(48,  2, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks = nn.Sequential(*self.blocks)
+
+    def forward(self, x):
+        return self.blocks(x)
+
+class Analysis_PRIOR(nn.Module):
+    '''
+    Compress residual
+    '''
+    def __init__(self):
+        super(Analysis_PRIOR, self).__init__()
+        conv_channels = 96
+        out_channels = 64
+        self.blocks = []
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  out_channels))
+        self.blocks = nn.Sequential(*self.blocks)
+
+    def forward(self, x):
+        return self.blocks(x)
+
+class Synthesis_PRIOR(nn.Module):
+    def __init__(self):
+        super(Synthesis_PRIOR, self).__init__()
+        in_channels = 64
+        conv_channels = 96
+        self.blocks = []
+        self.blocks.append(TransitionBlock(in_channels,  conv_channels, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
         self.blocks = nn.Sequential(*self.blocks)
 
     def forward(self, x):

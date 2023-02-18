@@ -1802,7 +1802,7 @@ class MyMENet(nn.Module):
 # by default, motion is recursive/additive
 # RNN: recurrent network in mv/res codec
 # Res, residual is recursive
-from DVC.subnet import Analysis_DM,Synthesis_DM
+from DVC.subnet import Analysis_MV, Synthesis_MV, Analysis_RES, Synthesis_RES, Analysis_PRIOR, Synthesis_PRIOR
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
@@ -1810,16 +1810,20 @@ class Base(nn.Module):
         useDM = True if 'DM' in name else False
         self.opticFlow = MyMENet(recursive_flow=True)
         self.warpnet = Warp_net()
-        self.mvEncoder = Analysis_mv_net(useRec=useRec)
-        self.mvDecoder = Synthesis_mv_net(useRec=useRec)
-        if useDM:
-            self.resEncoder = Analysis_DM()
-            self.resDecoder = Synthesis_DM()
+        if useDM::
+            self.mvEncoder = Analysis_MV()
+            self.mvDecoder = Synthesis_MV()
+            self.resEncoder = Analysis_RES()
+            self.resDecoder = Synthesis_RES()
+            self.respriorEncoder = Analysis_PRIOR()
+            self.respriorDecoder = Synthesis_PRIOR()
         else:
+            self.mvEncoder = Analysis_mv_net(useRec=useRec)
+            self.mvDecoder = Synthesis_mv_net(useRec=useRec)
             self.resEncoder = Analysis_net(useRec=useRec)
             self.resDecoder = Synthesis_net(useRec=useRec)
-        self.respriorEncoder = Analysis_prior_net(useRec=useRec)
-        self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
+            self.respriorEncoder = Analysis_prior_net(useRec=useRec)
+            self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
