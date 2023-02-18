@@ -89,7 +89,7 @@ class Analysis_DM(nn.Module):
         self.blocks.append(DMBlock(conv_channels))
         self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
         self.blocks.append(DMBlock(conv_channels))
-        self.blocks.append(TransitionBlock(conv_channels,  out_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  out_channels, avg_pool=False))
         self.blocks = nn.Sequential(*self.blocks)
 
     def forward(self, x):
