@@ -303,9 +303,9 @@ class BasicBlock(nn.Module):
         return out
 
 class TransitionBlock(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False):
+    def __init__(self, in_planes, out_planes, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False, avg_pool=True):
         super(TransitionBlock, self).__init__()
-        self.deconv=deconv
+        self.avg_pool = avg_pool
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.relu = nn.ReLU(inplace=True)
         if not deconv:
@@ -314,10 +314,9 @@ class TransitionBlock(nn.Module):
             self.conv1 = nn.ConvTranspose2d(in_planes, out_planes, kernel_size, stride=stride, padding=padding, output_padding=output_padding)
     def forward(self, x):
         out = self.conv1(self.relu(self.bn1(x)))
-        if self.deconv:
-            return out
-        else:
+        if self.avg_pool:
             return F.avg_pool2d(out, 2)
+        return out
 
 class DMBlock(nn.Module):
     def __init__(self, channel):

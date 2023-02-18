@@ -90,14 +90,14 @@ class Synthesis_DM(nn.Module):
         conv_channels = 64
         self.blocks = []
         self.blocks.append(DMBlock(in_channels))
-        self.blocks.append(TransitionBlock(in_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True))
+        self.blocks.append(TransitionBlock(in_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
         self.blocks.append(DMBlock(conv_channels))
-        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
         self.blocks.append(DMBlock(conv_channels))
-        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=1, padding=1, output_padding=1, deconv=True))
-        self.blocks.append(TransitionBlock(conv_channels,  32, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=True))
-        self.blocks.append(TransitionBlock(32,  32, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True))
-        self.blocks.append(TransitionBlock(32,  3, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels, kernel_size=3, stride=1, padding=1, avg_pool=False))
+        self.blocks.append(TransitionBlock(conv_channels,  32, kernel_size=1, stride=1, padding=0, avg_pool=False))
+        self.blocks.append(TransitionBlock(32,  32, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
+        self.blocks.append(TransitionBlock(32,  3, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True, avg_pool=False))
         self.blocks = nn.Sequential(*self.blocks)
 
     def forward(self, x):
