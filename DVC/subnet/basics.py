@@ -295,7 +295,7 @@ class ConvLSTM(nn.Module):
 
 class DMBlock(nn.Module):
     def __init__(self, channel):
-        super(ResBlock, self).__init__()
+        super(DMBlock, self).__init__()
         self.relu1 = nn.ReLU()
         self.conv1 = nn.Conv2d(channel, channel, kernel_size=1, stride=1, padding=0)
         torch.nn.init.xavier_uniform_(self.conv1.weight.data)
