@@ -1810,7 +1810,7 @@ class Base(nn.Module):
         useDM = True if 'DM' in name else False
         self.opticFlow = MyMENet(recursive_flow=True)
         self.warpnet = Warp_net()
-        if useDM::
+        if useDM:
             self.mvEncoder = Analysis_MV()
             self.mvDecoder = Synthesis_MV()
             self.resEncoder = Analysis_RES()
