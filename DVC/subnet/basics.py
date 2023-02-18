@@ -321,7 +321,7 @@ class DMBlock(nn.Module):
         x1 = self.relu1(self.conv1(x))
         x2 = self.relu2(self.conv2(x1))
         x3 = self.relu3(self.conv3(x2))
-        x4 = self.relu4(self.conv4(x4))
+        x4 = self.relu4(self.conv4(x3))
         x5 = torch.cat((x1,x2,x3,x4),1)
         x6 = self.relu5(self.conv5(x5))
         return x6
