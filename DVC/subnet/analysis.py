@@ -78,7 +78,7 @@ class Analysis_MV(nn.Module):
     Compress residual
     '''
     def __init__(self):
-        super(Analysis_DM, self).__init__()
+        super(Analysis_MV, self).__init__()
         conv_channels = 256
         out_channels = 96
         self.blocks = []
@@ -97,7 +97,7 @@ class Analysis_MV(nn.Module):
 
 class Synthesis_MV(nn.Module):
     def __init__(self):
-        super(Synthesis_DM, self).__init__()
+        super(Synthesis_MV, self).__init__()
         in_channels = 96
         conv_channels = 64
         self.blocks = []
