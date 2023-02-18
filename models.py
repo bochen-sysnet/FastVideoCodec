@@ -1809,12 +1809,12 @@ class Base(nn.Module):
         useDM = True if 'DM' in name else False
         self.opticFlow = MyMENet(recursive_flow=True)
         self.warpnet = Warp_net()
-        self.mvEncoder = Analysis_mv_net(useRec=useRec)
-        self.mvDecoder = Synthesis_mv_net(useRec=useRec)
+        self.mvEncoder = Analysis_mv_net(useRec=useRec,useDM=useDM)
+        self.mvDecoder = Synthesis_mv_net(useRec=useRec,useDM=useDM)
         self.resEncoder = Analysis_net(useRec=useRec,useDM=useDM)
-        self.resDecoder = Synthesis_net(useRec=useRec)
-        self.respriorEncoder = Analysis_prior_net(useRec=useRec)
-        self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
+        self.resDecoder = Synthesis_net(useRec=useRec,useDM=useDM)
+        self.respriorEncoder = Analysis_prior_net(useRec=useRec,useDM=useDM)
+        self.respriorDecoder = Synthesis_prior_net(useRec=useRec,useDM=useDM)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
