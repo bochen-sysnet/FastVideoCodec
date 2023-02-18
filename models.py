@@ -1807,14 +1807,14 @@ class Base(nn.Module):
         useRec = True if 'RNN' in name else False
         useRes = True if 'Res' in name else False
         self.opticFlow = MyMENet(recursive_flow=True)
-        self.mvEncoder = Analysis_mv_net(useRec=True)
+        self.mvEncoder = Analysis_mv_net(useRec=useRec)
         self.Q = None
-        self.mvDecoder = Synthesis_mv_net(useRec=True)
+        self.mvDecoder = Synthesis_mv_net(useRec=useRec)
         self.warpnet = Warp_net()
-        self.resEncoder = Analysis_net(useRec=True)
-        self.resDecoder = Synthesis_net(useRec=True)
-        self.respriorEncoder = Analysis_prior_net(useRec=True)
-        self.respriorDecoder = Synthesis_prior_net(useRec=True)
+        self.resEncoder = Analysis_net(useRec=useRec)
+        self.resDecoder = Synthesis_net(useRec=useRec)
+        self.respriorEncoder = Analysis_prior_net(useRec=useRec)
+        self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
