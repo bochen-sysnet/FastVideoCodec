@@ -1834,6 +1834,7 @@ class Base(nn.Module):
         estmv = self.opticFlow(input_image, referframe, priors)
         if self.recursive_flow and 'mv' in priors:
             estmv -= priors['mv']
+        print(level)
         mvfeature = self.mvEncoder(estmv,level=level)
         if self.training:
             half = float(0.5)

@@ -348,5 +348,4 @@ class Modulate(nn.Module):
         # level: [0,1]
         phase = (torch.arange(0,C).to(x.device).repeat(B).view(B,C,1,1)/C + level/4.0)*torch.pi
         self.mod = torch.cos(phase) * self.gamma + self.beta
-        print(self.mod.size(),x.size())
         return self.mod * x
