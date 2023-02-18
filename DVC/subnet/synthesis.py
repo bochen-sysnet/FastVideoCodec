@@ -98,7 +98,7 @@ class Synthesis_DM(nn.Module):
         self.blocks.append(TransitionBlock(conv_channels,  32, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=True))
         self.blocks.append(TransitionBlock(32,  32, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True))
         self.blocks.append(TransitionBlock(32,  3, kernel_size=3, stride=2, padding=1, output_padding=1, deconv=True))
-        self.blocks = nn.Sequential(self.blocks)
+        self.blocks = nn.Sequential(*self.blocks)
 
     def forward(self, x):
         return self.blocks(x)
