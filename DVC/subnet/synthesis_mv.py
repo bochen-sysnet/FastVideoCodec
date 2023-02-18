@@ -65,9 +65,13 @@ class Synthesis_mv_net(nn.Module):
             self.lstm = ConvLSTM(conv_channels)
         self.useDM = useDM
         if self.useDM:
-            self.dm = DMBlock(conv_channels)
+            self.dm1 = DMBlock(conv_channels)
+            self.dm2 = DMBlock(conv_channels)
+            self.dm3 = DMBlock(conv_channels)
         
     def forward(self, x):
+        if self.useDM:
+            x = self.dm1(x)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
@@ -81,12 +85,14 @@ class Synthesis_mv_net(nn.Module):
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu1(self.deconv1(x))
         x = self.relu2(self.deconv2(x))
+        if self.useDM:
+            x = self.dm2(x)
         x = self.relu3(self.deconv3(x))
         x = self.relu4(self.deconv4(x))
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         if self.useDM:
-            x = self.dm(x)
+            x = self.dm3(x)
         x = self.relu5(self.deconv5(x))
         x = self.relu6(self.deconv6(x))
         x = self.relu7(self.deconv7(x))

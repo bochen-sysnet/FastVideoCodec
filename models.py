@@ -1813,8 +1813,8 @@ class Base(nn.Module):
         self.mvDecoder = Synthesis_mv_net(useRec=useRec,useDM=useDM)
         self.resEncoder = Analysis_net(useRec=useRec,useDM=useDM)
         self.resDecoder = Synthesis_net(useRec=useRec,useDM=useDM)
-        self.respriorEncoder = Analysis_prior_net(useRec=useRec,useDM=useDM)
-        self.respriorDecoder = Synthesis_prior_net(useRec=useRec,useDM=useDM)
+        self.respriorEncoder = Analysis_prior_net(useRec=useRec)
+        self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0

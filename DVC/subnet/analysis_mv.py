@@ -64,7 +64,15 @@ class Analysis_mv_net(nn.Module):
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
         if self.useDM:
-            self.dm = DMBlock(conv_channels)
+            self.dm1 = DMBlock(conv_channels)
+            self.dm2 = DMBlock(conv_channels)
+            self.dm3 = DMBlock(conv_channels)
+            self.conv8 = nn.Conv2d(conv_channels, conv_channels, 3, stride=1, padding=1)
+            torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
+            torch.nn.init.constant_(self.conv8.bias.data, 0.01)
+            self.conv9 = nn.Conv2d(conv_channels, out_channels, 1, stride=1, padding=0)
+            torch.nn.init.xavier_normal_(self.conv9.weight.data, math.sqrt(2))
+            torch.nn.init.constant_(self.conv9.bias.data, 0.01)
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -74,9 +82,11 @@ class Analysis_mv_net(nn.Module):
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         if self.useDM:
-            x = self.dm(x)
+            x = self.dm1(x)
         x = self.relu5(self.conv5(x))
         x = self.relu6(self.conv6(x)) 
+        if self.useDM:
+            x = self.dm2(x)
         x = self.relu7(self.conv7(x))
         x = self.conv8(x)
         if self.useAttn:
@@ -90,6 +100,9 @@ class Analysis_mv_net(nn.Module):
                 x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        if self.useDM:
+            x = self.dm3(x)
+            x = self.conv9(x)
         return x
 
     def init_hidden(self, x):

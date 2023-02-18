@@ -50,7 +50,15 @@ class Analysis_net(nn.Module):
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
         if self.useDM:
-            self.dm = DMBlock(conv_channels)
+            self.dm1 = DMBlock(conv_channels)
+            self.dm2 = DMBlock(conv_channels)
+            self.dm3 = DMBlock(conv_channels)
+            self.conv4 = nn.Conv2d( conv_channels, conv_channels, 5, stride=2, padding=2)
+            torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2)))
+            torch.nn.init.constant_(self.conv4.bias.data, 0.01)
+            self.conv5 = nn.Conv2d( conv_channels, out_channels, 1, stride=1, padding=0)
+            torch.nn.init.xavier_normal_(self.conv5.weight.data, (math.sqrt(2 * (out_channels +  conv_channels) / ( conv_channels +  conv_channels))))
+            torch.nn.init.constant_(self.conv5.bias.data, 0.01)
 
     def forward(self, x):
         x = self.gdn1(self.conv1(x))
@@ -58,8 +66,10 @@ class Analysis_net(nn.Module):
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         if self.useDM:
-            x = self.dm(x)
+            x = self.dm1(x)
         x = self.gdn3(self.conv3(x))
+        if self.useDM:
+            x = self.dm2(x)
         x = self.conv4(x)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
@@ -72,12 +82,14 @@ class Analysis_net(nn.Module):
                 x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        if self.useDM:
+            x = self.dm3(x)
+            x = self.conv5(x)
         return x
 
     def init_hidden(self, x):
         h,w = x.shape[:2]
         self.hidden = torch.zeros(1,out_channel_N*2,h//4,w//4)
-
 
 def build_model():
         input_image = Variable(torch.zeros([4, 3, 256, 256]))
