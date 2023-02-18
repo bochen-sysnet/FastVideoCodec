@@ -292,36 +292,47 @@ class ConvLSTM(nn.Module):
 
         return h, torch.cat((c, h),dim=1)
         
+class BasicBlock(nn.Module):
+    def __init__(self, in_planes, kernel_size):
+        super(BasicBlock, self).__init__()
+        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(in_planes, in_planes, kernel_size=kernel_size, stride=1, padding=1)
+    def forward(self, x):
+        out = self.conv1(self.relu(self.bn1(x)))
+        return out
+
+class TransitionBlock(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False):
+        super(TransitionBlock, self).__init__()
+        self.deconv=deconv
+        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.relu = nn.ReLU(inplace=True)
+        if not deconv:
+            self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size, stride=stride, padding=padding)
+        else:
+            self.conv1 = nn.ConvTranspose2d(in_planes, out_planes, kernel_size, stride=stride, padding=padding, output_padding=output_padding)
+    def forward(self, x):
+        out = self.conv1(self.relu(self.bn1(x)))
+        if self.deconv:
+            return out
+        else:
+            return F.avg_pool2d(out, 2)
 
 class DMBlock(nn.Module):
     def __init__(self, channel):
         super(DMBlock, self).__init__()
-        self.relu1 = nn.ReLU()
-        self.conv1 = nn.Conv2d(channel, channel, kernel_size=1, stride=1, padding=0)
-        torch.nn.init.xavier_uniform_(self.conv1.weight.data)
-        torch.nn.init.constant_(self.conv1.bias.data, 0.0)
-        self.relu2 = nn.ReLU()
-        self.conv2 = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        torch.nn.init.xavier_uniform_(self.conv2.weight.data)
-        torch.nn.init.constant_(self.conv2.bias.data, 0.0)
-        self.relu3 = nn.ReLU()
-        self.conv3 = nn.Conv2d(channel, channel, kernel_size=1, stride=1, padding=0)
-        torch.nn.init.xavier_uniform_(self.conv3.weight.data)
-        torch.nn.init.constant_(self.conv3.bias.data, 0.0)
-        self.relu4 = nn.ReLU()
-        self.conv4 = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        torch.nn.init.xavier_uniform_(self.conv4.weight.data)
-        torch.nn.init.constant_(self.conv4.bias.data, 0.0)
-        self.relu5 = nn.ReLU()
-        self.conv5 = nn.Conv2d(4*channel, channel, kernel_size=1, stride=1, padding=0)
-        torch.nn.init.xavier_uniform_(self.conv1.weight.data)
-        torch.nn.init.constant_(self.conv5.bias.data, 0.0)
+        self.l1 = BasicBlock(channel, 1)
+        self.l2 = BasicBlock(channel, 3)
+        self.l3 = BasicBlock(channel, 1)
+        self.l4 = BasicBlock(channel, 3)
+        self.aggr = BasicBlock(channel, 1)
 
     def forward(self, x):
-        x1 = self.relu1(self.conv1(x))
-        x2 = self.relu2(self.conv2(x1))
-        x3 = self.relu3(self.conv3(x2))
-        x4 = self.relu4(self.conv4(x3))
+        x1 = self.l1(x)
+        x2 = self.l2(x1)
+        x3 = self.l3(x2)
+        x4 = self.l4(x3)
         x5 = torch.cat((x1,x2,x3,x4),1)
-        x6 = self.relu5(self.conv5(x5))
-        return x6
+        out = self.aggr(x5) + x
+        return out

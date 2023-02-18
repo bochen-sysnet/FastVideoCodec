@@ -11,7 +11,7 @@ class Analysis_net(nn.Module):
     '''
     Compress residual
     '''
-    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False, useDM=False):
+    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False):
         super(Analysis_net, self).__init__()
         if channels is None:
             conv_channels = out_channel_N
@@ -46,30 +46,15 @@ class Analysis_net(nn.Module):
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
         self.useRec = useRec
-        self.useDM = useDM
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
-        if self.useDM:
-            self.dm1 = DMBlock(conv_channels)
-            self.dm2 = DMBlock(conv_channels)
-            self.dm3 = DMBlock(conv_channels)
-            self.conv4 = nn.Conv2d( conv_channels, conv_channels, 5, stride=2, padding=2)
-            torch.nn.init.xavier_normal_(self.conv4.weight.data, (math.sqrt(2)))
-            torch.nn.init.constant_(self.conv4.bias.data, 0.01)
-            self.conv5 = nn.Conv2d( conv_channels, out_channels, 1, stride=1, padding=0)
-            torch.nn.init.xavier_normal_(self.conv5.weight.data, (math.sqrt(2 * (out_channels +  conv_channels) / ( conv_channels +  conv_channels))))
-            torch.nn.init.constant_(self.conv5.bias.data, 0.01)
 
     def forward(self, x):
         x = self.gdn1(self.conv1(x))
         x = self.gdn2(self.conv2(x)) 
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
-        if self.useDM:
-            x = self.dm1(x)
         x = self.gdn3(self.conv3(x))
-        if self.useDM:
-            x = self.dm2(x)
         x = self.conv4(x)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
@@ -82,14 +67,33 @@ class Analysis_net(nn.Module):
                 x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
-        if self.useDM:
-            x = self.dm3(x)
-            x = self.conv5(x)
         return x
 
     def init_hidden(self, x):
         h,w = x.shape[:2]
         self.hidden = torch.zeros(1,out_channel_N*2,h//4,w//4)
+
+class Analysis_DM(nn.Module):
+    '''
+    Compress residual
+    '''
+    def __init__(self):
+        super(Analysis_DM, self).__init__()
+        conv_channels = 256
+        out_channels = 96
+        self.blocks = []
+        self.blocks.append(TransitionBlock(3,  conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
+        self.blocks.append(DMBlock(conv_channels))
+        self.blocks.append(TransitionBlock(conv_channels,  out_channels))
+        self.blocks = nn.Sequential(self.blocks)
+
+    def forward(self, x):
+        return self.blocks(x)
 
 def build_model():
         input_image = Variable(torch.zeros([4, 3, 256, 256]))

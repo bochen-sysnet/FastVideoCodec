@@ -46,7 +46,9 @@ class Analysis_prior_net(nn.Module):
             self.lstm = ConvLSTM(conv_channels)
         self.useDM = useDM
         if self.useDM:
-            self.dm = DMBlock(conv_channels)
+            self.dm1 = DMBlock(conv_channels)
+            self.dm2 = DMBlock(conv_channels)
+            self.dm3 = DMBlock(conv_channels)
 
     def forward(self, x):
         x = torch.abs(x)
