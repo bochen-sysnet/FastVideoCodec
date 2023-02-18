@@ -1817,6 +1817,8 @@ class Base(nn.Module):
             self.resDecoder = Synthesis_RES()
             self.respriorEncoder = Analysis_PRIOR()
             self.respriorDecoder = Synthesis_PRIOR()
+            self.bitEstimator_z = BitEstimator(64)
+            self.bitEstimator_mv = BitEstimator(96)
         else:
             self.mvEncoder = Analysis_mv_net(useRec=useRec)
             self.mvDecoder = Synthesis_mv_net(useRec=useRec)
@@ -1824,8 +1826,8 @@ class Base(nn.Module):
             self.resDecoder = Synthesis_net(useRec=useRec)
             self.respriorEncoder = Analysis_prior_net(useRec=useRec)
             self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
-        self.bitEstimator_z = BitEstimator(out_channel_N)
-        self.bitEstimator_mv = BitEstimator(out_channel_mv)
+            self.bitEstimator_z = BitEstimator(out_channel_N)
+            self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = False
