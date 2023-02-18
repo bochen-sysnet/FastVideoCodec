@@ -1797,11 +1797,16 @@ class MyMENet(nn.Module):
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
                                                                             flowfiledsUpsample], 1)) # current flow
         return flowfileds
+
+# by default, motion is recursive/additive
+# RNN: recurrent network in mv/res codec
+# Res, residual is recursive
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
         useRec = True if 'RNN' in name else False
-        self.opticFlow = MyMENet()
+        useRes = True if 'Res' in name else False
+        self.opticFlow = MyMENet(recursive_flow=True)
         self.mvEncoder = Analysis_mv_net(useRec=True)
         self.Q = None
         self.mvDecoder = Synthesis_mv_net(useRec=True)
@@ -1819,8 +1824,8 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.recursive_flow = True
         self.useRec = useRec
+        self.recursive_flow = True
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1839,9 +1844,8 @@ class Base(nn.Module):
     def forward(self, input_image, referframe, priors):
         estmv = self.opticFlow(input_image, referframe, priors)
         if self.recursive_flow and 'mv' in priors:
-            mvfeature = self.mvEncoder(estmv - priors['mv'])
-        else:
-            mvfeature = self.mvEncoder(estmv)
+            estmv -= priors['mv']
+        mvfeature = self.mvEncoder(estmv)
         if self.training:
             half = float(0.5)
             quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -1851,18 +1855,15 @@ class Base(nn.Module):
         quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
         if self.recursive_flow and 'mv' in priors:
-            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
-        else:
-            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+            quant_mv_upsample += priors['mv']
+        prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
         # need an improved way to estimate
         # use methods to approximate the estimation as much as possible to allow decoder to infer it
         # how to do this without sending new tensors
-        if 'mv' in priors:
-            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
-        else:
-            priors['mv'] = quant_mv_upsample.detach()
         input_residual = input_image - prediction
 
+        if self.useres and 'res' in priors:
+            input_residual -= priors['res']
         feature = self.resEncoder(input_residual)
         batch_size = feature.size()[0]
 
@@ -1887,6 +1888,8 @@ class Base(nn.Module):
             compressed_feature_renorm = torch.round(feature_renorm)
 
         recon_res = self.resDecoder(compressed_feature_renorm)
+        if self.useres and 'res' in priors:
+            recon_res += priors['res']
         recon_image = prediction + recon_res
 
         clipped_recon_image = recon_image.clamp(0., 1.)
@@ -1896,6 +1899,14 @@ class Base(nn.Module):
         warploss = torch.mean((warpframe - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
         
+        if 'mv' in priors:
+            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+        else:
+            priors['mv'] = quant_mv_upsample.detach()
+        if 'res' in priors:
+            priors['res'] = recon_res.detach() + priors['res']
+        else:
+            priors['res'] = recon_res.detach()
 
         def feature_probs_based_sigma(feature, sigma):
             
