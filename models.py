@@ -1805,7 +1805,7 @@ class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
         useRec = True if 'RNN' in name else False
-        useRes = True if 'Res' in name else False
+        self.useRes = True if 'Res' in name else False
         self.opticFlow = MyMENet(recursive_flow=True)
         self.mvEncoder = Analysis_mv_net(useRec=useRec)
         self.Q = None
