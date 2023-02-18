@@ -152,7 +152,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         
         # run model
         if model.name == 'DVC-pretrained':
-            _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_,_,_ = parallel_compression(model,data,True)
+            _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_,_,_ = parallel_compression(model,data,True,batch_idx%4)
             bpp_res_est_list = []
         else:
             _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_,_,_ = parallel_compression(model,data,True,batch_idx%4)
