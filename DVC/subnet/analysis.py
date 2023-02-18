@@ -182,7 +182,7 @@ class Synthesis_PRIOR(nn.Module):
     def __init__(self):
         super(Synthesis_PRIOR, self).__init__()
         in_channels = 64
-        conv_channels = 64
+        conv_channels = 96
         self.blocks = []
         self.blocks.append(TransitionBlock(in_channels,  conv_channels, kernel_size=1, stride=1, padding=0, output_padding=0, deconv=False, avg_pool=False))
         self.blocks.append(DMBlock(conv_channels))
