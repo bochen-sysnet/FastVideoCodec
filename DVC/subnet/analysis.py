@@ -11,7 +11,7 @@ class Analysis_net(nn.Module):
     '''
     Compress residual
     '''
-    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False):
+    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False, useDM=False):
         super(Analysis_net, self).__init__()
         if channels is None:
             conv_channels = out_channel_N
@@ -46,14 +46,19 @@ class Analysis_net(nn.Module):
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
         self.useRec = useRec
+        self.useDM = useDM
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
+        if self.useDM:
+            self.dm = DMBlock(conv_channels)
 
     def forward(self, x):
         x = self.gdn1(self.conv1(x))
         x = self.gdn2(self.conv2(x)) 
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
+        if self.useDM:
+            x = self.dm(x)
         x = self.gdn3(self.conv3(x))
         x = self.conv4(x)
         if self.useAttn:

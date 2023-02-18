@@ -1798,6 +1798,7 @@ class MyMENet(nn.Module):
                                                                             flowfiledsUpsample], 1)) # current flow
         return flowfileds
 
+
 # by default, motion is recursive/additive
 # RNN: recurrent network in mv/res codec
 # Res, residual is recursive
@@ -1805,13 +1806,12 @@ class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
         useRec = True if 'RNN' in name else False
-        self.useRes = True if 'Res' in name else False
+        useDM = True if 'DM' in name else False
         self.opticFlow = MyMENet(recursive_flow=True)
-        self.mvEncoder = Analysis_mv_net(useRec=useRec)
-        self.Q = None
-        self.mvDecoder = Synthesis_mv_net(useRec=useRec)
         self.warpnet = Warp_net()
-        self.resEncoder = Analysis_net(useRec=useRec)
+        self.mvEncoder = Analysis_mv_net(useRec=useRec)
+        self.mvDecoder = Synthesis_mv_net(useRec=useRec)
+        self.resEncoder = Analysis_net(useRec=useRec,useDM=useDM)
         self.resDecoder = Synthesis_net(useRec=useRec)
         self.respriorEncoder = Analysis_prior_net(useRec=useRec)
         self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
@@ -1861,9 +1861,6 @@ class Base(nn.Module):
         # use methods to approximate the estimation as much as possible to allow decoder to infer it
         # how to do this without sending new tensors
         input_residual = input_image - prediction
-
-        if self.useRes and 'res' in priors:
-            input_residual -= priors['res']
         feature = self.resEncoder(input_residual)
         batch_size = feature.size()[0]
 
@@ -1888,8 +1885,6 @@ class Base(nn.Module):
             compressed_feature_renorm = torch.round(feature_renorm)
 
         recon_res = self.resDecoder(compressed_feature_renorm)
-        if self.useRes and 'res' in priors:
-            recon_res += priors['res']
         recon_image = prediction + recon_res
 
         clipped_recon_image = recon_image.clamp(0., 1.)
@@ -1903,10 +1898,6 @@ class Base(nn.Module):
             priors['mv'] = quant_mv_upsample.detach() + priors['mv']
         else:
             priors['mv'] = quant_mv_upsample.detach()
-        if 'res' in priors:
-            priors['res'] = recon_res.detach() + priors['res']
-        else:
-            priors['res'] = recon_res.detach()
 
         def feature_probs_based_sigma(feature, sigma):
             

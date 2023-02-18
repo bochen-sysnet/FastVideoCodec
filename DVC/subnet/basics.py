@@ -291,3 +291,37 @@ class ConvLSTM(nn.Module):
         h = o * self._activation(c)
 
         return h, torch.cat((c, h),dim=1)
+        
+
+class DMBlock(nn.Module):
+    def __init__(self, channel):
+        super(ResBlock, self).__init__()
+        self.relu1 = nn.ReLU()
+        self.conv1 = nn.Conv2d(channel, channel, kernel_size=1, stride=1, padding=0)
+        torch.nn.init.xavier_uniform_(self.conv1.weight.data)
+        torch.nn.init.constant_(self.conv1.bias.data, 0.0)
+        self.relu2 = nn.ReLU()
+        self.conv2 = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        torch.nn.init.xavier_uniform_(self.conv2.weight.data)
+        torch.nn.init.constant_(self.conv2.bias.data, 0.0)
+        self.relu3 = nn.ReLU()
+        self.conv3 = nn.Conv2d(channel, channel, kernel_size=1, stride=1, padding=0)
+        torch.nn.init.xavier_uniform_(self.conv3.weight.data)
+        torch.nn.init.constant_(self.conv3.bias.data, 0.0)
+        self.relu4 = nn.ReLU()
+        self.conv4 = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        torch.nn.init.xavier_uniform_(self.conv4.weight.data)
+        torch.nn.init.constant_(self.conv4.bias.data, 0.0)
+        self.relu5 = nn.ReLU()
+        self.conv5 = nn.Conv2d(4*channel, channel, kernel_size=1, stride=1, padding=0)
+        torch.nn.init.xavier_uniform_(self.conv1.weight.data)
+        torch.nn.init.constant_(self.conv5.bias.data, 0.0)
+
+    def forward(self, x):
+        x1 = self.relu1(self.conv1(x))
+        x2 = self.relu2(self.conv2(x1))
+        x3 = self.relu3(self.conv3(x2))
+        x4 = self.relu4(self.conv4(x4))
+        x5 = torch.cat((x1,x2,x3,x4),1)
+        x6 = self.relu5(self.conv5(x5))
+        return x6
