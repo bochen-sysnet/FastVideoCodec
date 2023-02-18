@@ -164,7 +164,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(model, data, compressI=False,level=0):
-    if 'Mod' in model_name:
+    if 'Mod' in model.name:
         model.compression_level = level
         init_training_params(model)
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
