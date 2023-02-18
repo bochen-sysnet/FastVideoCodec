@@ -82,7 +82,7 @@ class Analysis_MV(nn.Module):
         conv_channels = 256
         out_channels = 96
         self.blocks = []
-        self.blocks.append(TransitionBlock(3,  conv_channels))
+        self.blocks.append(TransitionBlock(2,  conv_channels))
         self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
         self.blocks.append(DMBlock(conv_channels))
         self.blocks.append(TransitionBlock(conv_channels,  conv_channels))
