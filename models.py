@@ -1769,25 +1769,20 @@ class MyMENet(nn.Module):
         batchsize = im1.size()[0]
         im1_pre = im1
         im2_pre = im2
-        if self.recursive_flow and 'mv' in priors:
-            prior_flow_pre = priors['mv']
         im1list = [im1_pre]
         im2list = [im2_pre]
-        if self.recursive_flow and 'mv' in priors:
-            prior_flow_list = [prior_flow_pre]
         for intLevel in range(self.L - 1):
             im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
             im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
-            if self.recursive_flow and 'mv' in priors:
-                prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
         shape_fine = im2list[self.L - 1].size()
         zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
         device_id = im1.device.index
         flowfileds = torch.zeros(zeroshape, dtype=torch.float32, device=device_id)
+        flow_list = []
         for intLevel in range(self.L):
             flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
             if self.recursive_flow:
-                priorflow = prior_flow_list[self.L - 1 - intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
+                priorflow = prior_flow_list[intLevel] if 'flow' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
                 flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
                                                                             priorflow, # prior flow
@@ -1796,6 +1791,8 @@ class MyMENet(nn.Module):
                 flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
                                                                             flowfiledsUpsample], 1)) # current flow
+            flow_list.append(flowfileds)
+        priors['flow_list'] = flow_list
         return flowfileds
 
 
@@ -1808,7 +1805,8 @@ class Base(nn.Module):
         super(Base, self).__init__()
         useRec = True if 'RNN' in name else False
         useDM = True if 'DM' in name else False
-        self.opticFlow = MyMENet(recursive_flow=True)
+        useRF = True if 'RF' in name else False
+        self.opticFlow = MyMENet(recursive_flow=useRF)
         self.warpnet = Warp_net()
         if useDM:
             self.mvEncoder = Analysis_MV()
@@ -1836,7 +1834,7 @@ class Base(nn.Module):
         self.loss_type = loss_type
         init_training_params(self)
         self.useRec = useRec
-        self.recursive_flow = True
+        self.recursive_flow = useRF
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1906,9 +1904,9 @@ class Base(nn.Module):
         interloss = torch.mean((prediction - input_image).pow(2))
         
         if 'mv' in priors:
-            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+            priors['mv'] += quant_mv_upsample
         else:
-            priors['mv'] = quant_mv_upsample.detach()
+            priors['mv'] = quant_mv_upsample
 
         def feature_probs_based_sigma(feature, sigma):
             
