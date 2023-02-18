@@ -1862,7 +1862,7 @@ class Base(nn.Module):
         # how to do this without sending new tensors
         input_residual = input_image - prediction
 
-        if self.useres and 'res' in priors:
+        if self.useRes and 'res' in priors:
             input_residual -= priors['res']
         feature = self.resEncoder(input_residual)
         batch_size = feature.size()[0]
@@ -1888,7 +1888,7 @@ class Base(nn.Module):
             compressed_feature_renorm = torch.round(feature_renorm)
 
         recon_res = self.resDecoder(compressed_feature_renorm)
-        if self.useres and 'res' in priors:
+        if self.useRes and 'res' in priors:
             recon_res += priors['res']
         recon_image = prediction + recon_res
 
