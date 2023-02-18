@@ -1802,6 +1802,7 @@ class MyMENet(nn.Module):
 # by default, motion is recursive/additive
 # RNN: recurrent network in mv/res codec
 # Res, residual is recursive
+from DVC.subnet import Analysis_DM,Synthesis_DM
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
