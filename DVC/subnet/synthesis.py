@@ -9,7 +9,7 @@ class Synthesis_net(nn.Module):
     '''
     Decode residual
     '''
-    def __init__(self, useAttn = False, channels=None, useRec=False, useDM=False):
+    def __init__(self, useAttn = False, channels=None, useRec=False, useMod=False):
         super(Synthesis_net, self).__init__()
         if channels is None:
             in_channels = out_channel_M
@@ -46,11 +46,9 @@ class Synthesis_net(nn.Module):
         self.useRec = useRec
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
-        self.useDM = useDM
-        if self.useDM:
-            self.dm1 = DMBlock(in_channels)
-            self.dm2 = DMBlock(conv_channels)
-            self.dm3 = DMBlock(conv_channels)
+        self.useMod = useMod
+        if useMod:
+            self.mod = Modulate()
         
     def forward(self, x):
         if self.useAttn:
@@ -64,18 +62,16 @@ class Synthesis_net(nn.Module):
                 x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
-        if self.useDM:
-            x = self.dm1(x)
         x = self.igdn1(self.deconv1(x))
-        if self.useDM:
-            x = self.dm2(x)
+        if self.useMod: x = self.mod(x,level)
         x = self.igdn2(self.deconv2(x))
+        if self.useMod: x = self.mod(x,level)
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
-        if self.useDM:
-            x = self.dm3(x)
         x = self.igdn3(self.deconv3(x))
+        if self.useMod: x = self.mod(x,level)
         x = self.deconv4(x)
+        if self.useMod: x = self.mod(x,level)
         return x
 
     def init_hidden(self, x):

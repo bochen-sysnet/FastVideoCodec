@@ -163,31 +163,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
-def progressive_compression(model, i, prev, cache, P_flag, RPM_flag):
-    # frame shape
-    _,h,w = cache['clip'][0].shape
-    # frames to be processed
-    Y0_com = cache['clip'][prev].unsqueeze(0) if prev>=0 else None
-    Y1_raw = cache['clip'][i].unsqueeze(0)
-    # hidden variables
-    if P_flag:
-        hidden = model.init_hidden(h,w)
-    else:
-        hidden = cache['hidden']
-    Y1_com,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim = model(Y0_com, Y1_raw, hidden, RPM_flag)
-    cache['hidden'] = hidden
-    cache['clip'][i] = Y1_com.detach().squeeze(0).cuda(0)
-    cache['img_loss'][i] = img_loss.cuda(0)
-    cache['aux'][i] = aux_loss.cuda(0)
-    cache['bpp_est'][i] = bpp_est.cuda(0)
-    cache['psnr'][i] = psnr.cuda(0)
-    cache['msssim'][i] = msssim.cuda(0)
-    cache['bpp_act'][i] = bpp_act.cuda(0)
-    cache['end_of_batch'][i] = (i%4==0)
-    #print(i,float(bpp_est),float(bpp_act),float(psnr))
-    # we can record PSNR wrt the distance to I-frame to show error propagation)
-        
-def parallel_compression(model, data, compressI=False):
+def parallel_compression(model, data, compressI=False,level=0):
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
@@ -217,9 +193,10 @@ def parallel_compression(model, data, compressI=False):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
+            model.r = model.psnr_list[level]
             for i in range(1,B):
                 x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
-                    model(data[i:i+1],x_prev,priors)
+                    model(data[i:i+1],x_prev,priors,level)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
@@ -1806,6 +1783,7 @@ class Base(nn.Module):
         useRec = True if 'RNN' in name else False
         useDM = True if 'DM' in name else False
         useRF = True if 'RF' in name else False
+        useMod= True if 'MOD' in name else False
         self.opticFlow = MyMENet(recursive_flow=useRF)
         self.warpnet = Warp_net()
         if useDM:
@@ -1818,12 +1796,12 @@ class Base(nn.Module):
             self.bitEstimator_z = BitEstimator(64)
             self.bitEstimator_mv = BitEstimator(96)
         else:
-            self.mvEncoder = Analysis_mv_net(useRec=useRec)
-            self.mvDecoder = Synthesis_mv_net(useRec=useRec)
-            self.resEncoder = Analysis_net(useRec=useRec)
-            self.resDecoder = Synthesis_net(useRec=useRec)
-            self.respriorEncoder = Analysis_prior_net(useRec=useRec)
-            self.respriorDecoder = Synthesis_prior_net(useRec=useRec)
+            self.mvEncoder = Analysis_mv_net(useRec=useRec, useMod=useMod)
+            self.mvDecoder = Synthesis_mv_net(useRec=useRec, useMod=useMod)
+            self.resEncoder = Analysis_net(useRec=useRec, useMod=useMod)
+            self.resDecoder = Synthesis_net(useRec=useRec, useMod=useMod)
+            self.respriorEncoder = Analysis_prior_net(useRec=useRec, useMod=useMod)
+            self.respriorDecoder = Synthesis_prior_net(useRec=useRec, useMod=useMod)
             self.bitEstimator_z = BitEstimator(out_channel_N)
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
@@ -1850,18 +1828,18 @@ class Base(nn.Module):
         self.respriorEncoder.init_hidden(x)
         self.respriorDecoder.init_hidden(x)
 
-    def forward(self, input_image, referframe, priors):
+    def forward(self, input_image, referframe, priors, level=0):
         estmv = self.opticFlow(input_image, referframe, priors)
         if self.recursive_flow and 'mv' in priors:
             estmv -= priors['mv']
-        mvfeature = self.mvEncoder(estmv)
+        mvfeature = self.mvEncoder(estmv,level=level)
         if self.training:
             half = float(0.5)
             quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
             quant_mv = mvfeature + quant_noise_mv
         else:
             quant_mv = torch.round(mvfeature)
-        quant_mv_upsample = self.mvDecoder(quant_mv)
+        quant_mv_upsample = self.mvDecoder(quant_mv,level=level)
         # add rec_motion to priors to reduce bpp
         if self.recursive_flow and 'mv' in priors:
             quant_mv_upsample += priors['mv']
@@ -1870,10 +1848,10 @@ class Base(nn.Module):
         # use methods to approximate the estimation as much as possible to allow decoder to infer it
         # how to do this without sending new tensors
         input_residual = input_image - prediction
-        feature = self.resEncoder(input_residual)
+        feature = self.resEncoder(input_residual,level=level)
         batch_size = feature.size()[0]
 
-        z = self.respriorEncoder(feature)
+        z = self.respriorEncoder(feature,level=level)
 
         if self.training:
             half = float(0.5)
@@ -1882,7 +1860,7 @@ class Base(nn.Module):
         else:
             compressed_z = torch.round(z)
 
-        recon_sigma = self.respriorDecoder(compressed_z)
+        recon_sigma = self.respriorDecoder(compressed_z,level=level)
 
         feature_renorm = feature
 
@@ -1893,7 +1871,7 @@ class Base(nn.Module):
         else:
             compressed_feature_renorm = torch.round(feature_renorm)
 
-        recon_res = self.resDecoder(compressed_feature_renorm)
+        recon_res = self.resDecoder(compressed_feature_renorm,level=level)
         recon_image = prediction + recon_res
 
         clipped_recon_image = recon_image.clamp(0., 1.)

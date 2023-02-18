@@ -335,3 +335,18 @@ class DMBlock(nn.Module):
         x5 = torch.cat((x1,x2,x3,x4),1)
         out = self.aggr(x5) + x
         return out
+
+class Modulate(nn.Module):
+    def __init__(self, gamma = 0.1, beta = 1):
+        super().__init__()
+        self.gamma = gamma
+        self.beta = beta
+
+    def forward(self, x, level):
+        # modulate map
+        B,C,H,W = x.size()
+        # level: [0,1]
+        phase = (torch.arange(0,C).to(x.device).repeat(B).view(B,C)/C + level/4.0)*torch.pi
+        self.mod = torch.cos(phase) * self.gamma + self.beta
+
+        return self.mod * x

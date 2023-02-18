@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, channels=None, useRec=False, useDM=False):
+    def __init__(self, useAttn=False, channels=None, useRec=False, useMod=False):
         super(Analysis_mv_net, self).__init__()
         if channels is None:
             out_channels = conv_channels = out_channel_mv
@@ -60,35 +60,31 @@ class Analysis_mv_net(nn.Module):
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
         self.useRec = useRec
-        self.useDM = useDM
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
-        if self.useDM:
-            self.dm1 = DMBlock(conv_channels)
-            self.dm2 = DMBlock(conv_channels)
-            self.dm3 = DMBlock(conv_channels)
-            self.conv8 = nn.Conv2d(conv_channels, conv_channels, 3, stride=1, padding=1)
-            torch.nn.init.xavier_normal_(self.conv8.weight.data, math.sqrt(2))
-            torch.nn.init.constant_(self.conv8.bias.data, 0.01)
-            self.conv9 = nn.Conv2d(conv_channels, out_channels, 1, stride=1, padding=0)
-            torch.nn.init.xavier_normal_(self.conv9.weight.data, math.sqrt(2))
-            torch.nn.init.constant_(self.conv9.bias.data, 0.01)
+        self.useMod = useMod
+        if useMod:
+            self.mod = Modulate()
 
-    def forward(self, x):
+    def forward(self, x, level=0):
         x = self.relu1(self.conv1(x))
+        if self.useMod: x = self.mod(x,level)
         x = self.relu2(self.conv2(x))
+        if self.useMod: x = self.mod(x,level)
         x = self.relu3(self.conv3(x))
+        if self.useMod: x = self.mod(x,level)
         x = self.relu4(self.conv4(x))
+        if self.useMod: x = self.mod(x,level)
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
-        if self.useDM:
-            x = self.dm1(x)
         x = self.relu5(self.conv5(x))
+        if self.useMod: x = self.mod(x,level)
         x = self.relu6(self.conv6(x)) 
-        if self.useDM:
-            x = self.dm2(x)
+        if self.useMod: x = self.mod(x,level)
         x = self.relu7(self.conv7(x))
+        if self.useMod: x = self.mod(x,level)
         x = self.conv8(x)
+        if self.useMod: x = self.mod(x,level)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
@@ -100,9 +96,6 @@ class Analysis_mv_net(nn.Module):
                 x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
-        if self.useDM:
-            x = self.dm3(x)
-            x = self.conv9(x)
         return x
 
     def init_hidden(self, x):

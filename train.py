@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'BaseRF'
+CODEC_NAME = 'BaseMOD'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -74,7 +74,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['Base','BaseRNN','BaseDM','BaseRF']:
+elif CODEC_NAME in ['Base','BaseRNN','BaseDM','BaseRF','BaseMOD']:
     # load what exists
     pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
@@ -155,7 +155,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,_,_,_ = parallel_compression(model,data,True)
             bpp_res_est_list = []
         else:
-            _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_,_,_ = parallel_compression(model,data,True)
+            _,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,_,_,_ = parallel_compression(model,data,True,batch_idx%4)
         
         # aggregate loss
         be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
@@ -211,10 +211,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0:# and batch_idx>0:
             if True:
                 print('testing at batch_idx %d' % (batch_idx))
-                score = test(epoch, model, test_dataset)
+                score = test(epoch, model, test_dataset,0)
                 
                 is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
                 if is_best:
@@ -225,6 +225,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 state = {'epoch': epoch*100000+batch_idx, 'state_dict': model.state_dict(), 'score': score}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 #test(epoch, model, test_dataset2)
+                for l in [1,2,3]:
+                    test(epoch, model, test_dataset,l)
                 model.train()
             else:
                 print('')
@@ -232,7 +234,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     return best_codec_score
     
-def test(epoch, model, test_dataset):
+def test(epoch, model, test_dataset,level=0):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -258,15 +260,15 @@ def test(epoch, model, test_dataset):
             
             # compress GoP
             if l>fP+1:
-                com_imgs,img_loss_list1,bpp_est_list1,_,psnr_list1,msssim_list1,bpp_act_list1,_,_ = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
+                com_imgs,img_loss_list1,bpp_est_list1,_,psnr_list1,msssim_list1,bpp_act_list1,_,_ = parallel_compression(model,torch.flip(data[:fP+1],[0]),True,level)
                 data[fP:fP+1] = com_imgs[0:1]
-                _,img_loss_list2,bpp_est_list2,_,psnr_list2,msssim_list2,bpp_act_list2,_,_ = parallel_compression(model,data[fP:],False)
+                _,img_loss_list2,bpp_est_list2,_,psnr_list2,msssim_list2,bpp_act_list2,_,_ = parallel_compression(model,data[fP:],False,level)
                 img_loss_list = img_loss_list1[::-1] + img_loss_list2
                 psnr_list = psnr_list1[::-1] + psnr_list2
                 msssim_list = msssim_list1[::-1] + msssim_list2
                 bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
             else:
-                _,img_loss_list,bpp_est_list,_,psnr_list,msssim_list,bpp_act_list,_,_ = parallel_compression(model,torch.flip(data,[0]),True)
+                _,img_loss_list,bpp_est_list,_,psnr_list,msssim_list,bpp_act_list,_,_ = parallel_compression(model,torch.flip(data,[0]),True,level)
                 
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)

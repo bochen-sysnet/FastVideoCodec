@@ -11,7 +11,7 @@ class Analysis_prior_net(nn.Module):
     '''
     Compress residual prior
     '''
-    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False, useDM=False):
+    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False, useMod=False):
         super(Analysis_prior_net, self).__init__()
         if channels is None:
             in_channels = out_channel_M
@@ -44,15 +44,14 @@ class Analysis_prior_net(nn.Module):
         self.useRec = useRec
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
-        self.useDM = useDM
-        if self.useDM:
-            self.dm1 = DMBlock(conv_channels)
-            self.dm2 = DMBlock(conv_channels)
-            self.dm3 = DMBlock(conv_channels)
+        self.useMod = useMod
+        if useMod:
+            self.mod = Modulate()
 
     def forward(self, x):
         x = torch.abs(x)
         x = self.relu1(self.conv1(x))
+        if self.useMod: x = self.mod(x,level)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
@@ -65,11 +64,12 @@ class Analysis_prior_net(nn.Module):
                 x = ff(x) + x
             x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         x = self.relu2(self.conv2(x))
+        if self.useMod: x = self.mod(x,level)
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
-        if self.useDM:
-            x = self.dm(x)
-        return self.conv3(x)
+        x = self.conv3(x)
+        if self.useMod: x = self.mod(x,level)
+        return x
 
     def init_hidden(self, x):
         h,w = x.shape[:2]
