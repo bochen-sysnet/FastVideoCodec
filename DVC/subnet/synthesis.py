@@ -101,7 +101,11 @@ class Synthesis_DM(nn.Module):
         self.blocks = nn.Sequential(*self.blocks)
 
     def forward(self, x):
-        return self.blocks(x)
+        print(x.size())
+        x = self.blocks(x)
+        print(x.size())
+        return x
+
 
 def build_model():
     input_image = torch.zeros([7,3,256,256])
