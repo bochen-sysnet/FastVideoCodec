@@ -11,7 +11,7 @@ class Analysis_prior_net(nn.Module):
     '''
     Compress residual prior
     '''
-    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False):
+    def __init__(self, useAttn=False, channels=None, useUnif=False, useRec=False, useDM=False):
         super(Analysis_prior_net, self).__init__()
         if channels is None:
             in_channels = out_channel_M
@@ -44,6 +44,9 @@ class Analysis_prior_net(nn.Module):
         self.useRec = useRec
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
+        self.useDM = useDM
+        if self.useDM:
+            self.dm = DMBlock(conv_channels)
 
     def forward(self, x):
         x = torch.abs(x)
@@ -62,6 +65,8 @@ class Analysis_prior_net(nn.Module):
         x = self.relu2(self.conv2(x))
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
+        if self.useDM:
+            x = self.dm(x)
         return self.conv3(x)
 
     def init_hidden(self, x):

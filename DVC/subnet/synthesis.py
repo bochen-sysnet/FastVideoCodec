@@ -9,7 +9,7 @@ class Synthesis_net(nn.Module):
     '''
     Decode residual
     '''
-    def __init__(self, useAttn = False, channels=None, useRec=False):
+    def __init__(self, useAttn = False, channels=None, useRec=False, useDM=False):
         super(Synthesis_net, self).__init__()
         if channels is None:
             in_channels = out_channel_M
@@ -46,6 +46,9 @@ class Synthesis_net(nn.Module):
         self.useRec = useRec
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
+        self.useDM = useDM
+        if self.useDM:
+            self.dm = DMBlock(conv_channels)
         
     def forward(self, x):
         if self.useAttn:
@@ -63,6 +66,8 @@ class Synthesis_net(nn.Module):
         x = self.igdn2(self.deconv2(x))
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
+        if self.useDM:
+            x = self.dm(x)
         x = self.igdn3(self.deconv3(x))
         x = self.deconv4(x)
         return x

@@ -12,7 +12,7 @@ class Synthesis_prior_net(nn.Module):
     '''
     Decode residual prior
     '''
-    def __init__(self, useAttn = False, channels=None, useRec=False):
+    def __init__(self, useAttn = False, channels=None, useRec=False, useDM=False):
         super(Synthesis_prior_net, self).__init__()
         if channels is None:
             conv_channels = out_channel_N
@@ -45,12 +45,17 @@ class Synthesis_prior_net(nn.Module):
         self.useRec = useRec
         if self.useRec:
             self.lstm = ConvLSTM(conv_channels)
+        self.useDM = useDM
+        if self.useDM:
+            self.dm = DMBlock(conv_channels)
 
 
     def forward(self, x):
         x = self.relu1(self.deconv1(x))
         if self.useRec:
             x, self.hidden = self.lstm(x, self.hidden.to(x.device))
+        if self.useDM:
+            x = self.dm(x)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
