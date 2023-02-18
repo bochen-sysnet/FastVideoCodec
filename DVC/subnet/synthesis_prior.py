@@ -50,7 +50,7 @@ class Synthesis_prior_net(nn.Module):
             self.mod = Modulate()
 
 
-    def forward(self, x):
+    def forward(self, x, level=0):
         x = self.relu1(self.deconv1(x))
         if self.useMod: x = self.mod(x,level)
         if self.useRec:

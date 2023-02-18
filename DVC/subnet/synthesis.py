@@ -50,7 +50,7 @@ class Synthesis_net(nn.Module):
         if useMod:
             self.mod = Modulate()
         
-    def forward(self, x):
+    def forward(self, x, level=0):
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()

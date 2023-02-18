@@ -52,7 +52,7 @@ class Analysis_net(nn.Module):
         if useMod:
             self.mod = Modulate()
 
-    def forward(self, x):
+    def forward(self, x, level=0):
         x = self.gdn1(self.conv1(x))
         if self.useMod: x = self.mod(x,level)
         x = self.gdn2(self.conv2(x)) 
