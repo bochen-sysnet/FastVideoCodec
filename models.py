@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.utils.data
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.cuda import amp
 from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 from torch.autograd import Function
@@ -2256,7 +2257,7 @@ class ScaleSpaceFlow(nn.Module):
         pred_loss = torch.mean((x_pred - x_cur).pow(2))
         return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res
 
-
+    @staticmethod
     def gaussian_volume(x, sigma: float, num_levels: int):
         """Efficient gaussian volume construction.
 
@@ -2282,7 +2283,7 @@ class ScaleSpaceFlow(nn.Module):
             volume.append(interp.unsqueeze(2))
         return torch.cat(volume, dim=2)
 
-
+    @amp.autocast(enabled=False)
     def warp_volume(self, volume, flow, scale_field, padding_mode: str = "border"):
         """3D volume warping."""
         if volume.ndimension() != 5:
