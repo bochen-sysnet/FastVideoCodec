@@ -30,7 +30,6 @@ SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-# RESUME_CODEC_PATH = f'backup/LSVC-A/LSVC-A-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -222,8 +221,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 state = {'epoch': epoch*100000+batch_idx, 'state_dict': model.state_dict(), 'score': score}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 #test(epoch, model, test_dataset2)
-                for l in [1,2,3]:
-                    test(epoch, model, test_dataset,l)
+                # for l in [1,2,3]:
+                #     test(epoch, model, test_dataset,l)
                 model.train()
             else:
                 print('')

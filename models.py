@@ -230,20 +230,6 @@ def parallel_compression(model, data, compressI=False,level=0):
                 x_hat_list.append(x_prev)
                 decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
-        elif 'SPVC' in model_name:
-            if model.training:
-                _, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
-            else:
-                _, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
-            for pos in range(data.size(0)-1):
-                img_loss_list += [img_loss[pos].to(data.device)]
-                aux_loss_list += [aux_loss[pos].to(data.device)]
-                bpp_est_list += [bpp_est[pos].to(data.device)]
-                if model.training:
-                    bpp_res_est_list += [bpp_res_est[pos].to(data.device)]
-                bpp_act_list += [bpp_act[pos].to(data.device)]
-                psnr_list += [psnr[pos].to(data.device)]
-                msssim_list += [msssim[pos].to(data.device)]
         elif model_name in ['DVC','RLVC','RLVC2']:
             B,_,H,W = data.size()
             hidden = model.init_hidden(H,W,data.device)
