@@ -73,10 +73,10 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['Base','BaseRNN','BaseDM','BaseRF','BaseMOD']:
+elif CODEC_NAME in ['Base','BaseRNN','BaseDM','BaseRF','BaseMOD','SSF']:
     # load what exists
-    pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
-    checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
+    # pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
         best_codec_score = checkpoint['score']
@@ -84,7 +84,7 @@ elif CODEC_NAME in ['Base','BaseRNN','BaseDM','BaseRF','BaseMOD']:
         # model.load_state_dict(checkpoint)
         load_state_dict_whatever(model, checkpoint)
     del checkpoint
-    print("Load whatever exists for",RESUME_CODEC_PATH,'from',pretrained_model_path,best_codec_score)
+    print("Load whatever exists for",RESUME_CODEC_PATH,'from',RESUME_CODEC_PATH,best_codec_score)
     # with open(f'DVC/snapshot/512.model', 'rb') as f:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
