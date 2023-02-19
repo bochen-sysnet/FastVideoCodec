@@ -2191,8 +2191,8 @@ class ScaleSpaceFlow(nn.Module):
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
                 y_bits = self.gaussian_conditional(y, scales, means)
-                # y_hat = quantize_ste(y - means) + means
-                y_hat = quantize_ste(y)
+                y_hat = quantize_ste(y - means) + means
+                # y_hat = quantize_ste(y)
                 return y_hat, z_bits + y_bits
 
             def gaussian_conditional(self,feature, sigma, mu):
