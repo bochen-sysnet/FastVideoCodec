@@ -1825,7 +1825,6 @@ class Base(nn.Module):
             self.respriorDecoder = Synthesis_prior_net(useRec=useRec, useMod=useMod)
             self.bitEstimator_z = BitEstimator(out_channel_N)
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
-        self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = False
         self.name = name
@@ -2086,6 +2085,9 @@ class ScaleSpaceFlow(nn.Module):
 
     def __init__(
         self,
+        name: str,
+        loss_type: str='P',
+        compression_level: int = 0,
         num_levels: int = 5,
         sigma0: float = 1.5,
         scale_field_shift: float = 1.0,
@@ -2215,6 +2217,10 @@ class ScaleSpaceFlow(nn.Module):
         self.sigma0 = sigma0
         self.num_levels = num_levels
         self.scale_field_shift = scale_field_shift
+        self.name = name
+        self.compression_level = compression_level
+        self.loss_type = loss_type
+        init_training_params(self)
 
 
     def forward(self, x_cur, x_ref):
