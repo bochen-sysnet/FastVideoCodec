@@ -196,6 +196,7 @@ def parallel_compression(model, data, compressI=False,level=0):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
+            print(model.r)
             for i in range(1,B):
                 x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
                     model(data[i:i+1],x_prev,priors,level)
