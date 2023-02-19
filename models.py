@@ -2184,12 +2184,15 @@ class ScaleSpaceFlow(nn.Module):
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
+                # only the diff needs to be quantized
+                y_diff = y - means
                 if self.training:
                     half = float(0.5)
-                    noise = torch.empty_like(y).uniform_(-half, half)
-                    y_hat = y + noise
+                    noise = torch.empty_like(y_diff).uniform_(-half, half)
+                    y_diff_hat = y_diff + noise
                 else:
-                    y_hat = torch.round(y)
+                    y_diff_hat = torch.round(y_diff)
+                y_hat = y_diff_hat + means
                 y_bits = self.gaussian_conditional(y_hat, scales, means)
                 # _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 # y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
@@ -2247,6 +2250,7 @@ class ScaleSpaceFlow(nn.Module):
         # final reconstruction: prediction + residual
         x_rec = x_pred + x_res_hat
 
+        # loss terms
         im_shape = x_cur.size()
 
         bpp_res = res_bits / (im_shape[2] * im_shape[3])
