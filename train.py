@@ -208,7 +208,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             msssim_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0:# and batch_idx>0:
+        if batch_idx % 10000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset,0)
@@ -246,7 +246,6 @@ def test(epoch, model, test_dataset,level=0):
     data = []
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
-        break
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
