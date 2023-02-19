@@ -2140,7 +2140,7 @@ class ScaleSpaceFlow(nn.Module):
 
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
-        x_pred = self.forward_prediction(x_ref, motion_info)
+        x_pred = self.forward_prediction(x_ref, motion_info, priors)
 
         # residual
         x_res = x_cur - x_pred
@@ -2213,7 +2213,7 @@ class ScaleSpaceFlow(nn.Module):
         return out.squeeze(2)
 
 
-    def forward_prediction(self, x_ref, motion_info):
+    def forward_prediction(self, x_ref, motion_info, priors):
         flow, scale_field = motion_info.chunk(2, dim=1)
         if self.useRF:
             flow += priors['flow']
