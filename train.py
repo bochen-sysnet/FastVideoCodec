@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'BaseRF'
+CODEC_NAME = 'Base'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -75,8 +75,8 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
     print("No need to load for ", CODEC_NAME)
 elif CODEC_NAME in ['Base','BaseRNN','BaseDM','BaseRF','BaseMOD','SSF']:
     # load what exists
-    # pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
+    checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
         best_codec_score = checkpoint['score']
