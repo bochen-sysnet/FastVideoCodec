@@ -1740,48 +1740,6 @@ def get_DVC_pretrained(level):
 
 # ---------------------------------BASE MODEL--------------------------------------
 
-class MyMENet(nn.Module):
-    '''
-    Get flow
-    '''
-    def __init__(self, layername='motion_estimation',recursive_flow=True):
-        super(MyMENet, self).__init__()
-        self.L = 4
-        inshape = 10 if recursive_flow else 8
-        self.moduleBasic = torch.nn.ModuleList([ MEBasic(layername + 'modelL' + str(intLevel + 1),inshape=inshape) for intLevel in range(4) ])
-        self.recursive_flow = recursive_flow
-        
-    def forward(self, im1, im2, priors):
-        batchsize = im1.size()[0]
-        im1_pre = im1
-        im2_pre = im2
-        im1list = [im1_pre]
-        im2list = [im2_pre]
-        for intLevel in range(self.L - 1):
-            im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
-            im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
-        shape_fine = im2list[self.L - 1].size()
-        zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
-        device_id = im1.device.index
-        flowfileds = torch.zeros(zeroshape, dtype=torch.float32, device=device_id)
-        flow_list = []
-        for intLevel in range(self.L):
-            flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
-            if self.recursive_flow:
-                priorflow = prior_flow_list[intLevel] if 'flow' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
-                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
-                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
-                                                                            priorflow, # prior flow
-                                                                            flowfiledsUpsample], 1)) # current flow
-            else:
-                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
-                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
-                                                                            flowfiledsUpsample], 1)) # current flow
-            flow_list.append(flowfileds)
-        priors['flow_list'] = flow_list
-        return flowfileds
-
-
 # by default, motion is recursive/additive
 # RNN: recurrent network in mv/res codec
 # Res, residual is recursive
@@ -1793,7 +1751,7 @@ class Base(nn.Module):
         useDM = True if 'DM' in name else False
         useRF = True if 'RF' in name else False
         useMod= True if 'MOD' in name else False
-        self.opticFlow = MyMENet(recursive_flow=useRF)
+        self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
         if useDM:
             self.mvEncoder = Analysis_MV()
@@ -1838,7 +1796,7 @@ class Base(nn.Module):
 
     def forward(self, input_image, referframe, priors, level=0):
         # motion
-        estmv = self.opticFlow(input_image, referframe, priors)
+        estmv = self.opticFlow(input_image, referframe)
         if self.recursive_flow and 'mv' in priors:
             estmv -= priors['mv']
         mvfeature = self.mvEncoder(estmv,level=level)
@@ -1895,88 +1853,24 @@ class Base(nn.Module):
             priors['mv'] = quant_mv_upsample
 
         def feature_probs_based_sigma(feature, sigma):
-            
-            def getrealbitsg(x, gaussian):
-                # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
-                cdfs = []
-                x = x + self.mxrange
-                n,c,h,w = x.shape
-                for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
-                cdfs = torch.cat(cdfs, 4).cpu().detach()
-                
-                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
-
-                real_bits = torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda()
-
-                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
-
-                return sym_out - self.mxrange, real_bits
-
-
             mu = torch.zeros_like(sigma)
             sigma = sigma.clamp(1e-5, 1e10)
             gaussian = torch.distributions.laplace.Laplace(mu, sigma)
             probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
-            
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbitsg(feature, gaussian)
-                total_bits = real_bits
 
             return total_bits, probs
 
         def iclr18_estrate_bits_z(z):
-            
-            def getrealbits(x):
-                cdfs = []
-                x = x + self.mxrange
-                n,c,h,w = x.shape
-                for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
-                cdfs = torch.cat(cdfs, 4).cpu().detach()
-                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
-
-                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
-
-                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
-
-                return sym_out - self.mxrange, real_bits
-
             prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-
-
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbits(z)
-                total_bits = real_bits
 
             return total_bits, prob
 
 
         def iclr18_estrate_bits_mv(mv):
-
-            def getrealbits(x):
-                cdfs = []
-                x = x + self.mxrange
-                n,c,h,w = x.shape
-                for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
-                cdfs = torch.cat(cdfs, 4).cpu().detach()
-                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
-
-                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
-
-                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
-                return sym_out - self.mxrange, real_bits
-
             prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-
-
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbits(mv)
-                total_bits = real_bits
 
             return total_bits, prob
 
@@ -2343,9 +2237,13 @@ class ScaleSpaceFlow(nn.Module):
 
     def forward_prediction(self, x_ref, motion_info):
         flow, scale_field = motion_info.chunk(2, dim=1)
-        print(flow.size(),scale_field.size())
-        exit(0)
+        if self.useRF:
+            flow += priors['flow']
 
         volume = self.gaussian_volume(x_ref, self.sigma0, self.num_levels)
         x_pred = self.warp_volume(volume, flow, scale_field)
+        if 'flow' not in priors:
+            priors['flow'] = flow.detach()
+        else:
+            priors['flow'] += flow.detach()
         return x_pred
