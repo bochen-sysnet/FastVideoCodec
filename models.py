@@ -2057,6 +2057,7 @@ def meshgrid2d(N: int, C: int, H: int, W: int, device: torch.device):
 
 from compressai.layers import QReLU
 from compressai.ops import quantize_ste
+from compressai.entropy_models import EntropyBottleneck, GaussianConditional
 
 class ScaleSpaceFlow(nn.Module):
     r"""Google's first end-to-end optimized video compression from E.
@@ -2159,39 +2160,41 @@ class ScaleSpaceFlow(nn.Module):
         class Hyperprior(nn.Module):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
                 super().__init__()
-                # self.entropy_bottleneck = EntropyBottleneck(mid_planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(
                     planes, mid_planes, planes
                 )
-                # self.gaussian_conditional = GaussianConditional(None)
-                self.bitEstimator = BitEstimator(mid_planes)
+                self.entropy_bottleneck = EntropyBottleneck(mid_planes)
+                self.gaussian_conditional = GaussianConditional(None)
+                # self.bitEstimator = BitEstimator(mid_planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
-                z_hat = quantize_ste(z)
-                z_bits = self.entropy_bottleneck(z_hat)
-                # z_hat, z_likelihoods = self.entropy_bottleneck(z)
+                # z_hat = quantize_ste(z)
+                # z_bits = self.entropy_bottleneck(z_hat)
+                z_hat, z_likelihoods = self.entropy_bottleneck(z)
+                z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
-                y_bits = self.gaussian_conditional(y, scales, means)
+                # y_bits = self.gaussian_conditional(y, scales, means)
+                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
                 y_hat = quantize_ste(y - means) + means
-                # y_hat = quantize_ste(y)
                 return y_hat, z_bits + y_bits
 
-            def gaussian_conditional(self,feature, sigma, mu):
-                sigma = sigma.clamp(1e-5, 1e10)
-                gaussian = torch.distributions.laplace.Laplace(mu, sigma)
-                probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
-                total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
-                return total_bits
+            # def gaussian_conditional(self,feature, sigma, mu):
+            #     sigma = sigma.clamp(1e-5, 1e10)
+            #     gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+            #     probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+            #     total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+            #     return total_bits
 
-            def entropy_bottleneck(self,feature):
-                prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
-                total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-                return total_bits
+            # def entropy_bottleneck(self,feature):
+            #     prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
+            #     total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+            #     return total_bits
 
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
