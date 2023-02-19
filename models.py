@@ -165,10 +165,9 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
       
 def parallel_compression(model, data, compressI=False,level=0):
     print(model.name)
-    if 'Mod' in model.name:
+    if 'MOD' in model.name:
         model.compression_level = level
         init_training_params(model)
-        print('????????????',model.r,model.I_level)
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
