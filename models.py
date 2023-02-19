@@ -2171,29 +2171,29 @@ class ScaleSpaceFlow(nn.Module):
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
-                # z_hat = quantize_ste(z)
-                # z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                # z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
-                z_bits = self.entropy_bottleneck(z_hat)
                 if self.training:
                     half = float(0.5)
                     noise = torch.empty_like(z).uniform_(-half, half)
                     z_hat = z + noise
                 else:
                     z_hat = torch.round(z)
+                z_bits = self.entropy_bottleneck(z_hat)
+                # z_hat = quantize_ste(z)
+                # z_hat, z_likelihoods = self.entropy_bottleneck(z)
+                # z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
-                y_bits = self.gaussian_conditional(y, scales, means)
-                # _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                # y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
-                # y_hat = quantize_ste(y - means) + means
                 if self.training:
                     half = float(0.5)
                     noise = torch.empty_like(y).uniform_(-half, half)
                     y_hat = y + noise
                 else:
                     y_hat = torch.round(y)
+                y_bits = self.gaussian_conditional(y_hat, scales, means)
+                # _, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                # y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
+                # y_hat = quantize_ste(y - means) + means
                 return y_hat, z_bits + y_bits
 
             def gaussian_conditional(self,feature, sigma, mu):
