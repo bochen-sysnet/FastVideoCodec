@@ -201,18 +201,16 @@ def parallel_compression(model, data, compressI=False,level=0):
                 x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err, priors = model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
-                aux_loss_list += [10.0*torch.log(1/pred_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_res_est_list += [(bpp_res).to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
-                psnr_list += [mot_err.to(data.device)]
+                aux_loss_list += [mot_err.to(data.device)]
                 msssim_list += [res_err.to(data.device)]
                 x_hat_list.append(x_prev)
                 decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' in model_name:
-            if model.useRec:
-                model.init_hidden(data[0,0,])
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
@@ -1747,37 +1745,21 @@ from DVC.subnet import Analysis_MV, Synthesis_MV, Analysis_RES, Synthesis_RES, A
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        useRec = True if 'RNN' in name else False
-        useDM = True if 'DM' in name else False
         useRF = True if 'RF' in name else False
-        useMod= True if 'MOD' in name else False
         self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
-        if useDM:
-            self.mvEncoder = Analysis_MV()
-            self.mvDecoder = Synthesis_MV()
-            self.resEncoder = Analysis_RES()
-            self.resDecoder = Synthesis_RES()
-            self.respriorEncoder = Analysis_PRIOR()
-            self.respriorDecoder = Synthesis_PRIOR()
-            self.bitEstimator_z = BitEstimator(64)
-            self.bitEstimator_mv = BitEstimator(96)
-        else:
-            self.mvEncoder = Analysis_mv_net(useRec=useRec, useMod=useMod)
-            self.mvDecoder = Synthesis_mv_net(useRec=useRec, useMod=useMod)
-            self.resEncoder = Analysis_net(useRec=useRec, useMod=useMod)
-            self.resDecoder = Synthesis_net(useRec=useRec, useMod=useMod)
-            self.respriorEncoder = Analysis_prior_net(useRec=useRec, useMod=useMod)
-            self.respriorDecoder = Synthesis_prior_net(useRec=useRec, useMod=useMod)
-            self.bitEstimator_z = BitEstimator(out_channel_N)
-            self.bitEstimator_mv = BitEstimator(out_channel_mv)
-        self.mxrange = 150
-        self.calrealbits = False
+        self.mvEncoder = Analysis_mv_net()
+        self.mvDecoder = Synthesis_mv_net()
+        self.resEncoder = Analysis_net()
+        self.resDecoder = Synthesis_net()
+        self.respriorEncoder = Analysis_prior_net()
+        self.respriorDecoder = Synthesis_prior_net()
+        self.bitEstimator_z = BitEstimator(out_channel_N)
+        self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.useRec = useRec
         self.recursive_flow = useRF
 
     def motioncompensation(self, ref, mv):
@@ -1785,14 +1767,6 @@ class Base(nn.Module):
         inputfeature = torch.cat((warpframe, ref), 1)
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
-
-    def init_hidden(self,x):
-        self.mvEncoder.init_hidden(x)
-        self.mvDecoder.init_hidden(x)
-        self.resEncoder.init_hidden(x)
-        self.resDecoder.init_hidden(x)
-        self.respriorEncoder.init_hidden(x)
-        self.respriorDecoder.init_hidden(x)
 
     def forward(self, input_image, referframe, priors, level=0):
         # motion
@@ -1979,10 +1953,12 @@ class ScaleSpaceFlow(nn.Module):
 
         class Encoder(nn.Sequential):
             def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, useGDN: bool = False
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, norm_type: int = 0
             ):
-                if not useGDN:
+                if norm_type == 0:
                     norm_layer = nn.ReLU(inplace=True)
+                elif norm_type == 1:
+                    norm_layer = nn.LeakyReLU(negative_slope=0.1)
                 else:
                     norm_layer = GDN(mid_planes)
                 super().__init__(
@@ -1997,12 +1973,14 @@ class ScaleSpaceFlow(nn.Module):
 
         class Decoder(nn.Sequential):
             def __init__(
-                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, useGDN: bool = False
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, norm_type: int = 0
             ):
-                if not useGDN:
+                if norm_type == 0:
                     norm_layer = nn.ReLU(inplace=True)
+                elif norm_type == 1:
+                    norm_layer = nn.LeakyReLU(negative_slope=0.1)
                 else:
-                    norm_layer = GDN(mid_planes, inverse=True)
+                    norm_layer = GDN(mid_planes)
                 super().__init__(
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                     norm_layer,
@@ -2134,15 +2112,15 @@ class ScaleSpaceFlow(nn.Module):
 
         # error prediction
         useEC = True if '-EC' in name else False
-        useGDN = True if '-GDN' in name else False
+        useNorm = True if '-NORM' in name else False
         self.useRF = True if '-RF' in name else False
 
-        self.res_encoder = Encoder(3, useGDN=useGDN)
-        self.res_decoder = Decoder(3, in_planes=384, useGDN=useGDN)
+        self.res_encoder = Encoder(3, norm_type=2 if useNorm else 0)
+        self.res_decoder = Decoder(3, in_planes=384, norm_type=2 if useNorm else 0)
         self.res_hyperprior = Hyperprior(useEC=useEC)
 
-        self.motion_encoder = Encoder(2 * 3, useGDN=useGDN)
-        self.motion_decoder = Decoder(2 + 1, useGDN=useGDN)
+        self.motion_encoder = Encoder(2 * 3, norm_type=1 if useNorm else 0)
+        self.motion_decoder = Decoder(2 + 1, norm_type=1 if useNorm else 0)
         self.motion_hyperprior = Hyperprior(useEC=useEC)
 
         self.sigma0 = sigma0

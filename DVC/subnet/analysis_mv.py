@@ -9,7 +9,7 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, channels=None, useRec=False, useMod=False):
+    def __init__(self, useAttn=False, channels=None):
         super(Analysis_mv_net, self).__init__()
         if channels is None:
             out_channels = conv_channels = out_channel_mv
@@ -59,32 +59,16 @@ class Analysis_mv_net(nn.Module):
             self.frame_rot_emb = RotaryEmbedding(64)
             self.image_rot_emb = AxialRotaryEmbedding(64)
         self.useAttn = useAttn
-        self.useRec = useRec
-        if self.useRec:
-            self.lstm = ConvLSTM(conv_channels)
-        self.useMod = useMod
-        if useMod:
-            self.mod = Modulate()
 
     def forward(self, x, level=0):
         x = self.relu1(self.conv1(x))
-        if self.useMod: x = self.mod(x,level)
         x = self.relu2(self.conv2(x))
-        if self.useMod: x = self.mod(x,level)
         x = self.relu3(self.conv3(x))
-        if self.useMod: x = self.mod(x,level)
         x = self.relu4(self.conv4(x))
-        if self.useMod: x = self.mod(x,level)
-        if self.useRec:
-            x, self.hidden = self.lstm(x, self.hidden.to(x.device))
         x = self.relu5(self.conv5(x))
-        if self.useMod: x = self.mod(x,level)
         x = self.relu6(self.conv6(x)) 
-        if self.useMod: x = self.mod(x,level)
         x = self.relu7(self.conv7(x))
-        if self.useMod: x = self.mod(x,level)
         x = self.conv8(x)
-        if self.useMod: x = self.mod(x,level)
         if self.useAttn:
             # B,C,H,W->1,BHW,C
             B,C,H,W = x.size()
