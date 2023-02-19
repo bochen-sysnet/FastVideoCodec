@@ -43,6 +43,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     elif 'Base' in name:
         model_codec = Base(name, loss_type='P', compression_level=compression_level)
+    elif 'SSF' in name:
+        model_codec = ScaleSpaceFlow(name, loss_type='P', compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -189,7 +191,24 @@ def parallel_compression(model, data, compressI=False,level=0):
     encoding_time = decoding_time = 0
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if 'Base' in model_name:
+        if 'SSF' in model_name:
+            B,_,H,W = data.size()
+            x_prev = data[0:1]
+            x_hat_list = []
+            for i in range(1,B):
+                x_prev, mseloss, pred_loss, bpp, bpp_res = model(data[i:i+1],x_prev)
+                x_prev = x_prev.detach()
+                img_loss_list += [model.r*mseloss.to(data.device)]
+                aux_loss_list += [10.0*torch.log(1/pred_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                bpp_est_list += [bpp.to(data.device)]
+                bpp_res_est_list += [(bpp_res).to(data.device)]
+                bpp_act_list += [bpp.to(data.device)]
+                psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                msssim_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                x_hat_list.append(x_prev)
+                decoding_time += 0
+            x_hat = torch.cat(x_hat_list,dim=0)
+        elif 'Base' in model_name:
             if model.useRec:
                 model.init_hidden(data[0,0,])
             B,_,H,W = data.size()
@@ -1831,6 +1850,7 @@ class Base(nn.Module):
         self.respriorDecoder.init_hidden(x)
 
     def forward(self, input_image, referframe, priors, level=0):
+        # motion
         estmv = self.opticFlow(input_image, referframe, priors)
         if self.recursive_flow and 'mv' in priors:
             estmv -= priors['mv']
@@ -1846,9 +1866,8 @@ class Base(nn.Module):
         if self.recursive_flow and 'mv' in priors:
             quant_mv_upsample += priors['mv']
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-        # need an improved way to estimate
-        # use methods to approximate the estimation as much as possible to allow decoder to infer it
-        # how to do this without sending new tensors
+
+        # residual
         input_residual = input_image - prediction
         feature = self.resEncoder(input_residual,level=level)
         batch_size = feature.size()[0]
@@ -1986,3 +2005,301 @@ class Base(nn.Module):
         bpp = bpp_feature + bpp_z + bpp_mv
         
         return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors
+
+
+
+# utils for scale-space flow
+def conv(in_channels, out_channels, kernel_size=5, stride=2):
+    return nn.Conv2d(
+        in_channels,
+        out_channels,
+        kernel_size=kernel_size,
+        stride=stride,
+        padding=kernel_size // 2,
+    )
+
+
+def deconv(in_channels, out_channels, kernel_size=5, stride=2):
+    return nn.ConvTranspose2d(
+        in_channels,
+        out_channels,
+        kernel_size=kernel_size,
+        stride=stride,
+        output_padding=stride - 1,
+        padding=kernel_size // 2,
+    )
+
+def gaussian_kernel1d(
+    kernel_size: int, sigma: float, device: torch.device, dtype: torch.dtype
+):
+    """1D Gaussian kernel."""
+    khalf = (kernel_size - 1) / 2.0
+    x = torch.linspace(-khalf, khalf, steps=kernel_size, dtype=dtype, device=device)
+    pdf = torch.exp(-0.5 * (x / sigma).pow(2))
+    return pdf / pdf.sum()
+
+
+def gaussian_kernel2d(
+    kernel_size: int, sigma: float, device: torch.device, dtype: torch.dtype
+):
+    """2D Gaussian kernel."""
+    kernel = gaussian_kernel1d(kernel_size, sigma, device, dtype)
+    return torch.mm(kernel[:, None], kernel[None, :])
+
+
+def gaussian_blur(x, kernel=None, kernel_size=None, sigma=None):
+    """Apply a 2D gaussian blur on a given image tensor."""
+    if kernel is None:
+        if kernel_size is None or sigma is None:
+            raise RuntimeError("Missing kernel_size or sigma parameters")
+        dtype = x.dtype if torch.is_floating_point(x) else torch.float32
+        device = x.device
+        kernel = gaussian_kernel2d(kernel_size, sigma, device, dtype)
+
+    padding = kernel.size(0) // 2
+    x = F.pad(x, (padding, padding, padding, padding), mode="replicate")
+    x = torch.nn.functional.conv2d(
+        x,
+        kernel.expand(x.size(1), 1, kernel.size(0), kernel.size(1)),
+        groups=x.size(1),
+    )
+    return x
+def meshgrid2d(N: int, C: int, H: int, W: int, device: torch.device):
+    """Create a 2D meshgrid for interpolation."""
+    theta = torch.eye(2, 3, device=device).unsqueeze(0).expand(N, 2, 3)
+    return F.affine_grid(theta, (N, C, H, W), align_corners=False)
+
+from compressai.layers import QReLU
+from compressai.ops import quantize_ste
+
+class ScaleSpaceFlow(nn.Module):
+    r"""Google's first end-to-end optimized video compression from E.
+    Agustsson, D. Minnen, N. Johnston, J. Balle, S. J. Hwang, G. Toderici: `"Scale-space flow for end-to-end
+    optimized video compression" <https://openaccess.thecvf.com/content_CVPR_2020/html/Agustsson_Scale-Space_Flow_for_End-to-End_Optimized_Video_Compression_CVPR_2020_paper.html>`_,
+    IEEE Conference on Computer Vision and Pattern Recognition (CVPR 2020).
+
+    Args:
+        num_levels (int): Number of Scale-space
+        sigma0 (float): standard deviation for gaussian kernel of the first space scale.
+        scale_field_shift (float):
+    """
+
+    def __init__(
+        self,
+        num_levels: int = 5,
+        sigma0: float = 1.5,
+        scale_field_shift: float = 1.0,
+    ):
+        super().__init__()
+
+        class Encoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
+            ):
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
+
+        class Decoder(nn.Sequential):
+            def __init__(
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
+            ):
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
+
+        class HyperEncoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+            ):
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                )
+
+        class HyperDecoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+            ):
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
+
+        class HyperDecoderWithQReLU(nn.Module):
+            def __init__(
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+            ):
+                super().__init__()
+
+                def qrelu(input, bit_depth=8, beta=100):
+                    return QReLU.apply(input, bit_depth, beta)
+
+                self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
+                self.qrelu1 = qrelu
+                self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
+                self.qrelu2 = qrelu
+                self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
+                self.qrelu3 = qrelu
+
+            def forward(self, x):
+                x = self.qrelu1(self.deconv1(x))
+                x = self.qrelu2(self.deconv2(x))
+                x = self.qrelu3(self.deconv3(x))
+
+                return x
+
+        class Hyperprior(nn.Module):
+            def __init__(self, planes: int = 192, mid_planes: int = 192):
+                super().__init__()
+                # self.entropy_bottleneck = EntropyBottleneck(mid_planes)
+                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
+                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(
+                    planes, mid_planes, planes
+                )
+                # self.gaussian_conditional = GaussianConditional(None)
+                self.bitEstimator = BitEstimator(mid_planes)
+
+            def forward(self, y):
+                z = self.hyper_encoder(y)
+                z_hat = quantize_ste(z)
+                z_bits = self.entropy_bottleneck(z_hat)
+                # z_hat, z_likelihoods = self.entropy_bottleneck(z)
+
+                scales = self.hyper_decoder_scale(z_hat)
+                means = self.hyper_decoder_mean(z_hat)
+                y_bits = self.gaussian_conditional(y, scales, means)
+                # y_hat = quantize_ste(y - means) + means
+                y_hat = quantize_ste(y)
+                return y_hat, z_bits + y_bits
+
+            def gaussian_conditional(feature, sigma, mu):
+                sigma = sigma.clamp(1e-5, 1e10)
+                gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+                probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+                total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+                return total_bits
+
+            def entropy_bottleneck(feature):
+                prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
+                total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+                return total_bits
+
+        self.res_encoder = Encoder(3)
+        self.res_decoder = Decoder(3, in_planes=384)
+        self.res_hyperprior = Hyperprior()
+
+        self.motion_encoder = Encoder(2 * 3)
+        self.motion_decoder = Decoder(2 + 1)
+        self.motion_hyperprior = Hyperprior()
+
+        self.sigma0 = sigma0
+        self.num_levels = num_levels
+        self.scale_field_shift = scale_field_shift
+
+
+    def forward(self, x_cur, x_ref):
+        # encode the motion information
+        x = torch.cat((x_cur, x_ref), dim=1)
+        y_motion = self.motion_encoder(x)
+        y_motion_hat, motion_bits = self.motion_hyperprior(y_motion)
+
+        # decode the space-scale flow information
+        motion_info = self.motion_decoder(y_motion_hat)
+        x_pred = self.forward_prediction(x_ref, motion_info)
+
+        # residual
+        x_res = x_cur - x_pred
+        y_res = self.res_encoder(x_res)
+        y_res_hat, res_bits = self.res_hyperprior(y_res)
+
+        # y_combine
+        y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
+        x_res_hat = self.res_decoder(y_combine)
+
+        # final reconstruction: prediction + residual
+        x_rec = x_pred + x_res_hat
+
+        im_shape = x_cur.size()
+
+        bpp_res = res_bits / (im_shape[2] * im_shape[3])
+        bpp_mv = motion_bits / (im_shape[2] * im_shape[3])
+        bpp = bpp_res + bpp_mv
+
+        clipped_recon_image = x_rec.clamp(0., 1.)
+        mse_loss = torch.mean((x_rec - x_cur).pow(2))
+        pred_loss = torch.mean((x_pred - x_cur).pow(2))
+        return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res
+
+
+    def gaussian_volume(x, sigma: float, num_levels: int):
+        """Efficient gaussian volume construction.
+
+        From: "Generative Video Compression as Hierarchical Variational Inference",
+        by Yang et al.
+        """
+        k = 2 * int(math.ceil(3 * sigma)) + 1
+        device = x.device
+        dtype = x.dtype if torch.is_floating_point(x) else torch.float32
+
+        kernel = gaussian_kernel2d(k, sigma, device=device, dtype=dtype)
+        volume = [x.unsqueeze(2)]
+        x = gaussian_blur(x, kernel=kernel)
+        volume += [x.unsqueeze(2)]
+        for i in range(1, num_levels):
+            x = F.avg_pool2d(x, kernel_size=(2, 2), stride=(2, 2))
+            x = gaussian_blur(x, kernel=kernel)
+            interp = x
+            for _ in range(0, i):
+                interp = F.interpolate(
+                    interp, scale_factor=2, mode="bilinear", align_corners=False
+                )
+            volume.append(interp.unsqueeze(2))
+        return torch.cat(volume, dim=2)
+
+
+    def warp_volume(self, volume, flow, scale_field, padding_mode: str = "border"):
+        """3D volume warping."""
+        if volume.ndimension() != 5:
+            raise ValueError(
+                f"Invalid number of dimensions for volume {volume.ndimension()}"
+            )
+
+        N, C, _, H, W = volume.size()
+
+        grid = meshgrid2d(N, C, H, W, volume.device)
+        update_grid = grid + flow.permute(0, 2, 3, 1).float()
+        update_scale = scale_field.permute(0, 2, 3, 1).float()
+        volume_grid = torch.cat((update_grid, update_scale), dim=-1).unsqueeze(1)
+
+        out = F.grid_sample(
+            volume.float(), volume_grid, padding_mode=padding_mode, align_corners=False
+        )
+        return out.squeeze(2)
+
+
+    def forward_prediction(self, x_ref, motion_info):
+        flow, scale_field = motion_info.chunk(2, dim=1)
+
+        volume = self.gaussian_volume(x_ref, self.sigma0, self.num_levels)
+        x_pred = self.warp_volume(volume, flow, scale_field)
+        return x_pred

@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'BaseMOD'
+CODEC_NAME = 'SSF'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -164,10 +164,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
         psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
         msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-        if model.name in ['DVC-pretrained','LSVC'] or 'Base' in model.name:
-            loss = img_loss + be_loss
-        else:
-            loss = model.loss(img_loss,be_loss,aux_loss)
+        loss = img_loss + be_loss
         
         # record loss
         aux_loss_module.update(aux_loss.cpu().data.item(), l)
