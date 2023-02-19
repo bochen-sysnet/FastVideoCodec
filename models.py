@@ -2194,14 +2194,14 @@ class ScaleSpaceFlow(nn.Module):
                 y_hat = quantize_ste(y)
                 return y_hat, z_bits + y_bits
 
-            def gaussian_conditional(feature, sigma, mu):
+            def gaussian_conditional(self,feature, sigma, mu):
                 sigma = sigma.clamp(1e-5, 1e10)
                 gaussian = torch.distributions.laplace.Laplace(mu, sigma)
                 probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
                 total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
                 return total_bits
 
-            def entropy_bottleneck(feature):
+            def entropy_bottleneck(self,feature):
                 prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
                 total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
                 return total_bits
