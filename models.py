@@ -1745,7 +1745,7 @@ from DVC.subnet import Analysis_MV, Synthesis_MV, Analysis_RES, Synthesis_RES, A
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        useRF = True if 'RF' in name else False
+        self.useRF = True if 'RF' in name else False
         self.opticFlow = ME_Spynet()
         self.warpnet = Warp_net()
         self.mvEncoder = Analysis_mv_net()
@@ -1760,7 +1760,6 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.recursive_flow = useRF
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1771,7 +1770,7 @@ class Base(nn.Module):
     def forward(self, input_image, referframe, priors, level=0):
         # motion
         estmv = self.opticFlow(input_image, referframe)
-        if self.recursive_flow and 'mv' in priors:
+        if self.useRF and 'mv' in priors:
             estmv -= priors['mv']
         mvfeature = self.mvEncoder(estmv,level=level)
         if self.training:
@@ -1782,7 +1781,7 @@ class Base(nn.Module):
             quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv,level=level)
         # add rec_motion to priors to reduce bpp
-        if self.recursive_flow and 'mv' in priors:
+        if self.useRF and 'mv' in priors:
             quant_mv_upsample += priors['mv']
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
 
@@ -1822,9 +1821,9 @@ class Base(nn.Module):
         interloss = torch.mean((prediction - input_image).pow(2))
         
         if 'mv' in priors:
-            priors['mv'] += quant_mv_upsample
+            priors['mv'] += quant_mv_upsample.detach()
         else:
-            priors['mv'] = quant_mv_upsample
+            priors['mv'] = quant_mv_upsample.detach()
 
         def feature_probs_based_sigma(feature, sigma):
             mu = torch.zeros_like(sigma)
@@ -2119,7 +2118,10 @@ class ScaleSpaceFlow(nn.Module):
         self.res_decoder = Decoder(3, in_planes=384, norm_type=2 if useNorm else 0)
         self.res_hyperprior = Hyperprior(useEC=useEC)
 
-        self.motion_encoder = Encoder(2 * 3, norm_type=1 if useNorm else 0)
+        if not self.useRF:
+            self.motion_encoder = Encoder(2 * 3, norm_type=1 if useNorm else 0)
+        else:
+            self.motion_encoder = Encoder(2 * 3 + 2, norm_type=1 if useNorm else 0)
         self.motion_decoder = Decoder(2 + 1, norm_type=1 if useNorm else 0)
         self.motion_hyperprior = Hyperprior(useEC=useEC)
 
@@ -2134,7 +2136,15 @@ class ScaleSpaceFlow(nn.Module):
 
     def forward(self, x_cur, x_ref, priors):
         # encode the motion information
-        x = torch.cat((x_cur, x_ref), dim=1)
+        if not self.useRF:
+            x = torch.cat((x_cur, x_ref), dim=1)
+        else:
+            if 'flow' in priors:
+                prior_flow = priors['flow']
+            else:
+                B,C,H,W = x_cur.size()
+                prior_flow = torch.zeros((B,2,H,W), dtype=torch.float32, device=x_cur.device)
+            x = torch.cat((x_cur, x_ref, prior_flow), dim=1)
         y_motion = self.motion_encoder(x)
         y_motion_hat, motion_bits, mot_err = self.motion_hyperprior(y_motion)
 
