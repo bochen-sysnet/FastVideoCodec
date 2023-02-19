@@ -197,15 +197,15 @@ def parallel_compression(model, data, compressI=False,level=0):
             x_prev = data[0:1]
             x_hat_list = []
             for i in range(1,B):
-                x_prev, mseloss, pred_loss, bpp, bpp_res = model(data[i:i+1],x_prev)
+                x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err = model(data[i:i+1],x_prev)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/pred_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_res_est_list += [(bpp_res).to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
-                psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                msssim_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                psnr_list += [mot_err.to(data.device)]
+                msssim_list += [res_err.to(data.device)]
                 x_hat_list.append(x_prev)
                 decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
@@ -2084,29 +2084,37 @@ class ScaleSpaceFlow(nn.Module):
 
         class Encoder(nn.Sequential):
             def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, useGDN: bool = False
             ):
+                if not useGDN:
+                    norm_layer = nn.ReLU(inplace=True)
+                else:
+                    norm_layer = GDN(mid_planes)
                 super().__init__(
                     conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
+                    norm_layer,
                     conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
+                    norm_layer,
                     conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
+                    norm_layer,
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
 
         class Decoder(nn.Sequential):
             def __init__(
-                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, useGDN: bool = False
             ):
+                if not useGDN:
+                    norm_layer = nn.ReLU(inplace=True)
+                else:
+                    norm_layer = GDN(mid_planes, inverse=True)
                 super().__init__(
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
+                    norm_layer,
                     deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
+                    norm_layer,
                     deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
+                    norm_layer,
                     deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
 
@@ -2158,31 +2166,43 @@ class ScaleSpaceFlow(nn.Module):
                 return x
 
         class Hyperprior(nn.Module):
-            def __init__(self, planes: int = 192, mid_planes: int = 192):
+            def __init__(self, planes: int = 192, mid_planes: int = 192, useEC: bool = False):
                 super().__init__()
-                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
-                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(
-                    planes, mid_planes, planes
-                )
+                if not useEC:
+                    self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
+                    self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                    self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
+                else:
+                    self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
+                    self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                    self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes*2)
+                self.useEC = useEC
+
                 # self.entropy_bottleneck = EntropyBottleneck(mid_planes)
                 # self.gaussian_conditional = GaussianConditional(None)
                 self.bitEstimator = BitEstimator(mid_planes)
 
             def forward(self, y):
+                # derive hyperprior
                 z = self.hyper_encoder(y)
+                # quantization
                 if self.training:
                     half = float(0.5)
                     noise = torch.empty_like(z).uniform_(-half, half)
                     z_hat = z + noise
                 else:
                     z_hat = torch.round(z)
+                # compress hyperprior
                 z_bits = self.entropy_bottleneck(z_hat)
                 # z_hat = quantize_ste(z)
                 # z_hat, z_likelihoods = self.entropy_bottleneck(z)
                 # z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
 
+                # derive scale/mean from hyperprior
                 scales = self.hyper_decoder_scale(z_hat)
+                if self.useEC:
+                    scales, y_correction = scales.chunk(2, dim=1)
+                    y_correction = torch.sigmoid(y_correction) - 0.5
                 means = self.hyper_decoder_mean(z_hat)
                 # only the diff needs to be quantized
                 y_diff = y - means
@@ -2193,11 +2213,17 @@ class ScaleSpaceFlow(nn.Module):
                 else:
                     y_diff_hat = torch.round(y_diff)
                 y_hat = y_diff_hat + means
+                # compress feature y
                 y_bits = self.gaussian_conditional(y_hat, scales, means)
+                # after decoding y, add correction
+                if self.useEC:
+                    y_hat += y_correction
+                y_err = torch.mean(y - y_hat)
+
                 # _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 # y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
                 # y_hat = quantize_ste(y - means) + means
-                return y_hat, z_bits + y_bits
+                return y_hat, z_bits + y_bits, y_err
 
             def gaussian_conditional(self,feature, sigma, mu):
                 sigma = sigma.clamp(1e-5, 1e10)
@@ -2211,13 +2237,17 @@ class ScaleSpaceFlow(nn.Module):
                 total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
                 return total_bits
 
-        self.res_encoder = Encoder(3)
-        self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior()
+        # error prediction
+        useEC = True if '-EC' in name else False
+        useGDN = True if '-GDN' in name else False
 
-        self.motion_encoder = Encoder(2 * 3)
-        self.motion_decoder = Decoder(2 + 1)
-        self.motion_hyperprior = Hyperprior()
+        self.res_encoder = Encoder(3, useGDN=useGDN)
+        self.res_decoder = Decoder(3, in_planes=384, useGDN=useGDN)
+        self.res_hyperprior = Hyperprior(useEC=useEC)
+
+        self.motion_encoder = Encoder(2 * 3, useGDN=useGDN)
+        self.motion_decoder = Decoder(2 + 1, useGDN=useGDN)
+        self.motion_hyperprior = Hyperprior(useEC=useEC)
 
         self.sigma0 = sigma0
         self.num_levels = num_levels
@@ -2232,7 +2262,7 @@ class ScaleSpaceFlow(nn.Module):
         # encode the motion information
         x = torch.cat((x_cur, x_ref), dim=1)
         y_motion = self.motion_encoder(x)
-        y_motion_hat, motion_bits = self.motion_hyperprior(y_motion)
+        y_motion_hat, motion_bits, mot_err = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
@@ -2241,7 +2271,7 @@ class ScaleSpaceFlow(nn.Module):
         # residual
         x_res = x_cur - x_pred
         y_res = self.res_encoder(x_res)
-        y_res_hat, res_bits = self.res_hyperprior(y_res)
+        y_res_hat, res_bits, res_err = self.res_hyperprior(y_res)
 
         # y_combine
         y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
@@ -2259,8 +2289,8 @@ class ScaleSpaceFlow(nn.Module):
 
         clipped_recon_image = x_rec.clamp(0., 1.)
         mse_loss = torch.mean((x_rec - x_cur).pow(2))
-        pred_loss = torch.mean((x_pred - x_cur).pow(2))
-        return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res
+        pred_loss = torch.mean((x_pred - x_cur).pow(2)) 
+        return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res, mot_err, res_err
 
     @staticmethod
     def gaussian_volume(x, sigma: float, num_levels: int):
