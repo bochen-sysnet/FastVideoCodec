@@ -2165,9 +2165,9 @@ class ScaleSpaceFlow(nn.Module):
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(
                     planes, mid_planes, planes
                 )
-                self.entropy_bottleneck = EntropyBottleneck(mid_planes)
-                self.gaussian_conditional = GaussianConditional(None)
-                # self.bitEstimator = BitEstimator(mid_planes)
+                # self.entropy_bottleneck = EntropyBottleneck(mid_planes)
+                # self.gaussian_conditional = GaussianConditional(None)
+                self.bitEstimator = BitEstimator(mid_planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
