@@ -196,8 +196,9 @@ def parallel_compression(model, data, compressI=False,level=0):
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
+            priors = {}
             for i in range(1,B):
-                x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err = model(data[i:i+1],x_prev)
+                x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err, priors = model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/pred_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
@@ -2240,6 +2241,7 @@ class ScaleSpaceFlow(nn.Module):
         # error prediction
         useEC = True if '-EC' in name else False
         useGDN = True if '-GDN' in name else False
+        self.useRF = True if '-RF' in name else False
 
         self.res_encoder = Encoder(3, useGDN=useGDN)
         self.res_decoder = Decoder(3, in_planes=384, useGDN=useGDN)
@@ -2258,7 +2260,7 @@ class ScaleSpaceFlow(nn.Module):
         init_training_params(self)
 
 
-    def forward(self, x_cur, x_ref):
+    def forward(self, x_cur, x_ref, priors):
         # encode the motion information
         x = torch.cat((x_cur, x_ref), dim=1)
         y_motion = self.motion_encoder(x)
@@ -2290,7 +2292,7 @@ class ScaleSpaceFlow(nn.Module):
         clipped_recon_image = x_rec.clamp(0., 1.)
         mse_loss = torch.mean((x_rec - x_cur).pow(2))
         pred_loss = torch.mean((x_pred - x_cur).pow(2)) 
-        return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res, mot_err, res_err
+        return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res, mot_err, res_err, priors
 
     @staticmethod
     def gaussian_volume(x, sigma: float, num_levels: int):
@@ -2341,6 +2343,8 @@ class ScaleSpaceFlow(nn.Module):
 
     def forward_prediction(self, x_ref, motion_info):
         flow, scale_field = motion_info.chunk(2, dim=1)
+        print(flow.size(),scale_field.size())
+        exit(0)
 
         volume = self.gaussian_volume(x_ref, self.sigma0, self.num_levels)
         x_pred = self.warp_volume(volume, flow, scale_field)
