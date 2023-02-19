@@ -249,8 +249,6 @@ def test(epoch, model, test_dataset,level=0):
     data = []
     test_iter = tqdm(range(ds_size))
     for data_idx,_ in enumerate(test_iter):
-        print(level)
-        break
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
