@@ -346,6 +346,7 @@ class Modulate(nn.Module):
         # modulate map
         B,C,H,W = x.size()
         # level: [0,1]
+        print(level/4.0,'------------------')
         phase = (torch.arange(0,C).to(x.device).repeat(B).view(B,C,1,1)/C + level/4.0)*torch.pi
         self.mod = torch.cos(phase) * self.gamma + self.beta
         return self.mod * x
