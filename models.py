@@ -215,7 +215,6 @@ def parallel_compression(model, data, compressI=False,level=0):
             for i in range(1,B):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
                     model(data[i:i+1],x_prev,priors,level)
-                print(bpp_feature,bpp_z,bpp_mv,bpp)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [bpp_mv.to(data.device)]
@@ -1786,6 +1785,7 @@ class Base(nn.Module):
         self.recursive_flow = True if '-RF' in name else False
         self.useSTE = True if '-STE' in name else False
         self.useSSF = True if '-SSF' in name else False
+        self.useEC = True if '-EC' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()
             self.mvEncoder = Analysis_mv_net()
@@ -1838,10 +1838,14 @@ class Base(nn.Module):
             self.motion_encoder = Encoder(2 * 3, norm_type=0)
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
+
         self.resEncoder = Analysis_net()
         self.resDecoder = Synthesis_net()
         self.respriorEncoder = Analysis_prior_net()
-        self.respriorDecoder = Synthesis_prior_net()
+        if not self.useEC:
+            self.respriorDecoder = Synthesis_prior_net()
+        else:
+            self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -1901,7 +1905,6 @@ class Base(nn.Module):
                 quant_mv = mvfeature + quant_noise_mv
             else:
                 quant_mv = torch.round(mvfeature)
-
             # decode the space-scale flow information
             motion_info = self.motion_decoder(quant_mv)
             prediction = self.forward_prediction(referframe, motion_info)
@@ -1922,6 +1925,9 @@ class Base(nn.Module):
             compressed_z = torch.round(z)
 
         recon_sigma = self.respriorDecoder(compressed_z)
+        if self.useEC:
+            recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
+            feature_correction = torch.sigmoid(feature_correction) - 0.5
 
         feature_renorm = feature
 
@@ -1934,7 +1940,10 @@ class Base(nn.Module):
                 compressed_feature_renorm = torch.round(feature_renorm)
         else:
             compressed_feature_renorm = quantize_ste(feature_renorm)
-        recon_res = self.resDecoder(compressed_feature_renorm)
+        if not self.useEC:
+            recon_res = self.resDecoder(compressed_feature_renorm)
+        else:
+            recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
         recon_image = prediction + recon_res
 
         clipped_recon_image = recon_image.clamp(0., 1.)

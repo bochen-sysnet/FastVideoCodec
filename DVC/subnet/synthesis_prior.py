@@ -12,13 +12,8 @@ class Synthesis_prior_net(nn.Module):
     '''
     Decode residual prior
     '''
-    def __init__(self, useAttn = False, channels=None):
+    def __init__(self, useAttn = False, conv_channels = out_channel_N, out_channels = out_channel_M):
         super(Synthesis_prior_net, self).__init__()
-        if channels is None:
-            conv_channels = out_channel_N
-            out_channels = out_channel_M
-        else:
-            conv_channels = out_channels = channels
         self.deconv1 = nn.ConvTranspose2d(conv_channels, conv_channels, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, math.sqrt(2 * 1))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)

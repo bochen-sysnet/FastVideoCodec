@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'Base-SSF'
+CODEC_NAME = 'Base-EC'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -35,7 +35,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1#compression_level%2
+device = 0
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -73,7 +73,7 @@ best_codec_score = [1,0,0]
 if CODEC_NAME in ['x265', 'x264', 'RAW']:
     # nothing to load
     print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['Base','BaseRF','SSF','SSF-NORM','BaseRF-STE','Base-SSF']:
+elif 'Base' in CODEC_NAME:
     # load what exists
     pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
@@ -195,7 +195,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"MC: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"WP: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
             f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
-        exit(0)
+
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
