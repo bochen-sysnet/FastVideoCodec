@@ -1808,7 +1808,7 @@ class CodecNet(nn.Module):
             lastCh = ch2
             self.blocks.append(layer)
         self.blocks = nn.Sequential(*self.blocks)
-        for module in self.modules:
+        for module in self.modules():
             if isinstance(module,nn.Conv2d) or isinstance(module,nn.ConvTranspose2d):
                 torch.nn.init.xavier_normal_(module.weight.data, math.sqrt(2))
                 torch.nn.init.constant_(module.bias.data, 0.01)
