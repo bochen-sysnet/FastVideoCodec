@@ -195,7 +195,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"MC: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
             f"WP: {msssim_module.val:.2f} ({msssim_module.avg:.2f}). "
             f"I: {I_module.val:.2f} ({I_module.avg:.2f}).")
-
+        exit(0)
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
