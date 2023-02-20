@@ -1792,6 +1792,45 @@ class Base(nn.Module):
             self.warpnet = Warp_net()
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
         else:
+            class Encoder(nn.Sequential):
+                def __init__(
+                    self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, norm_type: int = 0
+                ):
+                    if norm_type == 0:
+                        norm_layer = nn.ReLU(inplace=True)
+                    elif norm_type == 1:
+                        norm_layer = nn.LeakyReLU(negative_slope=0.1)
+                    else:
+                        norm_layer = GDN(mid_planes)
+                    super().__init__(
+                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        norm_layer,
+                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        norm_layer,
+                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        norm_layer,
+                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    )
+
+            class Decoder(nn.Sequential):
+                def __init__(
+                    self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, norm_type: int = 0
+                ):
+                    if norm_type == 0:
+                        norm_layer = nn.ReLU(inplace=True)
+                    elif norm_type == 1:
+                        norm_layer = nn.LeakyReLU(negative_slope=0.1)
+                    else:
+                        norm_layer = GDN(mid_planes)
+                    super().__init__(
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        norm_layer,
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        norm_layer,
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        norm_layer,
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    )
             self.motion_encoder = Encoder(2 * 3, norm_type=0)
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
