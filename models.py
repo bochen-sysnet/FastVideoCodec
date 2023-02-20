@@ -2057,39 +2057,39 @@ class ScaleSpaceFlow(nn.Module):
             def forward(self, y):
                 # derive hyperprior
                 z = self.hyper_encoder(y)
-                z_hat = quantize_ste(z)
-                z_bits = self.entropy_bottleneck(z_hat)
-                # z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                # z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
+                # z_hat = quantize_ste(z)
+                # z_bits = self.entropy_bottleneck(z_hat)
+                z_hat, z_likelihoods = self.entropy_bottleneck(z)
+                z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
 
                 # derive scale/mean from hyperprior
                 scales = self.hyper_decoder_scale(z_hat)
+                means = self.hyper_decoder_mean(z_hat)
                 if self.useEC:
                     scales, y_correction = scales.chunk(2, dim=1)
                     y_correction = torch.sigmoid(y_correction) - 0.5
-                means = self.hyper_decoder_mean(z_hat)
+                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
                 y_hat = quantize_ste(y - means) + means
-                y_bits = self.gaussian_conditional(y_hat, scales, means)
+                # y_bits = self.gaussian_conditional(y_hat, scales, means)
                 # after decoding y, add correction
                 if self.useEC:
                     y_hat += y_correction
                 y_err = torch.mean(y - y_hat).abs()
 
-                # _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                # y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
                 return y_hat, z_bits + y_bits, y_err
 
-            def gaussian_conditional(self,feature, sigma, mu):
-                sigma = sigma.clamp(1e-5, 1e10)
-                gaussian = torch.distributions.laplace.Laplace(mu, sigma)
-                probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
-                total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
-                return total_bits
+            # def gaussian_conditional(self,feature, sigma, mu):
+            #     sigma = sigma.clamp(1e-5, 1e10)
+            #     gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+            #     probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+            #     total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+            #     return total_bits
 
-            def entropy_bottleneck(self,feature):
-                prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
-                total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-                return total_bits
+            # def entropy_bottleneck(self,feature):
+            #     prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
+            #     total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+            #     return total_bits
 
         # error prediction
         useEC = True if '-EC' in name else False
