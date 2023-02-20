@@ -213,11 +213,11 @@ def parallel_compression(model, data, compressI=False,level=0):
             x_hat_list = []
             priors = {}
             for i in range(1,B):
-                x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
                     model(data[i:i+1],x_prev,priors,level)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
-                aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                aux_loss_list += [bpp_mv.to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_res_est_list += [(bpp_feature + bpp_z).to(data.device)]
                 bpp_act_list += [bpp.to(data.device)]
@@ -1939,8 +1939,6 @@ class Base(nn.Module):
         clipped_recon_image = recon_image.clamp(0., 1.)
 
         mse_loss = torch.mean((recon_image - input_image).pow(2))
-
-        warploss = torch.mean((warpframe - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
         
 
@@ -2041,7 +2039,7 @@ class Base(nn.Module):
         bpp_mv = total_bits_mv / (batch_size * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
         
-        return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors
 
 
 # utils for scale-space flow
