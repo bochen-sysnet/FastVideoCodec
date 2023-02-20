@@ -1782,17 +1782,24 @@ class MyMENet(nn.Module):
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        self.opticFlow = MyMENet()
-        self.mvEncoder = Analysis_mv_net()
-        self.Q = None
-        self.mvDecoder = Synthesis_mv_net()
-        self.warpnet = Warp_net()
+        self.recursive_flow = True if '-RF' in name else False
+        self.useSTE = True if '-STE' in name else False
+        self.useSSF = True if '-SSF' in name else False
+        if not self.useSSF:
+            self.opticFlow = MyMENet()
+            self.mvEncoder = Analysis_mv_net()
+            self.mvDecoder = Synthesis_mv_net()
+            self.warpnet = Warp_net()
+            self.bitEstimator_mv = BitEstimator(out_channel_mv)
+        else:
+            self.motion_encoder = Encoder(2 * 3, norm_type=0)
+            self.motion_decoder = Decoder(2 + 1, norm_type=0)
+            self.bitEstimator_mv = BitEstimator(192)
         self.resEncoder = Analysis_net()
         self.resDecoder = Synthesis_net()
         self.respriorEncoder = Analysis_prior_net()
         self.respriorDecoder = Synthesis_prior_net()
         self.bitEstimator_z = BitEstimator(out_channel_N)
-        self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.warp_weight = 0
         self.mxrange = 150
         self.calrealbits = False
@@ -1800,9 +1807,14 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.recursive_flow = True if '-RF' in name else False
-        self.useSTE = True if '-STE' in name else False
-        self.useSSF = True if '-SSF' in name else False
+
+
+    def forward_prediction(self, x_ref, motion_info):
+        flow, scale_field = motion_info.chunk(2, dim=1)
+
+        volume = gaussian_volume(x_ref, self.sigma0, self.num_levels)
+        x_pred = warp_volume(volume, flow, scale_field)
+        return x_pred
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1811,27 +1823,47 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors,level):
-        estmv = self.opticFlow(input_image, referframe, priors)
-        if self.recursive_flow and 'mv' in priors:
-            mvfeature = self.mvEncoder(estmv - priors['mv'])
+        # motion
+        if not self.useSSF:
+            estmv = self.opticFlow(input_image, referframe, priors)
+            if self.recursive_flow and 'mv' in priors:
+                mvfeature = self.mvEncoder(estmv - priors['mv'])
+            else:
+                mvfeature = self.mvEncoder(estmv)
+            if self.training:
+                half = float(0.5)
+                quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+                quant_mv = mvfeature + quant_noise_mv
+            else:
+                quant_mv = torch.round(mvfeature)
+            quant_mv_upsample = self.mvDecoder(quant_mv)
+            # add rec_motion to priors to reduce bpp
+            if self.recursive_flow and 'mv' in priors:
+                prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
+            else:
+                prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+            if 'mv' in priors:
+                priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+            else:
+                priors['mv'] = quant_mv_upsample.detach()
         else:
-            mvfeature = self.mvEncoder(estmv)
-        if self.training:
-            half = float(0.5)
-            quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-            quant_mv = mvfeature + quant_noise_mv
-        else:
-            quant_mv = torch.round(mvfeature)
-        quant_mv_upsample = self.mvDecoder(quant_mv)
-        # add rec_motion to priors to reduce bpp
-        if self.recursive_flow and 'mv' in priors:
-            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
-        else:
-            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-        if 'mv' in priors:
-            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
-        else:
-            priors['mv'] = quant_mv_upsample.detach()
+            # concate input
+            x = torch.cat((input_image, referframe), dim=1)
+            # encode
+            mvfeature = self.motion_encoder(x)
+            # quantization
+            if self.training:
+                half = float(0.5)
+                quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+                quant_mv = mvfeature + quant_noise_mv
+            else:
+                quant_mv = torch.round(mvfeature)
+
+            # decode the space-scale flow information
+            motion_info = self.motion_decoder(quant_mv)
+            prediction = self.forward_prediction(referframe, motion_info)
+
+        # residual   
         input_residual = input_image - prediction
 
         feature = self.resEncoder(input_residual)
@@ -2266,62 +2298,60 @@ class ScaleSpaceFlow(nn.Module):
         pred_loss = torch.mean((x_pred - x_cur).pow(2)) 
         return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res, mot_err, res_err, priors
 
-    @staticmethod
-    def gaussian_volume(x, sigma: float, num_levels: int):
-        """Efficient gaussian volume construction.
-
-        From: "Generative Video Compression as Hierarchical Variational Inference",
-        by Yang et al.
-        """
-        k = 2 * int(math.ceil(3 * sigma)) + 1
-        device = x.device
-        dtype = x.dtype if torch.is_floating_point(x) else torch.float32
-
-        kernel = gaussian_kernel2d(k, sigma, device=device, dtype=dtype)
-        volume = [x.unsqueeze(2)]
-        x = gaussian_blur(x, kernel=kernel)
-        volume += [x.unsqueeze(2)]
-        for i in range(1, num_levels):
-            x = F.avg_pool2d(x, kernel_size=(2, 2), stride=(2, 2))
-            x = gaussian_blur(x, kernel=kernel)
-            interp = x
-            for _ in range(0, i):
-                interp = F.interpolate(
-                    interp, scale_factor=2, mode="bilinear", align_corners=False
-                )
-            volume.append(interp.unsqueeze(2))
-        return torch.cat(volume, dim=2)
-
-    @amp.autocast(enabled=False)
-    def warp_volume(self, volume, flow, scale_field, padding_mode: str = "border"):
-        """3D volume warping."""
-        if volume.ndimension() != 5:
-            raise ValueError(
-                f"Invalid number of dimensions for volume {volume.ndimension()}"
-            )
-
-        N, C, _, H, W = volume.size()
-
-        grid = meshgrid2d(N, C, H, W, volume.device)
-        update_grid = grid + flow.permute(0, 2, 3, 1).float()
-        update_scale = scale_field.permute(0, 2, 3, 1).float()
-        volume_grid = torch.cat((update_grid, update_scale), dim=-1).unsqueeze(1)
-
-        out = F.grid_sample(
-            volume.float(), volume_grid, padding_mode=padding_mode, align_corners=False
-        )
-        return out.squeeze(2)
-
 
     def forward_prediction(self, x_ref, motion_info, priors):
         flow, scale_field = motion_info.chunk(2, dim=1)
         if self.useRF:
             flow += priors['flow']
 
-        volume = self.gaussian_volume(x_ref, self.sigma0, self.num_levels)
-        x_pred = self.warp_volume(volume, flow, scale_field)
+        volume = gaussian_volume(x_ref, self.sigma0, self.num_levels)
+        x_pred = warp_volume(volume, flow, scale_field)
         if 'flow' not in priors:
             priors['flow'] = flow.detach()
         else:
             priors['flow'] += flow.detach()
         return x_pred
+
+def gaussian_volume(x, sigma: float, num_levels: int):
+    """Efficient gaussian volume construction.
+
+    From: "Generative Video Compression as Hierarchical Variational Inference",
+    by Yang et al.
+    """
+    k = 2 * int(math.ceil(3 * sigma)) + 1
+    device = x.device
+    dtype = x.dtype if torch.is_floating_point(x) else torch.float32
+
+    kernel = gaussian_kernel2d(k, sigma, device=device, dtype=dtype)
+    volume = [x.unsqueeze(2)]
+    x = gaussian_blur(x, kernel=kernel)
+    volume += [x.unsqueeze(2)]
+    for i in range(1, num_levels):
+        x = F.avg_pool2d(x, kernel_size=(2, 2), stride=(2, 2))
+        x = gaussian_blur(x, kernel=kernel)
+        interp = x
+        for _ in range(0, i):
+            interp = F.interpolate(
+                interp, scale_factor=2, mode="bilinear", align_corners=False
+            )
+        volume.append(interp.unsqueeze(2))
+    return torch.cat(volume, dim=2)
+
+def warp_volume(volume, flow, scale_field, padding_mode: str = "border"):
+    """3D volume warping."""
+    if volume.ndimension() != 5:
+        raise ValueError(
+            f"Invalid number of dimensions for volume {volume.ndimension()}"
+        )
+
+    N, C, _, H, W = volume.size()
+
+    grid = meshgrid2d(N, C, H, W, volume.device)
+    update_grid = grid + flow.permute(0, 2, 3, 1).float()
+    update_scale = scale_field.permute(0, 2, 3, 1).float()
+    volume_grid = torch.cat((update_grid, update_scale), dim=-1).unsqueeze(1)
+
+    out = F.grid_sample(
+        volume.float(), volume_grid, padding_mode=padding_mode, align_corners=False
+    )
+    return out.squeeze(2)
