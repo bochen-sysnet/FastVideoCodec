@@ -1831,6 +1831,9 @@ class Base(nn.Module):
                         norm_layer,
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                     )
+            self.num_levels = 5
+            self.sigma0 = 1.5
+            self.scale_field_shift = 1.0
             self.motion_encoder = Encoder(2 * 3, norm_type=0)
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
