@@ -215,6 +215,8 @@ def parallel_compression(model, data, compressI=False,level=0):
             for i in range(1,B):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
                     model(data[i:i+1],x_prev,priors,level)
+                print(bpp_feature,bpp_z,bpp_mv,bpp)
+                exit(0)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [bpp_mv.to(data.device)]
