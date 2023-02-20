@@ -167,9 +167,6 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(model, data, compressI=False,level=0):
-    if 'MOD' in model.name:
-        model.compression_level = level
-        init_training_params(model)
     img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
@@ -1811,7 +1808,7 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors):
+    def forward(self, input_image, referframe, priors,level):
         estmv = self.opticFlow(input_image, referframe, priors)
         if self.recursive_flow and 'mv' in priors:
             mvfeature = self.mvEncoder(estmv - priors['mv'])
