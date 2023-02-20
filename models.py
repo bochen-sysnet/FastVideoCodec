@@ -1814,12 +1814,13 @@ class Base(nn.Module):
             mvfeature = self.mvEncoder(estmv - priors['mv'])
         else:
             mvfeature = self.mvEncoder(estmv)
-        if self.training:
-            half = float(0.5)
-            quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-            quant_mv = mvfeature + quant_noise_mv
-        else:
-            quant_mv = torch.round(mvfeature)
+        # if self.training:
+        #     half = float(0.5)
+        #     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+        #     quant_mv = mvfeature + quant_noise_mv
+        # else:
+        #     quant_mv = torch.round(mvfeature)
+        quant_mv = quantize_ste(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
         if self.recursive_flow and 'mv' in priors:
@@ -1837,24 +1838,25 @@ class Base(nn.Module):
 
         z = self.respriorEncoder(feature)
 
-        if self.training:
-            half = float(0.5)
-            quant_noise_z = torch.empty_like(z).uniform_(-half, half)
-            compressed_z = z + quant_noise_z
-        else:
-            compressed_z = torch.round(z)
+        # if self.training:
+        #     half = float(0.5)
+        #     quant_noise_z = torch.empty_like(z).uniform_(-half, half)
+        #     compressed_z = z + quant_noise_z
+        # else:
+        #     compressed_z = torch.round(z)
+        compressed_z = quantize_ste(z)
 
         recon_sigma = self.respriorDecoder(compressed_z)
 
         feature_renorm = feature
 
-        if self.training:
-            half = float(0.5)
-            quant_noise_feature = torch.empty_like(feature_renorm).uniform_(-half, half)
-            compressed_feature_renorm = feature_renorm + quant_noise_feature
-        else:
-            compressed_feature_renorm = torch.round(feature_renorm)
-
+        # if self.training:
+        #     half = float(0.5)
+        #     quant_noise_feature = torch.empty_like(feature_renorm).uniform_(-half, half)
+        #     compressed_feature_renorm = feature_renorm + quant_noise_feature
+        # else:
+        #     compressed_feature_renorm = torch.round(feature_renorm)
+        compressed_feature_renorm = quantize_ste(feature_renorm)
         recon_res = self.resDecoder(compressed_feature_renorm)
         recon_image = prediction + recon_res
 
