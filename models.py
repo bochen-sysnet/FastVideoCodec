@@ -1737,29 +1737,73 @@ def get_DVC_pretrained(level):
 
 
 # ---------------------------------BASE MODEL--------------------------------------
+class MyMENet(nn.Module):
+    '''
+    Get flow
+    '''
+    def __init__(self, layername='motion_estimation',recursive_flow=False):
+        super(MyMENet, self).__init__()
+        self.L = 4
+        inshape = 10 if recursive_flow else 8
+        self.moduleBasic = torch.nn.ModuleList([ MEBasic(layername + 'modelL' + str(intLevel + 1),inshape=inshape) for intLevel in range(4) ])
+        self.recursive_flow = recursive_flow
+        
+    def forward(self, im1, im2, priors):
+        batchsize = im1.size()[0]
+        im1_pre = im1
+        im2_pre = im2
+        if self.recursive_flow and 'mv' in priors:
+            prior_flow_pre = priors['mv']
 
-# by default, motion is recursive/additive
-# RNN: recurrent network in mv/res codec
-# Res, residual is recursive
-from DVC.subnet import Analysis_MV, Synthesis_MV, Analysis_RES, Synthesis_RES, Analysis_PRIOR, Synthesis_PRIOR
+        im1list = [im1_pre]
+        im2list = [im2_pre]
+        if self.recursive_flow:
+            prior_flow_list = [prior_flow_pre]
+        for intLevel in range(self.L - 1):
+            im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
+            im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
+            if self.recursive_flow:
+                prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
+
+        shape_fine = im2list[self.L - 1].size()
+        zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
+        device_id = im1.device.index
+        flowfileds = torch.zeros(zeroshape, dtype=torch.float32, device=device_id)
+        for intLevel in range(self.L):
+            flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
+            if self.recursive_flow:
+                priorflow = prior_flow_list[intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
+                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
+                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
+                                                                            prior_flow_list[i], # prior flow
+                                                                            flowfiledsUpsample], 1)) # current flow
+            else:
+                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
+                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
+                                                                            flowfiledsUpsample], 1)) # current flow
+        return flowfileds
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        self.useRF = True if 'RF' in name else False
-        self.opticFlow = ME_Spynet()
-        self.warpnet = Warp_net()
+        self.opticFlow = MyMENet()
         self.mvEncoder = Analysis_mv_net()
+        self.Q = None
         self.mvDecoder = Synthesis_mv_net()
+        self.warpnet = Warp_net()
         self.resEncoder = Analysis_net()
         self.resDecoder = Synthesis_net()
         self.respriorEncoder = Analysis_prior_net()
         self.respriorDecoder = Synthesis_prior_net()
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
+        self.warp_weight = 0
+        self.mxrange = 150
+        self.calrealbits = False
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
+        self.recursive_flow = True
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1767,30 +1811,34 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors, level=0):
-        # motion
-        estmv = self.opticFlow(input_image, referframe)
-        if self.useRF and 'mv' in priors:
-            estmv -= priors['mv']
-        mvfeature = self.mvEncoder(estmv,level=level)
+    def forward(self, input_image, referframe, priors):
+        estmv = self.opticFlow(input_image, referframe, priors)
+        if self.recursive_flow and 'mv' in priors:
+            mvfeature = self.mvEncoder(estmv - priors['mv'])
+        else:
+            mvfeature = self.mvEncoder(estmv)
         if self.training:
             half = float(0.5)
             quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
             quant_mv = mvfeature + quant_noise_mv
         else:
             quant_mv = torch.round(mvfeature)
-        quant_mv_upsample = self.mvDecoder(quant_mv,level=level)
+        quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
-        if self.useRF and 'mv' in priors:
-            quant_mv_upsample += priors['mv']
-        prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-
-        # residual
+        if self.recursive_flow and 'mv' in priors:
+            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
+        else:
+            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+        if 'mv' in priors:
+            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+        else:
+            priors['mv'] = quant_mv_upsample.detach()
         input_residual = input_image - prediction
-        feature = self.resEncoder(input_residual,level=level)
+
+        feature = self.resEncoder(input_residual)
         batch_size = feature.size()[0]
 
-        z = self.respriorEncoder(feature,level=level)
+        z = self.respriorEncoder(feature)
 
         if self.training:
             half = float(0.5)
@@ -1799,7 +1847,7 @@ class Base(nn.Module):
         else:
             compressed_z = torch.round(z)
 
-        recon_sigma = self.respriorDecoder(compressed_z,level=level)
+        recon_sigma = self.respriorDecoder(compressed_z)
 
         feature_renorm = feature
 
@@ -1810,7 +1858,7 @@ class Base(nn.Module):
         else:
             compressed_feature_renorm = torch.round(feature_renorm)
 
-        recon_res = self.resDecoder(compressed_feature_renorm,level=level)
+        recon_res = self.resDecoder(compressed_feature_renorm)
         recon_image = prediction + recon_res
 
         clipped_recon_image = recon_image.clamp(0., 1.)
@@ -1820,30 +1868,90 @@ class Base(nn.Module):
         warploss = torch.mean((warpframe - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
         
-        if 'mv' in priors:
-            priors['mv'] += quant_mv_upsample.detach()
-        else:
-            priors['mv'] = quant_mv_upsample.detach()
 
         def feature_probs_based_sigma(feature, sigma):
+            
+            def getrealbitsg(x, gaussian):
+                # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
+                cdfs = []
+                x = x + self.mxrange
+                n,c,h,w = x.shape
+                for i in range(-self.mxrange, self.mxrange):
+                    cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
+                cdfs = torch.cat(cdfs, 4).cpu().detach()
+                
+                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+                real_bits = torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda()
+
+                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+                return sym_out - self.mxrange, real_bits
+
+
             mu = torch.zeros_like(sigma)
             sigma = sigma.clamp(1e-5, 1e10)
             gaussian = torch.distributions.laplace.Laplace(mu, sigma)
             probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+            
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbitsg(feature, gaussian)
+                total_bits = real_bits
 
             return total_bits, probs
 
         def iclr18_estrate_bits_z(z):
+            
+            def getrealbits(x):
+                cdfs = []
+                x = x + self.mxrange
+                n,c,h,w = x.shape
+                for i in range(-self.mxrange, self.mxrange):
+                    cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
+                cdfs = torch.cat(cdfs, 4).cpu().detach()
+                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+                return sym_out - self.mxrange, real_bits
+
             prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbits(z)
+                total_bits = real_bits
 
             return total_bits, prob
 
 
         def iclr18_estrate_bits_mv(mv):
+
+            def getrealbits(x):
+                cdfs = []
+                x = x + self.mxrange
+                n,c,h,w = x.shape
+                for i in range(-self.mxrange, self.mxrange):
+                    cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
+                cdfs = torch.cat(cdfs, 4).cpu().detach()
+                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+                return sym_out - self.mxrange, real_bits
+
             prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbits(mv)
+                total_bits = real_bits
 
             return total_bits, prob
 
@@ -1859,7 +1967,6 @@ class Base(nn.Module):
         bpp = bpp_feature + bpp_z + bpp_mv
         
         return clipped_recon_image, mse_loss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors
-
 
 
 # utils for scale-space flow
