@@ -1785,7 +1785,7 @@ class CodecNet(nn.Module):
     Compress residual
     '''
     def __init__(self, cfgs):
-        super(Analysis_net, self).__init__()
+        super(CodecNet, self).__init__()
         self.blocks = []
         for cfg in cfgs:
             if isinstance(cfg, int):
