@@ -1782,7 +1782,7 @@ class MyMENet(nn.Module):
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        self.opticFlow = ME_Spynet()
+        self.opticFlow = MyMENet()
         self.mvEncoder = Analysis_mv_net()
         self.Q = None
         self.mvDecoder = Synthesis_mv_net()
@@ -1800,7 +1800,9 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.recursive_flow = True
+        self.recursive_flow = True if '-RF' in name else False
+        self.useSTE = True if '-STE' in name else False
+        self.useSSF = True if '-SSF' in name else False
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
@@ -1814,13 +1816,12 @@ class Base(nn.Module):
             mvfeature = self.mvEncoder(estmv - priors['mv'])
         else:
             mvfeature = self.mvEncoder(estmv)
-        # if self.training:
-        #     half = float(0.5)
-        #     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-        #     quant_mv = mvfeature + quant_noise_mv
-        # else:
-        #     quant_mv = torch.round(mvfeature)
-        quant_mv = quantize_ste(mvfeature)
+        if self.training:
+            half = float(0.5)
+            quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+            quant_mv = mvfeature + quant_noise_mv
+        else:
+            quant_mv = torch.round(mvfeature)
         quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
         if self.recursive_flow and 'mv' in priors:
@@ -1838,25 +1839,26 @@ class Base(nn.Module):
 
         z = self.respriorEncoder(feature)
 
-        # if self.training:
-        #     half = float(0.5)
-        #     quant_noise_z = torch.empty_like(z).uniform_(-half, half)
-        #     compressed_z = z + quant_noise_z
-        # else:
-        #     compressed_z = torch.round(z)
-        compressed_z = quantize_ste(z)
+        if self.training:
+            half = float(0.5)
+            quant_noise_z = torch.empty_like(z).uniform_(-half, half)
+            compressed_z = z + quant_noise_z
+        else:
+            compressed_z = torch.round(z)
 
         recon_sigma = self.respriorDecoder(compressed_z)
 
         feature_renorm = feature
 
-        # if self.training:
-        #     half = float(0.5)
-        #     quant_noise_feature = torch.empty_like(feature_renorm).uniform_(-half, half)
-        #     compressed_feature_renorm = feature_renorm + quant_noise_feature
-        # else:
-        #     compressed_feature_renorm = torch.round(feature_renorm)
-        compressed_feature_renorm = quantize_ste(feature_renorm)
+        if not self.useSTE:
+            if self.training:
+                half = float(0.5)
+                quant_noise_feature = torch.empty_like(feature_renorm).uniform_(-half, half)
+                compressed_feature_renorm = feature_renorm + quant_noise_feature
+            else:
+                compressed_feature_renorm = torch.round(feature_renorm)
+        else:
+            compressed_feature_renorm = quantize_ste(feature_renorm)
         recon_res = self.resDecoder(compressed_feature_renorm)
         recon_image = prediction + recon_res
 
