@@ -1801,7 +1801,9 @@ class CodecNet(nn.Module):
             elif conv_type == 3:
                 layer = nn.LeakyReLU(negative_slope=0.1)
             elif conv_type == 4:
-                layer = GDN(lastCh)
+                layer = GDN(lastCh,inverse=False)
+            elif conv_type == 5:
+                layer = GDN(lastCh,inverse=True)
             else:
                 print('conv type not found')
                 exit(0)
@@ -1892,11 +1894,25 @@ class Base(nn.Module):
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
 
-        self.resEncoder = Analysis_net()
-        self.resDecoder = Synthesis_net()
-        self.respriorEncoder = Analysis_prior_net()
+        # self.resEncoder = Analysis_net()
+        # self.resDecoder = Synthesis_net()
+        self.resEncoder = CodecNet([(0,5,2,3,64),4,
+                                    (0,5,2,64,64),4,
+                                    (0,5,2,64,64),4,
+                                    (0,5,2,64,96)])
+        self.resDecoder = CodecNet([(1,5,2,96,64),5,
+                                    (1,5,2,64,64),5,
+                                    (1,5,2,64,64),5,
+                                    (1,5,2,64,3)])
+        # self.respriorEncoder = Analysis_prior_net()
+        self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
+                                        (0,5,2,64,64),2,
+                                        (0,5,2,64,64)])
         if not self.useEC:
-            self.respriorDecoder = Synthesis_prior_net()
+            # self.respriorDecoder = Synthesis_prior_net()
+            self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+                                            (1,5,2,64,64),2,
+                                            (1,3,1,64,96)])
         else:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         self.bitEstimator_z = BitEstimator(out_channel_N)
