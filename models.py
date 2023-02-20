@@ -1782,7 +1782,7 @@ class MyMENet(nn.Module):
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        self.opticFlow = MyMENet()
+        self.opticFlow = ME_Spynet()
         self.mvEncoder = Analysis_mv_net()
         self.Q = None
         self.mvDecoder = Synthesis_mv_net()
