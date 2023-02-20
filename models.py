@@ -1779,6 +1779,43 @@ class MyMENet(nn.Module):
                                                                             flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
                                                                             flowfiledsUpsample], 1)) # current flow
         return flowfileds
+
+class CodecNet(nn.Module):
+    '''
+    Compress residual
+    '''
+    def __init__(self, cfgs):
+        super(Analysis_net, self).__init__()
+        self.blocks = []
+        for cfg in cfgs:
+            if isinstance(cfg, int):
+                conv_type = cfg
+            else:
+                conv_type, kernel_size, stride, ch1, ch2 = cfg
+            if conv_type == 0:
+                layer = nn.Conv2d(ch1, ch2, kernel_size, stride=stride, padding=kernel_size//2)
+            elif conv_type == 1:
+                layer = nn.ConvTranspose2d(ch1, ch2, kernel_size, stride=stride, padding=kernel_size//2, output_padding=1 if stride==2 else 0)
+            elif conv_type == 2:
+                layer = nn.ReLU(inplace=True)
+            elif conv_type == 3:
+                layer = nn.LeakyReLU(negative_slope=0.1)
+            elif conv_type == 4:
+                layer = GDN(lastCh)
+            else:
+                print('conv type not found')
+                exit(0)
+            lastCh = ch2
+            self.blocks.append(layer)
+        self.blocks = nn.Sequential(*self.blocks)
+        for module in self.modules:
+            if isinstance(module,nn.Conv2d) or isinstance(module,nn.ConvTranspose2d):
+                torch.nn.init.xavier_normal_(module.weight.data, math.sqrt(2))
+                torch.nn.init.constant_(module.bias.data, 0.01)
+
+    def forward(self, x,):
+        return self.blocks(x)
+
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
@@ -1788,8 +1825,24 @@ class Base(nn.Module):
         self.useEC = True if '-EC' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()
-            self.mvEncoder = Analysis_mv_net()
-            self.mvDecoder = Synthesis_mv_net()
+            # self.mvEncoder = Analysis_mv_net()
+            # self.mvDecoder = Synthesis_mv_net()
+            self.mvEncoder = CodecNet([(0,3,2,2,128),3,
+                                        (0,3,2,128,128),3,
+                                        (0,3,2,128,128),3,
+                                        (0,3,2,128,128),3,
+                                        (0,3,2,128,128),3,
+                                        (0,3,2,128,128),3,
+                                        (0,3,2,128,128),3,
+                                        (0,3,2,128,128)])
+            self.,mvDecoder = CodecNet([(1,3,2,128,128),3,
+                                        (1,3,2,128,128),3,
+                                        (1,3,2,128,128),3,
+                                        (1,3,2,128,128),3,
+                                        (1,3,2,128,128),3,
+                                        (1,3,2,128,128),3,
+                                        (1,3,2,128,128),3,
+                                        (1,3,2,128,2)])
             self.warpnet = Warp_net()
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
         else:
@@ -1950,91 +2003,26 @@ class Base(nn.Module):
 
         mse_loss = torch.mean((recon_image - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
-        
 
         def feature_probs_based_sigma(feature, sigma):
-            
-            def getrealbitsg(x, gaussian):
-                # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
-                cdfs = []
-                x = x + self.mxrange
-                n,c,h,w = x.shape
-                for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
-                cdfs = torch.cat(cdfs, 4).cpu().detach()
-                
-                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
-
-                real_bits = torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda()
-
-                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
-
-                return sym_out - self.mxrange, real_bits
-
-
             mu = torch.zeros_like(sigma)
             sigma = sigma.clamp(1e-5, 1e10)
             gaussian = torch.distributions.laplace.Laplace(mu, sigma)
             probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
-            
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbitsg(feature, gaussian)
-                total_bits = real_bits
 
             return total_bits, probs
 
         def iclr18_estrate_bits_z(z):
-            
-            def getrealbits(x):
-                cdfs = []
-                x = x + self.mxrange
-                n,c,h,w = x.shape
-                for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
-                cdfs = torch.cat(cdfs, 4).cpu().detach()
-                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
-
-                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
-
-                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
-
-                return sym_out - self.mxrange, real_bits
-
             prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-
-
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbits(z)
-                total_bits = real_bits
 
             return total_bits, prob
 
 
         def iclr18_estrate_bits_mv(mv):
-
-            def getrealbits(x):
-                cdfs = []
-                x = x + self.mxrange
-                n,c,h,w = x.shape
-                for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
-                cdfs = torch.cat(cdfs, 4).cpu().detach()
-                byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
-
-                real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
-
-                sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
-                return sym_out - self.mxrange, real_bits
-
             prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-
-
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbits(mv)
-                total_bits = real_bits
 
             return total_bits, prob
 
