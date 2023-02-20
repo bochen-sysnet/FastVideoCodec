@@ -1811,7 +1811,7 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors,level):
-        estmv = self.opticFlow(input_image, referframe)
+        estmv = self.opticFlow(input_image, referframe, priors)
         if self.recursive_flow and 'mv' in priors:
             mvfeature = self.mvEncoder(estmv - priors['mv'])
         else:
