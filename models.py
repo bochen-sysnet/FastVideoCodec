@@ -189,7 +189,7 @@ def parallel_compression(model, data, compressI=False,level=0):
     encoding_time = decoding_time = 0
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if 'SSF' in model_name:
+        if 'SSF' == model_name[:3]:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
@@ -207,7 +207,7 @@ def parallel_compression(model, data, compressI=False,level=0):
                 x_hat_list.append(x_prev)
                 decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
-        elif 'Base' in model_name:
+        elif 'Base' == model_name[:3]:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
