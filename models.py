@@ -1900,38 +1900,50 @@ class Base(nn.Module):
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
 
-        self.resEncoder = Analysis_net()
-        # self.resEncoder = CodecNet([(0,5,2,3,64),4,
-        #                             (0,5,2,64,64),4,
-        #                             (0,5,2,64,64),4,
-        #                             (0,5,2,64,96)])
-        if self.useE3C or self.useE4C:
-            self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
-            # self.resDecoder = CodecNet([(1,5,2,96*2,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,3)])
+        if not self.useSSF:
+            self.resEncoder = Analysis_net()
         else:
-            self.resDecoder = Synthesis_net(in_channels = out_channel_M)
-            # self.resDecoder = CodecNet([(1,5,2,96,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,3)])
-        self.respriorEncoder = Analysis_prior_net()
-        # self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
-        #                                 (0,5,2,64,64),2,
-        #                                 (0,5,2,64,64)])
+            self.resEncoder = CodecNet([(0,5,2,3,64),4,
+                                        (0,5,2,64,64),4,
+                                        (0,5,2,64,64),4,
+                                        (0,5,2,64,96)])
+        if self.useE3C or self.useE4C:
+            if not self.useSSF:
+                self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
+            else:
+                self.resDecoder = CodecNet([(1,5,2,96*2,64),5,
+                                            (1,5,2,64,64),5,
+                                            (1,5,2,64,64),5,
+                                            (1,5,2,64,3)])
+        else:
+            if not self.useSSF:
+                self.resDecoder = Synthesis_net(in_channels = out_channel_M)
+            else:
+                self.resDecoder = CodecNet([(1,5,2,96,64),5,
+                                            (1,5,2,64,64),5,
+                                            (1,5,2,64,64),5,
+                                            (1,5,2,64,3)])
+        if not self.useSSF:
+            self.respriorEncoder = Analysis_prior_net()
+        else:
+            self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
+                                            (0,5,2,64,64),2,
+                                            (0,5,2,64,64)])
 
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
-            self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
-            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-            #                                 (1,5,2,64,64),2,
-            #                                 (1,3,1,64,96*2)])
+            if not self.useSSF:
+                self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
+            else:
+                self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+                                                (1,5,2,64,64),2,
+                                                (1,3,1,64,96*2)])
         else:
-            self.respriorDecoder = Synthesis_prior_net()
-            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-            #                                 (1,5,2,64,64),2,
-            #                                 (1,3,1,64,96)])
+            if not self.useSSF:
+                self.respriorDecoder = Synthesis_prior_net()
+            else:
+                self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+                                                (1,5,2,64,64),2,
+                                                (1,3,1,64,96)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
