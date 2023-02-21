@@ -50,10 +50,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec.name = 'SSF-Official'
         model_codec.compression_level = compression_level
         model_codec.loss_type = loss_type
-        ratio_list = [256,512,1024,2048,2048*2,2048*4,2048*8]
-        I_lvl_list = [37,32,27,22,17,12,7]
-        model_codec.I_level = I_lvl_list[compression_level]
-        model_codec.r = ratio_list[compression_level]
+        init_training_params(model_codec)
     elif 'SSF' in name:
         model_codec = ScaleSpaceFlow(name, loss_type='P', compression_level=compression_level)
     else:
