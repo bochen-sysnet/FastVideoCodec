@@ -140,7 +140,7 @@ class FrameDataset(Dataset):
             if self._frame_size is not None:
                 if img_idx == 1:
                     i, j, h, w = transforms.RandomResizedCrop.get_params(img, (0.08, 1.0), (0.75, 1.3333333333333333))
-                img = transforms.functional.resized_crop(img, i, j, h, w,)
+                img = transforms.functional.resized_crop(img, i, j, h, w,(self._frame_size,self._frame_size))
                 # img = img.resize((self._frame_size,self._frame_size)) 
             data.append(transforms.ToTensor()(img))
         data = torch.stack(data, dim=0)
