@@ -26,6 +26,7 @@ from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
 import torchac
+import compressai
 
 def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True):
     if name in ['RLVC','DVC','RAW','RLVC2']:
@@ -44,7 +45,9 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = LSVC(name,loss_type=loss_type,compression_level=compression_level,use_split=use_split)
     elif 'Base' in name:
         model_codec = Base(name, loss_type='P', compression_level=compression_level)
-    elif 'SSF' in name:
+    elif 'SSF-Official' in name:
+        model_codec = compressai.zoo.ssf2020(1, metric='mse', pretrained=True, progress=True)
+    elif 'SSF' in name
         model_codec = ScaleSpaceFlow(name, loss_type='P', compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
@@ -192,7 +195,18 @@ def parallel_compression(model, data, compressI=False):
             x_hat_list = []
             priors = {}
             for i in range(1,B):
-                x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err, priors = model(data[i:i+1],x_prev,priors)
+                if model_name != 'SSF-Official':
+                    x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err, priors = model(data[i:i+1],x_prev,priors)
+                else:
+                    x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
+                    mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
+                    mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                            torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+                    res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                            torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+                    bpp = (mot_bits + res_bits) / (H * W)
+                    bpp_res = (res_bits) / (H * W)
+                    mot_err = res_err = (mot_bits) / (H * W)
                 x_prev = x_prev.detach()
                 all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
