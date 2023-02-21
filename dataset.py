@@ -133,7 +133,7 @@ class FrameDataset(Dataset):
         
     def __getitem__(self, idx):
         data = []
-        _frame_size = 256 #if torch.rand(1)>0.5 else 384
+        _frame_size = 256 if torch.rand(1)>0.5 else 384
 
         crop_func = transforms.RandomResizedCrop((_frame_size,_frame_size))
         for img_idx in range(1,8):
@@ -141,8 +141,8 @@ class FrameDataset(Dataset):
             img_dir = base_dir+'/'+f'im{img_idx}.png'
             img = Image.open(img_dir).convert('RGB')
             if self._frame_size is not None:
-                img = crop_func(img)
-                # img = img.resize((self._frame_size,self._frame_size)) 
+                # img = crop_func(img)
+                img = img.resize((self._frame_size,self._frame_size)) 
             data.append(transforms.ToTensor()(img))
         data = torch.stack(data, dim=0)
         return data
