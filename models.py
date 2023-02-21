@@ -1818,6 +1818,7 @@ class CodecNet(nn.Module):
     def forward(self, x,):
         return self.blocks(x)
 
+# EC, STE not so useful
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
@@ -1914,7 +1915,10 @@ class Base(nn.Module):
                                             (1,5,2,64,64),2,
                                             (1,3,1,64,96)])
         else:
-            self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
+            # self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
+            self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+                                            (1,5,2,64,64),2,
+                                            (1,3,1,64,96*2)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2012,6 +2016,7 @@ class Base(nn.Module):
         if not self.useEC:
             recon_res = self.resDecoder(compressed_feature_renorm)
         else:
+            # another option is to concate input and process them
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
         recon_image = prediction + recon_res
 
