@@ -47,7 +47,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = Base(name, loss_type='P', compression_level=compression_level)
     elif 'SSF-Official' in name:
         model_codec = compressai.zoo.ssf2020(1, metric='mse', pretrained=True, progress=True)
-    elif 'SSF' in name
+    elif 'SSF' in name:
         model_codec = ScaleSpaceFlow(name, loss_type='P', compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
@@ -249,6 +249,7 @@ def parallel_compression(model, data, compressI=False):
                     x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
                         model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 x_prev = x_prev.detach()
+                all_loss_list += [(model.r*img_loss + bpp_est).to(data.device)]
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
                 bpp_list += [bpp_est.to(data.device)]
@@ -287,6 +288,7 @@ def parallel_compression(model, data, compressI=False):
                 print('unknown stage')
                 exit(1)
             img_loss_list = [img_loss]
+            all_loss_list += [(img_loss + bpp).to(data.device)]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
             aux2_loss_list += PSNR(data[1:], x_mc, use_list=True)
