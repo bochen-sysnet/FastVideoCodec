@@ -167,7 +167,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(model, data, compressI=False):
-    all_loss_list = []; img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; aux2_loss_list = []; bpp_res_est_list = []
+    all_loss_list = []; img_loss_list = []; aux_loss_list = []; bpp_list = []; psnr_list = []; aux2_loss_list = []; bppres_list = []
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
@@ -181,7 +181,7 @@ def parallel_compression(model, data, compressI=False):
     x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
     data[0:1] = x_hat
     if compressI:
-        bpp_est_list += [bpp.to(data.device)]
+        bpp_list += [bpp.to(data.device)]
         psnr_list += [psnr.to(data.device)]
     
     # P compression, not including I frame
@@ -197,12 +197,11 @@ def parallel_compression(model, data, compressI=False):
                 all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                bpp_est_list += [bpp.to(data.device)]
-                bpp_res_est_list += [(bpp_res).to(data.device)]
+                bpp_list += [bpp.to(data.device)]
+                bppres_list += [(bpp_res).to(data.device)]
                 aux_loss_list += [mot_err.to(data.device)]
                 aux2_loss_list += [res_err.to(data.device)]
                 x_hat_list.append(x_prev)
-                decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -210,16 +209,16 @@ def parallel_compression(model, data, compressI=False):
             x_hat_list = []
             priors = {}
             for i in range(1,B):
-                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, mv_err, res_err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
-                bpp_res_est_list += [(bpp_feature + bpp_z).to(data.device)]
+                bpp_list += [bpp.to(data.device)]
+                bppres_list += [(bpp_feature + bpp_z).to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                bpp_est_list += [bpp.to(data.device)]
-                aux_loss_list += [bpp_mv.to(data.device)]
-                aux2_loss_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                aux_loss_list += [mv_err.to(data.device)]
+                aux2_loss_list += [res_err.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -238,11 +237,11 @@ def parallel_compression(model, data, compressI=False):
                 x_prev = x_prev.detach()
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
-                bpp_est_list += [bpp_est.to(data.device)]
+                bpp_list += [bpp_est.to(data.device)]
                 psnr_list += [psnr.to(data.device)]
                 aux2_loss_list += [msssim.to(data.device)]
                 if model.training:
-                    bpp_res_est_list += [bpp_res_est.to(data.device)]
+                    bppres_list += [bpp_res_est.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC-pretrained']:
@@ -255,12 +254,12 @@ def parallel_compression(model, data, compressI=False):
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                bpp_est_list += [bpp.to(data.device)]
+                bpp_list += [bpp.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 aux2_loss_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
-            bpp_res_est_list = []
+            bppres_list = []
         elif 'LSVC' in model_name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
@@ -280,14 +279,14 @@ def parallel_compression(model, data, compressI=False):
             aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
             x_hat = torch.cat([data[0:1],x_hat], dim=0)
             for pos in range(N):
-                bpp_est_list += [(bpp).to(data.device)]
+                bpp_list += [(bpp).to(data.device)]
                 if model.training:
-                    bpp_res_est_list += [(bpp_res).to(data.device)]
+                    bppres_list += [(bpp_res).to(data.device)]
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
-    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0).cpu().data.item()
-    be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0).cpu().data.item() if bpp_res_est_list else 0
+    be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
+    be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
     psnr = torch.stack(psnr_list,dim=0).mean(dim=0).cpu().data.item()
     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
@@ -1962,6 +1961,7 @@ class Base(nn.Module):
                 quant_mv = mvfeature + quant_noise_mv
             else:
                 quant_mv = torch.round(mvfeature)
+            mv_err = torch.abs(mvfeature - torch.round(mvfeature)).mean()
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
@@ -1990,37 +1990,34 @@ class Base(nn.Module):
 
         # residual   
         input_residual = input_image - prediction
-
         feature = self.resEncoder(input_residual)
-        batch_size = feature.size()[0]
-
+        # hyperprior
         z = self.respriorEncoder(feature)
-
+        # quantization
         if self.training:
             half = float(0.5)
             quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
         else:
             compressed_z = torch.round(z)
-
+        # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             if self.useEC or self.useE3C:
                 feature_correction = torch.sigmoid(feature_correction) - 0.5
-
-        feature_renorm = feature
-
+        # quantization
         if not self.useSTE:
             if self.training:
                 half = float(0.5)
-                quant_noise_feature = torch.empty_like(feature_renorm).uniform_(-half, half)
-                compressed_feature_renorm = feature_renorm + quant_noise_feature
+                quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
+                compressed_feature_renorm = feature + quant_noise_feature
             else:
-                compressed_feature_renorm = torch.round(feature_renorm)
+                compressed_feature_renorm = torch.round(feature)
         else:
-            compressed_feature_renorm = quantize_ste(feature_renorm)
-
+            compressed_feature_renorm = quantize_ste(feature)
+        res_err = torch.abs(feature - torch.round(feature)).mean()
+        # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
         elif self.useE3C or self.useE4C:
@@ -2029,17 +2026,16 @@ class Base(nn.Module):
             recon_res = self.resDecoder(compressed_feature_renorm)
 
         recon_image = prediction + recon_res
-
         clipped_recon_image = recon_image.clamp(0., 1.)
 
         mse_loss = torch.mean((recon_image - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
 
-        def feature_probs_based_sigma(feature, sigma):
+        def feature_probs_based_sigma(feat, sigma):
             mu = torch.zeros_like(sigma)
             sigma = sigma.clamp(1e-5, 1e10)
             gaussian = torch.distributions.laplace.Laplace(mu, sigma)
-            probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+            probs = gaussian.cdf(feat + 0.5) - gaussian.cdf(feat - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
 
             return total_bits, probs
@@ -2063,12 +2059,12 @@ class Base(nn.Module):
 
         im_shape = input_image.size()
 
-        bpp_feature = total_bits_feature / (batch_size * im_shape[2] * im_shape[3])
-        bpp_z = total_bits_z / (batch_size * im_shape[2] * im_shape[3])
-        bpp_mv = total_bits_mv / (batch_size * im_shape[2] * im_shape[3])
+        bpp_feature = total_bits_feature / (im_shape[0] * im_shape[2] * im_shape[3])
+        bpp_z = total_bits_z / (im_shape[0] * im_shape[2] * im_shape[3])
+        bpp_mv = total_bits_mv / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, mv_err, res_err, priors
 
 
 # utils for scale-space flow
@@ -2284,7 +2280,7 @@ class ScaleSpaceFlow(nn.Module):
                 # after decoding y, add correction
                 if self.useEC:
                     y_hat += y_correction
-                y_err = torch.mean(y - y_hat).abs()
+                y_err = torch.abs(y - y_hat).mean()
 
                 return y_hat, z_bits + y_bits, y_err
 

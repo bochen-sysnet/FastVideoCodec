@@ -173,14 +173,14 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # show result
         train_iter.set_description(
             f"{batch_idx:6}. "
-            f"L: {all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
-            f"I: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-            f"B: {be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
-            f"R: {be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"I: {I_module.val:.2f} ({I_module.avg:.2f})."
-            f"A1: {aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"A2: {aux2_loss_module.val:.2f} ({aux2_loss_module.avg:.2f}). ")
+            f"L:{all_loss_module.val:.2f} ({all_loss_module.avg:.2f}). "
+            f"I:{img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
+            f"B:{be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+            f"R:{be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
+            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"I:{I_module.val:.2f} ({I_module.avg:.2f})."
+            f"A1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"A2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
 
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
@@ -193,7 +193,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0:# and batch_idx>0:
+        if batch_idx % 10000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
