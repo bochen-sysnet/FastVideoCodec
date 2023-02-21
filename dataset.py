@@ -133,7 +133,9 @@ class FrameDataset(Dataset):
         
     def __getitem__(self, idx):
         data = []
-        crop_func = transforms.RandomResizedCrop((self._frame_size,self._frame_size))
+        _frame_size = 256 if torch.rand(1)>0.5 else 384
+
+        crop_func = transforms.RandomResizedCrop((_frame_size,_frame_size))
         for img_idx in range(1,8):
             base_dir = self.__septuplet_names[idx]
             img_dir = base_dir+'/'+f'im{img_idx}.png'

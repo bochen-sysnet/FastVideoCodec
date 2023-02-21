@@ -1831,6 +1831,7 @@ class Base(nn.Module):
         self.useE2C = True if '-E2C' in name else False
         self.useE3C = True if '-E3C' in name else False
         self.useE4C = True if '-E4C' in name else False
+        self.useBackbone = True if '-BB' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()
             self.mvEncoder = Analysis_mv_net()
