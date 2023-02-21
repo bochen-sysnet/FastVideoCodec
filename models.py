@@ -166,8 +166,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
-def parallel_compression(model, data, compressI=False,level=0):
-    img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
+def parallel_compression(model, data, compressI=False):
+    all_loss_list = []; img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; aux2_loss_list = []; bpp_res_est_list = []
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
@@ -178,15 +178,12 @@ def parallel_compression(model, data, compressI=False,level=0):
         I_level = model.I_level
         model_name = model.name
         model_r = model.r
-    x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], I_level, model_name=name)
+    x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
     data[0:1] = x_hat
     if compressI:
-        bpp_est_list += [bpp_est.to(data.device)]
-        bpp_act_list += [bpp_act.to(data.device)]
+        bpp_est_list += [bpp.to(data.device)]
         psnr_list += [psnr.to(data.device)]
     
-    
-    encoding_time = decoding_time = 0
     # P compression, not including I frame
     if data.size(0) > 1: 
         if 'SSF' == model_name[:3]:
@@ -197,13 +194,13 @@ def parallel_compression(model, data, compressI=False,level=0):
             for i in range(1,B):
                 x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err, priors = model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
+                all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
                 bpp_res_est_list += [(bpp_res).to(data.device)]
-                bpp_act_list += [bpp.to(data.device)]
                 aux_loss_list += [mot_err.to(data.device)]
-                msssim_list += [res_err.to(data.device)]
+                aux2_loss_list += [res_err.to(data.device)]
                 x_hat_list.append(x_prev)
                 decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
@@ -214,17 +211,16 @@ def parallel_compression(model, data, compressI=False,level=0):
             priors = {}
             for i in range(1,B):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, priors = \
-                    model(data[i:i+1],x_prev,priors,level)
+                    model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
+                all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
-                aux_loss_list += [bpp_mv.to(data.device)]
-                bpp_est_list += [bpp.to(data.device)]
                 bpp_res_est_list += [(bpp_feature + bpp_z).to(data.device)]
-                bpp_act_list += [bpp.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                bpp_est_list += [bpp.to(data.device)]
+                aux_loss_list += [bpp_mv.to(data.device)]
+                aux2_loss_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 x_hat_list.append(x_prev)
-                decoding_time += 0
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
             B,_,H,W = data.size()
@@ -243,17 +239,12 @@ def parallel_compression(model, data, compressI=False,level=0):
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
                 bpp_est_list += [bpp_est.to(data.device)]
-                bpp_act_list += [bpp_act.to(data.device)]
                 psnr_list += [psnr.to(data.device)]
-                msssim_list += [msssim.to(data.device)]
+                aux2_loss_list += [msssim.to(data.device)]
                 if model.training:
                     bpp_res_est_list += [bpp_res_est.to(data.device)]
                 x_hat_list.append(x_prev)
-                encoding_time += model.encoding_time
-                decoding_time += model.decoding_time
             x_hat = torch.cat(x_hat_list,dim=0)
-            encoding_time /= (B-1)
-            decoding_time /= (B-1)
         elif model_name in ['DVC-pretrained']:
             B,_,H,W = data.size()
             x_prev = data[0:1]
@@ -265,12 +256,11 @@ def parallel_compression(model, data, compressI=False,level=0):
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_est_list += [bpp.to(data.device)]
-                bpp_act_list += [bpp.to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                aux2_loss_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 x_hat_list.append(x_prev)
-                decoding_time += model.decoding_time/(B-1)
             x_hat = torch.cat(x_hat_list,dim=0)
+            bpp_res_est_list = []
         elif 'LSVC' in model_name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
@@ -286,22 +276,33 @@ def parallel_compression(model, data, compressI=False,level=0):
             img_loss_list = [img_loss]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
-            msssim_list += PSNR(data[1:], x_mc, use_list=True)
+            aux2_loss_list += PSNR(data[1:], x_mc, use_list=True)
             aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
             x_hat = torch.cat([data[0:1],x_hat], dim=0)
             for pos in range(N):
                 bpp_est_list += [(bpp).to(data.device)]
                 if model.training:
                     bpp_res_est_list += [(bpp_res).to(data.device)]
-                bpp_act_list += [(bpp).to(data.device)]
-                # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-            encoding_time = model.encoding_time/(B-1)
-            decoding_time = model.decoding_time/(B-1)
-    if model.training:
-        return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
-    else:
-        return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
+
+    # aggregate loss
+    loss = torch.stack(all_loss_list,dim=0).mean(dim=0)
+    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
+    be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
+    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
+    psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
+    aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0)
+
+    loss = loss.cpu().data.item()
+    img_loss = img_loss.cpu().data.item()
+    be_loss = be_loss.cpu().data.item()
+    be_res_loss = be_res_loss.cpu().data.item() if bpp_res_est_list else 0
+    psnr = psnr.cpu().data.item()
+    I_psnr = float(psnr_list[0]) if compressI else 0
+    aux_loss = aux_loss.cpu().data.item()
+    aux2_loss = aux2_loss.cpu().data.item()
+
+    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
@@ -328,14 +329,12 @@ def I_compression(Y1_raw, I_level, model_name=''):
     os.system('bpgenc -f 444 -m 9 ' + prename + '.jpg -o ' + binname + '.bin -q ' + str(I_level))
     os.system('bpgdec ' + binname + '.bin -o ' + postname + '.jpg')
     post_bits = os.path.getsize(binname + '.bin')*8/(Height * Width * batch_size)
-    bpp_act = torch.FloatTensor([post_bits]).squeeze(0)
+    bpp = torch.FloatTensor([post_bits]).squeeze(0)
     bpg_img = Image.open(postname + '.jpg').convert('RGB')
     Y1_com = transforms.ToTensor()(bpg_img).unsqueeze(0)
     psnr = PSNR(Y1_raw, Y1_com)
-    msssim = MSSSIM(Y1_raw, Y1_com)
-    bpp_est = bpp_act
-    loss = aux_loss = torch.FloatTensor([0]).squeeze(0)
-    return Y1_com, bpp_est, loss, aux_loss, bpp_act, psnr, msssim
+    # msssim = MSSSIM(Y1_raw, Y1_com)
+    return Y1_com, bpp, psnr
     
 def load_state_dict_only(model, state_dict, keyword):
     own_state = model.state_dict()
@@ -1200,8 +1199,9 @@ class IterPredVideoCodecs(nn.Module):
             aux_loss = img_loss = torch.FloatTensor([0]).squeeze(0).cuda(0)
             return Y1_raw, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, metrics
         if Y0_com is None:
-            Y1_com, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(Y1_raw, self.I_level)
-            return Y1_com, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
+            exit(0)
+            # Y1_com, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(Y1_raw, self.I_level)
+            # return Y1_com, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
         # otherwise, it's P frame
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
@@ -1956,7 +1956,7 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors,level):
+    def forward(self, input_image, referframe, priors):
         # motion
         if not self.useSSF:
             estmv = self.opticFlow(input_image, referframe, priors)
