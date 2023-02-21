@@ -293,7 +293,6 @@ def parallel_compression(model, data, compressI=False):
     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
     aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0)
 
-    loss = loss.cpu().data.item()
     img_loss = img_loss.cpu().data.item()
     be_loss = be_loss.cpu().data.item()
     be_res_loss = be_res_loss.cpu().data.item() if bpp_res_est_list else 0
