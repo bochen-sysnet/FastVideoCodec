@@ -1830,24 +1830,24 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()
-            # self.mvEncoder = Analysis_mv_net()
-            # self.mvDecoder = Synthesis_mv_net()
-            self.mvEncoder = CodecNet([(0,3,2,2,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128)])
-            self.mvDecoder = CodecNet([(1,3,2,128,128),3,
-                                        (1,3,2,128,128),3,
-                                        (1,3,2,128,128),3,
-                                        (1,3,2,128,128),3,
-                                        (1,3,2,128,128),3,
-                                        (1,3,2,128,128),3,
-                                        (1,3,2,128,128),3,
-                                        (1,3,2,128,2)])
+            self.mvEncoder = Analysis_mv_net()
+            self.mvDecoder = Synthesis_mv_net()
+            # self.mvEncoder = CodecNet([(0,3,2,2,128),3,
+            #                             (0,3,2,128,128),3,
+            #                             (0,3,2,128,128),3,
+            #                             (0,3,2,128,128),3,
+            #                             (0,3,2,128,128),3,
+            #                             (0,3,2,128,128),3,
+            #                             (0,3,2,128,128),3,
+            #                             (0,3,2,128,128)])
+            # self.mvDecoder = CodecNet([(1,3,2,128,128),3,
+            #                             (1,3,2,128,128),3,
+            #                             (1,3,2,128,128),3,
+            #                             (1,3,2,128,128),3,
+            #                             (1,3,2,128,128),3,
+            #                             (1,3,2,128,128),3,
+            #                             (1,3,2,128,128),3,
+            #                             (1,3,2,128,2)])
             self.warpnet = Warp_net()
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
         else:
@@ -1897,37 +1897,38 @@ class Base(nn.Module):
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
 
-        # self.resEncoder = Analysis_net()
-        # self.resDecoder = Synthesis_net()
-        self.resEncoder = CodecNet([(0,5,2,3,64),4,
-                                    (0,5,2,64,64),4,
-                                    (0,5,2,64,64),4,
-                                    (0,5,2,64,96)])
+        self.resEncoder = Analysis_net()
+        # self.resEncoder = CodecNet([(0,5,2,3,64),4,
+        #                             (0,5,2,64,64),4,
+        #                             (0,5,2,64,64),4,
+        #                             (0,5,2,64,96)])
         if not self.useE3C:
-            self.resDecoder = CodecNet([(1,5,2,96,64),5,
-                                        (1,5,2,64,64),5,
-                                        (1,5,2,64,64),5,
-                                        (1,5,2,64,3)])
+            self.resDecoder = Synthesis_net(in_channels = out_channel_M)
+            # self.resDecoder = CodecNet([(1,5,2,96,64),5,
+            #                             (1,5,2,64,64),5,
+            #                             (1,5,2,64,64),5,
+            #                             (1,5,2,64,3)])
         else:
-            self.resDecoder = CodecNet([(1,5,2,96*2,64),5,
-                                        (1,5,2,64,64),5,
-                                        (1,5,2,64,64),5,
-                                        (1,5,2,64,3)])
-        # self.respriorEncoder = Analysis_prior_net()
-        self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
-                                        (0,5,2,64,64),2,
-                                        (0,5,2,64,64)])
+            self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
+            # self.resDecoder = CodecNet([(1,5,2,96*2,64),5,
+            #                             (1,5,2,64,64),5,
+            #                             (1,5,2,64,64),5,
+            #                             (1,5,2,64,3)])
+        self.respriorEncoder = Analysis_prior_net()
+        # self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
+        #                                 (0,5,2,64,64),2,
+        #                                 (0,5,2,64,64)])
 
         if self.useEC or self.useE2C or self.useE3C:
-            # self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
-            self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-                                            (1,5,2,64,64),2,
-                                            (1,3,1,64,96*2)])
+            self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
+            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+            #                                 (1,5,2,64,64),2,
+            #                                 (1,3,1,64,96*2)])
         else:
-            # self.respriorDecoder = Synthesis_prior_net()
-            self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-                                            (1,5,2,64,64),2,
-                                            (1,3,1,64,96)])
+            self.respriorDecoder = Synthesis_prior_net()
+            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+            #                                 (1,5,2,64,64),2,
+            #                                 (1,3,1,64,96)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150

@@ -10,13 +10,8 @@ class Synthesis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, channels=None):
+    def __init__(self, useAttn=False, in_channels = out_channel_mv, conv_channels = out_channel_mv):
         super(Synthesis_mv_net, self).__init__()
-        if channels is None:
-            in_channels = conv_channels = out_channel_mv
-        else:
-            conv_channels = out_channel_mv
-            in_channels = channels
         self.deconv1 = nn.ConvTranspose2d(in_channels,  conv_channels, 3, stride=2, padding=1, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, math.sqrt(2 * 1))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)

@@ -9,13 +9,8 @@ class Synthesis_net(nn.Module):
     '''
     Decode residual
     '''
-    def __init__(self, useAttn = False, channels=None):
+    def __init__(self, useAttn = False, in_channels = out_channel_M,conv_channels = out_channel_N):
         super(Synthesis_net, self).__init__()
-        if channels is None:
-            in_channels = out_channel_M
-            conv_channels = out_channel_N
-        else:
-            in_channels = conv_channels = channels
         self.deconv1 = nn.ConvTranspose2d(in_channels,  conv_channels, 5, stride=2, padding=2, output_padding=1)
         torch.nn.init.xavier_normal_(self.deconv1.weight.data, (math.sqrt(2 * 1 * (conv_channels +  in_channels) / (in_channels + in_channels))))
         torch.nn.init.constant_(self.deconv1.bias.data, 0.01)

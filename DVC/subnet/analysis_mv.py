@@ -9,13 +9,8 @@ class Analysis_mv_net(nn.Module):
     '''
     Compress motion
     '''
-    def __init__(self, useAttn=False, channels=None):
+    def __init__(self, useAttn=False, out_channels = out_channel_mv, conv_channels=out_channel_mv):
         super(Analysis_mv_net, self).__init__()
-        if channels is None:
-            out_channels = conv_channels = out_channel_mv
-        else: 
-            conv_channels = out_channel_mv
-            out_channels = channels
         self.conv1 = nn.Conv2d(2, conv_channels, 3, stride=2, padding=1)
         torch.nn.init.xavier_normal_(self.conv1.weight.data, (math.sqrt(2 * (2 + conv_channels) / (4))))
         torch.nn.init.constant_(self.conv1.bias.data, 0.01)
