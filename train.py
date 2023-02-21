@@ -29,7 +29,7 @@ CODEC_NAME = 'Base'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -150,7 +150,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2 = parallel_compression(model,data,True)
+        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2 = parallel_compression(model,data,True)
 
         # record loss
         all_loss_module.update(loss, l)
@@ -193,7 +193,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0:# and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset,0)
