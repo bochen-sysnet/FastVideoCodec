@@ -196,7 +196,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if batch_idx % 10000 == 0:# and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
-                score = test(epoch, model, test_dataset,0)
+                score = test(epoch, model, test_dataset)
                 
                 is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
                 if is_best:
@@ -206,9 +206,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                     print(score)
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
-                #test(epoch, model, test_dataset2)
-                # for l in [1,2,3]:
-                #     test(epoch, model, test_dataset,l)
                 model.train()
             else:
                 print('')
