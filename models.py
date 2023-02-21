@@ -286,20 +286,12 @@ def parallel_compression(model, data, compressI=False):
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
-    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0)
-    be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0) if bpp_res_est_list else 0
-    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-    psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-    aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0)
-
-    img_loss = img_loss.cpu().data.item()
-    be_loss = be_loss.cpu().data.item()
-    be_res_loss = be_res_loss.cpu().data.item() if bpp_res_est_list else 0
-    psnr = psnr.cpu().data.item()
-    I_psnr = float(psnr_list[0]) if compressI else 0
-    aux_loss = aux_loss.cpu().data.item()
-    aux2_loss = aux2_loss.cpu().data.item()
+    be_loss = torch.stack(bpp_est_list,dim=0).mean(dim=0).cpu().data.item()
+    be_res_loss = torch.stack(bpp_res_est_list,dim=0).mean(dim=0).cpu().data.item() if bpp_res_est_list else 0
+    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
+    psnr = torch.stack(psnr_list,dim=0).mean(dim=0).cpu().data.item()
+    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
+    aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
 
     return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss
         

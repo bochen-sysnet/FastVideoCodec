@@ -205,7 +205,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 else:
                     print(score)
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
-                save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+                # save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 model.train()
             else:
                 print('')
