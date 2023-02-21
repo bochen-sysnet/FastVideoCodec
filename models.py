@@ -211,6 +211,7 @@ def parallel_compression(model, data, compressI=False):
                     bpp = (mot_bits + res_bits) / (H * W)
                     bpp_res = (res_bits) / (H * W)
                     mot_err = res_err = (mot_bits) / (H * W)
+                    mseloss = torch.mean((x_prev - data[i:i+1]).pow(2))
                 x_prev = x_prev.detach()
                 all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
