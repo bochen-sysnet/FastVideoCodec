@@ -1826,6 +1826,8 @@ class Base(nn.Module):
         self.useSTE = True if '-STE' in name else False
         self.useSSF = True if '-SSF' in name else False
         self.useEC = True if '-EC' in name else False
+        self.useE2C = True if '-E2C' in name else False
+        self.useE3C = True if '-E3C' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()
             # self.mvEncoder = Analysis_mv_net()
@@ -1901,24 +1903,31 @@ class Base(nn.Module):
                                     (0,5,2,64,64),4,
                                     (0,5,2,64,64),4,
                                     (0,5,2,64,96)])
-        self.resDecoder = CodecNet([(1,5,2,96,64),5,
-                                    (1,5,2,64,64),5,
-                                    (1,5,2,64,64),5,
-                                    (1,5,2,64,3)])
+        if not self.useE3C:
+            self.resDecoder = CodecNet([(1,5,2,96,64),5,
+                                        (1,5,2,64,64),5,
+                                        (1,5,2,64,64),5,
+                                        (1,5,2,64,3)])
+        else:
+            self.resDecoder = CodecNet([(1,5,2,96*2,64),5,
+                                        (1,5,2,64,64),5,
+                                        (1,5,2,64,64),5,
+                                        (1,5,2,64,3)])
         # self.respriorEncoder = Analysis_prior_net()
         self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
                                         (0,5,2,64,64),2,
                                         (0,5,2,64,64)])
-        if not self.useEC:
-            # self.respriorDecoder = Synthesis_prior_net()
-            self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-                                            (1,5,2,64,64),2,
-                                            (1,3,1,64,96)])
-        else:
+
+        if self.useEC or self.useE2C or self.useE3C:
             # self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
             self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
                                             (1,5,2,64,64),2,
                                             (1,3,1,64,96*2)])
+        else:
+            # self.respriorDecoder = Synthesis_prior_net()
+            self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+                                            (1,5,2,64,64),2,
+                                            (1,3,1,64,96)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -1998,9 +2007,13 @@ class Base(nn.Module):
             compressed_z = torch.round(z)
 
         recon_sigma = self.respriorDecoder(compressed_z)
-        if self.useEC:
+        if self.useEC or self.useE2C or self.useE3C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
-            feature_correction = torch.sigmoid(feature_correction) - 0.5
+            if self.useEC:
+                feature_correction = torch.sigmoid(feature_correction) - 0.5
+            else:
+                feature_correction = feature_correction
+
 
         feature_renorm = feature
 
@@ -2013,11 +2026,14 @@ class Base(nn.Module):
                 compressed_feature_renorm = torch.round(feature_renorm)
         else:
             compressed_feature_renorm = quantize_ste(feature_renorm)
-        if not self.useEC:
-            recon_res = self.resDecoder(compressed_feature_renorm)
-        else:
-            # another option is to concate input and process them
+
+        if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
+        elif self.useE3C:
+            recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
+        else:
+            recon_res = self.resDecoder(compressed_feature_renorm)
+
         recon_image = prediction + recon_res
 
         clipped_recon_image = recon_image.clamp(0., 1.)
