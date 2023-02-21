@@ -1818,7 +1818,9 @@ class CodecNet(nn.Module):
     def forward(self, x,):
         return self.blocks(x)
 
-# EC, STE not so useful
+# STE not so useful
+# EC effective, sigmoid or not?
+# SSF?
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
