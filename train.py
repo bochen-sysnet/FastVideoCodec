@@ -254,9 +254,9 @@ def test(epoch, model, test_dataset):
         # show result
         test_iter.set_description(
             f"{data_idx:6}. "
-            f"BA: {ba_loss_module.val:.2f} ({ba_loss_module.avg:.2f}). "
-            f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"I: {I_psnr:.2f}")
+            f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+            f"P: {psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+            f"I: {I_psnr:.4f}")
             
         # clear input
         data = []
