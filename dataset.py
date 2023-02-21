@@ -139,7 +139,7 @@ class FrameDataset(Dataset):
             img = Image.open(img_dir).convert('RGB')
             if self._frame_size is not None:
                 if img_idx == 1:
-                    i, j, h, w = self.get_params(img, (0.08, 1.0), (0.75, 1.3333333333333333))
+                    i, j, h, w = transforms.RandomResizedCrop.get_params(img, (0.08, 1.0), (0.75, 1.3333333333333333))
                 img = F.resized_crop(img, i, j, h, w, (256,256))
                 # img = img.resize((self._frame_size,self._frame_size)) 
             data.append(transforms.ToTensor()(img))
