@@ -2050,6 +2050,7 @@ class Base(nn.Module):
         # residual   
         input_residual = input_image - prediction
         feature = self.resEncoder(input_residual)
+        print(feature.size())
         # quantization
         if not self.useSTE:
             if self.training:
