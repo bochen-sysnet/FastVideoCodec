@@ -2123,7 +2123,7 @@ class Base(nn.Module):
                 x = x + self.mxrange
                 n,c,h,w = x.shape
                 for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
+                    cdfs.append(gaussian.cdf(torch.tensor(i - 0.5).cuda()).view(n,c,h,w,1))
                 cdfs = torch.cat(cdfs, 4).cpu().detach()
                 
                 byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
@@ -2141,9 +2141,9 @@ class Base(nn.Module):
             probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
             
-            # if self.calrealbits and not self.training:
-            #     decodedx, real_bits = getrealbitsg(feature, gaussian)
-            #     total_bits = real_bits
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbitsg(feature, gaussian)
+                total_bits = real_bits
 
             return total_bits, probs
 
