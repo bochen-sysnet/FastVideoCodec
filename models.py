@@ -232,7 +232,7 @@ def parallel_compression(model, data, compressI=False):
                 if not model.useER:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 else:
-                    all_loss_list += [(model.r*mseloss + bpp + (mv_err + res_err)).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + 1e-4*err).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
                 bppres_list += [(bpp_feature + bpp_z).to(data.device)]
