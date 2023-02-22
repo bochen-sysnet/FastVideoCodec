@@ -228,8 +228,10 @@ def parallel_compression(model, data, compressI=False):
             priors = {}
             alpha,beta = 1,1
             for i in range(1,B):
+                model.training = False
                 _, mseloss_real, _, _, _, _, bpp_real, _, _ = \
-                    model(data[i:i+1],x_prev,priors,simu_mode=False)
+                    model(data[i:i+1],x_prev,priors)
+                model.training = True
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
@@ -239,10 +241,11 @@ def parallel_compression(model, data, compressI=False):
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
-                bppres_list += [(bpp_feature + bpp_z).to(data.device)]
+                # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
+                bppres_list += [(err[0]+err[1]).to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                aux_loss_list += [err[0].to(data.device)]
-                aux2_loss_list += [err[1].to(data.device)]
+                aux_loss_list += [bpp_real.to(data.device)]
+                aux2_loss_list += [10.0*torch.log(1/mseloss_real)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 aux3_loss_list += [model.r*(mseloss_real - mseloss).to(data.device)]
                 aux4_loss_list += [(bpp_real - bpp).to(data.device)]
                 x_hat_list.append(x_prev)
@@ -1988,7 +1991,7 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors, simu_mode=True):
+    def forward(self, input_image, referframe, priors):
         # motion
         # self.training=False
         if not self.useSSF:
@@ -2005,7 +2008,7 @@ class Base(nn.Module):
                     quant_noise_mv = self.mvErrNet(estmv)
                 elif self.useE2R:
                     mvfeature, quant_noise_mv = mvfeature.chunk(2, dim=1)
-            if self.training and simu_mode:
+            if self.training:
                 if self.useER or self.useE2R: 
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
                 else:
@@ -2034,7 +2037,7 @@ class Base(nn.Module):
             # encode
             mvfeature = self.motion_encoder(x)
             # quantization
-            if self.training and simu_mode:
+            if self.training:
                 half = float(0.5)
                 quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
@@ -2049,7 +2052,7 @@ class Base(nn.Module):
         feature = self.resEncoder(input_residual)
         # quantization
         if not self.useSTE:
-            if self.training and simu_mode:
+            if self.training:
                 if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual))
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
@@ -2071,7 +2074,7 @@ class Base(nn.Module):
         # hyperprior
         z = self.respriorEncoder(feature)
         # quantization
-        if self.training and simu_mode:
+        if self.training:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
