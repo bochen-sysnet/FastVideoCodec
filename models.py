@@ -230,9 +230,9 @@ def parallel_compression(model, data, compressI=False):
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 if model.useER:
-                    all_loss_list += [(model.r*mseloss + bpp + err).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + 0.1*err).to(data.device)]
                 elif model.useE2R:
-                    all_loss_list += [(model.r*mseloss + bpp + err).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + 0.1*err).to(data.device)]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
@@ -1986,15 +1986,19 @@ class Base(nn.Module):
                 if self.useER or self.useE2R: 
                     quant_noise_mv = self.mvErrNet(estmv.detach())
             if self.training:
-                if self.useER or self.useE2R: 
+                if self.useER: 
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
+                elif self.useE2R:
+                    quant_noise_mv = 0.5*torch.tanh(quant_noise_mv)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv.detach()
+                mv_err = ((mvfeature.detach() + quant_noise_mv - torch.round(mvfeature + quant_noise_mv))**2).mean().sqrt()
             else:
                 quant_mv = torch.round(mvfeature)
-            mv_err = ((mvfeature.detach() + quant_noise_mv - torch.round(mvfeature + quant_noise_mv))**2).mean().sqrt()
+                mv_err = 0
+            
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
@@ -2027,34 +2031,42 @@ class Base(nn.Module):
         # quantization
         if not self.useSTE:
             if self.training:
-                if self.useER or self.useE2R: 
+                if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual).detach())
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
+                elif self.useE2R: 
+                    quant_noise_feature = self.resErrNet((input_residual).detach())
+                    quant_noise_feature = torch.tanh(quant_noise_feature) * 0.5
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature.detach()
+                res_err = ((feature.detach() + quant_noise_feature - torch.round(feature + quant_noise_feature))**2).mean().sqrt()
             else:
                 compressed_feature_renorm = torch.round(feature)
+                res_err = 0
         else:
             compressed_feature_renorm = quantize_ste(feature)
-        # calculate err
-        res_err = ((feature.detach() + quant_noise_feature - torch.round(feature + quant_noise_feature))**2).mean().sqrt()
+        
         # hyperprior
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
-            if self.useER or self.useE2R: 
+            if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature).detach())
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
+            elif self.useE2R: 
+                quant_noise_z = self.respriorErrNet((feature).detach())
+                quant_noise_z = torch.tanh(quant_noise_z) * 0.5
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z.detach()
+            z_err = ((z.detach() + quant_noise_z - torch.round(z + quant_noise_z))**2).mean().sqrt()
         else:
             compressed_z = torch.round(z)
-        # calculate err
-        z_err = ((z.detach() + quant_noise_z - torch.round(z + quant_noise_z))**2).mean().sqrt()
+            z_err = 0
+        
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C or self.useE5C:
