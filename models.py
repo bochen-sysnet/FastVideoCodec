@@ -226,7 +226,7 @@ def parallel_compression(model, data, compressI=False):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
-            alpha,beta = 0.1,1
+            alpha,beta = 1,1
             for i in range(1,B):
                 _, mseloss_real, _, _, _, _, bpp_real, _, _ = \
                     model(data[i:i+1],x_prev,priors,simu_mode=False)
