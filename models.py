@@ -1927,33 +1927,30 @@ class Base(nn.Module):
             self.bitEstimator_mv = BitEstimator(192)
         else:
             self.opticFlow = MyMENet()
-            if self.useER or self.useE2R: 
-                self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv*2)
-            else:
-                self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
+            self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
             self.mvDecoder = Synthesis_mv_net()
             self.warpnet = Warp_net()
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
 
-        if self.useER or self.useE2R: 
-            self.resEncoder = Analysis_net(out_channels = out_channel_M*2)
-        else:
-            self.resEncoder = Analysis_net(out_channels = out_channel_M)
+        self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
         if self.useE3C or self.useE4C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
 
-        if self.useER or self.useE2R: 
-            self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N*2)
-        else:
-            self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
+        self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         else:
             self.respriorDecoder = Synthesis_prior_net()
+
+        # error modeling
+        if self.useER or self.useE2R: 
+            self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
+            self.resErrNet = Analysis_net(out_channels = out_channel_M)
+            self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -1982,19 +1979,22 @@ class Base(nn.Module):
             estmv = self.opticFlow(input_image, referframe, priors)
             if self.recursive_flow and 'mv' in priors:
                 mvfeature = self.mvEncoder(estmv - priors['mv'])
+                if self.useER or self.useE2R: 
+                    quant_noise_mv = self.mvErrNet((estmv - priors['mv']).detach())
             else:
                 mvfeature = self.mvEncoder(estmv)
+                if self.useER or self.useE2R: 
+                    quant_noise_mv = self.mvErrNet(estmv.detach())
             if self.training:
                 if self.useER or self.useE2R: 
-                    mvfeature, quant_noise_mv = mvfeature.chunk(2, dim=1)
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-                quant_mv = mvfeature + quant_noise_mv
+                quant_mv = mvfeature + quant_noise_mv.detach()
             else:
                 quant_mv = torch.round(mvfeature)
-            mv_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
+            mv_err = ((mvfeature.detach() + quant_noise_mv - torch.round(mvfeature + quant_noise_mv))**2).mean().sqrt()
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
@@ -2024,43 +2024,43 @@ class Base(nn.Module):
         # residual   
         input_residual = input_image - prediction
         feature = self.resEncoder(input_residual)
+        # quantization
+        if not self.useSTE:
+            if self.training:
+                if self.useER or self.useE2R: 
+                    quant_noise_feature = self.resErrNet((input_residual).detach())
+                    quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
+                else:
+                    half = float(0.5)
+                    quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
+                compressed_feature_renorm = feature + quant_noise_feature.detach()
+            else:
+                compressed_feature_renorm = torch.round(feature)
+        else:
+            compressed_feature_renorm = quantize_ste(feature)
+        # calculate err
+        res_err = ((feature.detach() + quant_noise_feature - torch.round(feature + quant_noise_feature))**2).mean().sqrt()
         # hyperprior
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
             if self.useER or self.useE2R: 
-                z, quant_noise_z = z.chunk(2, dim=1)
+                quant_noise_z = self.respriorErrNet((feature).detach())
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
-            compressed_z = z + quant_noise_z
+            compressed_z = z + quant_noise_z.detach()
         else:
             compressed_z = torch.round(z)
         # calculate err
-        z_err = ((z - torch.round(z))**2).mean().sqrt()
+        z_err = ((z.detach() + quant_noise_z - torch.round(z + quant_noise_z))**2).mean().sqrt()
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             if self.useEC or self.useE3C:
                 feature_correction = torch.sigmoid(feature_correction) - 0.5
-        # quantization
-        if not self.useSTE:
-            if self.training:
-                if self.useER or self.useE2R: 
-                    feature, quant_noise_feature = feature.chunk(2, dim=1)
-                    quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
-                else:
-                    half = float(0.5)
-                    quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
-                compressed_feature_renorm = feature + quant_noise_feature
-            else:
-                compressed_feature_renorm = torch.round(feature)
-        else:
-            compressed_feature_renorm = quantize_ste(feature)
-        # calculate err
-        res_err = ((feature - torch.round(feature))**2).mean().sqrt()
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
