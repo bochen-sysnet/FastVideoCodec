@@ -51,8 +51,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec.compression_level = compression_level
         model_codec.loss_type = loss_type
         init_training_params(model_codec)
-    elif 'SSF' in name:
-        model_codec = ScaleSpaceFlow(name, loss_type='P', compression_level=compression_level)
+    elif 'ELFVC' in name:
+        model_codec = ELFVC(name, loss_type='P', compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -193,25 +193,23 @@ def parallel_compression(model, data, compressI=False):
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if 'SSF' == model_name[:3]:
+        if model_name in ['SSF-Official','ELFVC']:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
             for i in range(1,B):
-                if model_name != 'SSF-Official':
-                    x_prev, mseloss, pred_loss, bpp, bpp_res, mot_err, res_err, priors = model(data[i:i+1],x_prev,priors)
-                else:
-                    x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
-                    mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
-                    mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
-                            torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-                    res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
-                            torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-                    bpp = (mot_bits + res_bits) / (H * W)
-                    bpp_res = (res_bits) / (H * W)
-                    mot_err = res_err = (mot_bits) / (H * W)
-                    mseloss = torch.mean((x_prev - data[i:i+1]).pow(2))
+                x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
+                mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
+                mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                        torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+                res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                        torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+                bpp = (mot_bits + res_bits) / (H * W)
+                bpp_res = (res_bits) / (H * W)
+                mot_err = res_err = (mot_bits) / (H * W)
+                mseloss = torch.mean((x_prev - data[i:i+1]).pow(2))
+
                 x_prev = x_prev.detach()
                 all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
@@ -2149,22 +2147,7 @@ def meshgrid2d(N: int, C: int, H: int, W: int, device: torch.device):
     theta = torch.eye(2, 3, device=device).unsqueeze(0).expand(N, 2, 3)
     return F.affine_grid(theta, (N, C, H, W), align_corners=False)
 
-from compressai.layers import QReLU
-from compressai.ops import quantize_ste
-from compressai.entropy_models import EntropyBottleneck, GaussianConditional
-
-class ScaleSpaceFlow(nn.Module):
-    r"""Google's first end-to-end optimized video compression from E.
-    Agustsson, D. Minnen, N. Johnston, J. Balle, S. J. Hwang, G. Toderici: `"Scale-space flow for end-to-end
-    optimized video compression" <https://openaccess.thecvf.com/content_CVPR_2020/html/Agustsson_Scale-Space_Flow_for_End-to-End_Optimized_Video_Compression_CVPR_2020_paper.html>`_,
-    IEEE Conference on Computer Vision and Pattern Recognition (CVPR 2020).
-
-    Args:
-        num_levels (int): Number of Scale-space
-        sigma0 (float): standard deviation for gaussian kernel of the first space scale.
-        scale_field_shift (float):
-    """
-
+class ELFVC(ScaleSpaceFlow):
     def __init__(
         self,
         name: str,
@@ -2174,229 +2157,11 @@ class ScaleSpaceFlow(nn.Module):
         sigma0: float = 1.5,
         scale_field_shift: float = 1.0,
     ):
-        super().__init__()
-
-        class Encoder(nn.Sequential):
-            def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, norm_type: int = 0
-            ):
-                if norm_type == 0:
-                    norm_layer = nn.ReLU(inplace=True)
-                elif norm_type == 1:
-                    norm_layer = nn.LeakyReLU(negative_slope=0.1)
-                else:
-                    norm_layer = GDN(mid_planes)
-                super().__init__(
-                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    norm_layer,
-                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    norm_layer,
-                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    norm_layer,
-                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                )
-
-        class Decoder(nn.Sequential):
-            def __init__(
-                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, norm_type: int = 0
-            ):
-                if norm_type == 0:
-                    norm_layer = nn.ReLU(inplace=True)
-                elif norm_type == 1:
-                    norm_layer = nn.LeakyReLU(negative_slope=0.1)
-                else:
-                    norm_layer = GDN(mid_planes)
-                super().__init__(
-                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    norm_layer,
-                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    norm_layer,
-                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    norm_layer,
-                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                )
-
-        class HyperEncoder(nn.Sequential):
-            def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
-            ):
-                super().__init__(
-                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                )
-
-        class HyperDecoder(nn.Sequential):
-            def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
-            ):
-                super().__init__(
-                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                )
-
-        class HyperDecoderWithQReLU(nn.Module):
-            def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
-            ):
-                super().__init__()
-
-                def qrelu(input, bit_depth=8, beta=100):
-                    return QReLU.apply(input, bit_depth, beta)
-
-                self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu1 = qrelu
-                self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu2 = qrelu
-                self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
-                self.qrelu3 = qrelu
-
-            def forward(self, x):
-                x = self.qrelu1(self.deconv1(x))
-                x = self.qrelu2(self.deconv2(x))
-                x = self.qrelu3(self.deconv3(x))
-
-                return x
-
-        class Hyperprior(nn.Module):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, useEC: bool = False):
-                super().__init__()
-                if not useEC:
-                    self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
-                    self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                    self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
-                else:
-                    self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
-                    self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                    self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes*2)
-                self.useEC = useEC
-
-                self.entropy_bottleneck = EntropyBottleneck(mid_planes)
-                self.gaussian_conditional = GaussianConditional(None)
-                # self.bitEstimator = BitEstimator(mid_planes)
-
-            def forward(self, y):
-                # derive hyperprior
-                z = self.hyper_encoder(y)
-                # z_hat = quantize_ste(z)
-                # z_bits = self.entropy_bottleneck(z_hat)
-                z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                z_bits = torch.sum(torch.clamp(-1.0 * torch.log(z_likelihoods + 1e-5) / math.log(2.0), 0, 50))
-
-                # derive scale/mean from hyperprior
-                scales = self.hyper_decoder_scale(z_hat)
-                means = self.hyper_decoder_mean(z_hat)
-                if self.useEC:
-                    scales, y_correction = scales.chunk(2, dim=1)
-                    y_correction = torch.sigmoid(y_correction) - 0.5
-                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                y_bits = torch.sum(torch.clamp(-1.0 * torch.log(y_likelihoods + 1e-5) / math.log(2.0), 0, 50))
-                y_hat = quantize_ste(y - means) + means
-                # y_bits = self.gaussian_conditional(y_hat, scales, means)
-                # after decoding y, add correction
-                if self.useEC:
-                    y_hat += y_correction
-                y_err = torch.abs(y - y_hat).mean()
-
-                return y_hat, z_bits + y_bits, y_err
-
-            # def gaussian_conditional(self,feature, sigma, mu):
-            #     sigma = sigma.clamp(1e-5, 1e10)
-            #     gaussian = torch.distributions.laplace.Laplace(mu, sigma)
-            #     probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
-            #     total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
-            #     return total_bits
-
-            # def entropy_bottleneck(self,feature):
-            #     prob = self.bitEstimator(feature + 0.5) - self.bitEstimator(feature - 0.5)
-            #     total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
-            #     return total_bits
-
-        # error prediction
-        useEC = True if '-EC' in name else False
-        useNorm = True if '-NORM' in name else False
-        self.useRF = True if '-RF' in name else False
-
-        self.res_encoder = Encoder(3, norm_type=2 if useNorm else 0)
-        self.res_decoder = Decoder(3, in_planes=384, norm_type=2 if useNorm else 0)
-        self.res_hyperprior = Hyperprior(useEC=useEC)
-
-        if not self.useRF:
-            self.motion_encoder = Encoder(2 * 3, norm_type=1 if useNorm else 0)
-        else:
-            self.motion_encoder = Encoder(2 * 3 + 2, norm_type=1 if useNorm else 0)
-        self.motion_decoder = Decoder(2 + 1, norm_type=1 if useNorm else 0)
-        self.motion_hyperprior = Hyperprior(useEC=useEC)
-
-        self.sigma0 = sigma0
-        self.num_levels = num_levels
-        self.scale_field_shift = scale_field_shift
+        super().__init__(num_levels,sigma0,scale_field_shift)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-
-
-    def forward(self, x_cur, x_ref, priors):
-        # encode the motion information
-        if not self.useRF:
-            x = torch.cat((x_cur, x_ref), dim=1)
-        else:
-            if 'flow' in priors:
-                prior_flow = priors['flow']
-            else:
-                B,C,H,W = x_cur.size()
-                prior_flow = torch.zeros((B,2,H,W), dtype=torch.float32, device=x_cur.device)
-            x = torch.cat((x_cur, x_ref, prior_flow), dim=1)
-        y_motion = self.motion_encoder(x)
-        y_motion_hat, motion_bits, mot_err = self.motion_hyperprior(y_motion)
-
-        # decode the space-scale flow information
-        motion_info = self.motion_decoder(y_motion_hat)
-        x_pred = self.forward_prediction(x_ref, motion_info, priors)
-
-        # residual
-        x_res = x_cur - x_pred
-        y_res = self.res_encoder(x_res)
-        y_res_hat, res_bits, res_err = self.res_hyperprior(y_res)
-
-        # y_combine
-        y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
-        x_res_hat = self.res_decoder(y_combine)
-
-        # final reconstruction: prediction + residual
-        x_rec = x_pred + x_res_hat
-
-        # loss terms
-        im_shape = x_cur.size()
-
-        bpp_res = res_bits / (im_shape[2] * im_shape[3])
-        bpp_mv = motion_bits / (im_shape[2] * im_shape[3])
-        bpp = bpp_res + bpp_mv
-
-        clipped_recon_image = x_rec.clamp(0., 1.)
-        mse_loss = torch.mean((x_rec - x_cur).pow(2))
-        pred_loss = torch.mean((x_pred - x_cur).pow(2)) 
-        return clipped_recon_image, mse_loss, pred_loss, bpp, bpp_res, mot_err, res_err, priors
-
-
-    def forward_prediction(self, x_ref, motion_info, priors):
-        flow, scale_field = motion_info.chunk(2, dim=1)
-        if self.useRF:
-            flow += priors['flow']
-
-        volume = gaussian_volume(x_ref, self.sigma0, self.num_levels)
-        x_pred = warp_volume(volume, flow, scale_field)
-        if 'flow' not in priors:
-            priors['flow'] = flow.detach()
-        else:
-            priors['flow'] += flow.detach()
-        return x_pred
 
 def gaussian_volume(x, sigma: float, num_levels: int):
     """Efficient gaussian volume construction.
