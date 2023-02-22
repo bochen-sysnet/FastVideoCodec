@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'Base-E5C'
+CODEC_NAME = 'Base-ER'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -35,7 +35,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1
+device = 0
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -167,8 +167,9 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         img_loss_module.update(img_loss, l)
         be_loss_module.update(be_loss, l)
         be_res_loss_module.update(be_res_loss, l)
-        psnr_module.update(psnr,l)
-        I_module.update(I_psnr)
+        if not torch.isinf(psnr):
+            psnr_module.update(psnr,l)
+            I_module.update(I_psnr)
         aux_loss_module.update(aux_loss, l)
         aux2_loss_module.update(aux_loss2, l)
         
