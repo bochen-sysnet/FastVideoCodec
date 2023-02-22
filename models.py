@@ -2050,7 +2050,8 @@ class Base(nn.Module):
         # residual   
         input_residual = input_image - prediction
         feature = self.resEncoder(input_residual)
-        print(feature.size())
+        if self.useE2R:
+            feature, quant_noise_feature = feature.chunk(2, dim=1)
         # quantization
         if not self.useSTE:
             if self.training:
@@ -2058,9 +2059,7 @@ class Base(nn.Module):
                     quant_noise_feature = self.resErrNet((input_residual))
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
                 elif self.useE2R:
-                    feature, quant_noise_feature = feature.chunk(2, dim=1)
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
-                    print(feature.size())
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2075,13 +2074,14 @@ class Base(nn.Module):
         
         # hyperprior
         z = self.respriorEncoder(feature)
+        if self.useE2R:
+            z, quant_noise_z = z.chunk(2, dim=1)
         # quantization
         if self.training:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
             elif self.useE2R:
-                z, quant_noise_z = z.chunk(2, dim=1)
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
             else:
                 half = float(0.5)
