@@ -2141,9 +2141,9 @@ class Base(nn.Module):
             probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
             
-            if self.calrealbits and not self.training:
-                decodedx, real_bits = getrealbitsg(feature, gaussian)
-                total_bits = real_bits
+            # if self.calrealbits and not self.training:
+            #     decodedx, real_bits = getrealbitsg(feature, gaussian)
+            #     total_bits = real_bits
 
             return total_bits, probs
 
