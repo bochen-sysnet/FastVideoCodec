@@ -2147,6 +2147,7 @@ def meshgrid2d(N: int, C: int, H: int, W: int, device: torch.device):
     theta = torch.eye(2, 3, device=device).unsqueeze(0).expand(N, 2, 3)
     return F.affine_grid(theta, (N, C, H, W), align_corners=False)
 
+from compressai.models import ScaleSpaceFlow
 class ELFVC(ScaleSpaceFlow):
     def __init__(
         self,
