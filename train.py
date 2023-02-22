@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'Base-ER2'
+CODEC_NAME = 'Base-ER'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -35,7 +35,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 1
+device = 0
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -194,10 +194,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"R:{be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"I:{I_module.val:.2f} ({I_module.avg:.2f}). "
-            # f"A1:{aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            # f"A2:{aux2_loss_module.val:.2f} ({aux2_loss_module.avg:.2f}). "
-            f"A1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"A2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
+            f"1:{aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            f"2:{aux2_loss_module.val:.2f} ({aux2_loss_module.avg:.2f}). "
+            f"3:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
 
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
