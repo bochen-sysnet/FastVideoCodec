@@ -1833,27 +1833,6 @@ class CodecNet(nn.Module):
     def forward(self, x,):
         return self.blocks(x)
 
-# STE/norm not so useful
-# EC effective, sigmoid or not?
-# SSF?
-class Base(nn.Module):
-    def __init__(self,name,loss_type='P',compression_level=0):
-        super(Base, self).__init__()
-        self.recursive_flow = True if '-RF' in name else False
-        self.useSTE = True if '-STE' in name else False
-        self.useSSF = True if '-SSF' in name else False
-        self.useEC = True if '-EC' in name else False # sigmoid + addition
-        self.useE2C = True if '-E2C' in name else False # no act + addition
-        self.useE3C = True if '-E3C' in name else False # sigmoid + concat
-        self.useE4C = True if '-E4C' in name else False # no act + concat
-        self.useE5C = True if '-E5C' in name else False # tanh + concat
-        self.useER = True if '-ER' in name else False # error regularization
-        self.useE2R = True if '-E2R' in name else False # error regularization
-        self.useBackbone = True if '-BB' in name else False
-        if not self.useSSF:
-            self.opticFlow = MyMENet()
-            self.mvEncoder = Analysis_mv_net()
-            self.mvDecoder = Synthesis_mv_net()
             # self.mvEncoder = CodecNet([(0,3,2,2,128),3,
             #                             (0,3,2,128,128),3,
             #                             (0,3,2,128,128),3,
@@ -1870,9 +1849,37 @@ class Base(nn.Module):
             #                             (1,3,2,128,128),3,
             #                             (1,3,2,128,128),3,
             #                             (1,3,2,128,2)])
-            self.warpnet = Warp_net()
-            self.bitEstimator_mv = BitEstimator(out_channel_mv)
-        else:
+        # self.resEncoder = CodecNet([(0,5,2,3,64),4,
+        #                             (0,5,2,64,64),4,
+        #                             (0,5,2,64,64),4,
+        #                             (0,5,2,64,96)])
+            # self.resDecoder = CodecNet([(1,5,2,96,64),5,
+            #                             (1,5,2,64,64),5,
+            #                             (1,5,2,64,64),5,
+            #                             (1,5,2,64,3)])
+        # self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
+        #                                 (0,5,2,64,64),2,
+        #                                 (0,5,2,64,64)])
+            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
+            #                                 (1,5,2,64,64),2,
+            #                                 (1,3,1,64,96)])
+# STE/norm not so useful
+# EC effective, sigmoid or not?
+# SSF?
+class Base(nn.Module):
+    def __init__(self,name,loss_type='P',compression_level=0):
+        super(Base, self).__init__()
+        self.recursive_flow = True if '-RF' in name else False
+        self.useSTE = True if '-STE' in name else False
+        self.useSSF = True if '-SSF' in name else False
+        self.useEC = True if '-EC' in name else False # sigmoid + addition
+        self.useE2C = True if '-E2C' in name else False # no act + addition
+        self.useE3C = True if '-E3C' in name else False # sigmoid + concat
+        self.useE4C = True if '-E4C' in name else False # no act + concat
+        self.useE5C = True if '-E5C' in name else False # tanh + concat
+        self.useER = True if '-ER' in name else False # error regularization
+        self.useE2R = True if '-E2R' in name else False # error regularization
+        if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
                     self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, norm_type: int = 0
@@ -1918,39 +1925,35 @@ class Base(nn.Module):
             self.motion_encoder = Encoder(2 * 3, norm_type=0)
             self.motion_decoder = Decoder(2 + 1, norm_type=0)
             self.bitEstimator_mv = BitEstimator(192)
+        else:
+            self.opticFlow = MyMENet()
+            if self.useER or self.useE2R: 
+                self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv*2)
+            else:
+                self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
+            self.mvDecoder = Synthesis_mv_net()
+            self.warpnet = Warp_net()
+            self.bitEstimator_mv = BitEstimator(out_channel_mv)
 
-        self.resEncoder = Analysis_net()
-        # self.resEncoder = CodecNet([(0,5,2,3,64),4,
-        #                             (0,5,2,64,64),4,
-        #                             (0,5,2,64,64),4,
-        #                             (0,5,2,64,96)])
+        if self.useER or self.useE2R: 
+            self.resEncoder = Analysis_net(out_channels = out_channel_M*2)
+        else:
+            self.resEncoder = Analysis_net(out_channels = out_channel_M)
+
         if self.useE3C or self.useE4C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
-            # self.resDecoder = CodecNet([(1,5,2,96*2,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,3)])
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
-            # self.resDecoder = CodecNet([(1,5,2,96,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,3)])
-        self.respriorEncoder = Analysis_prior_net()
-        # self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
-        #                                 (0,5,2,64,64),2,
-        #                                 (0,5,2,64,64)])
+
+        if self.useER or self.useE2R: 
+            self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N*2)
+        else:
+            self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
-            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-            #                                 (1,5,2,64,64),2,
-            #                                 (1,3,1,64,96*2)])
         else:
             self.respriorDecoder = Synthesis_prior_net()
-            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-            #                                 (1,5,2,64,64),2,
-            #                                 (1,3,1,64,96)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -1959,7 +1962,6 @@ class Base(nn.Module):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-
 
     def forward_prediction(self, x_ref, motion_info):
         flow, scale_field = motion_info.chunk(2, dim=1)
@@ -1983,12 +1985,16 @@ class Base(nn.Module):
             else:
                 mvfeature = self.mvEncoder(estmv)
             if self.training:
-                half = float(0.5)
-                quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+                if self.useER or self.useE2R: 
+                    mvfeature, quant_noise_mv = mvfeature.chunk(2, dim=1)
+                    quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
+                else:
+                    half = float(0.5)
+                    quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
             else:
                 quant_mv = torch.round(mvfeature)
-            mv_err = torch.norm(mvfeature - torch.round(mvfeature),2)
+            mv_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
@@ -2022,13 +2028,17 @@ class Base(nn.Module):
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
-            half = float(0.5)
-            quant_noise_z = torch.empty_like(z).uniform_(-half, half)
+            if self.useER or self.useE2R: 
+                z, quant_noise_z = z.chunk(2, dim=1)
+                quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
+            else:
+                half = float(0.5)
+                quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
         else:
             compressed_z = torch.round(z)
         # calculate err
-        z_err = torch.norm(z - torch.round(z),2)
+        z_err = ((z - torch.round(z))**2).mean().sqrt()
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
@@ -2038,15 +2048,19 @@ class Base(nn.Module):
         # quantization
         if not self.useSTE:
             if self.training:
-                half = float(0.5)
-                quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
+                if self.useER or self.useE2R: 
+                    feature, quant_noise_feature = feature.chunk(2, dim=1)
+                    quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
+                else:
+                    half = float(0.5)
+                    quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
             else:
                 compressed_feature_renorm = torch.round(feature)
         else:
             compressed_feature_renorm = quantize_ste(feature)
         # calculate err
-        res_err = torch.norm(feature - torch.round(feature),2)
+        res_err = ((feature - torch.round(feature))**2).mean().sqrt()
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
