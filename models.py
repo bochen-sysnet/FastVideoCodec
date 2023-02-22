@@ -2165,6 +2165,10 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
 
+    def forward_inter(self, input_image, referframe):
+        print('h')
+        exit(0)
+
 def gaussian_volume(x, sigma: float, num_levels: int):
     """Efficient gaussian volume construction.
 
