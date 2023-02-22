@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import random
+import argparse
 
 import torch
 import torch.nn as nn
@@ -24,18 +25,36 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 
 from dataset import VideoDataset, FrameDataset
 
+parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
+parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG', 'MCL-JCV'],
+                    help='evaluating dataset (default: UVG)')
+parser.add_argument('--evaluate', action='store_true',
+                    help='evaluate model on validation set')
+parser.add_argument('--codec', type=str, default='Base',
+                    help='name of codec')
+parser.add_argument('--device', default=0, type=int,
+                    help="GPU ID")
+parser.add_argument('--epoch', type=int, nargs='+', default=[0,10],
+                    help='Begin and end epoch')
+parser.add_argument('--lr', type=float, default=0.0001,
+                    help='Learning rate')
+parser.add_argument('--resolution', type=int, nargs='+', default=[256,256],
+                    help='Frame resolution') # or 960 1920
+
+args = parser.parse_args()
+
 # OPTION
-CODEC_NAME = 'Base-ER2'
+CODEC_NAME = args.codec #'Base-ER2'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
-LEARNING_RATE = 0.0001
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
-BEGIN_EPOCH = 1
-END_EPOCH = 10
+BEGIN_EPOCH = args.epoch[0]
+END_EPOCH = args.epoch[0]
 WARMUP_EPOCH = 5
-device = 0
+device = args.device
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -299,11 +318,10 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
+test_dataset = VideoDataset(f'../dataset/{args.dataset}', frame_size=(args.resolution[0],args.resolution[1]))
 # test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
-if True:
+if args.evaluate:
     score = test(0, model, test_dataset)
-    # score = test(0, model, test_dataset2)
     exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):

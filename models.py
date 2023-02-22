@@ -236,7 +236,7 @@ def parallel_compression(model, data, compressI=False):
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 if model.useER or model.useE2R:
-                    all_loss_list += [(model.r*mseloss + bpp + alpha * model.r*abs(mseloss - mseloss_Q) + alpha * abs(bpp - bpp_Q)).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + alpha * model.r*torch.abs(mseloss - mseloss_Q) + alpha * torch.abs(bpp - bpp_Q)).to(data.device)]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
@@ -1886,6 +1886,7 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useE5C = True if '-E5C' in name else False # tanh + concat
+        self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
         self.useER = True if '-ER' in name else False # error regularization
         self.useE2R = True if '-E2R' in name else False # error regularization
         if self.useSSF:
@@ -1963,6 +1964,8 @@ class Base(nn.Module):
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         else:
             self.respriorDecoder = Synthesis_prior_net()
+        if self.useE6C:
+            self.respriorCorNet = Synthesis_prior_net()
 
         # error modeling
         if self.useER: 
@@ -1972,7 +1975,7 @@ class Base(nn.Module):
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
-        self.calrealbits = True
+        self.calrealbits = False
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
@@ -2101,6 +2104,9 @@ class Base(nn.Module):
                 feature_correction = torch.sigmoid(feature_correction) - 0.5
             elif self.useE5C:
                 feature_correction = torch.tanh(feature_correction)
+        elif self.useE6C:
+            feature_correction = self.respriorCorNet(compressed_z)
+            
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
