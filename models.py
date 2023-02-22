@@ -2115,27 +2115,90 @@ class Base(nn.Module):
         mse_loss = torch.mean((recon_image - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
 
-        def feature_probs_based_sigma(feat, sigma):
-            mu = torch.zeros_like(sigma)
-            sigma = sigma.clamp(1e-5, 1e10)
-            gaussian = torch.distributions.laplace.Laplace(mu, sigma)
-            probs = gaussian.cdf(feat + 0.5) - gaussian.cdf(feat - 0.5)
-            total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+        def feature_probs_based_sigma(self,feature, sigma):
+            
+        def getrealbitsg(x, gaussian):
+            # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
+            cdfs = []
+            x = x + self.mxrange
+            n,c,h,w = x.shape
+            for i in range(-self.mxrange, self.mxrange):
+                cdfs.append(gaussian.cdf(i - 0.5).view(n,c,h,w,1))
+            cdfs = torch.cat(cdfs, 4).cpu().detach()
+            
+            byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
 
-            return total_bits, probs
+            real_bits = torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda()
 
-        def iclr18_estrate_bits_z(z):
-            prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
-            total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+            sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
 
-            return total_bits, prob
+            return sym_out - self.mxrange, real_bits
+
+        mu = torch.zeros_like(sigma)
+        sigma = sigma.clamp(1e-5, 1e10)
+        gaussian = torch.distributions.laplace.Laplace(mu, sigma)
+        probs = gaussian.cdf(feature + 0.5) - gaussian.cdf(feature - 0.5)
+        total_bits = torch.sum(torch.clamp(-1.0 * torch.log(probs + 1e-5) / math.log(2.0), 0, 50))
+        
+        if self.calrealbits and not self.training:
+            decodedx, real_bits = getrealbitsg(feature, gaussian)
+            total_bits = real_bits
+
+        return total_bits, probs
+
+    def iclr18_estrate_bits_z(self,z):
+        
+        def getrealbits(x):
+            cdfs = []
+            x = x + self.mxrange
+            n,c,h,w = x.shape
+            for i in range(-self.mxrange, self.mxrange):
+                cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(n, 1, h, w, 1))
+            cdfs = torch.cat(cdfs, 4).cpu().detach()
+            byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+            real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+            sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+
+            return sym_out - self.mxrange, real_bits
+
+        prob = self.bitEstimator_z(z + 0.5) - self.bitEstimator_z(z - 0.5)
+        total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
 
 
-        def iclr18_estrate_bits_mv(mv):
-            prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
-            total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+        if self.calrealbits and not self.training:
+            decodedx, real_bits = getrealbits(z)
+            total_bits = real_bits
 
-            return total_bits, prob
+        return total_bits, prob
+
+
+    def iclr18_estrate_bits_mv(self,mv):
+
+        def getrealbits(x):
+            cdfs = []
+            x = x + self.mxrange
+            n,c,h,w = x.shape
+            for i in range(-self.mxrange, self.mxrange):
+                cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(n, 1, h, w, 1))
+            cdfs = torch.cat(cdfs, 4).cpu().detach()
+            byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
+
+            real_bits = torch.sum(torch.from_numpy(np.array([len(byte_stream) * 8])).float().cuda())
+
+            sym_out = torchac.decode_float_cdf(cdfs, byte_stream)
+            return sym_out - self.mxrange, real_bits
+
+        prob = self.bitEstimator_mv(mv + 0.5) - self.bitEstimator_mv(mv - 0.5)
+        total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
+
+
+        if self.calrealbits and not self.training:
+            decodedx, real_bits = getrealbits(mv)
+            total_bits = real_bits
+
+        return total_bits, prob
 
         total_bits_feature, _ = feature_probs_based_sigma(compressed_feature_renorm, recon_sigma)
         total_bits_z, _ = iclr18_estrate_bits_z(compressed_z)
