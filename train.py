@@ -84,7 +84,7 @@ elif CODEC_NAME in ['ELFVC']:
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     # BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
-    load_state_dict_whatever(model, checkpoint['state_dict'])
+    load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model ",CODEC_NAME, ':', best_codec_score)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
@@ -202,7 +202,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0:# and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
