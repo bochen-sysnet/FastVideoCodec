@@ -2194,11 +2194,11 @@ class Base(nn.Module):
             total_bits = torch.sum(torch.clamp(-1.0 * torch.log(prob + 1e-5) / math.log(2.0), 0, 50))
 
 
-        if self.calrealbits and not self.training:
-            decodedx, real_bits = getrealbits(mv)
-            total_bits = real_bits
+            if self.calrealbits and not self.training:
+                decodedx, real_bits = getrealbits(mv)
+                total_bits = real_bits
 
-        return total_bits, prob
+            return total_bits, prob
 
         total_bits_feature, _ = feature_probs_based_sigma(compressed_feature_renorm, recon_sigma)
         total_bits_z, _ = iclr18_estrate_bits_z(compressed_z)
