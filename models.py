@@ -225,12 +225,13 @@ def parallel_compression(model, data, compressI=False):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
+            alpha,beta = 0.1,1
             for i in range(1,B):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 if model.useER:
-                    all_loss_list += [(model.r*mseloss + bpp + err[0] + err[1]).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + alpha*(err[0] + beta*err[1])).to(data.device)]
                 elif model.useE2R:
                     all_loss_list += [(model.r*mseloss + bpp + err[0] + err[1]).to(data.device)]
                 else:
