@@ -226,16 +226,19 @@ def parallel_compression(model, data, compressI=False):
             x_hat_list = []
             priors = {}
             for i in range(1,B):
-                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, mv_err, res_err, priors = \
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
-                all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
+                if not model.useER:
+                    all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
+                else:
+                    all_loss_list += [(model.r*mseloss + bpp + (mv_err + res_err)).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
                 bppres_list += [(bpp_feature + bpp_z).to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                aux_loss_list += [mv_err.to(data.device)]
-                aux2_loss_list += [res_err.to(data.device)]
+                aux_loss_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                aux2_loss_list += [err.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -1982,7 +1985,7 @@ class Base(nn.Module):
                 quant_mv = mvfeature + quant_noise_mv
             else:
                 quant_mv = torch.round(mvfeature)
-            mv_err = torch.abs(mvfeature - torch.round(mvfeature)).mean()
+            mv_err = torch.norm(mvfeature - torch.round(mvfeature),2)
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
@@ -2021,6 +2024,8 @@ class Base(nn.Module):
             compressed_z = z + quant_noise_z
         else:
             compressed_z = torch.round(z)
+        # calculate err
+        z_err = torch.norm(z - torch.round(z),2)
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
@@ -2037,7 +2042,8 @@ class Base(nn.Module):
                 compressed_feature_renorm = torch.round(feature)
         else:
             compressed_feature_renorm = quantize_ste(feature)
-        res_err = torch.abs(feature - torch.round(feature)).mean()
+        # calculate err
+        res_err = torch.norm(feature - torch.round(feature),2)
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
@@ -2085,7 +2091,7 @@ class Base(nn.Module):
         bpp_mv = total_bits_mv / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, mv_err, res_err, priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, mv_err + res_err + z_err, priors
 
 
 # utils for scale-space flow

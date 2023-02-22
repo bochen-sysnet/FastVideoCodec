@@ -188,7 +188,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"B:{be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
             f"R:{be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"I:{I_module.val:.2f} ({I_module.avg:.2f})."
+            f"I:{I_module.val:.2f} ({I_module.avg:.2f}). "
             f"A1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
             f"A2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
 
