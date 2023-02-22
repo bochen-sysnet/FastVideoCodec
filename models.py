@@ -229,10 +229,12 @@ def parallel_compression(model, data, compressI=False):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
-                if not model.useER:
-                    all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
-                else:
+                if model.useER:
                     all_loss_list += [(model.r*mseloss + bpp + 1e-4*err).to(data.device)]
+                elif model.useE2R:
+                    all_loss_list += [(model.r*mseloss + bpp + 1e-3*err).to(data.device)]
+                else:
+                    all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
                 bppres_list += [(bpp_feature + bpp_z).to(data.device)]
@@ -1846,6 +1848,7 @@ class Base(nn.Module):
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useE5C = True if '-E5C' in name else False # tanh + concat
         self.useER = True if '-ER' in name else False # error regularization
+        self.useE2R = True if '-E2R' in name else False # error regularization
         self.useBackbone = True if '-BB' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()

@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'Base-ER'
+CODEC_NAME = 'Base-E2R'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -35,7 +35,7 @@ WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
 END_EPOCH = 10
 WARMUP_EPOCH = 5
-device = 0
+device = 1
 STEPS = []
 
 if not os.path.exists(SAVE_DIR):
@@ -203,7 +203,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 20000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
