@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'Base-ER'
+CODEC_NAME = 'Base'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -135,14 +135,16 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
         
 def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset):
-    aux_loss_module = AverageMeter()
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
     be_res_loss_module = AverageMeter()
     psnr_module = AverageMeter()
-    aux2_loss_module = AverageMeter()
     I_module = AverageMeter()
     all_loss_module = AverageMeter()
+    aux_loss_module = AverageMeter()
+    aux2_loss_module = AverageMeter()
+    aux3_loss_module = AverageMeter()
+    aux4_loss_module = AverageMeter()
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     batch_size = 7
     ds_size = len(train_dataset)
@@ -161,7 +163,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2 = parallel_compression(model,data,True)
+        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(model,data,True)
 
         # record loss
         all_loss_module.update(loss.cpu().data.item(), l)
@@ -173,6 +175,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             I_module.update(I_psnr)
         aux_loss_module.update(aux_loss, l)
         aux2_loss_module.update(aux_loss2, l)
+        aux3_loss_module.update(aux_loss3, l)
+        aux4_loss_module.update(aux_loss4, l)
         
         # backward
         scaler.scale(loss).backward()
@@ -192,7 +196,9 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"I:{I_module.val:.2f} ({I_module.avg:.2f}). "
             f"A1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"A2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
+            f"A2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"A3:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"A4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
 
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
@@ -251,15 +257,15 @@ def test(epoch, model, test_dataset):
             
             # compress GoP
             if l>fP+1:
-                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
-                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2 = parallel_compression(model,data[fP:],False)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(model,data[fP:],False)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
             else:
-                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2 = parallel_compression(model,torch.flip(data,[0]),True)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(model,torch.flip(data,[0]),True)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
                 

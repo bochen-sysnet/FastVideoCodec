@@ -174,7 +174,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(model, data, compressI=False):
-    all_loss_list = []; img_loss_list = []; aux_loss_list = []; bpp_list = []; psnr_list = []; aux2_loss_list = []; bppres_list = []
+    all_loss_list = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
+    aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
@@ -227,6 +228,8 @@ def parallel_compression(model, data, compressI=False):
             priors = {}
             alpha,beta = 0.1,1
             for i in range(1,B):
+                _, mseloss_real, _, _, _, _, bpp_real, _, _ = \
+                    model(data[i:i+1],x_prev,priors,simu_mode=False)
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
@@ -240,6 +243,8 @@ def parallel_compression(model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 aux_loss_list += [err[0].to(data.device)]
                 aux2_loss_list += [err[1].to(data.device)]
+                aux3_loss_list += [mseloss_real.to(data.device)]
+                aux4_loss_list += [bpp_real.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -312,8 +317,10 @@ def parallel_compression(model, data, compressI=False):
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
     psnr = torch.stack(psnr_list,dim=0).mean(dim=0).cpu().data.item()
-    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
-    aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
+    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux_loss_list else 0
+    aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux2_loss_list else 0
+    aux3_loss = torch.stack(aux3_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux3_loss_list else 0
+    aux4_loss = torch.stack(aux4_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux4_loss_list else 0
     I_psnr = float(psnr_list[0]) if compressI else 0
 
     return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss
@@ -1981,7 +1988,7 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors):
+    def forward(self, input_image, referframe, priors, simu_mode=True):
         # motion
         # self.training=False
         if not self.useSSF:
@@ -1998,7 +2005,7 @@ class Base(nn.Module):
                     quant_noise_mv = self.mvErrNet(estmv)
                 elif self.useE2R:
                     mvfeature, quant_noise_mv = mvfeature.chunk(2, dim=1)
-            if self.training:
+            if self.training and simu_mode:
                 if self.useER or self.useE2R: 
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
                 else:
@@ -2027,7 +2034,7 @@ class Base(nn.Module):
             # encode
             mvfeature = self.motion_encoder(x)
             # quantization
-            if self.training:
+            if self.training and simu_mode:
                 half = float(0.5)
                 quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
@@ -2042,7 +2049,7 @@ class Base(nn.Module):
         feature = self.resEncoder(input_residual)
         # quantization
         if not self.useSTE:
-            if self.training:
+            if self.training and simu_mode:
                 if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual))
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
@@ -2064,7 +2071,7 @@ class Base(nn.Module):
         # hyperprior
         z = self.respriorEncoder(feature)
         # quantization
-        if self.training:
+        if self.training and simu_mode:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
