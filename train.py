@@ -29,7 +29,7 @@ CODEC_NAME = 'Base-ER'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckp.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -195,8 +195,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"R:{be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"I:{I_module.val:.2f} ({I_module.avg:.2f}). "
-            f"A1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"A2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"A1:{aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            f"A2:{aux2_loss_module.val:.2f} ({aux2_loss_module.avg:.2f}). "
             f"A3:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"A4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
 
