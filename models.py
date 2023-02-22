@@ -2115,7 +2115,7 @@ class Base(nn.Module):
         mse_loss = torch.mean((recon_image - input_image).pow(2))
         interloss = torch.mean((prediction - input_image).pow(2))
 
-        def feature_probs_based_sigma(self,feature, sigma):
+        def feature_probs_based_sigma(feature, sigma):
             
             def getrealbitsg(x, gaussian):
                 # print("NIPS18noc : mn : ", torch.min(x), " - mx : ", torch.max(x), " range : ", self.mxrange)
@@ -2134,6 +2134,7 @@ class Base(nn.Module):
 
                 return sym_out - self.mxrange, real_bits
 
+
             mu = torch.zeros_like(sigma)
             sigma = sigma.clamp(1e-5, 1e10)
             gaussian = torch.distributions.laplace.Laplace(mu, sigma)
@@ -2146,14 +2147,14 @@ class Base(nn.Module):
 
             return total_bits, probs
 
-        def iclr18_estrate_bits_z(self,z):
+        def iclr18_estrate_bits_z(z):
             
             def getrealbits(x):
                 cdfs = []
                 x = x + self.mxrange
                 n,c,h,w = x.shape
                 for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(n, 1, h, w, 1))
+                    cdfs.append(self.bitEstimator_z(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
                 cdfs = torch.cat(cdfs, 4).cpu().detach()
                 byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
 
@@ -2174,14 +2175,14 @@ class Base(nn.Module):
             return total_bits, prob
 
 
-        def iclr18_estrate_bits_mv(self,mv):
+        def iclr18_estrate_bits_mv(mv):
 
             def getrealbits(x):
                 cdfs = []
                 x = x + self.mxrange
                 n,c,h,w = x.shape
                 for i in range(-self.mxrange, self.mxrange):
-                    cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(n, 1, h, w, 1))
+                    cdfs.append(self.bitEstimator_mv(i - 0.5).view(1, c, 1, 1, 1).repeat(1, 1, h, w, 1))
                 cdfs = torch.cat(cdfs, 4).cpu().detach()
                 byte_stream = torchac.encode_float_cdf(cdfs, x.cpu().detach().to(torch.int16), check_input_bounds=True)
 
