@@ -25,11 +25,11 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'Base-E5C'
+CODEC_NAME = 'Base-E2R'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
 LEARNING_RATE = 0.0001
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = 1
@@ -300,7 +300,10 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
 test_dataset = VideoDataset('../dataset/UVG', frame_size=(256,256))
-# test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+if True:
+    score = test(0, model, test_dataset)
+    score = test(0, model, test_dataset2)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     # Adjust learning rate
