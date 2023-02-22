@@ -1997,7 +1997,7 @@ class Base(nn.Module):
                 mv_err = ((mvfeature.detach() + quant_noise_mv - torch.round(mvfeature + quant_noise_mv))**2).mean().sqrt()
             else:
                 quant_mv = torch.round(mvfeature)
-                mv_err = 0
+                mv_err = torch.zeros(1)
             
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2044,7 +2044,7 @@ class Base(nn.Module):
                 res_err = ((feature.detach() + quant_noise_feature - torch.round(feature + quant_noise_feature))**2).mean().sqrt()
             else:
                 compressed_feature_renorm = torch.round(feature)
-                res_err = 0
+                res_err = torch.zeros(1)
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2065,7 +2065,7 @@ class Base(nn.Module):
             z_err = ((z.detach() + quant_noise_z - torch.round(z + quant_noise_z))**2).mean().sqrt()
         else:
             compressed_z = torch.round(z)
-            z_err = 0
+            z_err = torch.zeros(1)
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
