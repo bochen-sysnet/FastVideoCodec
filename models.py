@@ -1983,7 +1983,6 @@ class Base(nn.Module):
 
     def forward(self, input_image, referframe, priors):
         # motion
-        self.training = False
         if not self.useSSF:
             estmv = self.opticFlow(input_image, referframe, priors)
             if self.recursive_flow and 'mv' in priors:
@@ -2009,7 +2008,7 @@ class Base(nn.Module):
                 mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
             else:
                 quant_mv = torch.round(mvfeature)
-                mv_M_err = mv_Q_err = torch.zeros(1).cuda()
+                mv_M_err = mv_Q_err = ((mvfeature - quant_mv)**2).mean().sqrt()
             
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2057,7 +2056,7 @@ class Base(nn.Module):
                 res_Q_err = ((feature - torch.round(feature))**2).mean().sqrt()
             else:
                 compressed_feature_renorm = torch.round(feature)
-                res_M_err = res_Q_err = torch.zeros(1).cuda()
+                res_M_err = res_Q_err = ((feature - compressed_feature_renorm)**2).mean().sqrt()
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2079,7 +2078,7 @@ class Base(nn.Module):
             z_Q_err = ((z - torch.round(z))**2).mean().sqrt()
         else:
             compressed_z = torch.round(z)
-            z_M_err = z_Q_err = torch.zeros(1).cuda()
+            z_M_err = z_Q_err = ((z - compressed_z)**2).mean().sqrt()
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
