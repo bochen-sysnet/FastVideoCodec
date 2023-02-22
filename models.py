@@ -1837,10 +1837,12 @@ class Base(nn.Module):
         self.recursive_flow = True if '-RF' in name else False
         self.useSTE = True if '-STE' in name else False
         self.useSSF = True if '-SSF' in name else False
-        self.useEC = True if '-EC' in name else False
-        self.useE2C = True if '-E2C' in name else False
-        self.useE3C = True if '-E3C' in name else False
-        self.useE4C = True if '-E4C' in name else False
+        self.useEC = True if '-EC' in name else False # sigmoid + addition
+        self.useE2C = True if '-E2C' in name else False # no act + addition
+        self.useE3C = True if '-E3C' in name else False # sigmoid + concat
+        self.useE4C = True if '-E4C' in name else False # no act + concat
+        self.useE5C = True if '-E5C' in name else False # tanh + concat
+        self.useER = True if '-ER' in name else False # error regularization
         self.useBackbone = True if '-BB' in name else False
         if not self.useSSF:
             self.opticFlow = MyMENet()
@@ -2165,9 +2167,9 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
 
-    # def forward_inter(self, input_image, referframe):
-    #     print('h')
-    #     exit(0)
+    def forward_inter(self, input_image, referframe):
+        print('h')
+        exit(0)
 
 def gaussian_volume(x, sigma: float, num_levels: int):
     """Efficient gaussian volume construction.

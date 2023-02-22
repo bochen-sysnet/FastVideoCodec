@@ -25,7 +25,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 # OPTION
-CODEC_NAME = 'ELFVC'
+CODEC_NAME = 'Base'
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = 0 # 0,1,2,3
@@ -80,12 +80,12 @@ elif CODEC_NAME in ['DVC-pretrained']:
     from DVC.net import load_model
     load_model(model, pretrained_model_path)
 elif CODEC_NAME in ['ELFVC']:
-    pretrained_model_path = '/home/monet/research/FastVideoCodec/backup/SSF-Official/SSF-Official-0P_best.pth'
-    checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
+    # pretrained_model_path = '/home/monet/research/FastVideoCodec/backup/SSF-Official/SSF-Official-0P_best.pth'
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     # BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
-    # load_state_dict_whatever(model, checkpoint['state_dict'])
-    load_state_dict_all(model, checkpoint['state_dict'])
+    load_state_dict_whatever(model, checkpoint['state_dict'])
+    # load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model ",CODEC_NAME, ':', best_codec_score)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
@@ -203,7 +203,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0:# and batch_idx>0:
+        if batch_idx % 10000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
