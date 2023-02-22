@@ -2060,6 +2060,7 @@ class Base(nn.Module):
                 elif self.useE2R:
                     feature, quant_noise_feature = feature.chunk(2, dim=1)
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
+                    print(feature.size())
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
