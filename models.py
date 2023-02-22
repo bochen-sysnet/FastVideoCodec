@@ -243,7 +243,7 @@ def parallel_compression(model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 aux_loss_list += [err[0].to(data.device)]
                 aux2_loss_list += [err[1].to(data.device)]
-                aux3_loss_list += [mseloss_real.to(data.device)]
+                aux3_loss_list += [model.r*mseloss_real.to(data.device)]
                 aux4_loss_list += [bpp_real.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
