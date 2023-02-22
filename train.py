@@ -147,8 +147,8 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     batch_size = 7
     ds_size = len(train_dataset)
     
-    # model.train()
-    model.eval()
+    model.train()
+    # model.eval()
     if model.name == 'DVC-pretrained':model.eval()
     update_training(model,epoch,warmup_epoch=WARMUP_EPOCH)
     
@@ -175,7 +175,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         aux2_loss_module.update(aux_loss2, l)
         
         # backward
-        # scaler.scale(loss).backward()
+        scaler.scale(loss).backward()
         # update model after compress each video
         if batch_idx%10 == 0 and batch_idx > 0:
             scaler.step(optimizer)
