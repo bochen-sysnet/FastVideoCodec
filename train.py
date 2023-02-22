@@ -195,10 +195,10 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"R:{be_res_loss_module.val:.2f} ({be_res_loss_module.avg:.2f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"I:{I_module.val:.2f} ({I_module.avg:.2f}). "
-            f"A1:{aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
-            f"A2:{aux2_loss_module.val:.2f} ({aux2_loss_module.avg:.2f}). "
-            f"A3:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"A4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+            # f"A1:{aux_loss_module.val:.2f} ({aux_loss_module.avg:.2f}). "
+            # f"A2:{aux2_loss_module.val:.2f} ({aux2_loss_module.avg:.2f}). "
+            f"A1:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"A2:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
 
         # clear result every 1000 batches
         if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
@@ -211,7 +211,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0: #and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
