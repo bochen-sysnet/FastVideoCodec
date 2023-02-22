@@ -323,7 +323,7 @@ def parallel_compression(model, data, compressI=False):
     aux4_loss = torch.stack(aux4_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux4_loss_list else 0
     I_psnr = float(psnr_list[0]) if compressI else 0
 
-    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss
+    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
