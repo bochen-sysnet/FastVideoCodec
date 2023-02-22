@@ -1983,6 +1983,7 @@ class Base(nn.Module):
 
     def forward(self, input_image, referframe, priors):
         # motion
+        self.training = False
         if not self.useSSF:
             estmv = self.opticFlow(input_image, referframe, priors)
             if self.recursive_flow and 'mv' in priors:
