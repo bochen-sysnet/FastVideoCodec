@@ -230,9 +230,9 @@ def parallel_compression(model, data, compressI=False):
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 if model.useER:
-                    all_loss_list += [(model.r*mseloss + bpp + 1e-1*err).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + err).to(data.device)]
                 elif model.useE2R:
-                    all_loss_list += [(model.r*mseloss + bpp + 1e-2*err).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp + err).to(data.device)]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
