@@ -1934,14 +1934,14 @@ class Base(nn.Module):
 
         self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
-        if self.useE3C or self.useE4C:
+        if self.useE3C or self.useE4C or self.useE5C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
 
         self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
-        if self.useEC or self.useE2C or self.useE3C or self.useE4C:
+        if self.useEC or self.useE2C or self.useE3C or self.useE4C or self.useE5C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         else:
             self.respriorDecoder = Synthesis_prior_net()
@@ -2057,14 +2057,16 @@ class Base(nn.Module):
         z_err = ((z.detach() + quant_noise_z - torch.round(z + quant_noise_z))**2).mean().sqrt()
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
-        if self.useEC or self.useE2C or self.useE3C or self.useE4C:
+        if self.useEC or self.useE2C or self.useE3C or self.useE4C or self.useE5C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             if self.useEC or self.useE3C:
                 feature_correction = torch.sigmoid(feature_correction) - 0.5
+            elif self.useE5C:
+                feature_correction = torch.tanh(feature_correction)
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
-        elif self.useE3C or self.useE4C:
+        elif self.useE3C or self.useE4C or self.useE5C:
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
             recon_res = self.resDecoder(compressed_feature_renorm)
@@ -2172,28 +2174,6 @@ def meshgrid2d(N: int, C: int, H: int, W: int, device: torch.device):
     theta = torch.eye(2, 3, device=device).unsqueeze(0).expand(N, 2, 3)
     return F.affine_grid(theta, (N, C, H, W), align_corners=False)
 
-from compressai.models.video import ScaleSpaceFlow
-
-class ELFVC(ScaleSpaceFlow):
-    def __init__(
-        self,
-        name: str,
-        loss_type: str='P',
-        compression_level: int = 0,
-        num_levels: int = 5,
-        sigma0: float = 1.5,
-        scale_field_shift: float = 1.0,
-    ):
-        super().__init__(num_levels,sigma0,scale_field_shift)
-        self.name = name
-        self.compression_level = compression_level
-        self.loss_type = loss_type
-        init_training_params(self)
-
-    def forward_inter(self, input_image, referframe):
-        print('h')
-        exit(0)
-
 def gaussian_volume(x, sigma: float, num_levels: int):
     """Efficient gaussian volume construction.
 
@@ -2237,3 +2217,25 @@ def warp_volume(volume, flow, scale_field, padding_mode: str = "border"):
         volume.float(), volume_grid, padding_mode=padding_mode, align_corners=False
     )
     return out.squeeze(2)
+
+from compressai.models.video import ScaleSpaceFlow
+
+class ELFVC(ScaleSpaceFlow):
+    def __init__(
+        self,
+        name: str,
+        loss_type: str='P',
+        compression_level: int = 0,
+        num_levels: int = 5,
+        sigma0: float = 1.5,
+        scale_field_shift: float = 1.0,
+    ):
+        super().__init__(num_levels,sigma0,scale_field_shift)
+        self.name = name
+        self.compression_level = compression_level
+        self.loss_type = loss_type
+        init_training_params(self)
+
+    def forward_inter(self, input_image, referframe):
+        print('h')
+        exit(0)
