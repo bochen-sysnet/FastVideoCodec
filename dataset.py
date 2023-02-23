@@ -161,7 +161,7 @@ class VideoCaptureYUV:
         if '.yuv' in filename:
             self.height, self.width = 1080,1920
         elif '.7z' in filename:
-            self.height, self.width = 2160,4096
+            self.height, self.width = 2160,3840
         print(self.width, self.height)
         self.frame_len = int(self.width * self.height * 3 / 2)
         self.f = open(filename, 'rb')
