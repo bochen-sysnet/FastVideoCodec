@@ -1943,28 +1943,19 @@ class Base(nn.Module):
             self.bitEstimator_mv = BitEstimator(192)
         else:
             self.opticFlow = MyMENet()
-            if self.useE2R:
-                self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv*2)
-            else:
-                self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
+            self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
             self.mvDecoder = Synthesis_mv_net()
             self.warpnet = Warp_net()
             self.bitEstimator_mv = BitEstimator(out_channel_mv)
 
-        if self.useE2R:
-            self.resEncoder = Analysis_net(out_channels = out_channel_M*2)
-        else:
-            self.resEncoder = Analysis_net(out_channels = out_channel_M)
+        self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
         if self.useE3C or self.useE4C or self.useE5C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
 
-        if self.useE2R:
-            self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N*2)
-        else:
-            self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
+        self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
         if self.useEC or self.useE2C or self.useE3C or self.useE4C or self.useE5C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
@@ -1974,7 +1965,7 @@ class Base(nn.Module):
             self.respriorCorNet = Synthesis_prior_net()
 
         # error modeling
-        if self.useER: 
+        if self.useER or self.useE2R: 
             self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
             self.resErrNet = Analysis_net(out_channels = out_channel_M)
             self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
@@ -2007,19 +1998,19 @@ class Base(nn.Module):
             estmv = self.opticFlow(input_image, referframe, priors)
             if self.recursive_flow and 'mv' in priors:
                 mvfeature = self.mvEncoder(estmv - priors['mv'])
-                if self.useER: 
+                if self.useER or self.useE2R: 
                     quant_noise_mv = self.mvErrNet((estmv - priors['mv']))
-                elif self.useE2R:
-                    mvfeature, quant_noise_mv = mvfeature.chunk(2, dim=1)
             else:
                 mvfeature = self.mvEncoder(estmv)
-                if self.useER: 
-                    quant_noise_mv = self.mvErrNet(estmv)
-                elif self.useE2R:
-                    mvfeature, quant_noise_mv = mvfeature.chunk(2, dim=1)
-            if self.training:
                 if self.useER or self.useE2R: 
+                    quant_noise_mv = self.mvErrNet(estmv)
+            if self.training:
+                if self.useER: 
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
+                else self.useE2R:
+                    std = torch.sigmoid(quant_noise_mv) * 0.5
+                    eps = torch.empty_like(std).uniform_(-float(1), float(1))
+                    quant_noise_mv = (std * eps)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2059,8 +2050,6 @@ class Base(nn.Module):
         # residual   
         input_residual = input_image - prediction
         feature = self.resEncoder(input_residual)
-        if self.useE2R:
-            feature, quant_noise_feature = feature.chunk(2, dim=1)
         # quantization
         if not self.useSTE:
             if self.training:
@@ -2068,7 +2057,10 @@ class Base(nn.Module):
                     quant_noise_feature = self.resErrNet((input_residual))
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
                 elif self.useE2R:
-                    quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
+                    quant_noise_feature = self.resErrNet((input_residual))
+                    std = torch.sigmoid(quant_noise_feature) * 0.5
+                    eps = torch.empty_like(std).uniform_(-float(1), float(1))
+                    quant_noise_feature = (std * eps)
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2083,15 +2075,16 @@ class Base(nn.Module):
         
         # hyperprior
         z = self.respriorEncoder(feature)
-        if self.useE2R:
-            z, quant_noise_z = z.chunk(2, dim=1)
         # quantization
         if self.training:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
             elif self.useE2R:
-                quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
+                quant_noise_z = self.respriorErrNet((feature))
+                std = torch.sigmoid(quant_noise_z) * 0.5
+                eps = torch.empty_like(std).uniform_(-float(1), float(1))
+                quant_noise_z = (std * eps)
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
