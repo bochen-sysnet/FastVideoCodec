@@ -229,16 +229,16 @@ def parallel_compression(args,model, data, compressI=False):
             alpha = args.alpha
             model_training = model.training
             for i in range(1,B):
-                # if model_training:
-                #     model.training = False
-                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                #         model(data[i:i+1],x_prev,priors)
-                #     model.training = True
-                #     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                #         model(data[i:i+1],x_prev,priors)
-                # else:
-                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                    model(data[i:i+1],x_prev,priors)
+                if model_training:
+                    model.training = False
+                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                        model(data[i:i+1],x_prev,priors)
+                    model.training = True
+                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                        model(data[i:i+1],x_prev,priors)
+                else:
+                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                        model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
