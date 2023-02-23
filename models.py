@@ -174,7 +174,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(args,model, data, compressI=False):
-    all_loss_list = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
+    all_loss_list = []; all_loss_list2 = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
@@ -229,16 +229,16 @@ def parallel_compression(args,model, data, compressI=False):
             alpha = args.alpha
             model_training = model.training
             for i in range(1,B):
-                if model_training:
-                    model.training = False
-                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                        model(data[i:i+1],x_prev,priors)
-                    model.training = True
-                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                        model(data[i:i+1],x_prev,priors)
-                else:
-                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                        model(data[i:i+1],x_prev,priors)
+                # if model_training:
+                #     model.training = False
+                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                #         model(data[i:i+1],x_prev,priors)
+                #     model.training = True
+                #     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                #         model(data[i:i+1],x_prev,priors)
+                # else:
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                    model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
@@ -247,13 +247,12 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
                     if model.useER or model.useE2R:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * (err[0] + err[1])).to(data.device)]
-                    else:
-                        all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
+                        all_loss_list2 += [(model.r*mseloss + bpp + alpha * (err[0])).to(data.device)]
+                    all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
                     aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                    aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
-                    aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
+                    # aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
+                    # aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -322,6 +321,7 @@ def parallel_compression(args,model, data, compressI=False):
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
+    loss2 = torch.stack(all_loss_list2,dim=0).mean(dim=0) if all_loss_list2 else None
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
@@ -332,7 +332,8 @@ def parallel_compression(args,model, data, compressI=False):
     aux4_loss = torch.stack(aux4_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux4_loss_list else 0
     I_psnr = float(psnr_list[0]) if compressI else 0
 
-    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
+
+    return x_hat,loss,loss2,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
@@ -2006,16 +2007,16 @@ class Base(nn.Module):
                     quant_noise_mv = self.mvErrNet(estmv)
             if self.training:
                 if self.useER: 
-                    quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
+                    quant_noise_mv = noise_level = torch.sigmoid(quant_noise_mv) - 0.5
                 elif self.useE2R:
-                    std = torch.sigmoid(quant_noise_mv) * 0.5
-                    eps = torch.empty_like(std).uniform_(-float(1), float(1))
+                    noise_level = torch.sigmoid(quant_noise_mv) * 0.5
+                    eps = torch.empty_like(noise_level).uniform_(-float(1), float(1))
                     quant_noise_mv = (std * eps)
                 else:
                     half = float(0.5)
-                    quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+                    quant_noise_mv = noise_level = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))**2).mean().sqrt()
+                mv_S_err = ((mvfeature + noise_level - torch.round(mvfeature))**2).mean().sqrt()
                 mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
                 mv_N_err = ((quant_noise_mv)**2).mean().sqrt()
             else:
@@ -2056,17 +2057,17 @@ class Base(nn.Module):
             if self.training:
                 if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual))
-                    quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
+                    quant_noise_feature = noise_level = torch.sigmoid(quant_noise_feature) - 0.5
                 elif self.useE2R:
                     quant_noise_feature = self.resErrNet((input_residual))
-                    std = torch.sigmoid(quant_noise_feature) * 0.5
-                    eps = torch.empty_like(std).uniform_(-float(1), float(1))
-                    quant_noise_feature = (std * eps)
+                    noise_level = torch.sigmoid(quant_noise_feature) * 0.5
+                    eps = torch.empty_like(noise_level).uniform_(-float(1), float(1))
+                    quant_noise_feature = (noise_level * eps)
                 else:
                     half = float(0.5)
-                    quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
+                    quant_noise_feature = noise_level = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = ((feature + quant_noise_feature - torch.round(feature))**2).mean().sqrt()
+                res_S_err = ((feature + noise_level - torch.round(feature))**2).mean().sqrt()
                 res_Q_err = ((feature - torch.round(feature))**2).mean().sqrt()
                 res_N_err = ((quant_noise_feature)**2).mean().sqrt()
             else:
@@ -2081,17 +2082,17 @@ class Base(nn.Module):
         if self.training:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
-                quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
+                quant_noise_z = noise_level = torch.sigmoid(quant_noise_z) - 0.5
             elif self.useE2R:
                 quant_noise_z = self.respriorErrNet((feature))
-                std = torch.sigmoid(quant_noise_z) * 0.5
-                eps = torch.empty_like(std).uniform_(-float(1), float(1))
-                quant_noise_z = (std * eps)
+                noise_level = torch.sigmoid(quant_noise_z) * 0.5
+                eps = torch.empty_like(noise_level).uniform_(-float(1), float(1))
+                quant_noise_z = (noise_level * eps)
             else:
                 half = float(0.5)
-                quant_noise_z = torch.empty_like(z).uniform_(-half, half)
+                quant_noise_z = noise_level = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = ((z + quant_noise_z - torch.round(z))**2).mean().sqrt()
+            z_S_err = ((z + noise_level - torch.round(z))**2).mean().sqrt()
             z_Q_err = ((z - torch.round(z))**2).mean().sqrt()
             z_N_err = ((quant_noise_z)**2).mean().sqrt()
         else:
