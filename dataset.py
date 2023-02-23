@@ -97,7 +97,7 @@ class VideoDataset(Dataset):
         # Count total frames 
         self._total_frames = 0
         for file_name in self.__file_names:
-            if '.yuv' in self.current_file or '.7z' in self.current_file:
+            if '.yuv' in file_name or '.7z' in file_name:
                 yuv_size = (2160,3840)
                 cap = VideoCaptureYUV(file_name, yuv_size)
             else:
