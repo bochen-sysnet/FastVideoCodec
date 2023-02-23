@@ -240,16 +240,16 @@ def parallel_compression(model, data, compressI=False):
                     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                         model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
-                if model.useER or model.useE2R:
-                    all_loss_list += [(model.r*mseloss + bpp + alpha * model.r*torch.abs(mseloss - mseloss_Q) + alpha * torch.abs(bpp - bpp_Q)).to(data.device)]
-                else:
-                    all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
                 # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
                 bppres_list += [(err[0]+err[1]).to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
+                    if model.useER or model.useE2R:
+                        all_loss_list += [(model.r*mseloss + bpp + alpha * model.r*torch.abs(mseloss - mseloss_Q) + alpha * torch.abs(bpp - bpp_Q)).to(data.device)]
+                    else:
+                        all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [bpp_Q.to(data.device)]
                     aux2_loss_list += [10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                     aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
