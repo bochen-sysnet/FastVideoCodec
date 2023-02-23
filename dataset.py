@@ -113,6 +113,7 @@ class VideoDataset(Dataset):
                 if ret != True:break
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
+            print(self._total_frames)
             # When everything done, release the video capture object
             cap.release()
         print("[log] Total frames: ", self._total_frames)
