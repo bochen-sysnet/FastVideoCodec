@@ -84,6 +84,10 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 # ---------------------------------------------------------------
 parameters = [p for n, p in model.named_parameters() if (not 'ErrNet' in n)]
 PQ_parameters = [p for n, p in model.named_parameters() if ('ErrNet' in n)]
+for n, p in model.named_parameters():
+    if ('ErrNet' in n):
+        print(n)
+exit(0)
 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 PQ_optimizer = torch.optim.Adam([{'params': PQ_parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
@@ -201,17 +205,17 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         aux4_loss_module.update(aux_loss4, l)
         
         # backward
-        scaler.scale(loss).backward(retain_graph=True if loss2 is not None else False)
+        scaler.scale(loss).backward()
         # update model after compress each video
         if batch_idx%1 == 0 and batch_idx > 0:
             scaler.step(optimizer)
             scaler.update()
             # process pq net if possible
             if loss2 is not None:
-                # _,loss_new,loss2_new,_,_,_,_,_,_,_,_,_ = parallel_compression(args,model,data,True)
+                _,loss_new,loss2_new,_,_,_,_,_,_,_,_,_ = parallel_compression(args,model,data,True)
                 # loss_PQ = (loss.detach() - loss_new.detach()) * loss2_new
-                # scaler_PQ.scale(loss_PQ).backward()
-                scaler_PQ.scale(loss2).backward()
+                loss_PQ = loss2_new
+                scaler_PQ.scale(loss_PQ).backward()
                 scaler_PQ.step(optimizer_PQ)
                 scaler_PQ.update()
                 optimizer_PQ.zero_grad()
