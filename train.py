@@ -84,10 +84,6 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 # ---------------------------------------------------------------
 parameters = [p for n, p in model.named_parameters() if (not 'ErrNet' in n)]
 PQ_parameters = [p for n, p in model.named_parameters() if ('ErrNet' in n)]
-for n, p in model.named_parameters():
-    if ('ErrNet' in n):
-        print(n)
-exit(0)
 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 PQ_optimizer = torch.optim.Adam([{'params': PQ_parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
