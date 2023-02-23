@@ -38,7 +38,7 @@ parser.add_argument('--epoch', type=int, nargs='+', default=[0,10],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
-parser.add_argument('--resolution', type=int, nargs='+', default=[256,256],
+parser.add_argument('--resolution', type=int, default=256, choices=[720,1080,2160],
                     help='Frame resolution') # or 960,1920; 720,1280;1920,3840
 
 args = parser.parse_args()

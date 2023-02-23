@@ -23,9 +23,17 @@ from models import get_codec_model,parallel_compression,update_training,compress
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 class VideoDataset(Dataset):
-    def __init__(self, root_dir, frame_size=None):
+    def __init__(self, root_dir, resolution):
         self._dataset_dir = os.path.join(root_dir)
-        self._frame_size = frame_size
+        if resolution == 256:
+            self._frame_size = (256,256)
+        elif resolution == 720:
+            self._frame_size = (720,1280)
+        elif resolution == 1080:
+            self._frame_size = (1280,1920)
+        elif resolution == 2160:
+            self._frame_size = (1920,3840)
+
         self._total_frames = 0 # Storing file names in object 
         
         self.get_file_names()
@@ -83,7 +91,6 @@ class VideoDataset(Dataset):
             fn = fn.strip("'")
             if fn.split('.')[-1] in ['mp4','yuv']:
                 self.__file_names.append(self._dataset_dir + '/' + fn)
-                break
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
     def __len__(self):
