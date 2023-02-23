@@ -97,6 +97,7 @@ class VideoDataset(Dataset):
         # Count total frames 
         self._total_frames = 0
         for file_name in self.__file_names:
+            print(file_name)
             if '.yuv' in file_name or '.7z' in file_name:
                 yuv_size = (2160,3840)
                 cap = VideoCaptureYUV(file_name, yuv_size)
@@ -166,13 +167,11 @@ class VideoCaptureYUV:
     def read_raw(self):
         try:
             raw = self.f.read(self.frame_len)
-            print(len(raw))
             yuv = np.frombuffer(raw, dtype=np.uint8)
             print(len(yuv))
             yuv = yuv.reshape(self.shape)
         except Exception as e:
             print (str(e))
-            exit(0)
             return False, None
         return True, yuv
 
