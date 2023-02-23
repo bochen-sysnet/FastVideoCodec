@@ -1966,7 +1966,11 @@ class Base(nn.Module):
             self.respriorCorNet = Synthesis_prior_net()
 
         # error modeling
-        if self.useER or self.useE2R: 
+        if self.useER: 
+            self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv*2)
+            self.resErrNet = Analysis_net(out_channels = out_channel_M*2)
+            self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N*2)
+        elif self.useE2R: 
             self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
             self.resErrNet = Analysis_net(out_channels = out_channel_M)
             self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
@@ -2007,16 +2011,19 @@ class Base(nn.Module):
                     quant_noise_mv = self.mvErrNet(estmv)
             if self.training:
                 if self.useER: 
-                    quant_noise_mv = noise_level = torch.sigmoid(quant_noise_mv) - 0.5
+                    noise_mu, noise_sigma = quant_noise_mv.chunk(2, dim=1)
+                    std = torch.exp(noise_sigma)
+                    eps = torch.randn_like(std)
+                    quant_noise_mv = (eps * std + mu).clamp(-0.5, 0.5)
                 elif self.useE2R:
                     noise_level = torch.sigmoid(quant_noise_mv)
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                    quant_noise_mv = (0.5 * eps)
+                    quant_noise_mv = (noise_level * eps)
                 else:
                     half = float(0.5)
-                    quant_noise_mv = noise_level = torch.empty_like(mvfeature).uniform_(-half, half)
+                    quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = ((mvfeature + noise_level - torch.round(mvfeature))**2).mean().sqrt()
+                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))**2).mean().sqrt()
                 mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
                 mv_N_err = ((quant_noise_mv)**2).mean().sqrt()
             else:
@@ -2057,17 +2064,20 @@ class Base(nn.Module):
             if self.training:
                 if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual))
-                    quant_noise_feature = noise_level = torch.sigmoid(quant_noise_feature) - 0.5
+                    noise_mu, noise_sigma = quant_noise_feature.chunk(2, dim=1)
+                    std = torch.exp(noise_sigma)
+                    eps = torch.randn_like(std)
+                    quant_noise_feature = (eps * std + mu).clamp(-0.5, 0.5)
                 elif self.useE2R:
                     quant_noise_feature = self.resErrNet((input_residual))
                     noise_level = torch.sigmoid(quant_noise_feature)
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                    quant_noise_feature = (.5 * eps)
+                    quant_noise_feature = (noise_level * eps)
                 else:
                     half = float(0.5)
-                    quant_noise_feature = noise_level = torch.empty_like(feature).uniform_(-half, half)
+                    quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = ((feature + noise_level - torch.round(feature))**2).mean().sqrt()
+                res_S_err = ((feature + quant_noise_feature - torch.round(feature))**2).mean().sqrt()
                 res_Q_err = ((feature - torch.round(feature))**2).mean().sqrt()
                 res_N_err = ((quant_noise_feature)**2).mean().sqrt()
             else:
@@ -2082,17 +2092,20 @@ class Base(nn.Module):
         if self.training:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
-                quant_noise_z = noise_level = torch.sigmoid(quant_noise_z) - 0.5
+                noise_mu, noise_sigma = quant_noise_z.chunk(2, dim=1)
+                std = torch.exp(noise_sigma)
+                eps = torch.randn_like(std)
+                quant_noise_z = (eps * std + mu).clamp(-0.5, 0.5)
             elif self.useE2R:
                 quant_noise_z = self.respriorErrNet((feature))
                 noise_level = torch.sigmoid(quant_noise_z)
                 eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                quant_noise_z = (.5 * eps)
+                quant_noise_z = (noise_level * eps)
             else:
                 half = float(0.5)
-                quant_noise_z = noise_level = torch.empty_like(z).uniform_(-half, half)
+                quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = ((z + noise_level - torch.round(z))**2).mean().sqrt()
+            z_S_err = ((z + quant_noise_z - torch.round(z))**2).mean().sqrt()
             z_Q_err = ((z - torch.round(z))**2).mean().sqrt()
             z_N_err = ((quant_noise_z)**2).mean().sqrt()
         else:
