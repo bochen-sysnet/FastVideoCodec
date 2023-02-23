@@ -173,7 +173,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
-def parallel_compression(model, data, compressI=False,args):
+def parallel_compression(args,model, data, compressI=False):
     all_loss_list = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
     if isinstance(model,nn.DataParallel):
