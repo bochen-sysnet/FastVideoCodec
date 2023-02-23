@@ -81,8 +81,7 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 ####### Create optimizer
 # ---------------------------------------------------------------
 parameters = [p for n, p in model.named_parameters() if (not n.endswith(".quantiles"))]
-aux_parameters = [p for n, p in model.named_parameters() if n.endswith(".quantiles")]
-optimizer = torch.optim.Adam([{'params': parameters},{'params': aux_parameters, 'lr': 10*LEARNING_RATE}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
 best_codec_score = [1,0,0]
 
@@ -253,7 +252,6 @@ def test(epoch, model, test_dataset):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
-    aux2_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
     model.eval()
@@ -298,7 +296,7 @@ def test(epoch, model, test_dataset):
         data = []
         
     test_dataset.reset()
-    return [ba_loss_module.avg,psnr_module.avg,aux2_loss_module.avg]
+    return [ba_loss_module.avg,psnr_module.avg]
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""

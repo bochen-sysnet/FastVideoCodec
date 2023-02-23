@@ -30,7 +30,7 @@ class VideoDataset(Dataset):
         elif resolution == 720:
             self._frame_size = (720,1280)
         elif resolution == 1080:
-            self._frame_size = (1280,1920)
+            self._frame_size = (960,1920)
         elif resolution == 2160:
             self._frame_size = (1920,3840)
 
