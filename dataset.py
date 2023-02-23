@@ -172,6 +172,7 @@ class VideoCaptureYUV:
             yuv = yuv.reshape(self.shape)
         except Exception as e:
             print (str(e))
+            exit(0)
             return False, None
         return True, yuv
 
