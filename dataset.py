@@ -163,9 +163,9 @@ class VideoCaptureYUV:
         elif '.7z' in filename:
             self.height, self.width = 2160,4096
         print(self.width, self.height)
-        self.frame_len = self.width * self.height * 3
+        self.frame_len = self.width * self.height * 3 / 2
         self.f = open(filename, 'rb')
-        self.shape = (self.height, self.width, 3)
+        self.shape = (int(self.height*1.5), self.width)
 
     def read_raw(self):
         try:
@@ -181,7 +181,7 @@ class VideoCaptureYUV:
         ret, yuv = self.read_raw()
         if not ret:
             return ret, yuv
-        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV21)
         # cv2.imwrite('../test.jpg',bgr)
         # exit(0)
         return ret, bgr
