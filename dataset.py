@@ -158,9 +158,9 @@ class FrameDataset(Dataset):
                 
 class VideoCaptureYUV:
     def __init__(self, filename):
-        if '.yuv' in file_name:
+        if '.yuv' in filename:
             self.height, self.width = 1080,1920
-        elif '.7z' in file_name:
+        elif '.7z' in filename:
             self.height, self.width = 2160,4096
         self.frame_len = self.width * self.height * 3
         self.f = open(filename, 'rb')
