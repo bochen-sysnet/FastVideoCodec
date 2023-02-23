@@ -201,7 +201,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         aux4_loss_module.update(aux_loss4, l)
         
         # backward
-        scaler.scale(loss).backward()
+        scaler.scale(loss).backward(retrain_graph=True if loss2 is not None else False)
         # update model after compress each video
         if batch_idx%1 == 0 and batch_idx > 0:
             scaler.step(optimizer)
