@@ -109,6 +109,8 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
+                cv2.imwrite('../test.jpg',bgr)
+                exit(0)
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
             print(self._total_frames);self._total_frames = 0
@@ -182,8 +184,6 @@ class VideoCaptureYUV:
         if not ret:
             return ret, yuv
         bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
-        cv2.imwrite('../test.jpg',bgr)
-        exit(0)
         return ret, bgr
 
     def release(self):
