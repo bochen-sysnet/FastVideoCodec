@@ -251,8 +251,8 @@ def parallel_compression(args,model, data, compressI=False):
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
                     aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                    # aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
-                    # aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
+                    aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
+                    aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
