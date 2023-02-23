@@ -318,7 +318,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-test_dataset = VideoDataset(f'../dataset/{args.dataset}', frame_size=(args.resolution[0],args.resolution[1]))
+test_dataset = VideoDataset(f'../dataset/{args.dataset}', frame_size=args.resolution)
 # test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 if args.evaluate:
     score = test(0, model, test_dataset)
