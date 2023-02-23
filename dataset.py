@@ -119,7 +119,7 @@ class VideoDataset(Dataset):
                 # exit(0)
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
-            print(self._total_frames)
+            # print(self._total_frames)
             # When everything done, release the video capture object
             cap.release()
         print("[log] Total frames: ", self._total_frames)
@@ -166,7 +166,7 @@ class FrameDataset(Dataset):
                 
 class VideoCaptureYUV:
     def __init__(self, filename):
-        self.height, self.width = 2160,3840
+        self.height, self.width = 1080,1920
         self.frame_len = int(self.width * self.height * 3 / 2)
         self.f = open(filename, 'rb')
         self.shape = (int(self.height*1.5), self.width)
@@ -179,7 +179,7 @@ class VideoCaptureYUV:
             yuv = np.frombuffer(raw, dtype=np.uint8)
             yuv = yuv.reshape(self.shape)
         except Exception as e:
-            print (str(e))
+            # print (str(e))
             assert len(raw)==0
             return False, None
         return True, yuv
