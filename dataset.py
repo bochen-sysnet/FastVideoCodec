@@ -52,7 +52,7 @@ class VideoDataset(Dataset):
         # Get the next dataset if frame number is more than table count
         if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
             self.current_file = self._cur_file_names.pop() # get one filename
-            if '.yuv' in self.current_file or '.7z' in self.current_file:
+            if '.yuv' in self.current_file:
                 cap = VideoCaptureYUV(file_name)
             else:
                 cap = cv2.VideoCapture(self.current_file)
@@ -83,7 +83,7 @@ class VideoDataset(Dataset):
         self.__file_names = []
         for fn in os.listdir(self._dataset_dir):
             fn = fn.strip("'")
-            if fn.split('.')[-1] in ['mp4','7z','yuv']:
+            if fn.split('.')[-1] in ['mp4','yuv']:
                 self.__file_names.append(self._dataset_dir + '/' + fn)
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         
