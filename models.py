@@ -248,7 +248,7 @@ def parallel_compression(args,model, data, compressI=False):
                 if model_training:
                     if model.useER or model.useE2R:
                         all_loss_list += [(model.r*mseloss + bpp + err[0] + \
-                                            alpha * (model.r * torch.abs(mseloss - mseloss_Q) + torch.abs(bpp - bpp_Q))).to(data.device)]
+                                            alpha * (model.r * torch.abs(mseloss - mseloss_Q))).to(data.device)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
