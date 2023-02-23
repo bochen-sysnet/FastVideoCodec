@@ -26,7 +26,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
-parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG', 'MCL-JCV'],
+parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG', 'MCL-JCV','UVG/4k'],
                     help='evaluating dataset (default: UVG)')
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
