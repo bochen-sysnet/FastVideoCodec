@@ -208,7 +208,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             scaler.update()
             # process pq net if possible
             if loss2 is not None:
-                _,loss_new,loss2_new,_,_,_,_,_,_,_,_ = parallel_compression(args,model,data,True)
+                _,loss_new,loss2_new,_,_,_,_,_,_,_,_,_ = parallel_compression(args,model,data,True)
                 loss_PQ = (loss.detach() - loss_new.detach()) * loss2_new
                 scaler_PQ.scale(loss_PQ).backward()
                 scaler_PQ.step(optimizer_PQ)
