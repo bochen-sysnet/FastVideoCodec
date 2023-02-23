@@ -2007,7 +2007,7 @@ class Base(nn.Module):
             if self.training:
                 if self.useER: 
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
-                else self.useE2R:
+                elif self.useE2R:
                     std = torch.sigmoid(quant_noise_mv) * 0.5
                     eps = torch.empty_like(std).uniform_(-float(1), float(1))
                     quant_noise_mv = (std * eps)
