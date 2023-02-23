@@ -32,8 +32,6 @@ class VideoDataset(Dataset):
         self._num_files = len(self.__file_names)
         
         self.reset()
-        print(len(self))
-        exit(0)
         
     def reset(self):
         self._curr_counter = 0
@@ -96,7 +94,7 @@ class VideoDataset(Dataset):
         # Count total frames 
         self._total_frames = 0
         for file_name in self.__file_names:
-            print(file_name)
+            # print(file_name)
             if '.yuv' in file_name:
                 cap = VideoCaptureYUV(file_name)
             else:
@@ -113,7 +111,7 @@ class VideoDataset(Dataset):
                 # exit(0)
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
-            print(self._total_frames)
+            # print(self._total_frames)
             # When everything done, release the video capture object
             cap.release()
         print("[log] Total frames: ", self._total_frames)
