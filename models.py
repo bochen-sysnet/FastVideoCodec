@@ -2011,8 +2011,8 @@ class Base(nn.Module):
                     quant_noise_mv = self.mvErrNet(estmv)
             if self.training:
                 if self.useER: 
-                    noise_mu, noise_sigma = quant_noise_mv.chunk(2, dim=1)
-                    std = torch.exp(noise_sigma)
+                    mu, sigma = quant_noise_mv.chunk(2, dim=1)
+                    std = torch.exp(sigma)
                     eps = torch.randn_like(std)
                     quant_noise_mv = (eps * std + mu).clamp(-0.5, 0.5)
                 elif self.useE2R:
@@ -2064,8 +2064,8 @@ class Base(nn.Module):
             if self.training:
                 if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual))
-                    noise_mu, noise_sigma = quant_noise_feature.chunk(2, dim=1)
-                    std = torch.exp(noise_sigma)
+                    mu, sigma = quant_noise_feature.chunk(2, dim=1)
+                    std = torch.exp(sigma)
                     eps = torch.randn_like(std)
                     quant_noise_feature = (eps * std + mu).clamp(-0.5, 0.5)
                 elif self.useE2R:
@@ -2092,8 +2092,8 @@ class Base(nn.Module):
         if self.training:
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
-                noise_mu, noise_sigma = quant_noise_z.chunk(2, dim=1)
-                std = torch.exp(noise_sigma)
+                mu, sigma = quant_noise_z.chunk(2, dim=1)
+                std = torch.exp(sigma)
                 eps = torch.randn_like(std)
                 quant_noise_z = (eps * std + mu).clamp(-0.5, 0.5)
             elif self.useE2R:
