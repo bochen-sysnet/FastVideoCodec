@@ -161,9 +161,9 @@ class VideoCaptureYUV:
         if '.yuv' in filename:
             self.height, self.width = 1080,1920
         elif '.7z' in filename:
-            self.height, self.width = 2160,4096
+            self.height, self.width = 2160,3840
         print(filename,self.height,self.width)
-        self.frame_len = self.width * self.height * 3
+        self.frame_len = self.width * self.height * 2
         self.f = open(filename, 'rb')
         self.shape = (self.height, self.width, 3)
 
@@ -182,8 +182,8 @@ class VideoCaptureYUV:
         if not ret:
             return ret, yuv
         bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
-        cv2.imwrite('../test.jpg',bgr)
-        exit(0)
+        # cv2.imwrite('../test.jpg',bgr)
+        # exit(0)
         return ret, bgr
 
     def release(self):
