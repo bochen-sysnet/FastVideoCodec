@@ -242,18 +242,17 @@ def parallel_compression(args,model, data, compressI=False):
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
-                bppres_list += [(bpp_feature + bpp_z).to(data.device)]
-                # bppres_list += [err[2].to(data.device)]
+                # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
+                bppres_list += [err[0].to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
                     if model.useER or model.useE2R:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * (model.r*mseloss_Q + bpp_Q)).to(data.device)]
-                        # all_loss_list += [(model.r*mseloss + bpp + alpha * (torch.abs(model.r*mseloss - model.r*mseloss_Q) + torch.abs(bpp - bpp_Q))).to(data.device)]
+                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[0]).to(data.device)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
-                    aux_loss_list += [err[0].to(data.device)] #[bpp_Q.to(data.device)]
-                    aux2_loss_list += [err[1].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                    aux3_loss_list += [err[2].to(data.device)] #[model.r*(mseloss - mseloss_Q).to(data.device)]
+                    aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
+                    aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                    aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
                     aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
@@ -2016,9 +2015,9 @@ class Base(nn.Module):
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_N_err = ((quant_noise_mv)**2).mean().sqrt()
                 mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))**2).mean().sqrt()
                 mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
+                mv_N_err = ((quant_noise_mv)**2).mean().sqrt()
             else:
                 quant_mv = torch.round(mvfeature)
                 mv_S_err = mv_N_err = mv_Q_err = (mvfeature - quant_mv).abs().mean()
