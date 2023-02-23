@@ -109,7 +109,7 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
-                cv2.imwrite('../test.jpg',bgr)
+                cv2.imwrite('../test.jpg',img)
                 exit(0)
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
