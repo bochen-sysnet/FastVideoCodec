@@ -168,14 +168,16 @@ class VideoCaptureYUV:
         self.frame_len = int(self.width * self.height * 3 / 2)
         self.f = open(filename, 'rb')
         self.shape = (int(self.height*1.5), self.width)
+        self.l = 0
 
     def read_raw(self):
         try:
             raw = self.f.read(self.frame_len)
+            self.l += len(raw)
             yuv = np.frombuffer(raw, dtype=np.uint8)
             yuv = yuv.reshape(self.shape)
         except Exception as e:
-            print (str(e))
+            print (str(e),self.l)
             return False, None
         return True, yuv
 
