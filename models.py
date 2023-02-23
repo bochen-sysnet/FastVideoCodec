@@ -2012,6 +2012,7 @@ class Base(nn.Module):
             if self.training:
                 if self.useER: 
                     mu, sigma = quant_noise_mv.chunk(2, dim=1)
+                    mu = torch.sigmoid(mu)
                     std = torch.exp(sigma)
                     eps = torch.randn_like(std)
                     quant_noise_mv = (eps * std + mu).clamp(-0.5, 0.5)
@@ -2065,6 +2066,7 @@ class Base(nn.Module):
                 if self.useER: 
                     quant_noise_feature = self.resErrNet((input_residual))
                     mu, sigma = quant_noise_feature.chunk(2, dim=1)
+                    mu = torch.sigmoid(mu)
                     std = torch.exp(sigma)
                     eps = torch.randn_like(std)
                     quant_noise_feature = (eps * std + mu).clamp(-0.5, 0.5)
@@ -2093,6 +2095,7 @@ class Base(nn.Module):
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
                 mu, sigma = quant_noise_z.chunk(2, dim=1)
+                mu = torch.sigmoid(mu)
                 std = torch.exp(sigma)
                 eps = torch.randn_like(std)
                 quant_noise_z = (eps * std + mu).clamp(-0.5, 0.5)
