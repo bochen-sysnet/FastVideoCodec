@@ -2011,7 +2011,7 @@ class Base(nn.Module):
                 elif self.useE2R:
                     noise_level = torch.sigmoid(quant_noise_mv) * 0.5
                     eps = torch.empty_like(noise_level).uniform_(-float(1), float(1))
-                    quant_noise_mv = (std * eps)
+                    quant_noise_mv = (noise_level * eps)
                 else:
                     half = float(0.5)
                     quant_noise_mv = noise_level = torch.empty_like(mvfeature).uniform_(-half, half)
