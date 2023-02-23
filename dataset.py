@@ -181,9 +181,9 @@ class VideoCaptureYUV:
         ret, yuv = self.read_raw()
         if not ret:
             return ret, yuv
-        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV21)
-        # cv2.imwrite('../test.jpg',bgr)
-        # exit(0)
+        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
+        cv2.imwrite('../test.jpg',bgr)
+        exit(0)
         return ret, bgr
 
     def release(self):
