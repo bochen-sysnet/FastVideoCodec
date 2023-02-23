@@ -179,7 +179,7 @@ class VideoCaptureYUV:
             yuv = np.frombuffer(raw, dtype=np.uint8)
             yuv = yuv.reshape(self.shape)
         except Exception as e:
-            # print (str(e))
+            print (str(e))
             assert len(raw)==0
             return False, None
         return True, yuv
