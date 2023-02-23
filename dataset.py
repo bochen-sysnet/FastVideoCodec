@@ -52,9 +52,10 @@ class VideoDataset(Dataset):
         # Get the next dataset if frame number is more than table count
         if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
             self.current_file = self._cur_file_names.pop() # get one filename
-            if '.yuv' in self.current_file or '.7z' in self.current_file:
-                yuv_size = (2160,3840)
-                cap = VideoCaptureYUV(self.current_file, yuv_size)
+            if '.yuv' in self.current_file:
+                cap = VideoCaptureYUV(file_name, (1080,1920))
+            elif '.7z' in self.current_file:
+                cap = VideoCaptureYUV(file_name, (2160,4096))
             else:
                 cap = cv2.VideoCapture(self.current_file)
             # Check if camera opened successfully
@@ -98,9 +99,10 @@ class VideoDataset(Dataset):
         self._total_frames = 0
         for file_name in self.__file_names:
             print(file_name)
-            if '.yuv' in file_name or '.7z' in file_name:
-                yuv_size = (2160,4096)
-                cap = VideoCaptureYUV(file_name, yuv_size)
+            if '.yuv' in file_name:
+                cap = VideoCaptureYUV(file_name, (1080,1920))
+            elif '.7z' in file_name:
+                cap = VideoCaptureYUV(file_name, (2160,4096))
             else:
                 cap = cv2.VideoCapture(file_name)
             # Check if camera opened successfully
@@ -110,6 +112,7 @@ class VideoDataset(Dataset):
             while(True):
                 # Capture frame-by-frame
                 ret, img = cap.read()
+                print(img.shape)
                 if ret != True:break
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
