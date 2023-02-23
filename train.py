@@ -26,7 +26,7 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 from dataset import VideoDataset, FrameDataset
 
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
-parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG', 'MCL-JCV','UVG/4k','UVG/2k'],
+parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
                     help='evaluating dataset (default: UVG)')
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -38,7 +38,7 @@ parser.add_argument('--epoch', type=int, nargs='+', default=[0,10],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
-parser.add_argument('--resolution', type=int, default=256, choices=[720,1080,2160],
+parser.add_argument('--resolution', type=int, default=256, choices=[256,720,1080,2160],
                     help='Frame resolution') # or 960,1920; 720,1280;1920,3840
 
 args = parser.parse_args()
@@ -228,7 +228,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0:# and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)

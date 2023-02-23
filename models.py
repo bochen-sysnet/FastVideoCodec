@@ -226,14 +226,19 @@ def parallel_compression(model, data, compressI=False):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
-            alpha = .1
+            alpha = 1
+            model_training = model.training
             for i in range(1,B):
-                model.training = False
-                _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                    model(data[i:i+1],x_prev,priors)
-                model.training = True
-                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                    model(data[i:i+1],x_prev,priors)
+                if model_training:
+                    model.training = False
+                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                        model(data[i:i+1],x_prev,priors)
+                    model.training = True
+                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                        model(data[i:i+1],x_prev,priors)
+                else:
+                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                        model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 if model.useER or model.useE2R:
                     all_loss_list += [(model.r*mseloss + bpp + alpha * model.r*torch.abs(mseloss - mseloss_Q) + alpha * torch.abs(bpp - bpp_Q)).to(data.device)]
@@ -244,10 +249,11 @@ def parallel_compression(model, data, compressI=False):
                 # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
                 bppres_list += [(err[0]+err[1]).to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                aux_loss_list += [bpp_Q.to(data.device)]
-                aux2_loss_list += [10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
-                aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
+                if model_training:
+                    aux_loss_list += [bpp_Q.to(data.device)]
+                    aux2_loss_list += [10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                    aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
+                    aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -1883,11 +1889,11 @@ class Base(nn.Module):
         self.useSSF = True if '-SSF' in name else False
         self.useEC = True if '-EC' in name else False # sigmoid + addition
         self.useE2C = True if '-E2C' in name else False # no act + addition
-        self.useE3C = True if '-E3C' in name else False # sigmoid + concat
+        self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useE5C = True if '-E5C' in name else False # tanh + concat
         self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
-        self.useER = True if '-ER' in name else False # error regularization
+        self.useER = True if '-ER' in name else False # error regularization ===best=== ER2:0.1
         self.useE2R = True if '-E2R' in name else False # error regularization
         if self.useSSF:
             class Encoder(nn.Sequential):
@@ -2106,7 +2112,7 @@ class Base(nn.Module):
                 feature_correction = torch.tanh(feature_correction)
         elif self.useE6C:
             feature_correction = self.respriorCorNet(compressed_z)
-            
+
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
