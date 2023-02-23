@@ -55,7 +55,7 @@ class VideoDataset(Dataset):
             if '.yuv' in self.current_file:
                 cap = VideoCaptureYUV(file_name, (1080,1920))
             elif '.7z' in self.current_file:
-                cap = VideoCaptureYUV(file_name, (2160,4096))
+                cap = VideoCaptureYUV(file_name, (2160,3840))
             else:
                 cap = cv2.VideoCapture(self.current_file)
             # Check if camera opened successfully
@@ -102,7 +102,7 @@ class VideoDataset(Dataset):
             if '.yuv' in file_name:
                 cap = VideoCaptureYUV(file_name, (1080,1920))
             elif '.7z' in file_name:
-                cap = VideoCaptureYUV(file_name, (2160,4096))
+                cap = VideoCaptureYUV(file_name, (2160,3840))
             else:
                 cap = cv2.VideoCapture(file_name)
             # Check if camera opened successfully
