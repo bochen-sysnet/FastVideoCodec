@@ -97,7 +97,7 @@ class VideoDataset(Dataset):
         self._total_frames = 0
         for file_name in self.__file_names:
             print(file_name)
-            if '.yuv' in file_name or '.7z' in file_name:
+            if '.yuv' in file_name:
                 cap = VideoCaptureYUV(file_name)
             else:
                 cap = cv2.VideoCapture(file_name)
@@ -109,8 +109,8 @@ class VideoDataset(Dataset):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
-                # cv2.imwrite('../test.jpg',img)
-                # exit(0)
+                cv2.imwrite('../test.jpg',img)
+                exit(0)
                 if np.sum(img) == 0:continue
                 self._total_frames+=1
             print(self._total_frames);self._total_frames = 0
@@ -160,10 +160,7 @@ class FrameDataset(Dataset):
                 
 class VideoCaptureYUV:
     def __init__(self, filename):
-        if '.yuv' in filename:
-            self.height, self.width = 1080,1920
-        elif '.7z' in filename:
-            self.height, self.width = 2160,3840
+        self.height, self.width = 2160,3840
         print(self.width, self.height)
         self.frame_len = int(self.width * self.height * 3 / 2)
         self.f = open(filename, 'rb')
@@ -177,7 +174,7 @@ class VideoCaptureYUV:
             yuv = np.frombuffer(raw, dtype=np.uint8)
             yuv = yuv.reshape(self.shape)
         except Exception as e:
-            print (str(e),self.l)
+            print (str(e))
             return False, None
         return True, yuv
 
