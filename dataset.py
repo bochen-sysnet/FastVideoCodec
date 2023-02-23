@@ -122,7 +122,7 @@ class VideoDataset(Dataset):
             # print(self._total_frames)
             # When everything done, release the video capture object
             cap.release()
-        print("[log] Total frames: ", self._total_frames)
+        # print("[log] Total frames: ", self._total_frames)
         
 class FrameDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
