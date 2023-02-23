@@ -159,9 +159,9 @@ class FrameDataset(Dataset):
 class VideoCaptureYUV:
     def __init__(self, filename, size):
         self.height, self.width = size
-        self.frame_len = self.width * self.height * 3 / 2
+        self.frame_len = self.width * self.height * 3
         self.f = open(filename, 'rb')
-        self.shape = (int(self.height*1.5), self.width)
+        self.shape = (self.height, self.width, 3)
 
     def read_raw(self):
         try:
@@ -177,7 +177,7 @@ class VideoCaptureYUV:
         ret, yuv = self.read_raw()
         if not ret:
             return ret, yuv
-        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
+        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
         return ret, bgr
 
     def release(self):
