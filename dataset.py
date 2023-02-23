@@ -51,7 +51,7 @@ class VideoDataset(Dataset):
         if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
             self.current_file = self._cur_file_names.pop() # get one filename
             if '.yuv' in self.current_file:
-                cap = VideoCaptureYUV(file_name)
+                cap = VideoCaptureYUV(self.current_file)
             else:
                 cap = cv2.VideoCapture(self.current_file)
             # Check if camera opened successfully
