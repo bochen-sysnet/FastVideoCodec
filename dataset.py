@@ -182,7 +182,7 @@ class VideoCaptureYUV:
         ret, yuv = self.read_raw()
         if not ret:
             return ret, yuv
-        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
+        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_NV21)
         return ret, bgr
 
     def release(self):
