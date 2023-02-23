@@ -99,7 +99,7 @@ class VideoDataset(Dataset):
         for file_name in self.__file_names:
             print(file_name)
             if '.yuv' in file_name or '.7z' in file_name:
-                yuv_size = (2160,3840)
+                yuv_size = (2160,4096)
                 cap = VideoCaptureYUV(file_name, yuv_size)
             else:
                 cap = cv2.VideoCapture(file_name)
@@ -169,7 +169,6 @@ class VideoCaptureYUV:
         try:
             raw = self.f.read(self.frame_len)
             yuv = np.frombuffer(raw, dtype=np.uint8)
-            print(len(raw),len(yuv))
             yuv = yuv.reshape(self.shape)
         except Exception as e:
             print (str(e))
