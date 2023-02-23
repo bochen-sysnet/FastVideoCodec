@@ -32,6 +32,8 @@ class VideoDataset(Dataset):
         self._num_files = len(self.__file_names)
         
         self.reset()
+        print(len(self))
+        exit(0)
         
     def reset(self):
         self._curr_counter = 0
@@ -50,13 +52,17 @@ class VideoDataset(Dataset):
         # Get the next dataset if frame number is more than table count
         if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
             self.current_file = self._cur_file_names.pop() # get one filename
-            cap = cv2.VideoCapture(self.current_file)
+            if '.yuv' in self.current_file or '.7z' in self.current_file:
+                yuv_size = (2160,3840)
+                cap = VideoCaptureYUV(self.current_file, yuv_size)
+            else:
+                cap = cv2.VideoCapture(self.current_file)
             # Check if camera opened successfully
             if (cap.isOpened()== False):
                 print("Error opening video stream or file")
             # Read until video is completed
             self._clip = []
-            while(cap.isOpened()):
+            while(True):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
@@ -91,12 +97,16 @@ class VideoDataset(Dataset):
         # Count total frames 
         self._total_frames = 0
         for file_name in self.__file_names:
-            cap = cv2.VideoCapture(file_name)
+            if '.yuv' in self.current_file or '.7z' in self.current_file:
+                yuv_size = (2160,3840)
+                cap = VideoCaptureYUV(file_name, yuv_size)
+            else:
+                cap = cv2.VideoCapture(file_name)
             # Check if camera opened successfully
             if (cap.isOpened()== False):
                 print("Error opening video stream or file")
             # Read until video is completed
-            while(cap.isOpened()):
+            while(True):
                 # Capture frame-by-frame
                 ret, img = cap.read()
                 if ret != True:break
@@ -104,7 +114,7 @@ class VideoDataset(Dataset):
                 self._total_frames+=1
             # When everything done, release the video capture object
             cap.release()
-        #print("[log] Total frames: ", self._total_frames)
+        print("[log] Total frames: ", self._total_frames)
         
 class FrameDataset(Dataset):
     def __init__(self, root_dir, frame_size=None):
@@ -146,3 +156,32 @@ class FrameDataset(Dataset):
         data = torch.stack(data, dim=0)
         return data
                 
+class VideoCaptureYUV:
+    def __init__(self, filename, size):
+        self.height, self.width = size
+        self.frame_len = self.width * self.height * 3 / 2
+        self.f = open(filename, 'rb')
+        self.shape = (int(self.height*1.5), self.width)
+
+    def read_raw(self):
+        try:
+            raw = self.f.read(self.frame_len)
+            yuv = np.frombuffer(raw, dtype=np.uint8)
+            yuv = yuv.reshape(self.shape)
+        except Exception as e:
+            print str(e)
+            return False, None
+        return True, yuv
+
+    def read(self):
+        ret, yuv = self.read_raw()
+        if not ret:
+            return ret, yuv
+        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
+        return ret, bgr
+
+    def release(self):
+        pass
+
+    def isOpened(self):
+        return True
