@@ -174,7 +174,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(args,model, data, compressI=False):
-    all_loss_list = []; all_loss_list2 = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
+    all_loss_list = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
@@ -246,12 +246,9 @@ def parallel_compression(args,model, data, compressI=False):
                 bppres_list += [err[0].to(data.device)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
-                    if model.useER:
-                        all_loss_list2 += [((err[0])).to(data.device)]
-                    elif model.useE2R:
-                        all_loss_list2 += [(model.r*mseloss + bpp + (err[0])).to(data.device)]
-                    if model.useER:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1]).to(data.device)]
+                    if model.useER or model.useE2R:
+                        all_loss_list += [(model.r*mseloss + bpp + err[0] + \
+                                            alpha * (model.r * torch.abs(mseloss - mseloss_Q) + torch.abs(bpp - bpp_Q))).to(data.device)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
@@ -326,7 +323,6 @@ def parallel_compression(args,model, data, compressI=False):
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
-    loss2 = torch.stack(all_loss_list2,dim=0).mean(dim=0) if all_loss_list2 else None
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
@@ -338,7 +334,7 @@ def parallel_compression(args,model, data, compressI=False):
     I_psnr = float(psnr_list[0]) if compressI else 0
 
 
-    return x_hat,loss,loss2,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
+    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
