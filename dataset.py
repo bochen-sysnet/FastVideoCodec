@@ -162,6 +162,7 @@ class VideoCaptureYUV:
             self.height, self.width = 1080,1920
         elif '.7z' in filename:
             self.height, self.width = 2160,4096
+        print(filename,self.height,self.width)
         self.frame_len = self.width * self.height * 3
         self.f = open(filename, 'rb')
         self.shape = (self.height, self.width, 3)
