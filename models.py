@@ -2000,7 +2000,7 @@ class Base(nn.Module):
         def vector2sample(vect):
             # vect = torch.sigmoid(vect)
             vect -= vect.mean()
-            sample = vect * 0.5 / torch.abs(quant_noise_mv).max()
+            sample = vect * 0.5 / torch.abs(quant_noise_mv).max() * torch.empty_like(mvfeature).uniform_(-1., 1.)
             return sample
         # motion
         # self.training=False
