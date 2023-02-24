@@ -1824,8 +1824,7 @@ class View(nn.Module):
     def forward(self, x):
         return x.view(-1) 
 
-class BasicBlock(BuildingBlock):
-    expansion = 1
+class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, outplanes, stride=1):
         super(BasicBlock, self).__init__()
