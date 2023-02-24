@@ -2002,6 +2002,7 @@ class Base(nn.Module):
             vect -= vect.mean()
             sample = vect * 0.5 / torch.abs(vect).max()# * torch.empty_like(vect).uniform_(-1., 1.)
             return sample
+        normal_std = 0.2
         # motion
         # self.training=False
         if not self.useSSF:
@@ -2018,7 +2019,7 @@ class Base(nn.Module):
                 if self.useER:
                     quant_noise_mv = vector2sample(quant_noise_mv)
                 elif self.useE2R:
-                    quant_noise_mv = (torch.empty_like(quant_noise_mv) * 0.2).clamp(-.5, .5)
+                    quant_noise_mv = (torch.randn(quant_noise_mv) * normal_std).clamp(-.5, .5)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2067,7 +2068,7 @@ class Base(nn.Module):
                     quant_noise_feature = vector2sample(quant_noise_feature)
                 elif self.useE2R:
                     quant_noise_feature = self.resErrNet((input_residual))
-                    quant_noise_feature = (torch.empty_like(quant_noise_feature) * 0.2).clamp(-.5, .5)
+                    quant_noise_feature = (torch.randn(quant_noise_feature) * normal_std).clamp(-.5, .5)
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2089,7 +2090,7 @@ class Base(nn.Module):
                 quant_noise_z = vector2sample(quant_noise_z)
             elif self.useE2R:
                 quant_noise_z = self.respriorErrNet((feature))
-                quant_noise_z = (torch.empty_like(quant_noise_z) * 0.2).clamp(-.5, .5)
+                quant_noise_z = (torch.randn(quant_noise_z) * normal_std).clamp(-.5, .5)
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
