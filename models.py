@@ -1996,6 +1996,7 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors):
+        half = float(0.1)
         # motion
         # self.training=False
         if not self.useSSF:
@@ -2016,7 +2017,6 @@ class Base(nn.Module):
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                     quant_noise_mv = (noise_level * eps)
                 else:
-                    half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
                 mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))**2).mean().sqrt()
@@ -2043,7 +2043,6 @@ class Base(nn.Module):
             mvfeature = self.motion_encoder(x)
             # quantization
             if self.training:
-                half = float(0.5)
                 quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
             else:
@@ -2068,7 +2067,6 @@ class Base(nn.Module):
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                     quant_noise_feature = (noise_level * eps)
                 else:
-                    half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
                 res_S_err = ((feature + quant_noise_feature - torch.round(feature))**2).mean().sqrt()
@@ -2093,7 +2091,6 @@ class Base(nn.Module):
                 eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                 quant_noise_z = (noise_level * eps)
             else:
-                half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
             z_S_err = ((z + quant_noise_z - torch.round(z))**2).mean().sqrt()
