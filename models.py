@@ -2044,7 +2044,7 @@ class Base(nn.Module):
             class Discriminator(nn.Module):
                 def __init__(self):
                     super(Discriminator, self).__init__()
-                    self.mvDisNet = CodecNet([(8,3,1,128*2,128),
+                    self.mvDisNet = CodecNet([(8,3,2,128*2,128),
                                             (8,3,2,128,128),
                                             (8,3,1,128,128),
                                             (8,3,2,128,64)])
