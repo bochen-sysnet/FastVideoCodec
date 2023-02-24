@@ -247,7 +247,8 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
                     if model.useER:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * (err[0] + err[1])).to(data.device)]
+                        all_loss_list += [(model.r*mseloss + bpp + \
+                                        alpha * (err[0] + err[1] + err[2] + err[3])).to(data.device)]
                     elif model.useE2R:
                         all_loss_list += [(model.r*mseloss + bpp + err[0] + \
                                             alpha * (model.r * max(0,mseloss_Q - mseloss) + max(0,bpp_Q - bpp))).to(data.device)]
