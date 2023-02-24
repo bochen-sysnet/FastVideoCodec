@@ -2064,7 +2064,7 @@ class Base(nn.Module):
             mvfeature = self.mvEncoder(estmv)
             if self.training:
                 if self.useER and not uniform_noise:
-                    quant_noise_mv = self.mvGenNet(mvfeature.detach())
+                    quant_noise_mv = self.mvGenNet(mvfeature)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2110,7 +2110,7 @@ class Base(nn.Module):
             if self.training:
                 if self.useER and not uniform_noise: 
                     # predict STE behavior
-                    quant_noise_feature = self.resGenNet(feature.detach())
+                    quant_noise_feature = self.resGenNet(feature)
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2129,7 +2129,7 @@ class Base(nn.Module):
         # quantization
         if self.training:
             if self.useER and not uniform_noise:
-                quant_noise_z = self.respriorGenNet(z.detach())
+                quant_noise_z = self.respriorGenNet(z)
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
