@@ -229,16 +229,16 @@ def parallel_compression(args,model, data, compressI=False):
             alpha = args.alpha
             model_training = model.training
             for i in range(1,B):
-                # if model_training:
-                #     model.training = False
-                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                #         model(data[i:i+1],x_prev,priors)
-                #     model.training = True
-                #     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                #         model(data[i:i+1],x_prev,priors)
-                # else:
-                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                    model(data[i:i+1],x_prev,priors)
+                if model_training:
+                    model.training = False
+                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                        model(data[i:i+1],x_prev,priors)
+                    model.training = True
+                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                        model(data[i:i+1],x_prev,priors)
+                else:
+                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                        model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
@@ -1813,6 +1813,13 @@ class MyMENet(nn.Module):
                                                                             flowfiledsUpsample], 1)) # current flow
         return flowfileds
 
+class View(nn.Module):
+       def __init__(self):
+            super(View, self).__init__()
+   
+        def forward(self, x):
+            return x.view(-1) 
+
 class CodecNet(nn.Module):
     '''
     Compress residual
@@ -1839,6 +1846,12 @@ class CodecNet(nn.Module):
                 layer = GDN(lastCh,inverse=True)
             elif conv_type == 6:
                 layer = nn.BatchNorm2d(lastCh)
+            elif conv_type == 7:
+                layer = nn.Tanh()
+            elif conv_type == 8:
+                layer = ResBlock(ch1, ch2, kernel_size, stride)
+            elif conv_type == 9:
+                layer = View()
             else:
                 print('conv type not found')
                 exit(0)
@@ -1898,7 +1911,7 @@ class Base(nn.Module):
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useE5C = True if '-E5C' in name else False # tanh + concat
         self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
-        self.useER = True if '-ER' in name else False # error regularization ===best=== ER2:0.1
+        self.useER = True if '-ER' in name else False # error regularization
         self.useE2R = True if '-E2R' in name else False # error regularization
         if self.useSSF:
             class Encoder(nn.Sequential):
@@ -1971,9 +1984,38 @@ class Base(nn.Module):
 
         # error modeling
         if self.useER or self.useE2R: 
-            self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
-            self.resErrNet = Analysis_net(out_channels = out_channel_M)
-            self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
+            # self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
+            # self.resErrNet = Analysis_net(out_channels = out_channel_M)
+            # self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
+            self.mvGenNet = CodecNet([(0,3,1,128,128),3,
+                                    (0,3,1,128,128),3,
+                                    (0,3,1,128,128),3,
+                                    (0,3,1,128,128),7])
+            self.resGenNet = CodecNet([(0,3,1,96,128),3,
+                                    (0,3,1,128,128),3,
+                                    (0,3,1,128,128),3,
+                                    (0,3,1,128,96),7])
+            self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
+                                    (0,3,1,128,128),3,
+                                    (0,3,1,128,64),7])
+            class Discriminator(nn.Module):
+               def __init__(self):
+                    super(Discriminator, self).__init__()
+                    
+                    self.mvDisNet = CodecNet([(8,3,2,128*2,128),
+                                            (8,3,2,128,128),9])
+                    self.resDisNet = CodecNet([(8,3,2,128*2,128),
+                                            (8,3,2,128,128),9])
+                    self.respriorDisNet = CodecNet([(8,3,2,128*2,128),
+                                            (8,3,2,128,128),9])
+                def forward(self, mv_input, res_input, resprior_input):
+                    mvfe = self.mvDisNet(mv_input)
+                    resfe = self.resDisNet(res_input)
+                    respriorfe = self.respriorDisNet(resprior_input)
+                    print(mvfe.size(),resfe.size(),respriorfe.size())
+                    exit(0)
+                    return 0
+            self.discriminator = Discriminator()
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -1999,27 +2041,24 @@ class Base(nn.Module):
     def forward(self, input_image, referframe, priors):
         def vector2sample(vect):
             # vect = torch.sigmoid(vect)
-            vect -= vect.mean()
-            sample = vect * 0.5 / torch.abs(vect).max()# * torch.empty_like(vect).uniform_(-1., 1.)
+            if True:
+                vect -= vect.mean()
+                sample = vect * 0.5 / torch.abs(vect).max()# * torch.empty_like(vect).uniform_(-1., 1.)
+            else:
+                normal_std = 0.30
+                sample = (torch.randn_like(vect) * normal_std).clamp(-.5, .5)
             return sample
-        normal_std = 0.30
         # motion
-        # self.training=False
         if not self.useSSF:
             estmv = self.opticFlow(input_image, referframe, priors)
             if self.recursive_flow and 'mv' in priors:
-                mvfeature = self.mvEncoder(estmv - priors['mv'])
-                if self.useER or self.useE2R: 
-                    quant_noise_mv = self.mvErrNet((estmv - priors['mv']))
-            else:
-                mvfeature = self.mvEncoder(estmv)
-                if self.useER or self.useE2R: 
-                    quant_noise_mv = self.mvErrNet(estmv)
+                estmv -= priors['mv']
+            mvfeature = self.mvEncoder(estmv)
             if self.training:
                 if self.useER:
-                    quant_noise_mv = vector2sample(quant_noise_mv)
-                elif self.useE2R:
-                    quant_noise_mv = (torch.randn_like(quant_noise_mv) * normal_std).clamp(-.5, .5)
+                    quant_noise_mv = self.mvGenNet(mvfeature)
+                    # predict noise quality
+                    mv_input = torch.cat((quant_noise_mv,mvfeature), dim=1)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2033,9 +2072,8 @@ class Base(nn.Module):
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
-                prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample + priors['mv'])
-            else:
-                prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+                quant_mv_upsample += priors['mv']
+            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
             if 'mv' in priors:
                 priors['mv'] = quant_mv_upsample.detach() + priors['mv']
             else:
@@ -2064,11 +2102,8 @@ class Base(nn.Module):
             if self.training:
                 if self.useER: 
                     # predict STE behavior
-                    quant_noise_feature = self.resErrNet((input_residual))
-                    quant_noise_feature = vector2sample(quant_noise_feature)
-                elif self.useE2R:
-                    quant_noise_feature = self.resErrNet((input_residual))
-                    quant_noise_feature = (torch.randn_like(quant_noise_feature) * normal_std).clamp(-.5, .5)
+                    quant_noise_feature = self.resGenNet(feature)
+                    res_input = torch.cat((quant_noise_feature,feature), dim=1)
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2085,12 +2120,9 @@ class Base(nn.Module):
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
-            if self.useER: 
-                quant_noise_z = self.respriorErrNet((feature))
-                quant_noise_z = vector2sample(quant_noise_z)
-            elif self.useE2R:
-                quant_noise_z = self.respriorErrNet((feature))
-                quant_noise_z = (torch.randn_like(quant_noise_z) * normal_std).clamp(-.5, .5)
+            if self.useER:
+                quant_noise_z = self.resGenNet(z)
+                resprior_input = torch.cat((quant_noise_z,z), dim=1)
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
@@ -2226,8 +2258,12 @@ class Base(nn.Module):
         Q_mean = mv_Q_err.mean().abs() + res_Q_err.mean().abs() + z_Q_err.mean().abs()
         S_std = mv_S_err.std() + res_S_err.std() + z_S_err.std()
         Q_std = mv_Q_err.std() + res_Q_err.std() + z_Q_err.std()
+
+        noise_validity = None
+        if self.useER:
+            noise_validity = self.discriminator(mv_input,res_input,resprior_input)
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_mean, S_std , Q_mean, Q_std), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_mean, S_std , Q_mean, Q_std,noise_validity), priors
 
 
 # utils for scale-space flow
