@@ -242,7 +242,7 @@ def parallel_compression(args,model, data, compressI=False):
                 # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
                 bppres_list += [err[4]]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                if model_training:
+                if model.training:
                     if model.useER and model.training:
                         # discriminator
                         all_loss_list2 += [-err[4]]
