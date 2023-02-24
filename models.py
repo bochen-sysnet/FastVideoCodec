@@ -1983,7 +1983,7 @@ class Base(nn.Module):
             self.respriorCorNet = Synthesis_prior_net()
 
         # error modeling
-        if self.useER or self.useE2R: 
+        if self.useER: 
             # self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
             # self.resErrNet = Analysis_net(out_channels = out_channel_M)
             # self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
@@ -1999,15 +1999,11 @@ class Base(nn.Module):
                                     (0,3,1,128,128),3,
                                     (0,3,1,128,64),7])
             class Discriminator(nn.Module):
-               def __init__(self):
+                def __init__(self):
                     super(Discriminator, self).__init__()
-                    
-                    self.mvDisNet = CodecNet([(8,3,2,128*2,128),
-                                            (8,3,2,128,128),9])
-                    self.resDisNet = CodecNet([(8,3,2,128*2,128),
-                                            (8,3,2,128,128),9])
-                    self.respriorDisNet = CodecNet([(8,3,2,128*2,128),
-                                            (8,3,2,128,128),9])
+                    self.mvDisNet = CodecNet([(8,3,2,128*2,128),(8,3,2,128,128),9])
+                    self.resDisNet = CodecNet([(8,3,2,128*2,128),(8,3,2,128,128),9])
+                    self.respriorDisNet = CodecNet([(8,3,2,128*2,128),(8,3,2,128,128),9])
                 def forward(self, mv_input, res_input, resprior_input):
                     mvfe = self.mvDisNet(mv_input)
                     resfe = self.resDisNet(res_input)
