@@ -1996,7 +1996,7 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors):
-        half = float(0.1)
+        half = float(1.)
         # motion
         # self.training=False
         if not self.useSSF:
