@@ -247,8 +247,7 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
                     if model.useER:
-                        all_loss_list += [(model.r*mseloss + bpp + \
-                                        alpha * (0.1*err[0] + err[1] + 0.1*err[2] + err[3])).to(data.device)]
+                        all_loss_list += [(model.r*mseloss + bpp - alpha * err[1]).to(data.device)]
                     elif model.useE2R:
                         all_loss_list += [(model.r*mseloss + bpp + \
                                             alpha * (0.1*err[2] + err[3])).to(data.device)]
@@ -2027,7 +2026,7 @@ class Base(nn.Module):
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature)))
+                mv_S_err = quant_noise_mv
                 mv_Q_err = ((mvfeature - torch.round(mvfeature)))
             else:
                 quant_mv = torch.round(mvfeature)
@@ -2078,7 +2077,7 @@ class Base(nn.Module):
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = ((feature + quant_noise_feature - torch.round(feature)))
+                res_S_err = quant_noise_feature
                 res_Q_err = ((feature - torch.round(feature)))
             else:
                 compressed_feature_renorm = torch.round(feature)
@@ -2102,7 +2101,7 @@ class Base(nn.Module):
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = ((z + quant_noise_z - torch.round(z)))
+            z_S_err = quant_noise_z
             z_Q_err = ((z - torch.round(z)))
         else:
             compressed_z = torch.round(z)
