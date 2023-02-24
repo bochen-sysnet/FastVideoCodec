@@ -1824,6 +1824,35 @@ class View(nn.Module):
     def forward(self, x):
         return x.view(-1) 
 
+class BasicBlock(BuildingBlock):
+    expansion = 1
+
+    def __init__(self, in_planes, outplanes, stride=1):
+        super(BasicBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_planes, outplanes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(outplanes)
+
+        self.conv2 = nn.Conv2d(outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(outplanes)
+
+        self.shortcut = nn.Sequential()  # do nothing
+        if stride != 1 or in_planes != outplanes:
+            self.shortcut = LambdaLayer(lambda x:
+                                        F.pad(x[:, :, ::2, ::2], (
+                                            0, 0, 0, 0, (outplanes - in_planes) // 2, (outplanes - in_planes) // 2),
+                                              "constant",
+                                              0))
+
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(out)))
+
+        out = self.bn2(self.conv2(out))
+
+        out = self.expand_layer(out)
+        out += self.shortcut(x)
+        out = F.relu(out)
+        return out
+
 class CodecNet(nn.Module):
     '''
     Compress residual
@@ -1853,7 +1882,7 @@ class CodecNet(nn.Module):
             elif conv_type == 7:
                 layer = nn.Tanh()
             elif conv_type == 8:
-                layer = ResBlock(ch1, ch2, kernel_size, stride)
+                layer = BasicBlock(ch1, ch2, stride)
             elif conv_type == 9:
                 layer = View()
             elif conv_type == 10:
@@ -2008,15 +2037,16 @@ class Base(nn.Module):
             class Discriminator(nn.Module):
                 def __init__(self):
                     super(Discriminator, self).__init__()
-                    self.mvDisNet = CodecNet([(0,3,2,128*2,128),3,
+                    self.mvDisNet = CodecNet([(8,3,1,128*2,128),
+                                            (8,3,2,128,128),
                                             (8,3,1,128,128),
-                                            (0,3,2,128,128),3,
-                                            (8,3,1,128,64)])
-                    self.resDisNet = CodecNet([(0,3,2,96*2,128),3,
-                                            (8,3,1,128,128),
-                                            (0,3,2,128,128),3,
-                                            (8,3,1,128,64)])
+                                            (8,3,2,128,64)])
+                    self.resDisNet = CodecNet([(8,3,1,96*2,128),
+                                            (8,3,2,128,128),
+                                            (0,3,1,128,128),
+                                            (8,3,2,128,64)])
                     self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
+                                            (8,3,1,128,128)
                                             (8,3,1,128,64)])
                     self.linear = nn.Linear(192, 1)
                 def forward(self, mv_input, res_input, resprior_input):
