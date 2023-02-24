@@ -325,8 +325,8 @@ def parallel_compression(args,model, data, compressI=False):
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
-    loss2 = torch.stack(all_loss_list2,dim=0).mean(dim=0) if all_loss_list2 else None
-    loss3 = torch.stack(all_loss_list3,dim=0).mean(dim=0) if all_loss_list3 else None
+    loss2 = torch.stack(all_loss_list2,dim=0).mean(dim=0) if all_loss_list2 else 0
+    loss3 = torch.stack(all_loss_list3,dim=0).mean(dim=0) if all_loss_list3 else 0
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
