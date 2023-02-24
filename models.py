@@ -1836,6 +1836,8 @@ class CodecNet(nn.Module):
                 layer = GDN(lastCh,inverse=False)
             elif conv_type == 5:
                 layer = GDN(lastCh,inverse=True)
+            elif conv_type == 6:
+                layer = nn.BatchNorm2d(lastCh)
             else:
                 print('conv type not found')
                 exit(0)
@@ -1971,16 +1973,16 @@ class Base(nn.Module):
             # self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
             # self.resErrNet = Analysis_net(out_channels = out_channel_M)
             # self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
-            self.mvErrNet = CodecNet([(0,3,2,2,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
+            self.mvErrNet = CodecNet([(0,3,2,2,128),6,
+                                        (0,3,2,128,128),6,
+                                        (0,3,2,128,128),6,
                                         (0,3,2,128,128)])
-            self.resErrNet = CodecNet([(0,3,2,3,128),3,
-                                        (0,3,2,128,128),3,
-                                        (0,3,2,128,128),3,
+            self.resErrNet = CodecNet([(0,3,2,3,128),6,
+                                        (0,3,2,128,128),6,
+                                        (0,3,2,128,128),6,
                                         (0,3,2,128,96)])
-            self.respriorErrNet = CodecNet([(0,3,1,96,128),3,
-                                        (0,5,2,128,128),3,
+            self.respriorErrNet = CodecNet([(0,3,1,96,128),6,
+                                        (0,5,2,128,128),6,
                                         (0,5,2,128,64)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
