@@ -2224,11 +2224,10 @@ class Base(nn.Module):
         S_err = mv_S_err + res_S_err + z_S_err
         Q_err = mv_Q_err + res_Q_err + z_Q_err
         N_err = mv_N_err + res_N_err + z_N_err
-        print('S',mv_S_err , res_S_err , z_S_err)
-        print('Q',mv_Q_err , res_Q_err , z_Q_err)
-        print('N',mv_N_err , res_N_err , z_N_err)
+        # print('S',mv_S_err , res_S_err , z_S_err)
+        # print('Q',mv_Q_err , res_Q_err , z_Q_err)
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_err,Q_err,N_err), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (mv_Q_err , res_Q_err , z_Q_err), priors
 
 
 # utils for scale-space flow
