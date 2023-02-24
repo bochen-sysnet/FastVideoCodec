@@ -1858,12 +1858,8 @@ class BasicBlock(nn.Module):
 
         # relu-gate and gate-relu is same
         out = F.relu(self.bn1(self.conv1(out)))
-        out = self.gate1(out)
-
         out = self.bn2(self.conv2(out))
-        out = self.gate2(out)
 
-        out = self.expand_layer(out)
         out += self.shortcut(x)
         out = F.relu(out)
         return out
