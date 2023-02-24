@@ -2055,9 +2055,8 @@ class Base(nn.Module):
                                             (8,3,1,128,128),
                                             (0,3,2,128,64),
                                             (8,3,1,64,64)])
-                    self.respriorDisNet = CodecNet([(8,3,2,64*2,128),
-                                            (8,3,1,128,128),
-                                            (8,3,2,128,64)])
+                    self.respriorDisNet = CodecNet([(8,3,2,64*2,64),
+                                            (8,3,1,64,64)])
                     self.linear = nn.Linear(192, 1)
                 def forward(self, mv_input, res_input, resprior_input):
                     mvfe = self.mvDisNet(mv_input.detach())
