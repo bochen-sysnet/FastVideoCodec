@@ -1836,14 +1836,17 @@ class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, outplanes, stride=1):
         super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, outplanes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(outplanes)
+        self.conv1 = nn.Conv2d(in_planes, in_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(in_planes)
 
-        self.conv2 = nn.Conv2d(outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(in_planes, outplanes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(outplanes)
+
+        self.expand_layer = ChannelExpand(outplanes)
 
         self.shortcut = nn.Sequential()  # do nothing
         if stride != 1 or in_planes != outplanes:
+            """For CIFAR10 ResNet paper uses option A."""
             self.shortcut = LambdaLayer(lambda x:
                                         F.pad(x[:, :, ::2, ::2], (
                                             0, 0, 0, 0, (outplanes - in_planes) // 2, (outplanes - in_planes) // 2),
@@ -1851,10 +1854,16 @@ class BasicBlock(nn.Module):
                                               0))
 
     def forward(self, x):
-        print(x.size())
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = x
+
+        # relu-gate and gate-relu is same
+        out = F.relu(self.bn1(self.conv1(out)))
+        out = self.gate1(out)
+
         out = self.bn2(self.conv2(out))
-        print(self.shortcut(x).size())
+        out = self.gate2(out)
+
+        out = self.expand_layer(out)
         out += self.shortcut(x)
         out = F.relu(out)
         return out
@@ -2044,7 +2053,7 @@ class Base(nn.Module):
             class Discriminator(nn.Module):
                 def __init__(self):
                     super(Discriminator, self).__init__()
-                    self.mvDisNet = CodecNet([(8,3,2,128*2,128),
+                    self.mvDisNet = CodecNet([(8,3,1,128*2,128),
                                             (8,3,2,128,128),
                                             (8,3,1,128,128),
                                             (8,3,2,128,64)])
