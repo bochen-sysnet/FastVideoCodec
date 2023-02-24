@@ -2015,10 +2015,9 @@ class Base(nn.Module):
                 if self.useER: 
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
                 elif self.useE2R:
-                    # noise_level = torch.sigmoid(quant_noise_mv)
-                    # eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                    # quant_noise_mv = (1 * eps)
-                    quant_noise_mv = 0
+                    noise_level = torch.sigmoid(quant_noise_mv)
+                    eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
+                    quant_noise_mv = (.1 * eps)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2066,11 +2065,10 @@ class Base(nn.Module):
                     quant_noise_feature = self.resErrNet((input_residual))
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
                 elif self.useE2R:
-                    # quant_noise_feature = self.resErrNet((input_residual))
-                    # noise_level = torch.sigmoid(quant_noise_feature)
-                    # eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                    # quant_noise_feature = (1 * eps)
-                    quant_noise_feature = 0
+                    quant_noise_feature = self.resErrNet((input_residual))
+                    noise_level = torch.sigmoid(quant_noise_feature)
+                    eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
+                    quant_noise_feature = (.1 * eps)
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2091,11 +2089,10 @@ class Base(nn.Module):
                 quant_noise_z = self.respriorErrNet((feature))
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
             elif self.useE2R:
-                # quant_noise_z = self.respriorErrNet((feature))
-                # noise_level = torch.sigmoid(quant_noise_z)
-                # eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                # quant_noise_z = (1 * eps)
-                quant_noise_z = 0
+                quant_noise_z = self.respriorErrNet((feature))
+                noise_level = torch.sigmoid(quant_noise_z)
+                eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
+                quant_noise_z = (.1 * eps)
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
