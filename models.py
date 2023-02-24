@@ -1831,7 +1831,7 @@ class LambdaLayer(nn.Module):
 
     def forward(self, x):
         return self.lambd(x)
-        
+
 class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, outplanes, stride=1):
@@ -1903,7 +1903,8 @@ class CodecNet(nn.Module):
         for module in self.modules():
             if isinstance(module,nn.Conv2d) or isinstance(module,nn.ConvTranspose2d):
                 torch.nn.init.xavier_normal_(module.weight.data, math.sqrt(2))
-                torch.nn.init.constant_(module.bias.data, 0.01)
+                if module.bias is not None:
+                    torch.nn.init.constant_(module.bias.data, 0.01)
 
     def forward(self, x,):
         return self.blocks(x)
