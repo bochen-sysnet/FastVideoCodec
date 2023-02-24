@@ -255,8 +255,8 @@ def parallel_compression(args,model, data, compressI=False):
                         all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
                     aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                    aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
-                    aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
+                    aux3_loss_list += [err[3]]
+                    aux4_loss_list += [(bpp - bpp_Q).to(data.device) + model.r*(mseloss - mseloss_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -2021,12 +2021,11 @@ class Base(nn.Module):
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))).mean().abs()
-                mv_Q_err = ((mvfeature - torch.round(mvfeature))).mean().abs()
-                mv_N_err = ((quant_noise_mv)).mean().abs()
+                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature)))
+                mv_Q_err = ((mvfeature - torch.round(mvfeature)))
             else:
                 quant_mv = torch.round(mvfeature)
-                mv_S_err = mv_N_err = mv_Q_err = (mvfeature - quant_mv).abs().mean()
+                mv_S_err = mv_Q_err = (mvfeature - quant_mv)
             
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2073,12 +2072,11 @@ class Base(nn.Module):
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = ((feature + quant_noise_feature - torch.round(feature))).mean().abs()
-                res_Q_err = ((feature - torch.round(feature))).mean().abs()
-                res_N_err = ((quant_noise_feature)).mean().abs()
+                res_S_err = ((feature + quant_noise_feature - torch.round(feature)))
+                res_Q_err = ((feature - torch.round(feature)))
             else:
                 compressed_feature_renorm = torch.round(feature)
-                res_S_err = res_N_err = res_Q_err = (feature - compressed_feature_renorm).abs().mean()
+                res_S_err = res_Q_err = (feature - compressed_feature_renorm)
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2098,12 +2096,11 @@ class Base(nn.Module):
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = ((z + quant_noise_z - torch.round(z))).mean().abs()
-            z_Q_err = ((z - torch.round(z))).mean().abs()
-            z_N_err = ((quant_noise_z)).mean().abs()
+            z_S_err = ((z + quant_noise_z - torch.round(z)))
+            z_Q_err = ((z - torch.round(z)))
         else:
             compressed_z = torch.round(z)
-            z_S_err = z_N_err = z_Q_err = (z - compressed_z).abs().mean()
+            z_S_err = z_Q_err = (z - compressed_z)
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
@@ -2226,13 +2223,12 @@ class Base(nn.Module):
         bpp_z = total_bits_z / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp_mv = total_bits_mv / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
-        S_err = mv_S_err + res_S_err + z_S_err
-        Q_err = mv_Q_err + res_Q_err + z_Q_err
-        N_err = mv_N_err + res_N_err + z_N_err
-        # print('S',mv_S_err , res_S_err , z_S_err)
-        # print('Q',mv_Q_err , res_Q_err , z_Q_err)
+        S_mean = mv_S_err.mean().abs() + res_S_err.mean().abs() + z_S_err.mean().abs()
+        Q_mean = mv_Q_err.mean().abs() + res_Q_err.mean().abs() + z_Q_err.mean().abs()
+        S_std = mv_S_err.std() + res_S_err.std() + z_S_err.std()
+        Q_std = mv_Q_err.std() + res_Q_err.std() + z_Q_err.std()
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_err , Q_err , N_err), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_mean, S_std , Q_mean, Q_std), priors
 
 
 # utils for scale-space flow
