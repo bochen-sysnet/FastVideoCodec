@@ -1852,6 +1852,8 @@ class CodecNet(nn.Module):
                 layer = ResBlock(ch1, ch2, kernel_size, stride)
             elif conv_type == 9:
                 layer = View()
+            elif conv_type == 10:
+                layer = nn.AvgPool2d(kernel_size, stride=stride)
             else:
                 print('conv type not found')
                 exit(0)
@@ -2001,12 +2003,18 @@ class Base(nn.Module):
             class Discriminator(nn.Module):
                 def __init__(self):
                     super(Discriminator, self).__init__()
-                    self.mvDisNet = CodecNet([(8,3,1,128*2,128),
-                                            (8,3,1,128,128)])
-                    self.resDisNet = CodecNet([(8,3,1,96*2,128),
-                                            (8,3,1,128,128)])
+                    self.mvDisNet = CodecNet([(0,3,2,128*2,128),3,
+                                            (8,3,1,128,128),
+                                            (0,3,2,128,128),3,
+                                            (8,3,1,128,64)])
+                    self.resDisNet = CodecNet([(0,3,2,96*2,128),3,
+                                            (8,3,1,128,128),
+                                            (0,3,2,128,128),3,
+                                            (8,3,1,128,64)])
                     self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
-                                            (8,3,1,128,128)])
+                                            (8,3,1,128,64)])
+                    self.linear = nn.Linear(256, 1)
+                    # nn.Sigmoid(),
                 def forward(self, mv_input, res_input, resprior_input):
                     mvfe = self.mvDisNet(mv_input)
                     resfe = self.resDisNet(res_input)
