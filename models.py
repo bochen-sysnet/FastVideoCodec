@@ -2268,7 +2268,7 @@ class Base(nn.Module):
         Q_std = mv_Q_err.std() + res_Q_err.std() + z_Q_err.std()
 
         noise_validity = None
-        if self.useER:
+        if self.useER and self.training:
             noise_validity = self.discriminator(mv_input,res_input,resprior_input)
         
         return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_mean, S_std , Q_mean, Q_std,noise_validity), priors
