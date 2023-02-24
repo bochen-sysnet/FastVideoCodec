@@ -229,16 +229,16 @@ def parallel_compression(args,model, data, compressI=False):
             alpha = args.alpha
             model_training = model.training
             for i in range(1,B):
-                if model_training:
-                    model.training = False
-                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                        model(data[i:i+1],x_prev,priors)
-                    model.training = True
-                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                        model(data[i:i+1],x_prev,priors)
-                else:
-                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                        model(data[i:i+1],x_prev,priors)
+                # if model_training:
+                #     model.training = False
+                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                #         model(data[i:i+1],x_prev,priors)
+                #     model.training = True
+                #     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                #         model(data[i:i+1],x_prev,priors)
+                # else:
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                    model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
@@ -255,7 +255,7 @@ def parallel_compression(args,model, data, compressI=False):
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
                     aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                     aux3_loss_list += [err[3]]
-                    aux4_loss_list += [(bpp - bpp_Q).to(data.device) + model.r*(mseloss - mseloss_Q).to(data.device)]
+                    # aux4_loss_list += [(bpp - bpp_Q).to(data.device) + model.r*(mseloss - mseloss_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -2002,7 +2002,7 @@ class Base(nn.Module):
             vect -= vect.mean()
             sample = vect * 0.5 / torch.abs(vect).max()# * torch.empty_like(vect).uniform_(-1., 1.)
             return sample
-        normal_std = 0.3
+        normal_std = 0.15
         # motion
         # self.training=False
         if not self.useSSF:
