@@ -1851,7 +1851,7 @@ class BasicBlock(nn.Module):
                                               0))
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(out)))
+        out = F.relu(self.bn1(self.conv1(x)))
 
         out = self.bn2(self.conv2(out))
 
