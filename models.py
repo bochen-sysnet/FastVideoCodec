@@ -1970,20 +1970,9 @@ class Base(nn.Module):
 
         # error modeling
         if self.useER or self.useE2R: 
-            # self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
-            # self.resErrNet = Analysis_net(out_channels = out_channel_M)
-            # self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
-            self.mvErrNet = CodecNet([(0,5,2,2,128),6,
-                                        (0,5,2,128,128),6,
-                                        (0,5,2,128,128),6,
-                                        (0,5,2,128,128)])
-            self.resErrNet = CodecNet([(0,5,2,3,128),6,
-                                        (0,5,2,128,128),6,
-                                        (0,5,2,128,128),6,
-                                        (0,5,2,128,96)])
-            self.respriorErrNet = CodecNet([(0,3,1,96,128),6,
-                                        (0,5,2,128,128),6,
-                                        (0,5,2,128,64)])
+            self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
+            self.resErrNet = Analysis_net(out_channels = out_channel_M)
+            self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
