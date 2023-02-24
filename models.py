@@ -174,7 +174,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
       
 def parallel_compression(args,model, data, compressI=False):
-    all_loss_list = []; img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
+    all_loss_list = []; all_loss_list2 = []; all_loss_list3 = []; 
+    img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
@@ -227,35 +228,32 @@ def parallel_compression(args,model, data, compressI=False):
             x_hat_list = []
             priors = {}
             alpha = args.alpha
-            model_training = model.training
             for i in range(1,B):
-                # if model_training:
-                #     model.training = False
-                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                #         model(data[i:i+1],x_prev,priors)
-                #     model.training = True
-                #     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                #         model(data[i:i+1],x_prev,priors)
-                # else:
+                if model.training and model.useER:
+                    model.training = False
+                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                        model(data[i:i+1],x_prev,priors)
+                    model.training = True
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
                 # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
-                bppres_list += [err[0].to(data.device)]
+                bppres_list += [err[4]]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model_training:
-                    if model.useER:
-                        all_loss_list += [(model.r*mseloss + bpp - alpha * err[1]).to(data.device)]
-                    elif model.useE2R:
-                        all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
-                    else:
-                        all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
-                    aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
-                    aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                    aux3_loss_list += [err[3]]
-                    # aux4_loss_list += [(bpp - bpp_Q).to(data.device) + model.r*(mseloss - mseloss_Q).to(data.device)]
+                    if model.useER and model.training:
+                        # discriminator
+                        all_loss_list2 += [-err[4]]
+                        all_loss_list3 += [(((bpp - bpp_Q) + model.r*(mseloss - mseloss_Q)).detach() - err[4])**2]
+                    # compression loss
+                    all_loss_list += [(model.r*mseloss + bpp)]
+                    aux_loss_list += [err[0]]
+                    aux2_loss_list += [err[1]]
+                    aux3_loss_list += [err[2]]
+                    # aux4_loss_list += [err[3]]
+                    aux4_loss_list += [(bpp - bpp_Q) + model.r*(mseloss - mseloss_Q)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -324,6 +322,8 @@ def parallel_compression(args,model, data, compressI=False):
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
+    loss2 = torch.stack(all_loss_list2,dim=0).mean(dim=0) if all_loss_list2 else None
+    loss3 = torch.stack(all_loss_list3,dim=0).mean(dim=0) if all_loss_list3 else None
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
@@ -335,7 +335,7 @@ def parallel_compression(args,model, data, compressI=False):
     I_psnr = float(psnr_list[0]) if compressI else 0
 
 
-    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
+    return x_hat,loss,loss2,loss3,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
         
 class StandardVideoCodecs(nn.Module):
     def __init__(self, name):
@@ -2013,15 +2013,16 @@ class Base(nn.Module):
                                             (8,3,1,128,64)])
                     self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
                                             (8,3,1,128,64)])
-                    self.linear = nn.Linear(256, 1)
-                    # nn.Sigmoid(),
+                    self.linear = nn.Linear(192, 1)
                 def forward(self, mv_input, res_input, resprior_input):
-                    mvfe = self.mvDisNet(mv_input)
-                    resfe = self.resDisNet(res_input)
-                    respriorfe = self.respriorDisNet(resprior_input)
-                    print(mvfe.size(),resfe.size(),respriorfe.size())
-                    exit(0)
-                    return 0
+                    mvfe = self.mvDisNet(mv_input.detach())
+                    resfe = self.resDisNet(res_input.detach())
+                    respriorfe = self.respriorDisNet(resprior_input.detach())
+                    out = torch.cat((mvfe,resfe,respriorfe),dim=1)
+                    out = F.avg_pool2d(out, out.size()[3])
+                    out = out.view(out.size(0), -1)
+                    out = self.linear(out)
+                    return out
             self.discriminator = Discriminator()
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
@@ -2045,7 +2046,7 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors):
+    def forward(self, input_image, referframe, priors, uniform_noise=False):
         def vector2sample(vect):
             # vect = torch.sigmoid(vect)
             if True:
@@ -2062,13 +2063,13 @@ class Base(nn.Module):
                 estmv -= priors['mv']
             mvfeature = self.mvEncoder(estmv)
             if self.training:
-                if self.useER:
-                    quant_noise_mv = self.mvGenNet(mvfeature)
-                    # predict noise quality
-                    mv_input = torch.cat((quant_noise_mv,mvfeature), dim=1)
+                if self.useER and not uniform_noise:
+                    quant_noise_mv = self.mvGenNet(mvfeature.detach())
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+                # predict noise quality
+                mv_input = torch.cat((quant_noise_mv,mvfeature), dim=1)
                 quant_mv = mvfeature + quant_noise_mv
                 mv_S_err = quant_noise_mv
                 mv_Q_err = ((mvfeature - torch.round(mvfeature)))
@@ -2107,13 +2108,13 @@ class Base(nn.Module):
         # quantization
         if not self.useSTE:
             if self.training:
-                if self.useER: 
+                if self.useER and not uniform_noise: 
                     # predict STE behavior
-                    quant_noise_feature = self.resGenNet(feature)
-                    res_input = torch.cat((quant_noise_feature,feature), dim=1)
+                    quant_noise_feature = self.resGenNet(feature.detach())
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
+                res_input = torch.cat((quant_noise_feature,feature), dim=1)
                 compressed_feature_renorm = feature + quant_noise_feature
                 res_S_err = quant_noise_feature
                 res_Q_err = ((feature - torch.round(feature)))
@@ -2127,12 +2128,12 @@ class Base(nn.Module):
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
-            if self.useER:
-                quant_noise_z = self.respriorGenNet(z)
-                resprior_input = torch.cat((quant_noise_z,z), dim=1)
+            if self.useER and not uniform_noise:
+                quant_noise_z = self.respriorGenNet(z.detach())
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
+            resprior_input = torch.cat((quant_noise_z,z), dim=1)
             compressed_z = z + quant_noise_z
             z_S_err = quant_noise_z
             z_Q_err = ((z - torch.round(z)))
