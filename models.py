@@ -1824,6 +1824,14 @@ class View(nn.Module):
     def forward(self, x):
         return x.view(-1) 
 
+class LambdaLayer(nn.Module):
+    def __init__(self, lambd):
+        super(LambdaLayer, self).__init__()
+        self.lambd = lambd
+
+    def forward(self, x):
+        return self.lambd(x)
+        
 class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, outplanes, stride=1):
