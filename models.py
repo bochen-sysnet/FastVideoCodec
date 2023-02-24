@@ -249,8 +249,7 @@ def parallel_compression(args,model, data, compressI=False):
                     if model.useER:
                         all_loss_list += [(model.r*mseloss + bpp - alpha * err[1]).to(data.device)]
                     elif model.useE2R:
-                        all_loss_list += [(model.r*mseloss + bpp + \
-                                            alpha * (0.1*err[2] + err[3])).to(data.device)]
+                        all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
@@ -2019,9 +2018,7 @@ class Base(nn.Module):
                 if self.useER:
                     quant_noise_mv = vector2sample(quant_noise_mv)
                 elif self.useE2R:
-                    noise_level = torch.sigmoid(quant_noise_mv)
-                    eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                    quant_noise_mv = (1 * eps)
+                    quant_noise_mv = (torch.empty_like(quant_noise_mv) * 0.2).clamp(-.5, .5)
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2070,9 +2067,7 @@ class Base(nn.Module):
                     quant_noise_feature = vector2sample(quant_noise_feature)
                 elif self.useE2R:
                     quant_noise_feature = self.resErrNet((input_residual))
-                    noise_level = torch.sigmoid(quant_noise_feature)
-                    eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                    quant_noise_feature = (1 * eps)
+                    quant_noise_feature = (torch.empty_like(quant_noise_feature) * 0.2).clamp(-.5, .5)
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2094,9 +2089,7 @@ class Base(nn.Module):
                 quant_noise_z = vector2sample(quant_noise_z)
             elif self.useE2R:
                 quant_noise_z = self.respriorErrNet((feature))
-                noise_level = torch.sigmoid(quant_noise_z)
-                eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
-                quant_noise_z = (1 * eps)
+                quant_noise_z = (torch.empty_like(quant_noise_z) * 0.2).clamp(-.5, .5)
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
