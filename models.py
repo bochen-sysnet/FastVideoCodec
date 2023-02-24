@@ -248,7 +248,7 @@ def parallel_compression(args,model, data, compressI=False):
                 if model_training:
                     if model.useER:
                         all_loss_list += [(model.r*mseloss + bpp + \
-                                        alpha * (err[3])).to(data.device)]
+                                        alpha * (0.1*err[0] + err[1] + 0.1*err[2] + err[3])).to(data.device)]
                     elif model.useE2R:
                         all_loss_list += [(model.r*mseloss + bpp + err[0] + \
                                             alpha * (model.r * max(0,mseloss_Q - mseloss) + max(0,bpp_Q - bpp))).to(data.device)]
