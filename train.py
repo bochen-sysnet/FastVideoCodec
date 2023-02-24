@@ -220,7 +220,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             f"4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
 
         # clear result every 1000 batches
-        if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 1000 == 0:# and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
