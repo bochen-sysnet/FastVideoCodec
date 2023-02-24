@@ -2014,7 +2014,8 @@ class Base(nn.Module):
             if self.training:
                 if self.useER:
                     quant_noise_mv = torch.sigmoid(quant_noise_mv) - 0.5
-                    quant_noise_mv *= 0.5/torch.abs(quant_noise_mv).max()
+                    max_noise = torch.abs(quant_noise_mv).max()
+                    quant_noise_mv = quant_noise_mv * 0.5/max_noise
                 elif self.useE2R:
                     noise_level = torch.sigmoid(quant_noise_mv)
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
@@ -2065,7 +2066,8 @@ class Base(nn.Module):
                     # predict STE behavior
                     quant_noise_feature = self.resErrNet((input_residual))
                     quant_noise_feature = torch.sigmoid(quant_noise_feature) - 0.5
-                    quant_noise_feature *= 0.5/torch.abs(quant_noise_feature).max()
+                    max_noise = torch.abs(quant_noise_feature).max()
+                    quant_noise_feature = quant_noise_feature * 0.5/max_noise
                 elif self.useE2R:
                     quant_noise_feature = self.resErrNet((input_residual))
                     noise_level = torch.sigmoid(quant_noise_feature)
@@ -2090,7 +2092,8 @@ class Base(nn.Module):
             if self.useER: 
                 quant_noise_z = self.respriorErrNet((feature))
                 quant_noise_z = torch.sigmoid(quant_noise_z) - 0.5
-                quant_noise_z *= 0.5/torch.abs(quant_noise_z).max()
+                max_noise = torch.abs(quant_noise_z).max()
+                quant_noise_z = quant_noise_z * 0.5/max_noise
             elif self.useE2R:
                 quant_noise_z = self.respriorErrNet((feature))
                 noise_level = torch.sigmoid(quant_noise_z)
