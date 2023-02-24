@@ -1814,11 +1814,11 @@ class MyMENet(nn.Module):
         return flowfileds
 
 class View(nn.Module):
-       def __init__(self):
-            super(View, self).__init__()
-   
-        def forward(self, x):
-            return x.view(-1) 
+    def __init__(self):
+        super(View, self).__init__()
+
+    def forward(self, x):
+        return x.view(-1) 
 
 class CodecNet(nn.Module):
     '''
