@@ -1851,8 +1851,10 @@ class BasicBlock(nn.Module):
                                               0))
 
     def forward(self, x):
+        print(x.size())
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
+        print(out.size())
         out += self.shortcut(x)
         out = F.relu(out)
         return out
