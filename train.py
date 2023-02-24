@@ -170,8 +170,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     aux3_loss_module = AverageMeter()
     aux4_loss_module = AverageMeter()
     scaler = torch.cuda.amp.GradScaler(enabled=True)
-    scaler_G = torch.cuda.amp.GradScaler(enabled=True)
-    scaler_D = torch.cuda.amp.GradScaler(enabled=True)
     batch_size = 7
     ds_size = len(train_dataset)
     
@@ -208,16 +206,12 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         # update model after compress each video
         if batch_idx%1 == 0 and batch_idx > 0:
             if loss_G is not None:
-                scaler_G.scale(loss_G).backward(retain_graph=True)
-                scaler_D.scale(loss_D).backward()
+                loss_G.backward(retain_graph=True)
+                loss_D.backward()
 
-                scaler_G.step(optimizer_G)
-                scaler_G.update()
+                optimizer_G.step()
                 optimizer_G.zero_grad()
-
-                scaler_D.step(optimizer_D)
-                scaler_D.update()
-                # optimizer_D.step()
+                optimizer_D.step()
                 optimizer_D.zero_grad()
 
             scaler.step(optimizer)
