@@ -2016,12 +2016,12 @@ class Base(nn.Module):
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                     quant_noise_mv = (noise_level * eps)
                 else:
-                    half = float(0.6)
+                    half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = (abs(mvfeature + quant_noise_mv - torch.round(mvfeature))).mean()
-                mv_Q_err = (abs(mvfeature - torch.round(mvfeature))).mean()
-                mv_N_err = (abs(quant_noise_mv)).mean()
+                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))).mean()
+                mv_Q_err = ((mvfeature - torch.round(mvfeature))).mean()
+                mv_N_err = ((quant_noise_mv)).mean()
             else:
                 quant_mv = torch.round(mvfeature)
                 mv_S_err = mv_N_err = mv_Q_err = (mvfeature - quant_mv).abs().mean()
@@ -2068,12 +2068,12 @@ class Base(nn.Module):
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                     quant_noise_feature = (noise_level * eps)
                 else:
-                    half = float(0.6)
+                    half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = (abs(feature + quant_noise_feature - torch.round(feature))).mean()
-                res_Q_err = (abs(feature - torch.round(feature))).mean()
-                res_N_err = (abs(quant_noise_feature)).mean()
+                res_S_err = ((feature + quant_noise_feature - torch.round(feature))).mean()
+                res_Q_err = ((feature - torch.round(feature))).mean()
+                res_N_err = ((quant_noise_feature)).mean()
             else:
                 compressed_feature_renorm = torch.round(feature)
                 res_S_err = res_N_err = res_Q_err = (feature - compressed_feature_renorm).abs().mean()
@@ -2093,12 +2093,12 @@ class Base(nn.Module):
                 eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                 quant_noise_z = (noise_level * eps)
             else:
-                half = float(0.6)
+                half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = (abs(z + quant_noise_z - torch.round(z))).mean()
-            z_Q_err = (abs(z - torch.round(z))).mean()
-            z_N_err = (abs(quant_noise_z)).mean()
+            z_S_err = ((z + quant_noise_z - torch.round(z))).mean()
+            z_Q_err = ((z - torch.round(z))).mean()
+            z_N_err = ((quant_noise_z)).mean()
         else:
             compressed_z = torch.round(z)
             z_S_err = z_N_err = z_Q_err = (z - compressed_z).abs().mean()
