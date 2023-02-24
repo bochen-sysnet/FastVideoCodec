@@ -229,16 +229,16 @@ def parallel_compression(args,model, data, compressI=False):
             alpha = args.alpha
             model_training = model.training
             for i in range(1,B):
-                if model_training:
-                    model.training = False
-                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                        model(data[i:i+1],x_prev,priors)
-                    model.training = True
-                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                        model(data[i:i+1],x_prev,priors)
-                else:
-                    x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                        model(data[i:i+1],x_prev,priors)
+                # if model_training:
+                #     model.training = False
+                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                #         model(data[i:i+1],x_prev,priors)
+                #     model.training = True
+                #     x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                #         model(data[i:i+1],x_prev,priors)
+                # else:
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
+                    model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
@@ -253,8 +253,8 @@ def parallel_compression(args,model, data, compressI=False):
                         all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                     aux_loss_list += [err[1].to(data.device)] #[bpp_Q.to(data.device)]
                     aux2_loss_list += [err[2].to(data.device)] #[10.0*torch.log(1/mseloss_Q)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
-                    aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
-                    aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
+                    # aux3_loss_list += [model.r*(mseloss - mseloss_Q).to(data.device)]
+                    # aux4_loss_list += [(bpp - bpp_Q).to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -1996,7 +1996,7 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors):
-        half = float(1.)
+        half = float(0.5)
         # motion
         # self.training=False
         if not self.useSSF:
@@ -2019,9 +2019,9 @@ class Base(nn.Module):
                 else:
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = ((mvfeature + quant_noise_mv - torch.round(mvfeature))**2).mean().sqrt()
-                mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean().sqrt()
-                mv_N_err = ((quant_noise_mv)**2).mean().sqrt()
+                mv_S_err = (abs(mvfeature + quant_noise_mv - torch.round(mvfeature))).mean()
+                mv_Q_err = (abs(mvfeature - torch.round(mvfeature))).mean()
+                mv_N_err = (abs(quant_noise_mv)).mean()
             else:
                 quant_mv = torch.round(mvfeature)
                 mv_S_err = mv_N_err = mv_Q_err = (mvfeature - quant_mv).abs().mean()
@@ -2069,9 +2069,9 @@ class Base(nn.Module):
                 else:
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = ((feature + quant_noise_feature - torch.round(feature))**2).mean().sqrt()
-                res_Q_err = ((feature - torch.round(feature))**2).mean().sqrt()
-                res_N_err = ((quant_noise_feature)**2).mean().sqrt()
+                res_S_err = (abs(feature + quant_noise_feature - torch.round(feature))).mean()
+                res_Q_err = (abs(feature - torch.round(feature))).mean()
+                res_N_err = (abs(quant_noise_feature)).mean()
             else:
                 compressed_feature_renorm = torch.round(feature)
                 res_S_err = res_N_err = res_Q_err = (feature - compressed_feature_renorm).abs().mean()
@@ -2093,9 +2093,9 @@ class Base(nn.Module):
             else:
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = ((z + quant_noise_z - torch.round(z))**2).mean().sqrt()
-            z_Q_err = ((z - torch.round(z))**2).mean().sqrt()
-            z_N_err = ((quant_noise_z)**2).mean().sqrt()
+            z_S_err = (abs(z + quant_noise_z - torch.round(z))).mean()
+            z_Q_err = (abs(z - torch.round(z))).mean()
+            z_N_err = (abs(quant_noise_z)).mean()
         else:
             compressed_z = torch.round(z)
             z_S_err = z_N_err = z_Q_err = (z - compressed_z).abs().mean()
