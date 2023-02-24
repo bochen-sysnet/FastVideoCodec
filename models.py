@@ -2002,11 +2002,11 @@ class Base(nn.Module):
                 def __init__(self):
                     super(Discriminator, self).__init__()
                     self.mvDisNet = CodecNet([(8,3,1,128*2,128),
-                                            (8,3,1,128,128),9])
+                                            (8,3,1,128,128)])
                     self.resDisNet = CodecNet([(8,3,1,96*2,128),
-                                            (8,3,1,128,128),9])
+                                            (8,3,1,128,128)])
                     self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
-                                            (8,3,1,128,128),9])
+                                            (8,3,1,128,128)])
                 def forward(self, mv_input, res_input, resprior_input):
                     mvfe = self.mvDisNet(mv_input)
                     resfe = self.resDisNet(res_input)
