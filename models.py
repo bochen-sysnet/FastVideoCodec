@@ -2016,7 +2016,7 @@ class Base(nn.Module):
                     eps = torch.empty_like(noise_level).uniform_(-float(.5), float(.5))
                     quant_noise_mv = (noise_level * eps)
                 else:
-                    half = float(0.1)
+                    half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
                 mv_S_err = (abs(mvfeature + quant_noise_mv - torch.round(mvfeature))).mean()
