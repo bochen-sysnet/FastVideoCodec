@@ -1854,7 +1854,7 @@ class BasicBlock(nn.Module):
         print(x.size())
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-        print(out.size())
+        print(self.shortcut(x).size())
         out += self.shortcut(x)
         out = F.relu(out)
         return out
