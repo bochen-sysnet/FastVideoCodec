@@ -1857,7 +1857,7 @@ class BasicBlock(nn.Module):
         # relu-gate and gate-relu is same
         out = F.relu(self.bn1(self.conv1(out)))
         out = self.bn2(self.conv2(out))
-
+        print(out.size(),self.shortcut(x).size())
         out += self.shortcut(x)
         out = F.relu(out)
         return out
