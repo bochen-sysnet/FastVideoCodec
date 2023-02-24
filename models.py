@@ -2117,7 +2117,7 @@ class Base(nn.Module):
         # quantization
         if self.training:
             if self.useER:
-                quant_noise_z = self.resGenNet(z)
+                quant_noise_z = self.respriorGenNet(z)
                 resprior_input = torch.cat((quant_noise_z,z), dim=1)
             else:
                 half = float(0.5)
