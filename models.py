@@ -2002,7 +2002,7 @@ class Base(nn.Module):
             vect -= vect.mean()
             sample = vect * 0.5 / torch.abs(vect).max()# * torch.empty_like(vect).uniform_(-1., 1.)
             return sample
-        normal_std = 0.2
+        normal_std = 0.25
         # motion
         # self.training=False
         if not self.useSSF:
