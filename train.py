@@ -209,13 +209,13 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if batch_idx%1 == 0 and batch_idx > 0:
             if loss_G is not None:
                 scaler_G.scale(loss_G).backward(retain_graph=True)
-                loss_D.backward()
+                # loss_D.backward()
+                scaler_D.scale(loss_D).backward()
 
                 scaler_G.step(optimizer_G)
                 scaler_G.update()
                 optimizer_G.zero_grad()
 
-                # scaler_D.scale(loss_D).backward()
                 # scaler_D.step(optimizer_D)
                 # scaler_D.update()
                 optimizer_D.step()
