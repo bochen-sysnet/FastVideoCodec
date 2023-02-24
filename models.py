@@ -229,11 +229,11 @@ def parallel_compression(args,model, data, compressI=False):
             priors = {}
             alpha = args.alpha
             for i in range(1,B):
-                if model.training and model.useER:
-                    model.training = False
-                    _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
-                        model(data[i:i+1],x_prev,priors)
-                    model.training = True
+                # if model.training and model.useER:
+                #     model.training = False
+                #     _, mseloss_Q, _, _, _, _, bpp_Q, _, _ = \
+                #         model(data[i:i+1],x_prev,priors)
+                #     model.training = True
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
@@ -244,16 +244,19 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
                     if model.useER and model.training:
-                        # discriminator
-                        all_loss_list2 += [-err[4]]
-                        all_loss_list3 += [(((bpp - bpp_Q) + model.r*(mseloss - mseloss_Q)).detach() - err[4])**2]
+                        # discriminator will be trained on uniform noise to cover all cases
+                        trainDis = True
+                        if not trainDis:
+                            all_loss_list2 += [-err[4]]
+                        else:
+                            all_loss_list3 += [((bpp + model.r * mseloss).detach() - err[4])**2] 
                     # compression loss
                     all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
                     aux3_loss_list += [err[2]]
-                    # aux4_loss_list += [err[3]]
-                    aux4_loss_list += [(bpp - bpp_Q) + model.r*(mseloss - mseloss_Q)]
+                    aux4_loss_list += [err[3]]
+                    # aux4_loss_list += [(bpp - bpp_Q) + model.r*(mseloss - mseloss_Q)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -1915,6 +1918,7 @@ class Base(nn.Module):
         self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
         self.useER = True if '-ER' in name else False # error regularization
         self.useE2R = True if '-E2R' in name else False # error regularization
+        self.trainDis = True
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2046,7 +2050,7 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors, uniform_noise=False):
+    def forward(self, input_image, referframe, priors):
         def vector2sample(vect):
             # vect = torch.sigmoid(vect)
             if True:
@@ -2063,8 +2067,8 @@ class Base(nn.Module):
                 estmv -= priors['mv']
             mvfeature = self.mvEncoder(estmv)
             if self.training:
-                if self.useER and not uniform_noise:
-                    quant_noise_mv = self.mvGenNet(mvfeature)
+                if self.useER and not self.trainDis:
+                    quant_noise_mv = self.mvGenNet(mvfeature) * 0.5
                 else:
                     half = float(0.5)
                     quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
@@ -2108,9 +2112,9 @@ class Base(nn.Module):
         # quantization
         if not self.useSTE:
             if self.training:
-                if self.useER and not uniform_noise: 
+                if self.useER and not self.trainDis: 
                     # predict STE behavior
-                    quant_noise_feature = self.resGenNet(feature)
+                    quant_noise_feature = self.resGenNet(feature) * 0.5
                 else:
                     half = float(0.5)
                     quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
@@ -2128,8 +2132,8 @@ class Base(nn.Module):
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
-            if self.useER and not uniform_noise:
-                quant_noise_z = self.respriorGenNet(z)
+            if self.useER and not self.trainDis:
+                quant_noise_z = self.respriorGenNet(z) * 0.5
             else:
                 half = float(0.5)
                 quant_noise_z = torch.empty_like(z).uniform_(-half, half)
