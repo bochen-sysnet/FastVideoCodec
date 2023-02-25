@@ -2082,7 +2082,7 @@ class Base(nn.Module):
                 pred_err_mv = ((rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))**2).mean()
                 quant_mv += (pred_err_mv.detach() if self.detachER else pred_err_mv)
             
-            if self.useER:
+            if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(mvfeature)
             else:
                 quant_mv_upsample = self.mvDecoder(quant_mv)
@@ -2150,7 +2150,7 @@ class Base(nn.Module):
             compressed_z += (pred_err_z.detach() if self.detachER else pred_err_z)
         
         # rec. hyperprior
-        if self.useER:
+        if self.useER and self.training:
             recon_sigma = self.respriorDecoder(z)
         else:
             recon_sigma = self.respriorDecoder(compressed_z)
@@ -2167,7 +2167,7 @@ class Base(nn.Module):
         elif self.useE3C or self.useE4C:
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
-            if self.useER:
+            if self.useER and self.training:
                 recon_res = self.resDecoder(feature)
             else:
                 recon_res = self.resDecoder(compressed_feature_renorm)
