@@ -2037,15 +2037,10 @@ class Base(nn.Module):
             # ER2, detach
             # ER3, no detach(), resnet
             self.mvGenNet = CodecNet([(8,3,1,128,128),
-                                    (8,3,1,128,128),
-                                    (8,3,1,128,128),
-                                    (8,3,1,128,128),7])
+                                    (8,3,1,128,128),,7])
             self.resGenNet = CodecNet([(8,3,1,96,128),
-                                    (8,3,1,128,128),
-                                    (8,3,1,128,128),
                                     (8,3,1,128,96),7])
             self.respriorGenNet = CodecNet([(0,3,1,64,128),
-                                    (8,3,1,128,128),
                                     (8,3,1,128,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
