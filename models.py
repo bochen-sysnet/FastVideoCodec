@@ -336,8 +336,6 @@ def parallel_compression(args,model, data, compressI=False):
     aux3_loss = torch.stack(aux3_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux3_loss_list else 0
     aux4_loss = torch.stack(aux4_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux4_loss_list else 0
     I_psnr = float(psnr_list[0]) if compressI else 0
-    print(img_loss,be_loss,be_res_loss,aux4_loss)
-
 
     return x_hat,loss,loss2,loss3,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
         
