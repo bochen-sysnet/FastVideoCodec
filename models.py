@@ -1948,7 +1948,7 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useER = True if '-ER' in name else False # error regularization
-        self.detachER = True
+        self.detachER = False
         self.residualER = True
         if self.useSSF:
             class Encoder(nn.Sequential):
@@ -2030,7 +2030,7 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-            # ER deattach + attention
+            # ER deattach + attention + residual
             # ER2 attach + attention
             # ER3 attach + attn + conv
             # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
