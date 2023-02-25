@@ -2028,18 +2028,25 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
+            # ER2
             self.mvGenNet = CodecNet([(0,5,1,128,192),3,
                                     (0,5,1,192,192),3,
+                                    (11,1,1,192,192),
                                     (0,5,1,192,192),3,
-                                    (0,5,1,192,128),])
+                                    (0,5,1,192,128),
+                                    (11,1,1,128,128),])
             self.resGenNet = CodecNet([(0,5,1,96,128),3,
                                     (0,5,1,128,128),3,
+                                    (11,1,1,96,96),
                                     (0,5,1,128,128),3,
-                                    (0,5,1,128,96),])
+                                    (0,5,1,128,96),
+                                    (11,1,1,96,96),])
             self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
                                     (0,5,1,128,128),3,
+                                    (11,1,1,128,128),
                                     (0,5,1,128,128),3,
-                                    (0,5,1,128,64),])
+                                    (0,5,1,128,64),
+                                    (11,1,1,64,64)])
             # self.mvGenNet = CodecNet([(11,1,1,128,128)])
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
@@ -2059,19 +2066,6 @@ class Base(nn.Module):
             #                                 (11,1,1,64,64),
             #                                 (0,5,1,64,64),3,
             #                                 (11,1,1,64,64),])
-            # ER2
-            # self.mvGenNet = CodecNet([(11,1,1,128,128),
-            #                             (11,1,1,128,128),
-            #                             (11,1,1,128,128),
-            #                             (11,1,1,128,128)])
-            # self.resGenNet = CodecNet([(11,1,1,96,96),
-            #                             (11,1,1,96,96),
-            #                             (11,1,1,96,96),
-            #                             (11,1,1,96,96)])
-            # self.respriorGenNet = CodecNet([(11,1,1,64,64),
-            #                                 (11,1,1,64,64),
-            #                                 (11,1,1,64,64),
-            #                                 (11,1,1,64,64)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2117,7 +2111,7 @@ class Base(nn.Module):
                 quant_mv = mvfeature + quant_noise_mv
             else:
                 quant_mv = torch.round(mvfeature)
-            mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean()
+            mv_Q_err = ((mvfeature - quant_mv)**2).mean()
 
             # we can predict error from feature
             # so enhance the input to decoder
@@ -2172,7 +2166,7 @@ class Base(nn.Module):
                 compressed_feature_renorm = feature + quant_noise_feature
             else:
                 compressed_feature_renorm = torch.round(feature)
-            res_Q_err = ((feature - torch.round(feature))**2).mean()
+            res_Q_err = ((feature - compressed_feature_renorm)**2).mean()
 
             if self.useER:
                 rounded_feature = torch.round(feature)
@@ -2196,7 +2190,7 @@ class Base(nn.Module):
             compressed_z = z + quant_noise_z
         else:
             compressed_z = torch.round(z)
-        z_Q_err = ((z - torch.round(z))**2).mean()
+        z_Q_err = ((z - compressed_z)**2).mean()
 
         if self.useER:
             rounded_z = torch.round(z)
