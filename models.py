@@ -2094,7 +2094,8 @@ class Base(nn.Module):
                 pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
                 pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))
                 std_mv = pred_err_mv.std()
-                corrected_mv = mvfeature + pred_err_mv + std_mv * torch.empty_like(std_mv).uniform_(-one, one)
+                corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
+                 # + std_mv * torch.empty_like(std_mv).uniform_(-one, one)
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2142,7 +2143,8 @@ class Base(nn.Module):
                 pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
                 pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach() if self.detachER else feature))
                 std_feature = pred_err_feature.std()
-                corrected_feature_renorm = feature + pred_err_feature + std_feature * torch.empty_like(std_feature).uniform_(-one, one)
+                corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
+                 # + std_feature * torch.empty_like(std_feature).uniform_(-one, one)
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2161,12 +2163,13 @@ class Base(nn.Module):
             rounded_z = torch.round(z)
             pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
             # if not detach, the feature would cancel itself
-            pred_err_z = (rounded_z + pred_noise_z - (z.detach() if self.detachER else z))
-            std_z = pred_err_z.std()
             # more correct means less noise, image could be transmitted less lossy
             # make it better than uniform noise
             # we can multiple it by a uniform noise?
-            corrected_z = z + pred_err_z + std_z * torch.empty_like(std_z).uniform_(-one, one)
+            pred_err_z = (rounded_z + pred_noise_z - (z.detach() if self.detachER else z))
+            std_z = pred_err_z.std()
+            corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
+             # + std_z * torch.empty_like(std_z).uniform_(-one, one)
         
         # rec. hyperprior
         if self.useER and self.training:
