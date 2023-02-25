@@ -1949,6 +1949,7 @@ class Base(nn.Module):
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useER = True if '-ER' in name else False # error regularization
         self.detachER = False
+        self.residualER = True
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2049,19 +2050,32 @@ class Base(nn.Module):
             # self.mvGenNet = CodecNet([(11,1,1,128,128)])
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
-            # 
-            self.mvGenNet = CodecNet([(11,1,1,128,128),
+            # ER3
+            # self.mvGenNet = CodecNet([(11,1,1,128,128),
+            #                             (11,1,1,128,128),
+            #                             (11,1,1,128,128),
+            #                             (11,1,1,128,128)])
+            # self.resGenNet = CodecNet([(11,1,1,96,96),
+            #                             (11,1,1,96,96),
+            #                             (11,1,1,96,96),
+            #                             (11,1,1,96,96)])
+            # self.respriorGenNet = CodecNet([(11,1,1,64,64),
+            #                                 (11,1,1,64,64),
+            #                                 (11,1,1,64,64),
+            #                                 (11,1,1,64,64)])
+            # ER4
+            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
                                         (11,1,1,128,128),
-                                        (11,1,1,128,128),
-                                        (11,1,1,128,128)])
-            self.resGenNet = CodecNet([(11,1,1,96,96),
+                                        (0,5,1,128,128),3,
+                                        (11,1,1,128,128),7])
+            self.resGenNet = CodecNet([(0,5,1,96,96),3,
                                         (11,1,1,96,96),
-                                        (11,1,1,96,96),
-                                        (11,1,1,96,96)])
-            self.respriorGenNet = CodecNet([(11,1,1,64,64),
+                                        (0,5,1,96,96),3,
+                                        (11,1,1,96,96),7])
+            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
                                             (11,1,1,64,64),
-                                            (11,1,1,64,64),
-                                            (11,1,1,64,64)])
+                                            (0,5,1,64,64),3,
+                                            (11,1,1,64,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2114,7 +2128,7 @@ class Base(nn.Module):
             if self.useER:
                 rounded_mv = torch.round(mvfeature)
                 # gen noise or final result?
-                if False:
+                if self.residualER:
                     pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
                     pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach()))
                 else:
@@ -2166,7 +2180,7 @@ class Base(nn.Module):
 
             if self.useER:
                 rounded_feature = torch.round(feature)
-                if False:
+                if self.residualER:
                     pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
                     pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach()))
                 else:
@@ -2193,7 +2207,7 @@ class Base(nn.Module):
             # more correct means less noise, image could be transmitted less lossy
             # make it better than uniform noise
             # we can multiple it by a uniform noise?
-            if False:
+            if self.residualER:
                 pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
                 pred_err_z = (rounded_z + pred_noise_z - (z.detach()))
             else:
