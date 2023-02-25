@@ -2040,16 +2040,16 @@ class Base(nn.Module):
             #                         (0,3,1,128,128),4,
             #                         (0,3,1,128,64),7])
             # ER4
-            self.mvGenNet = CodecNet([(0,3,1,128,128),6,
-                                    (0,3,1,128,128),6,
-                                    (0,3,1,128,128),6,
+            self.mvGenNet = CodecNet([(0,3,1,128,128),2,
+                                    (0,3,1,128,128),2,
+                                    (0,3,1,128,128),2,
                                     (0,3,1,128,128),7])
-            self.resGenNet = CodecNet([(0,3,1,96,128),6,
-                                    (0,3,1,128,128),6,
-                                    (0,3,1,128,128),6,
+            self.resGenNet = CodecNet([(0,3,1,96,128),2,
+                                    (0,3,1,128,128),2,
+                                    (0,3,1,128,128),2,
                                     (0,3,1,128,96),7])
-            self.respriorGenNet = CodecNet([(0,3,1,64,128),6,
-                                    (0,3,1,128,128),6,
+            self.respriorGenNet = CodecNet([(0,3,1,64,128),2,
+                                    (0,3,1,128,128),2,
                                     (0,3,1,128,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
