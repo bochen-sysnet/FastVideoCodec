@@ -2030,7 +2030,7 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-            # ER2 +std
+            # ER2 detach + attention
             # ER3 std +
             # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
             #                         (0,5,1,192,192),3,
@@ -2107,7 +2107,7 @@ class Base(nn.Module):
                 else:
                     pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach() if self.detachER else mvfeature)
                 std_mv = pred_err_mv.std()
-                corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
+                corrected_mv = mvfeature + pred_err_mv#.detach() if self.detachER else pred_err_mv
                  # + std_mv * torch.empty_like(std_mv).uniform_(-one, one)
             
             if self.useER and self.training:
@@ -2159,7 +2159,7 @@ class Base(nn.Module):
                 else:
                     pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach() if self.detachER else feature)
                 std_feature = pred_err_feature.std()
-                corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
+                corrected_feature_renorm = feature + pred_err_feature#.detach() if self.detachER else pred_err_feature
                  # + std_feature * torch.empty_like(std_feature).uniform_(-one, one)
         else:
             compressed_feature_renorm = quantize_ste(feature)
@@ -2187,7 +2187,7 @@ class Base(nn.Module):
             else:
                 pred_err_z = self.respriorGenNet(rounded_z) - (z.detach() if self.detachER else z)
             std_z = pred_err_z.std()
-            corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
+            corrected_z = z + pred_err_z#.detach() if self.detachER else pred_err_z
              # + std_z * torch.empty_like(std_z).uniform_(-one, one)
         
         # rec. hyperprior
