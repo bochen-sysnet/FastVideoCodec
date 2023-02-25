@@ -1857,7 +1857,6 @@ class BasicBlock(nn.Module):
         # relu-gate and gate-relu is same
         out = F.relu(self.bn1(self.conv1(out)))
         out = self.bn2(self.conv2(out))
-        print(out.size(),self.shortcut(x).size())
         out += self.shortcut(x)
         out = F.relu(out)
         return out
@@ -2057,7 +2056,7 @@ class Base(nn.Module):
                                             (8,3,1,128,128)])
                     self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
                                             (8,3,1,128,128)])
-                    self.linear = nn.Linear(192, 1)
+                    self.linear = nn.Linear(384, 1)
                 def forward(self, mv_input, res_input, resprior_input):
                     mvfe = self.mvDisNet(mv_input.detach())
                     resfe = self.resDisNet(res_input.detach())
