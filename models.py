@@ -250,7 +250,7 @@ def parallel_compression(args,model, data, compressI=False):
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
                     aux3_loss_list += [err[2]]
-                    # aux4_loss_list += [err[3]]
+                    aux4_loss_list += [err[3]]
                     # aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
@@ -2052,31 +2052,31 @@ class Base(nn.Module):
             self.detachER = True # false causes some problems
             self.residualER = True
             # ER
-            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
-            #                             (11,1,1,128,128),
-            #                             (0,5,1,128,128),3,
-            #                             (11,1,1,128,128),])
-            # self.resGenNet = CodecNet([(0,5,1,96,96),3,
-            #                             (11,1,1,96,96),
-            #                             (0,5,1,96,96),3,
-            #                             (11,1,1,96,96),])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
-            #                                 (11,1,1,64,64),
-            #                                 (0,5,1,64,64),3,
-            #                                 (11,1,1,64,64),])
+            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+                                        (11,1,1,128,128),
+                                        (0,5,1,128,128),3,
+                                        (11,1,1,128,128),])
+            self.resGenNet = CodecNet([(0,5,1,96,96),3,
+                                        (11,1,1,96,96),
+                                        (0,5,1,96,96),3,
+                                        (11,1,1,96,96),])
+            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+                                            (11,1,1,64,64),
+                                            (0,5,1,64,64),3,
+                                            (11,1,1,64,64),])
             # ER2
-            self.mvGenNet = CodecNet([(11,1,1,128,128),
-                                        (11,1,1,128,128),
-                                        (11,1,1,128,128),
-                                        (11,1,1,128,128)])
-            self.resGenNet = CodecNet([(11,1,1,96,96),
-                                        (11,1,1,96,96),
-                                        (11,1,1,96,96),
-                                        (11,1,1,96,96)])
-            self.respriorGenNet = CodecNet([(11,1,1,64,64),
-                                            (11,1,1,64,64),
-                                            (11,1,1,64,64),
-                                            (11,1,1,64,64)])
+            # self.mvGenNet = CodecNet([(11,1,1,128,128),
+            #                             (11,1,1,128,128),
+            #                             (11,1,1,128,128),
+            #                             (11,1,1,128,128)])
+            # self.resGenNet = CodecNet([(11,1,1,96,96),
+            #                             (11,1,1,96,96),
+            #                             (11,1,1,96,96),
+            #                             (11,1,1,96,96)])
+            # self.respriorGenNet = CodecNet([(11,1,1,64,64),
+            #                                 (11,1,1,64,64),
+            #                                 (11,1,1,64,64),
+            #                                 (11,1,1,64,64)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2134,9 +2134,9 @@ class Base(nn.Module):
                     pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach()))
                 else:
                     pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
+                mean_mv = pred_err_mv.mean()
                 std_mv = pred_err_mv.std()
                 corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
-                 # + std_mv * torch.empty_like(std_mv).uniform_(-one, one)
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2186,6 +2186,7 @@ class Base(nn.Module):
                     pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach()))
                 else:
                     pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
+                mean_feature = pred_err_feature.mean()
                 std_feature = pred_err_feature.std()
                 corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
         else:
@@ -2213,6 +2214,7 @@ class Base(nn.Module):
                 pred_err_z = (rounded_z + pred_noise_z - (z.detach()))
             else:
                 pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
+            mean_z = pred_err_z.mean()
             std_z = pred_err_z.std()
             corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
         
@@ -2343,13 +2345,15 @@ class Base(nn.Module):
         bpp = bpp_feature + bpp_z + bpp_mv
         Q_err = mv_Q_err + res_Q_err + z_Q_err
 
-        pred_err = None
-        pred_std = None
+        pred_err = 0
+        pred_std = 0
+        pred_mean = 0
         if self.useER:
             pred_err = (pred_err_mv**2).mean() + (pred_err_feature**2).mean() + (pred_err_z**2).mean()
             pred_std = std_mv + std_feature + std_z
+            pred_mean = mean_mv + mean_feature + mean_z
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, pred_std), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, pred_mean, pred_std), priors
 
 
 # utils for scale-space flow
