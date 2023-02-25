@@ -1948,7 +1948,7 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useER = True if '-ER' in name else False # error regularization
-        self.detachER = True
+        self.detachER = False
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2018,7 +2018,6 @@ class Base(nn.Module):
 
         # error modeling
         if self.useER: 
-            # ER
             # self.mvGenNet = CodecNet([(0,3,1,128,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,128),3,
@@ -2030,8 +2029,9 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-            # ER2 detach + attention
-            # ER3 std +
+            # ER deattach + attention
+            # ER2 attach + attention
+            # ER3 attach + attn + conv
             # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
             #                         (0,5,1,192,192),3,
             #                         (0,5,1,192,192),3,
@@ -2046,9 +2046,22 @@ class Base(nn.Module):
             #                         (0,5,1,128,64),7])
             # ER4 detach prediction network, no std added
             # ER5 attention to help exploit all areas
-            self.mvGenNet = CodecNet([(11,1,1,128,128)])
-            self.resGenNet = CodecNet([(11,1,1,96,96)])
-            self.respriorGenNet = CodecNet([(11,1,1,64,64)])
+            # self.mvGenNet = CodecNet([(11,1,1,128,128)])
+            # self.resGenNet = CodecNet([(11,1,1,96,96)])
+            # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
+            # 
+            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+                                        (11,1,1,128,128),
+                                        (0,5,1,128,128),3,
+                                        (11,1,1,128,128)])
+            self.resGenNet = CodecNet([(0,5,1,96,96),3,
+                                        (11,1,1,96,96),
+                                        (0,5,1,96,96),3,
+                                        (11,1,1,96,96)])
+            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+                                            (11,1,1,64,64),
+                                            (0,5,1,64,64),3,
+                                            (11,1,1,64,64)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2103,11 +2116,11 @@ class Base(nn.Module):
                 # gen noise or final result?
                 if False:
                     pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
-                    pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))
+                    pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach()))
                 else:
-                    pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach() if self.detachER else mvfeature)
+                    pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
                 std_mv = pred_err_mv.std()
-                corrected_mv = mvfeature + pred_err_mv#.detach() if self.detachER else pred_err_mv
+                corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
                  # + std_mv * torch.empty_like(std_mv).uniform_(-one, one)
             
             if self.useER and self.training:
@@ -2155,12 +2168,11 @@ class Base(nn.Module):
                 rounded_feature = torch.round(feature)
                 if False:
                     pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
-                    pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach() if self.detachER else feature))
+                    pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach()))
                 else:
-                    pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach() if self.detachER else feature)
+                    pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
                 std_feature = pred_err_feature.std()
-                corrected_feature_renorm = feature + pred_err_feature#.detach() if self.detachER else pred_err_feature
-                 # + std_feature * torch.empty_like(std_feature).uniform_(-one, one)
+                corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2183,12 +2195,11 @@ class Base(nn.Module):
             # we can multiple it by a uniform noise?
             if False:
                 pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
-                pred_err_z = (rounded_z + pred_noise_z - (z.detach() if self.detachER else z))
+                pred_err_z = (rounded_z + pred_noise_z - (z.detach()))
             else:
-                pred_err_z = self.respriorGenNet(rounded_z) - (z.detach() if self.detachER else z)
+                pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
             std_z = pred_err_z.std()
-            corrected_z = z + pred_err_z#.detach() if self.detachER else pred_err_z
-             # + std_z * torch.empty_like(std_z).uniform_(-one, one)
+            corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
         
         # rec. hyperprior
         if self.useER and self.training:
