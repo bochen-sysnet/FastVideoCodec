@@ -1949,7 +1949,7 @@ class Base(nn.Module):
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useER = True if '-ER' in name else False # error regularization
         self.detachER = True # false causes some problems
-        self.residualER = True
+        self.residualER = False
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2051,31 +2051,31 @@ class Base(nn.Module):
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
             # ER2
-            self.mvGenNet = CodecNet([(11,1,1,128,128),
-                                        (11,1,1,128,128),
-                                        (11,1,1,128,128),
-                                        (11,1,1,128,128)])
-            self.resGenNet = CodecNet([(11,1,1,96,96),
-                                        (11,1,1,96,96),
-                                        (11,1,1,96,96),
-                                        (11,1,1,96,96)])
-            self.respriorGenNet = CodecNet([(11,1,1,64,64),
-                                            (11,1,1,64,64),
-                                            (11,1,1,64,64),
-                                            (11,1,1,64,64)])
-            # ER
-            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+            # self.mvGenNet = CodecNet([(11,1,1,128,128),
             #                             (11,1,1,128,128),
-            #                             (0,5,1,128,128),3,
+            #                             (11,1,1,128,128),
             #                             (11,1,1,128,128),7])
-            # self.resGenNet = CodecNet([(0,5,1,96,96),3,
+            # self.resGenNet = CodecNet([(11,1,1,96,96),
             #                             (11,1,1,96,96),
-            #                             (0,5,1,96,96),3,
+            #                             (11,1,1,96,96),
             #                             (11,1,1,96,96),7])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+            # self.respriorGenNet = CodecNet([(11,1,1,64,64),
             #                                 (11,1,1,64,64),
-            #                                 (0,5,1,64,64),3,
+            #                                 (11,1,1,64,64),
             #                                 (11,1,1,64,64),7])
+            # ER
+            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+                                        (11,1,1,128,128),
+                                        (0,5,1,128,128),3,
+                                        (11,1,1,128,128),])
+            self.resGenNet = CodecNet([(0,5,1,96,96),3,
+                                        (11,1,1,96,96),
+                                        (0,5,1,96,96),3,
+                                        (11,1,1,96,96),])
+            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+                                            (11,1,1,64,64),
+                                            (0,5,1,64,64),3,
+                                            (11,1,1,64,64),])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
