@@ -239,24 +239,19 @@ def parallel_compression(args,model, data, compressI=False):
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
                 bpp_list += [bpp.to(data.device)]
-                # bppres_list += [(bpp_feature + bpp_z).to(data.device)]
-                bppres_list += [err[4]]
+                bppres_list += [(bpp_feature + bpp_z).to(data.device)]
+                # bppres_list += [err[4]]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
                     if model.useER and model.training:
-                        # discriminator will be trained on uniform noise to cover all cases
-                        trainDis = True
-                        if not trainDis:
-                            all_loss_list2 += [-err[4]]
-                        else:
-                            all_loss_list3 += [((bpp + model.r * mseloss).detach() - err[4])**2] 
-                    # compression loss
-                    all_loss_list += [(model.r*mseloss + bpp)]
+                        all_loss_list += [(model.r*mseloss + bpp + err[1])]
+                    else:
+                        all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
-                    aux3_loss_list += [err[2]]
+                    # aux3_loss_list += [err[2]]
                     # aux4_loss_list += [err[3]]
-                    aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
+                    # aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -1955,7 +1950,6 @@ class Base(nn.Module):
         self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
         self.useER = True if '-ER' in name else False # error regularization
         self.useE2R = True if '-E2R' in name else False # error regularization
-        self.trainDis = True
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2041,30 +2035,6 @@ class Base(nn.Module):
             self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
                                     (0,3,1,128,128),3,
                                     (0,3,1,128,64),7])
-            class Discriminator(nn.Module):
-                def __init__(self):
-                    super(Discriminator, self).__init__()
-                    self.mvDisNet = CodecNet([(8,3,2,128*2,192),
-                                            (8,3,1,192,192),
-                                            (8,3,2,192,128),
-                                            (8,3,1,128,128)])
-                    self.resDisNet = CodecNet([(8,3,2,96*2,192),
-                                            (8,3,1,192,192),
-                                            (0,3,2,192,128),
-                                            (8,3,1,128,128)])
-                    self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
-                                            (8,3,1,128,128)])
-                    self.linear = nn.Linear(384, 1)
-                def forward(self, mv_input, res_input, resprior_input):
-                    mvfe = self.mvDisNet(mv_input.detach())
-                    resfe = self.resDisNet(res_input.detach())
-                    respriorfe = self.respriorDisNet(resprior_input.detach())
-                    out = torch.cat((mvfe,resfe,respriorfe),dim=1)
-                    out = F.avg_pool2d(out, out.size()[3])
-                    out = out.view(out.size(0), -1)
-                    out = self.linear(out)
-                    return out
-            self.discriminator = Discriminator()
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2104,19 +2074,19 @@ class Base(nn.Module):
                 estmv -= priors['mv']
             mvfeature = self.mvEncoder(estmv)
             if self.training:
-                if self.useER and not self.trainDis:
-                    quant_noise_mv = self.mvGenNet(mvfeature) * 0.5
-                else:
-                    half = float(0.5)
-                    quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-                # predict noise quality
-                mv_input = torch.cat((quant_noise_mv,mvfeature), dim=1)
+                half = float(0.5)
+                quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
                 quant_mv = mvfeature + quant_noise_mv
-                mv_S_err = quant_noise_mv
-                mv_Q_err = ((mvfeature - torch.round(mvfeature)))
             else:
                 quant_mv = torch.round(mvfeature)
-                mv_S_err = mv_Q_err = (mvfeature - quant_mv)
+            mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean()
+
+            # we can predict error from feature
+            # so enhance the input to decoder
+            if self.useER:
+                rounded_mv = torch.round(mvfeature)
+                pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
+                pred_err_mv = ((rounded_mv + pred_noise_mv - mvfeature.detach())**2).mean()
             
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2149,19 +2119,17 @@ class Base(nn.Module):
         # quantization
         if not self.useSTE:
             if self.training:
-                if self.useER and not self.trainDis: 
-                    # predict STE behavior
-                    quant_noise_feature = self.resGenNet(feature) * 0.5
-                else:
-                    half = float(0.5)
-                    quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
-                res_input = torch.cat((quant_noise_feature,feature), dim=1)
+                half = float(0.5)
+                quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
                 compressed_feature_renorm = feature + quant_noise_feature
-                res_S_err = quant_noise_feature
-                res_Q_err = ((feature - torch.round(feature)))
             else:
                 compressed_feature_renorm = torch.round(feature)
-                res_S_err = res_Q_err = (feature - compressed_feature_renorm)
+            res_Q_err = ((feature - torch.round(feature))**2).mean()
+
+            if self.useER:
+                rounded_feature = torch.round(feature)
+                pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
+                pred_err_feature = ((rounded_feature + pred_noise_feature - feature.detach())**2).mean()
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2169,18 +2137,17 @@ class Base(nn.Module):
         z = self.respriorEncoder(feature)
         # quantization
         if self.training:
-            if self.useER and not self.trainDis:
-                quant_noise_z = self.respriorGenNet(z) * 0.5
-            else:
-                half = float(0.5)
-                quant_noise_z = torch.empty_like(z).uniform_(-half, half)
-            resprior_input = torch.cat((quant_noise_z,z), dim=1)
+            half = float(0.5)
+            quant_noise_z = torch.empty_like(z).uniform_(-half, half)
             compressed_z = z + quant_noise_z
-            z_S_err = quant_noise_z
-            z_Q_err = ((z - torch.round(z)))
         else:
             compressed_z = torch.round(z)
-            z_S_err = z_Q_err = (z - compressed_z)
+        z_Q_err = ((z - torch.round(z))**2).mean()
+
+        if self.useER:
+            rounded_z = torch.round(z)
+            pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
+            pred_err_z = ((rounded_z + pred_noise_z - z.detach())**2).mean()
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
@@ -2303,16 +2270,13 @@ class Base(nn.Module):
         bpp_z = total_bits_z / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp_mv = total_bits_mv / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
-        S_mean = mv_S_err.mean().abs() + res_S_err.mean().abs() + z_S_err.mean().abs()
-        Q_mean = mv_Q_err.mean().abs() + res_Q_err.mean().abs() + z_Q_err.mean().abs()
-        S_std = mv_S_err.std() + res_S_err.std() + z_S_err.std()
-        Q_std = mv_Q_err.std() + res_Q_err.std() + z_Q_err.std()
+        Q_err = mv_Q_err + res_Q_err + z_Q_err
 
-        noise_validity = None
-        if self.useER and self.training:
-            noise_validity = self.discriminator(mv_input,res_input,resprior_input)
+        pred_err = None
+        if self.useER:
+            pred_err = pred_err_mv + pred_err_feature + pred_err_z
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (S_mean, S_std , Q_mean, Q_std,noise_validity), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err), priors
 
 
 # utils for scale-space flow

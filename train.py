@@ -82,12 +82,8 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 
 ####### Create optimizer
 # ---------------------------------------------------------------
-parameters = [p for n, p in model.named_parameters() if ('GenNet' not in n and 'distriminator' not in n)]
-parameters_G = [p for n, p in model.named_parameters() if ('GenNet' in n)]
-parameters_D = [p for n, p in model.named_parameters() if ('distriminator' in n)]
+parameters = [p for n, p in model.named_parameters()]
 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-optimizer_G = torch.optim.Adam([{'params': parameters_G}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-optimizer_D = torch.optim.Adam([{'params': parameters_D}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
 best_codec_score = [1,0,0]
 
@@ -158,7 +154,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset, optimizer_G=None, optimizer_D=None):
+def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset):
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
     be_res_loss_module = AverageMeter()
@@ -186,7 +182,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         l = data.size(0)-1
         
         # run model
-        _,loss,loss_G,loss_D,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
+        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
 
         # record loss
         all_loss_module.update(loss.cpu().data.item(), l)
@@ -202,18 +198,9 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         aux4_loss_module.update(aux_loss4, l)
         
         # backward
-        scaler.scale(loss).backward(retain_graph=True if (loss_G + loss_D !=0 ) else False)
+        scaler.scale(loss).backward()
         # update model after compress each video
-        if batch_idx%1 == 0 and batch_idx > 0:
-            if loss_G != 0:
-                loss_G.backward()
-                optimizer_G.step()
-                optimizer_G.zero_grad()
-            if loss_D != 0:
-                loss_D.backward()
-                optimizer_D.step()
-                optimizer_D.zero_grad()
-
+        if batch_idx%10 == 0 and batch_idx > 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
@@ -289,15 +276,15 @@ def test(epoch, model, test_dataset):
             
             # compress GoP
             if l>fP+1:
-                com_imgs,loss,_,_,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True)
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
-                com_imgs,loss,_,_,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
             else:
-                com_imgs,loss,_,_,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
                 
