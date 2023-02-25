@@ -2029,24 +2029,24 @@ class Base(nn.Module):
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
             # ER2
-            self.mvGenNet = CodecNet([(0,5,1,128,192),3,
-                                    (0,5,1,192,192),3,
-                                    (11,1,1,192,192),
-                                    (0,5,1,192,192),3,
-                                    (0,5,1,192,128),
-                                    (11,1,1,128,128),])
-            self.resGenNet = CodecNet([(0,5,1,96,128),3,
-                                    (0,5,1,128,128),3,
-                                    (11,1,1,128,128),
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,96),
-                                    (11,1,1,96,96),])
-            self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-                                    (0,5,1,128,128),3,
-                                    (11,1,1,128,128),
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,64),
-                                    (11,1,1,64,64)])
+            # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
+            #                         (0,5,1,192,192),3,
+            #                         (11,1,1,192,192),
+            #                         (0,5,1,192,192),3,
+            #                         (0,5,1,192,128),
+            #                         (11,1,1,128,128),])
+            # self.resGenNet = CodecNet([(0,5,1,96,128),3,
+            #                         (0,5,1,128,128),3,
+            #                         (11,1,1,128,128),
+            #                         (0,5,1,128,128),3,
+            #                         (0,5,1,128,96),
+            #                         (11,1,1,96,96),])
+            # self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
+            #                         (0,5,1,128,128),3,
+            #                         (11,1,1,128,128),
+            #                         (0,5,1,128,128),3,
+            #                         (0,5,1,128,64),
+            #                         (11,1,1,64,64)])
             # self.mvGenNet = CodecNet([(11,1,1,128,128)])
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
@@ -2054,18 +2054,20 @@ class Base(nn.Module):
             self.detachER = True # false causes some problems
             self.residualER = True
             # ER
-            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
-            #                             (11,1,1,128,128),
-            #                             (0,5,1,128,128),3,
-            #                             (11,1,1,128,128),])
-            # self.resGenNet = CodecNet([(0,5,1,96,96),3,
-            #                             (11,1,1,96,96),
-            #                             (0,5,1,96,96),3,
-            #                             (11,1,1,96,96),])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
-            #                                 (11,1,1,64,64),
-            #                                 (0,5,1,64,64),3,
-            #                                 (11,1,1,64,64),])
+            # ER3 pure conv
+            # ER4 pure conv and fixed noise
+            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+                                        (11,1,1,128,128),
+                                        (0,5,1,128,128),3,
+                                        (11,1,1,128,128),])
+            self.resGenNet = CodecNet([(0,5,1,96,96),3,
+                                        (11,1,1,96,96),
+                                        (0,5,1,96,96),3,
+                                        (11,1,1,96,96),])
+            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+                                            (11,1,1,64,64),
+                                            (0,5,1,64,64),3,
+                                            (11,1,1,64,64),])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2125,7 +2127,10 @@ class Base(nn.Module):
                     pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
                 mean_mv = pred_err_mv.mean()
                 std_mv = pred_err_mv.std()
-                corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
+                if False:
+                    corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
+                else:
+                    corrected_mv = mvfeature + torch.empty_like(mvfeature).uniform_(-float(.12), float(.12))
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2177,7 +2182,10 @@ class Base(nn.Module):
                     pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
                 mean_feature = pred_err_feature.mean()
                 std_feature = pred_err_feature.std()
-                corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
+                if False:
+                    corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
+                else:
+                    corrected_feature_renorm = feature + torch.empty_like(feature).uniform_(-float(.12), float(.12))
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2205,7 +2213,10 @@ class Base(nn.Module):
                 pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
             mean_z = pred_err_z.mean()
             std_z = pred_err_z.std()
-            corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
+            if False:
+                corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
+            else:
+                corrected_z = z + torch.empty_like(z).uniform_(-float(.12), float(.12))
         
         # rec. hyperprior
         if self.useER and self.training:
