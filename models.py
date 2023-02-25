@@ -2019,10 +2019,6 @@ class Base(nn.Module):
 
         # error modeling
         if self.useER: 
-            # self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
-            # self.resErrNet = Analysis_net(out_channels = out_channel_M)
-            # self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
-            # BN?
             # self.mvGenNet = CodecNet([(0,3,1,128,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,128),3,
@@ -2036,12 +2032,17 @@ class Base(nn.Module):
             #                         (0,3,1,128,64),7])
             # ER2, detach
             # ER3, no detach(), resnet
-            self.mvGenNet = CodecNet([(8,3,1,128,128),
-                                    (8,3,1,128,128),7])
-            self.resGenNet = CodecNet([(8,3,1,96,128),
-                                    (8,3,1,128,96),7])
-            self.respriorGenNet = CodecNet([(0,3,1,64,128),
-                                    (8,3,1,128,64),7])
+            self.mvGenNet = CodecNet([(0,3,1,128,128),4,
+                                    (0,3,1,128,128),4,
+                                    (0,3,1,128,128),4,
+                                    (0,3,1,128,128),7])
+            self.resGenNet = CodecNet([(0,3,1,96,128),4,
+                                    (0,3,1,128,128),4,
+                                    (0,3,1,128,128),4,
+                                    (0,3,1,128,96),7])
+            self.respriorGenNet = CodecNet([(0,3,1,64,128),4,
+                                    (0,3,1,128,128),4,
+                                    (0,3,1,128,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
