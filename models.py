@@ -1837,7 +1837,7 @@ class BasicBlock(nn.Module):
         if stride != 1 or in_planes != outplanes:
             """For CIFAR10 ResNet paper uses option A."""
             self.shortcut = LambdaLayer(lambda x:
-                                        F.pad(x[:, :, ::2, ::2], (
+                                        F.pad(x[:, :, ::2, ::2] if stride != 1 else x, (
                                             0, 0, 0, 0, (outplanes - in_planes) // 2, (outplanes - in_planes) // 2),
                                               "constant",
                                               0))
@@ -1947,7 +1947,7 @@ class Base(nn.Module):
         self.useE5C = True if '-E5C' in name else False # tanh + concat
         self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
         self.useER = True if '-ER' in name else False # error regularization
-        self.useE2R = True if '-E2R' in name else False # error regularization
+        self.detachER = False
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2022,17 +2022,31 @@ class Base(nn.Module):
             # self.mvErrNet = Analysis_mv_net(out_channels = out_channel_mv)
             # self.resErrNet = Analysis_net(out_channels = out_channel_M)
             # self.respriorErrNet = Analysis_prior_net(conv_channels = out_channel_N)
-            self.mvGenNet = CodecNet([(0,3,1,128,128),3,
-                                    (0,3,1,128,128),3,
-                                    (0,3,1,128,128),3,
-                                    (0,3,1,128,128),7])
-            self.resGenNet = CodecNet([(0,3,1,96,128),3,
-                                    (0,3,1,128,128),3,
-                                    (0,3,1,128,128),3,
-                                    (0,3,1,128,96),7])
+            # BN?
+            # self.mvGenNet = CodecNet([(0,3,1,128,128),3,
+            #                         (0,3,1,128,128),3,
+            #                         (0,3,1,128,128),3,
+            #                         (0,3,1,128,128),7])
+            # self.resGenNet = CodecNet([(0,3,1,96,128),3,
+            #                         (0,3,1,128,128),3,
+            #                         (0,3,1,128,128),3,
+            #                         (0,3,1,128,96),7])
+            # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
+            #                         (0,3,1,128,128),3,
+            #                         (0,3,1,128,64),7])
+            # ER2, detach
+            # ER3, no detach(), resnet
+            self.mvGenNet = CodecNet([(8,3,1,128,128),
+                                    (8,3,1,128,128),
+                                    (8,3,1,128,128),
+                                    (8,3,1,128,128),7])
+            self.resGenNet = CodecNet([(8,3,1,96,128),3,
+                                    (8,3,1,128,128),3,
+                                    (8,3,1,128,128),3,
+                                    (8,3,1,128,96),7])
             self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
-                                    (0,3,1,128,128),3,
-                                    (0,3,1,128,64),7])
+                                    (8,3,1,128,128),3,
+                                    (8,3,1,128,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2084,8 +2098,8 @@ class Base(nn.Module):
             if self.useER:
                 rounded_mv = torch.round(mvfeature)
                 pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
-                pred_err_mv = ((rounded_mv + pred_noise_mv - mvfeature.detach())**2).mean()
-                quant_mv += pred_err_mv.detach()
+                pred_err_mv = ((rounded_mv + pred_noise_mv - mvfeature.detach() if self.detachER else mvfeature)**2).mean()
+                quant_mv += pred_err_mv.detach() if self.detachER else pred_err_mv
             
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2128,8 +2142,8 @@ class Base(nn.Module):
             if self.useER:
                 rounded_feature = torch.round(feature)
                 pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
-                pred_err_feature = ((rounded_feature + pred_noise_feature - feature.detach())**2).mean()
-                compressed_feature_renorm += pred_err_feature.detach()
+                pred_err_feature = ((rounded_feature + pred_noise_feature - feature.detach() if self.detachER else feature)**2).mean()
+                compressed_feature_renorm += pred_err_feature.detach() if self.detachER else pred_err_feature
 
         else:
             compressed_feature_renorm = quantize_ste(feature)
@@ -2148,8 +2162,8 @@ class Base(nn.Module):
         if self.useER:
             rounded_z = torch.round(z)
             pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
-            pred_err_z = ((rounded_z + pred_noise_z - z.detach())**2).mean()
-            compressed_z += pred_err_z.detach()
+            pred_err_z = ((rounded_z + pred_noise_z - z.detach() if self.detachER else z)**2).mean()
+            compressed_z += pred_err_z.detach() if self.detachER else pred_err_z
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
