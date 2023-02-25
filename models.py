@@ -1944,8 +1944,6 @@ class Base(nn.Module):
         self.useE2C = True if '-E2C' in name else False # no act + addition
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useE4C = True if '-E4C' in name else False # no act + concat
-        self.useE5C = True if '-E5C' in name else False # tanh + concat
-        self.useE6C = True if '-E6C' in name else False # sigmoid + concat + new model
         self.useER = True if '-ER' in name else False # error regularization
         self.detachER = False
         if self.useSSF:
@@ -2003,19 +2001,17 @@ class Base(nn.Module):
 
         self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
-        if self.useE3C or self.useE4C or self.useE5C:
+        if self.useE3C or self.useE4C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
 
         self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
-        if self.useEC or self.useE2C or self.useE3C or self.useE4C or self.useE5C:
+        if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         else:
             self.respriorDecoder = Synthesis_prior_net()
-        if self.useE6C:
-            self.respriorCorNet = Synthesis_prior_net()
 
         # error modeling
         if self.useER: 
@@ -2032,16 +2028,28 @@ class Base(nn.Module):
             #                         (0,3,1,128,64),7])
             # ER2, detach
             # ER3, no detach(), resnet
-            self.mvGenNet = CodecNet([(0,3,1,128,128),4,
-                                    (0,3,1,128,128),4,
-                                    (0,3,1,128,128),4,
+            # self.mvGenNet = CodecNet([(0,3,1,128,128),4,
+            #                         (0,3,1,128,128),4,
+            #                         (0,3,1,128,128),4,
+            #                         (0,3,1,128,128),7])
+            # self.resGenNet = CodecNet([(0,3,1,96,128),4,
+            #                         (0,3,1,128,128),4,
+            #                         (0,3,1,128,128),4,
+            #                         (0,3,1,128,96),7])
+            # self.respriorGenNet = CodecNet([(0,3,1,64,128),4,
+            #                         (0,3,1,128,128),4,
+            #                         (0,3,1,128,64),7])
+            # ER4
+            self.mvGenNet = CodecNet([(0,3,1,128,128),6,
+                                    (0,3,1,128,128),6,
+                                    (0,3,1,128,128),6,
                                     (0,3,1,128,128),7])
-            self.resGenNet = CodecNet([(0,3,1,96,128),4,
-                                    (0,3,1,128,128),4,
-                                    (0,3,1,128,128),4,
+            self.resGenNet = CodecNet([(0,3,1,96,128),6,
+                                    (0,3,1,128,128),6,
+                                    (0,3,1,128,128),6,
                                     (0,3,1,128,96),7])
-            self.respriorGenNet = CodecNet([(0,3,1,64,128),4,
-                                    (0,3,1,128,128),4,
+            self.respriorGenNet = CodecNet([(0,3,1,64,128),6,
+                                    (0,3,1,128,128),6,
                                     (0,3,1,128,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
@@ -2163,19 +2171,17 @@ class Base(nn.Module):
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
-        if self.useEC or self.useE2C or self.useE3C or self.useE4C or self.useE5C:
+        if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             if self.useEC or self.useE3C:
                 feature_correction = torch.sigmoid(feature_correction) - 0.5
             elif self.useE5C:
                 feature_correction = torch.tanh(feature_correction)
-        elif self.useE6C:
-            feature_correction = self.respriorCorNet(compressed_z)
 
         # rec. residual
         if self.useEC or self.useE2C:
             recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
-        elif self.useE3C or self.useE4C or self.useE5C:
+        elif self.useE3C or self.useE4C:
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
             recon_res = self.resDecoder(compressed_feature_renorm)
