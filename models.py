@@ -2028,42 +2028,6 @@ class Base(nn.Module):
                                     (0,3,1,128,128),3,
                                     (0,3,1,128,64),7])
             # ER2, detach
-            # ER3, no detach(), resnet
-            # self.mvGenNet = CodecNet([(0,3,1,128,128),4,
-            #                         (0,3,1,128,128),4,
-            #                         (0,3,1,128,128),4,
-            #                         (0,3,1,128,128),7])
-            # self.resGenNet = CodecNet([(0,3,1,96,128),4,
-            #                         (0,3,1,128,128),4,
-            #                         (0,3,1,128,128),4,
-            #                         (0,3,1,128,96),7])
-            # self.respriorGenNet = CodecNet([(0,3,1,64,128),4,
-            #                         (0,3,1,128,128),4,
-            #                         (0,3,1,128,64),7])
-            # ER4
-            # self.mvGenNet = CodecNet([(0,3,1,128,128),2,
-            #                         (0,3,1,128,128),2,
-            #                         (0,3,1,128,128),2,
-            #                         (0,3,1,128,128),7])
-            # self.resGenNet = CodecNet([(0,3,1,96,128),2,
-            #                         (0,3,1,128,128),2,
-            #                         (0,3,1,128,128),2,
-            #                         (0,3,1,128,96),7])
-            # self.respriorGenNet = CodecNet([(0,3,1,64,128),2,
-            #                         (0,3,1,128,128),2,
-            #                         (0,3,1,128,64),7])
-            # ER5
-            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),7])
-            # self.resGenNet = CodecNet([(0,5,1,96,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,96),7])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,64),7])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2118,7 +2082,10 @@ class Base(nn.Module):
                 pred_err_mv = ((rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))**2).mean()
                 quant_mv += (pred_err_mv.detach() if self.detachER else pred_err_mv)
             
-            quant_mv_upsample = self.mvDecoder(quant_mv)
+            if self.useER:
+                quant_mv_upsample = self.mvDecoder(mvfeature)
+            else:
+                quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
             if self.recursive_flow and 'mv' in priors:
                 quant_mv_upsample += priors['mv']
@@ -2183,7 +2150,10 @@ class Base(nn.Module):
             compressed_z += (pred_err_z.detach() if self.detachER else pred_err_z)
         
         # rec. hyperprior
-        recon_sigma = self.respriorDecoder(compressed_z)
+        if self.useER:
+            recon_sigma = self.respriorDecoder(z)
+        else:
+            recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             if self.useEC or self.useE3C:
@@ -2197,7 +2167,10 @@ class Base(nn.Module):
         elif self.useE3C or self.useE4C:
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
-            recon_res = self.resDecoder(compressed_feature_renorm)
+            if self.useER:
+                recon_res = self.resDecoder(feature)
+            else:
+                recon_res = self.resDecoder(compressed_feature_renorm)
 
         recon_image = prediction + recon_res
         clipped_recon_image = recon_image.clamp(0., 1.)
