@@ -1948,7 +1948,7 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useER = True if '-ER' in name else False # error regularization
-        self.detachER = False
+        self.detachER = True
         self.residualER = True
         if self.useSSF:
             class Encoder(nn.Sequential):
