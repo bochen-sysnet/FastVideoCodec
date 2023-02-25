@@ -2051,11 +2051,17 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
             # 
             self.mvGenNet = CodecNet([(11,1,1,128,128),
-                                        (11,1,1,128,128),])
+                                        (11,1,1,128,128),
+                                        (11,1,1,128,128),
+                                        (11,1,1,128,128)])
             self.resGenNet = CodecNet([(11,1,1,96,96),
-                                        (11,1,1,96,96),])
+                                        (11,1,1,96,96),
+                                        (11,1,1,96,96),
+                                        (11,1,1,96,96)])
             self.respriorGenNet = CodecNet([(11,1,1,64,64),
-                                            (11,1,1,64,64),])
+                                            (11,1,1,64,64),
+                                            (11,1,1,64,64),
+                                            (11,1,1,64,64)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
