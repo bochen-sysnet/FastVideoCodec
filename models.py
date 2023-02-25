@@ -249,7 +249,7 @@ def parallel_compression(args,model, data, compressI=False):
                         all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
-                    # aux3_loss_list += [err[2]]
+                    aux3_loss_list += [err[2]]
                     # aux4_loss_list += [err[3]]
                     # aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
                 x_hat_list.append(x_prev)
@@ -2060,6 +2060,7 @@ class Base(nn.Module):
                 normal_std = 0.30
                 sample = (torch.randn_like(vect) * normal_std).clamp(-.5, .5)
             return sample
+        one = float(1.)
         # motion
         if not self.useSSF:
             estmv = self.opticFlow(input_image, referframe, priors)
@@ -2080,8 +2081,8 @@ class Base(nn.Module):
                 rounded_mv = torch.round(mvfeature)
                 pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
                 pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))
-                std = pred_err_mv.std()
-                corrected_mv = mvfeature + pred_err_mv + torch.empty_like(std).uniform_(-std, std)
+                std_mv = pred_err_mv.std()
+                corrected_mv = mvfeature + pred_err_mv + std_mv * torch.empty_like(std_mv).uniform_(-one, one)
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2128,8 +2129,8 @@ class Base(nn.Module):
                 rounded_feature = torch.round(feature)
                 pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
                 pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach() if self.detachER else feature))
-                std = pred_err_feature.std()
-                corrected_feature_renorm = feature + pred_err_feature + torch.empty_like(std).uniform_(-std, std)
+                std_feature = pred_err_feature.std()
+                corrected_feature_renorm = feature + pred_err_feature + std_feature * torch.empty_like(std_feature).uniform_(-one, one)
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2149,11 +2150,11 @@ class Base(nn.Module):
             pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
             # if not detach, the feature would cancel itself
             pred_err_z = (rounded_z + pred_noise_z - (z.detach() if self.detachER else z))
-            std = pred_err_z.std()
+            std_z = pred_err_z.std()
             # more correct means less noise, image could be transmitted less lossy
             # make it better than uniform noise
             # we can multiple it by a uniform noise?
-            corrected_z = z + pred_err_z + torch.empty_like(std).uniform_(-std, std)
+            corrected_z = z + pred_err_z + std_z * torch.empty_like(std_z).uniform_(-one, one)
         
         # rec. hyperprior
         if self.useER and self.training:
@@ -2283,10 +2284,12 @@ class Base(nn.Module):
         Q_err = mv_Q_err + res_Q_err + z_Q_err
 
         pred_err = None
+        pred_std = None
         if self.useER:
             pred_err = (pred_err_mv**2).mean() + (pred_err_feature**2).mean() + (pred_err_z**2).mean()
+            pred_std = std_mv + std_feature + std_z
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, pred_std), priors
 
 
 # utils for scale-space flow

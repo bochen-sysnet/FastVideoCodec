@@ -217,7 +217,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             # f"I:{I_module.val:.2f} ({I_module.avg:.2f}). "
             f"1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
             f"2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-            f"3:{aux3_loss_module.val:.2f} ({aux3_loss_module.avg:.2f}). "
+            f"3:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"4:{aux4_loss_module.val:.2f} ({aux4_loss_module.avg:.2f}). ")
 
         # clear result every 1000 batches
