@@ -2028,23 +2028,18 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-            # ER deattach + attention + residual
-            # ER2 attach + attention
-            # ER3 attach + attn + conv
-            # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
-            #                         (0,5,1,192,192),3,
-            #                         (0,5,1,192,192),3,
-            #                         (0,5,1,192,128),7])
-            # self.resGenNet = CodecNet([(0,5,1,96,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,96),7])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,64),7])
-            # ER4 detach prediction network, no std added
-            # ER5 attention to help exploit all areas
+            self.mvGenNet = CodecNet([(0,5,1,128,192),3,
+                                    (0,5,1,192,192),3,
+                                    (0,5,1,192,192),3,
+                                    (0,5,1,192,128),])
+            self.resGenNet = CodecNet([(0,5,1,96,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,96),])
+            self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,64),])
             # self.mvGenNet = CodecNet([(11,1,1,128,128)])
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
@@ -2052,18 +2047,18 @@ class Base(nn.Module):
             self.detachER = True # false causes some problems
             self.residualER = True
             # ER
-            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
-                                        (11,1,1,128,128),
-                                        (0,5,1,128,128),3,
-                                        (11,1,1,128,128),])
-            self.resGenNet = CodecNet([(0,5,1,96,96),3,
-                                        (11,1,1,96,96),
-                                        (0,5,1,96,96),3,
-                                        (11,1,1,96,96),])
-            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
-                                            (11,1,1,64,64),
-                                            (0,5,1,64,64),3,
-                                            (11,1,1,64,64),])
+            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+            #                             (11,1,1,128,128),
+            #                             (0,5,1,128,128),3,
+            #                             (11,1,1,128,128),])
+            # self.resGenNet = CodecNet([(0,5,1,96,96),3,
+            #                             (11,1,1,96,96),
+            #                             (0,5,1,96,96),3,
+            #                             (11,1,1,96,96),])
+            # self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+            #                                 (11,1,1,64,64),
+            #                                 (0,5,1,64,64),3,
+            #                                 (11,1,1,64,64),])
             # ER2
             # self.mvGenNet = CodecNet([(11,1,1,128,128),
             #                             (11,1,1,128,128),
