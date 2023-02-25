@@ -1945,7 +1945,7 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useE4C = True if '-E4C' in name else False # no act + concat
         self.useER = True if '-ER' in name else False # error regularization
-        self.detachER = False
+        self.detachER = True
         if self.useSSF:
             class Encoder(nn.Sequential):
                 def __init__(
@@ -2079,11 +2079,11 @@ class Base(nn.Module):
             if self.useER:
                 rounded_mv = torch.round(mvfeature)
                 pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
-                pred_err_mv = ((rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))**2).mean()
-                quant_mv += (pred_err_mv.detach() if self.detachER else pred_err_mv)
+                pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))
+                corrected_mv = mvfeature + pred_err_mv
             
             if self.useER and self.training:
-                quant_mv_upsample = self.mvDecoder(mvfeature)
+                quant_mv_upsample = self.mvDecoder(corrected_mv)
             else:
                 quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2126,9 +2126,8 @@ class Base(nn.Module):
             if self.useER:
                 rounded_feature = torch.round(feature)
                 pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
-                pred_err_feature = ((rounded_feature + pred_noise_feature - (feature.detach() if self.detachER else feature))**2).mean()
-                compressed_feature_renorm += (pred_err_feature.detach() if self.detachER else pred_err_feature)
-
+                pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach() if self.detachER else feature))
+                corrected_feature_renorm = feature + pred_err_feature
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2146,12 +2145,16 @@ class Base(nn.Module):
         if self.useER:
             rounded_z = torch.round(z)
             pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
-            pred_err_z = ((rounded_z + pred_noise_z - (z.detach() if self.detachER else z))**2).mean()
-            compressed_z += (pred_err_z.detach() if self.detachER else pred_err_z)
+            # if not detach, the feature would cancel itself
+            pred_err_z = (rounded_z + pred_noise_z - (z.detach() if self.detachER else z))
+            # more correct means less noise, image could be transmitted less lossy
+            # make it better than uniform noise
+            # we can multiple it by a uniform noise?
+            corrected_z = z + pred_err_z 
         
         # rec. hyperprior
         if self.useER and self.training:
-            recon_sigma = self.respriorDecoder(z)
+            recon_sigma = self.respriorDecoder(corrected_z)
         else:
             recon_sigma = self.respriorDecoder(compressed_z)
         if self.useEC or self.useE2C or self.useE3C or self.useE4C:
@@ -2168,7 +2171,7 @@ class Base(nn.Module):
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
             if self.useER and self.training:
-                recon_res = self.resDecoder(feature)
+                recon_res = self.resDecoder(corrected_feature_renorm)
             else:
                 recon_res = self.resDecoder(compressed_feature_renorm)
 
@@ -2278,7 +2281,7 @@ class Base(nn.Module):
 
         pred_err = None
         if self.useER:
-            pred_err = pred_err_mv + pred_err_feature + pred_err_z
+            pred_err = (pred_err_mv**2).mean() + (pred_err_feature**2).mean() + (pred_err_z**2).mean()
         
         return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err), priors
 
