@@ -2084,8 +2084,8 @@ class Base(nn.Module):
             if self.useER:
                 rounded_mv = torch.round(mvfeature)
                 pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
-                pred_err_mv = ((rounded_mv + pred_noise_mv - mvfeature)**2).mean()
-                quant_mv += pred_err_mv
+                pred_err_mv = ((rounded_mv + pred_noise_mv - mvfeature.detach())**2).mean()
+                quant_mv += pred_err_mv.detach()
             
             quant_mv_upsample = self.mvDecoder(quant_mv)
             # add rec_motion to priors to reduce bpp
@@ -2128,8 +2128,8 @@ class Base(nn.Module):
             if self.useER:
                 rounded_feature = torch.round(feature)
                 pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
-                pred_err_feature = ((rounded_feature + pred_noise_feature - feature)**2).mean()
-                compressed_feature_renorm += pred_err_feature
+                pred_err_feature = ((rounded_feature + pred_noise_feature - feature.detach())**2).mean()
+                compressed_feature_renorm += pred_err_feature.detach()
 
         else:
             compressed_feature_renorm = quantize_ste(feature)
@@ -2148,8 +2148,8 @@ class Base(nn.Module):
         if self.useER:
             rounded_z = torch.round(z)
             pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
-            pred_err_z = ((rounded_z + pred_noise_z - z)**2).mean()
-            compressed_z += pred_err_z
+            pred_err_z = ((rounded_z + pred_noise_z - z.detach())**2).mean()
+            compressed_z += pred_err_z.detach()
         
         # rec. hyperprior
         recon_sigma = self.respriorDecoder(compressed_z)
