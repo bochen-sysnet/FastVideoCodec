@@ -2047,17 +2047,16 @@ class Base(nn.Module):
             class Discriminator(nn.Module):
                 def __init__(self):
                     super(Discriminator, self).__init__()
-                    self.mvDisNet = CodecNet([(8,3,2,128*2,128),
-                                            (8,3,1,128,128),
-                                            (8,3,2,128,64),
-                                            (8,3,1,64,64)])
-                    self.resDisNet = CodecNet([(8,3,2,96*2,128),
-                                            (8,3,1,128,128),
-                                            (0,3,2,128,64),
-                                            (8,3,1,64,64)])
-                    self.respriorDisNet = CodecNet([(8,3,2,64*2,96),
-                                            (8,3,1,96,96),
-                                            (8,3,2,96,64)])
+                    self.mvDisNet = CodecNet([(8,3,2,128*2,192),
+                                            (8,3,1,192,192),
+                                            (8,3,2,192,128),
+                                            (8,3,1,128,128)])
+                    self.resDisNet = CodecNet([(8,3,2,96*2,192),
+                                            (8,3,1,192,192),
+                                            (0,3,2,192,128),
+                                            (8,3,1,128,128)])
+                    self.respriorDisNet = CodecNet([(8,3,1,64*2,128),
+                                            (8,3,1,128,128)])
                     self.linear = nn.Linear(192, 1)
                 def forward(self, mv_input, res_input, resprior_input):
                     mvfe = self.mvDisNet(mv_input.detach())
