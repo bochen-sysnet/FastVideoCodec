@@ -2111,7 +2111,7 @@ class Base(nn.Module):
                 quant_mv = mvfeature + quant_noise_mv
             else:
                 quant_mv = torch.round(mvfeature)
-            mv_Q_err = ((mvfeature - quant_mv)**2).mean()
+            mv_Q_err = ((mvfeature - torch.round(mvfeature))**2).mean()
 
             # we can predict error from feature
             # so enhance the input to decoder
@@ -2166,7 +2166,7 @@ class Base(nn.Module):
                 compressed_feature_renorm = feature + quant_noise_feature
             else:
                 compressed_feature_renorm = torch.round(feature)
-            res_Q_err = ((feature - compressed_feature_renorm)**2).mean()
+            res_Q_err = ((feature - torch.round(feature))**2).mean()
 
             if self.useER:
                 rounded_feature = torch.round(feature)
@@ -2190,7 +2190,7 @@ class Base(nn.Module):
             compressed_z = z + quant_noise_z
         else:
             compressed_z = torch.round(z)
-        z_Q_err = ((z - compressed_z)**2).mean()
+        z_Q_err = ((z - torch.round(z))**2).mean()
 
         if self.useER:
             rounded_z = torch.round(z)
