@@ -2080,7 +2080,8 @@ class Base(nn.Module):
                 rounded_mv = torch.round(mvfeature)
                 pred_noise_mv = self.mvGenNet(rounded_mv) * 0.5
                 pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach() if self.detachER else mvfeature))
-                corrected_mv = mvfeature + pred_err_mv
+                std = pred_err_mv.std()
+                corrected_mv = mvfeature + pred_err_mv + torch.empty_like(std).uniform_(-std, std)
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2127,7 +2128,8 @@ class Base(nn.Module):
                 rounded_feature = torch.round(feature)
                 pred_noise_feature = self.resGenNet(rounded_feature) * 0.5
                 pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach() if self.detachER else feature))
-                corrected_feature_renorm = feature + pred_err_feature
+                std = pred_err_feature.std()
+                corrected_feature_renorm = feature + pred_err_feature + torch.empty_like(std).uniform_(-std, std)
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2147,10 +2149,11 @@ class Base(nn.Module):
             pred_noise_z = self.respriorGenNet(rounded_z) * 0.5
             # if not detach, the feature would cancel itself
             pred_err_z = (rounded_z + pred_noise_z - (z.detach() if self.detachER else z))
+            std = pred_err_z.std()
             # more correct means less noise, image could be transmitted less lossy
             # make it better than uniform noise
             # we can multiple it by a uniform noise?
-            corrected_z = z + pred_err_z 
+            corrected_z = z + pred_err_z + torch.empty_like(std).uniform_(-std, std)
         
         # rec. hyperprior
         if self.useER and self.training:
