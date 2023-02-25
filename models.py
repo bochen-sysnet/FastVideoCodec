@@ -2046,22 +2046,22 @@ class Base(nn.Module):
             #                         (0,5,1,128,64),7])
             # ER4 detach prediction network, no std added
             # ER5 attention to help exploit all areas
-            # self.mvGenNet = CodecNet([(11,1,1,128,128)])
-            # self.resGenNet = CodecNet([(11,1,1,96,96)])
-            # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
+            self.mvGenNet = CodecNet([(11,1,1,128,128)])
+            self.resGenNet = CodecNet([(11,1,1,96,96)])
+            self.respriorGenNet = CodecNet([(11,1,1,64,64)])
             # 
-            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
-                                        (11,1,1,128,128),
-                                        (0,5,1,128,128),3,
-                                        (11,1,1,128,128)])
-            self.resGenNet = CodecNet([(0,5,1,96,96),3,
-                                        (11,1,1,96,96),
-                                        (0,5,1,96,96),3,
-                                        (11,1,1,96,96)])
-            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
-                                            (11,1,1,64,64),
-                                            (0,5,1,64,64),3,
-                                            (11,1,1,64,64)])
+            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+            #                             (11,1,1,128,128),
+            #                             (0,5,1,128,128),3,
+            #                             (11,1,1,128,128)])
+            # self.resGenNet = CodecNet([(0,5,1,96,96),3,
+            #                             (11,1,1,96,96),
+            #                             (0,5,1,96,96),3,
+            #                             (11,1,1,96,96)])
+            # self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+            #                                 (11,1,1,64,64),
+            #                                 (0,5,1,64,64),3,
+            #                                 (11,1,1,64,64)])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
