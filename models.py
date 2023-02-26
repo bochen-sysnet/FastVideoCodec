@@ -2032,7 +2032,7 @@ class Base(nn.Module):
             kernel_size = 5
             num_blocks = 2
             self.residualER = True
-            self.additiveER = True
+            self.additiveER = False
             print(kernel_size,num_blocks,self.residualER,self.additiveER)
             # ER1 add, 4, attach, 
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(0,kernel_size,1,ch1,128),3]) for _ in range(num_blocks)]) 
