@@ -2053,7 +2053,7 @@ class Base(nn.Module):
 
             self.detachER = True # false causes some problems
             self.residualER = True
-            self.noise_scale = 0.2
+            self.noise_scale = 0.1
             # ER
             # ER3 pure conv
             # ER4 pure conv and fixed noise
@@ -2092,16 +2092,6 @@ class Base(nn.Module):
         return prediction, warpframe
 
     def forward(self, input_image, referframe, priors):
-        def vector2sample(vect):
-            # vect = torch.sigmoid(vect)
-            if True:
-                vect -= vect.mean()
-                sample = vect * 0.5 / torch.abs(vect).max()# * torch.empty_like(vect).uniform_(-1., 1.)
-            else:
-                normal_std = 0.30
-                sample = (torch.randn_like(vect) * normal_std).clamp(-.5, .5)
-            return sample
-        one = float(1.)
         # motion
         if not self.useSSF:
             estmv = self.opticFlow(input_image, referframe, priors)
