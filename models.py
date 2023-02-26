@@ -2053,7 +2053,7 @@ class Base(nn.Module):
 
             self.detachER = True # false causes some problems
             self.residualER = True
-            self.noise_scale = 0.1
+            self.noise_scale = 0.05
             # ER
             # ER3 pure conv
             # ER4 pure conv and fixed noise
