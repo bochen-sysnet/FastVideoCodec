@@ -2336,13 +2336,13 @@ class Base(nn.Module):
         if self.useER:
             pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
-            loss = (pred_err_mv).abs().sqrt().mean() + (pred_err_feature).abs().sqrt().mean() + (pred_err_z).abs().sqrt().mean()
+            loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
             # Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
             #          (z_Q_err.abs()<self.noise_scale).sum())/(torch.numel(mv_Q_err) + torch.numel(res_Q_err) + torch.numel(z_Q_err))
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std,loss), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std, loss), priors
 
 
 # utils for scale-space flow
