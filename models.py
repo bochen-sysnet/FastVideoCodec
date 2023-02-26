@@ -2336,7 +2336,7 @@ class Base(nn.Module):
         if self.useER:
             pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
-            loss = (pred_err_mv).abs().sqrt() + (pred_err_feature).abs().sqrt() + (pred_err_z).abs().sqrt()
+            loss = (pred_err_mv).abs().sqrt().mean() + (pred_err_feature).abs().sqrt().mean() + (pred_err_z).abs().sqrt().mean()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
             # Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
