@@ -250,7 +250,7 @@ def parallel_compression(args,model, data, compressI=False):
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
                     aux3_loss_list += [err[2]]
-                    aux4_loss_list += [err[3]]
+                    # aux4_loss_list += [err[3]]
                     # aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
@@ -2118,7 +2118,7 @@ class Base(nn.Module):
                     pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
                 mean_mv = pred_err_mv.mean()
                 std_mv = pred_err_mv.std()
-                if False:
+                if True:
                     corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
                 else:
                     corrected_mv = mvfeature + torch.empty_like(mvfeature).uniform_(-float(self.noise_scale), float(self.noise_scale))
@@ -2173,7 +2173,7 @@ class Base(nn.Module):
                     pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
                 mean_feature = pred_err_feature.mean()
                 std_feature = pred_err_feature.std()
-                if False:
+                if True:
                     corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
                 else:
                     corrected_feature_renorm = feature + torch.empty_like(feature).uniform_(-float(self.noise_scale), float(self.noise_scale))
@@ -2204,7 +2204,7 @@ class Base(nn.Module):
                 pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
             mean_z = pred_err_z.mean()
             std_z = pred_err_z.std()
-            if False:
+            if True:
                 corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
             else:
                 corrected_z = z + torch.empty_like(z).uniform_(-float(self.noise_scale), float(self.noise_scale))
@@ -2334,19 +2334,20 @@ class Base(nn.Module):
         bpp_z = total_bits_z / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp_mv = total_bits_mv / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
-        Q_err = (mv_Q_err**2).mean() + (res_Q_err**2).mean() + (z_Q_err**2).mean()
+        Q_err = (mv_Q_err).abs().mean() + (res_Q_err).abs().mean() + (z_Q_err).abs().mean()
 
         pred_err = 0
         pred_std = 0
         pred_mean = 0
         if self.useER:
-            pred_err = (pred_err_mv**2).mean() + (pred_err_feature**2).mean() + (pred_err_z**2).mean()
-            pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
-                     (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
-            Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
-                     (z_Q_err.abs()<self.noise_scale).sum())/(torch.numel(mv_Q_err) + torch.numel(res_Q_err) + torch.numel(z_Q_err))
+            pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
+            pred_std = std_mv + std_feature + std_z
+            # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
+            #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
+            # Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
+            #          (z_Q_err.abs()<self.noise_scale).sum())/(torch.numel(mv_Q_err) + torch.numel(res_Q_err) + torch.numel(z_Q_err))
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_p, pred_p), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, pred_std), priors
 
 
 # utils for scale-space flow
