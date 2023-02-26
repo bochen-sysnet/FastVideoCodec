@@ -2130,7 +2130,7 @@ class Base(nn.Module):
                 pred_feature = torch.round(feature)
                 for l in self.resGenNet:
                     pred_feature = l(pred_feature) + pred_feature
-                pred_err_mv = pred_feature - feature
+                pred_err_feature = pred_feature - feature
                 corrected_feature_renorm = feature + (pred_feature - feature).detach()
         else:
             compressed_feature_renorm = quantize_ste(feature)
