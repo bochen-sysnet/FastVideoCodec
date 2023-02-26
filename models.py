@@ -244,7 +244,7 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
                     if model.useER and model.training:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
+                        all_loss_list += [(model.r*mseloss + bpp)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
@@ -2029,28 +2029,7 @@ class Base(nn.Module):
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
 
-            # ER1 attn
-            self.mvGenNet = CodecNet([(0,5,1,128,192),3,
-                                    (0,5,1,192,192),3,
-                                    (0,5,1,192,192),3,
-                                    (0,5,1,192,128),3])
-            self.resGenNet = CodecNet([(0,5,1,96,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,96),3])
-            self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,64),3])
-            # ER2
-            self.mvGenNet = CodecNet([(11,1,1,128,128),
-                                        (11,1,1,128,128),])
-            self.resGenNet = CodecNet([(11,1,1,96,96),
-                                        (11,1,1,96,96),])
-            self.respriorGenNet = CodecNet([(11,1,1,64,64),
-                                            (11,1,1,64,64),])
-            # ER3 no tanh no attn
-            # ER4 no detach
+            # # ER1 attn
             # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
             #                         (0,5,1,192,192),3,
             #                         (0,5,1,192,192),3,
@@ -2063,9 +2042,27 @@ class Base(nn.Module):
             #                         (0,5,1,128,128),3,
             #                         (0,5,1,128,128),3,
             #                         (0,5,1,128,64),3])
-            # self.mvGenNet = CodecNet([(11,1,1,128,128)])
-            # self.resGenNet = CodecNet([(11,1,1,96,96)])
-            # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
+            # # ER2
+            # self.mvGenNet = CodecNet([(11,1,1,128,128),
+            #                             (11,1,1,128,128),])
+            # self.resGenNet = CodecNet([(11,1,1,96,96),
+            #                             (11,1,1,96,96),])
+            # self.respriorGenNet = CodecNet([(11,1,1,64,64),
+            #                                 (11,1,1,64,64),])
+            # ER3 no tanh no attn
+            # ER4 no detach
+            self.mvGenNet = CodecNet([(0,5,1,128,192),3,
+                                    (0,5,1,192,192),3,
+                                    (0,5,1,192,192),3,
+                                    (0,5,1,192,128),3])
+            self.resGenNet = CodecNet([(0,5,1,96,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,96),3])
+            self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,64),3])
 
             self.residualER = False
             self.noise_scale = 0.05
