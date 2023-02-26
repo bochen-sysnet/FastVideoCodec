@@ -2030,12 +2030,11 @@ class Base(nn.Module):
             #                         (0,3,1,128,64),7])
 
             # ER1 recur, 2
-            self.mvGenNet = nn.ModuleList([CodecNet([(0,5,1,128,192),3,(0,5,1,192,192),3,(0,5,1,192,192),3,(0,5,1,192,128),3]) for i in range(1)]) 
-
-            self.resGenNet = nn.ModuleList([CodecNet([(0,5,1,96,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,96),3]) for i in range(1)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(0,5,1,64,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,64),3]) for i in range(1)])
-            # ER3 no tanh no attn
-            # ER4 residual + single loss
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,5,1,128,192),3,(0,5,1,192,192),3,(0,5,1,192,192),3,(0,5,1,192,128),3]) for i in range(4)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,5,1,96,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,96),3]) for i in range(4)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,5,1,64,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,64),3]) for i in range(4)])
+            # ER2 1
+            # ER3 4
 
             self.residualER = True
             self.noise_scale = 0.05
