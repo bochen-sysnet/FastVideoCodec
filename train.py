@@ -108,7 +108,7 @@ elif CODEC_NAME in ['ELFVC']:
     # load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model ",CODEC_NAME, ':', best_codec_score)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     # BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
