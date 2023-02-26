@@ -2080,10 +2080,10 @@ class Base(nn.Module):
             # so enhance the input to decoder
             if self.useER:
                 pred_mv = torch.round(mvfeature)
-                pred_err_mv = 0
+                pred_err_mv = []
                 for l in self.mvGenNet:
                     pred_mv = l(pred_mv) + pred_mv
-                    pred_err_mv += pred_mv - mvfeature
+                    pred_err_mv += [pred_mv - mvfeature]
                 corrected_mv = mvfeature + (pred_mv - mvfeature).detach()
             
             if self.useER and self.training:
@@ -2129,10 +2129,10 @@ class Base(nn.Module):
 
             if self.useER:
                 pred_feature = torch.round(feature)
-                pred_err_feature = 0
+                pred_err_feature = []
                 for l in self.resGenNet:
                     pred_feature = l(pred_feature) + pred_feature
-                    pred_err_feature += pred_feature - feature
+                    pred_err_feature += [pred_feature - feature]
                 corrected_feature_renorm = feature + (pred_feature - feature).detach()
         else:
             compressed_feature_renorm = quantize_ste(feature)
@@ -2150,10 +2150,10 @@ class Base(nn.Module):
 
         if self.useER:
             pred_z = torch.round(z)
-            pred_err_z = 0
+            pred_err_z = []
             for l in self.respriorGenNet:
                 pred_z = l(pred_z) + pred_z
-                pred_err_z += pred_z - z
+                pred_err_z += [pred_z - z]
             corrected_z = z + (pred_z - z).detach()
         
         # rec. hyperprior
@@ -2287,8 +2287,12 @@ class Base(nn.Module):
         pred_err = 0
         pred_std = 0
         if self.useER:
-            pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
-            pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
+            # pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
+            # pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
+            for pred_err_x in [pred_err_mv,pred_err_feature,pred_err_z]:
+                for pe in pred_err_x:
+                    pred_err += pe.abs().mean()
+                    pred_std += pe.std()
             # loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
