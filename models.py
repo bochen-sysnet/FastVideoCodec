@@ -2051,7 +2051,7 @@ class Base(nn.Module):
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
 
-            self.detachER = False # false causes some problems
+            self.detachER = True # false causes some problems
             self.residualER = True
             self.noise_scale = 0.05
             # ER
@@ -2112,7 +2112,7 @@ class Base(nn.Module):
                 rounded_mv = torch.round(mvfeature)
                 # gen noise or final result?
                 if self.residualER:
-                    pred_noise_mv = 0.5 * torch.tanh(self.mvGenNet(rounded_mv))
+                    pred_noise_mv = self.mvGenNet(rounded_mv) #0.5 * torch.tanh(self.mvGenNet(rounded_mv))
                     pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach()))
                 else:
                     pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
@@ -2165,7 +2165,7 @@ class Base(nn.Module):
             if self.useER:
                 rounded_feature = torch.round(feature)
                 if self.residualER:
-                    pred_noise_feature = 0.5 * torch.tanh(self.resGenNet(rounded_feature))
+                    pred_noise_feature = self.resGenNet(rounded_feature) # 0.5 * torch.tanh(self.resGenNet(rounded_feature))
                     pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach()))
                 else:
                     pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
@@ -2194,7 +2194,7 @@ class Base(nn.Module):
             # make it better than uniform noise
             # we can multiple it by a uniform noise?
             if self.residualER:
-                pred_noise_z = 0.5 * torch.tanh(self.respriorGenNet(rounded_z))
+                pred_noise_z = self.respriorGenNet(rounded_z) #0.5 * torch.tanh(self.respriorGenNet(rounded_z))
                 pred_err_z = (rounded_z + pred_noise_z - (z.detach()))
             else:
                 pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
