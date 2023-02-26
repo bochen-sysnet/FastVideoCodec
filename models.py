@@ -2028,7 +2028,7 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-            # ER3 no tanh
+            # ER3 no tanh no attn
             self.mvGenNet = CodecNet([(0,5,1,128,192),3,
                                     (0,5,1,192,192),3,
                                     (0,5,1,192,192),3,
@@ -2045,7 +2045,6 @@ class Base(nn.Module):
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
 
-            self.detachER = True # false causes some problems
             self.residualER = True
             self.noise_scale = 0.05
             # ER1 with tanh
@@ -2106,11 +2105,12 @@ class Base(nn.Module):
                 # gen noise or final result?
                 if self.residualER:
                     pred_noise_mv = self.mvGenNet(rounded_mv) #0.5 * torch.tanh(self.mvGenNet(rounded_mv))
-                    pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach()))
+                    pred_err_mv = (rounded_mv + pred_noise_mv - mvfeature)
                 else:
-                    pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
+                    pred_err_mv = self.mvGenNet(rounded_mv) - mvfeature
+                    pred_noise_mv = self.mvGenNet(rounded_mv) - rounded_mv
                 if True:
-                    corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
+                    corrected_mv = mvfeature + (rounded_mv + pred_noise_mv - mvfeature.detach())
                 else:
                     corrected_mv = mvfeature + torch.empty_like(mvfeature).uniform_(-float(self.noise_scale), float(self.noise_scale))
             
@@ -2159,11 +2159,12 @@ class Base(nn.Module):
                 rounded_feature = torch.round(feature)
                 if self.residualER:
                     pred_noise_feature = self.resGenNet(rounded_feature) # 0.5 * torch.tanh(self.resGenNet(rounded_feature))
-                    pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach()))
+                    pred_err_feature = (rounded_feature + pred_noise_feature - feature)
                 else:
-                    pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
+                    pred_err_feature = self.resGenNet(rounded_feature) - feature
+                    pred_noise_feature = self.resGenNet(rounded_feature) - rounded_feature
                 if True:
-                    corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
+                    corrected_feature_renorm = feature + (rounded_feature + pred_noise_feature - feature.detach())
                 else:
                     corrected_feature_renorm = feature + torch.empty_like(feature).uniform_(-float(self.noise_scale), float(self.noise_scale))
         else:
@@ -2188,11 +2189,12 @@ class Base(nn.Module):
             # we can multiple it by a uniform noise?
             if self.residualER:
                 pred_noise_z = self.respriorGenNet(rounded_z) #0.5 * torch.tanh(self.respriorGenNet(rounded_z))
-                pred_err_z = (rounded_z + pred_noise_z - (z.detach()))
+                pred_err_z = (rounded_z + pred_noise_z - z)
             else:
-                pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
+                pred_err_z = self.respriorGenNet(rounded_z) - z
+                pred_noise_z = self.respriorGenNet(rounded_z) - rounded_z
             if True:
-                corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
+                corrected_z = z + (rounded_z + pred_noise_z - z.detach())
             else:
                 corrected_z = z + torch.empty_like(z).uniform_(-float(self.noise_scale), float(self.noise_scale))
         
