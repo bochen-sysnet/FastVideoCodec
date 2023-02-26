@@ -244,13 +244,13 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
                     if model.useER and model.training:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha *( err[1] + err[2]))]
+                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
                     aux3_loss_list += [err[2]]
-                    # aux4_loss_list += [err[3]]
+                    aux4_loss_list += [err[3]]
                     # aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
@@ -2116,8 +2116,6 @@ class Base(nn.Module):
                     pred_err_mv = (rounded_mv + pred_noise_mv - (mvfeature.detach()))
                 else:
                     pred_err_mv = self.mvGenNet(rounded_mv) - (mvfeature.detach())
-                mean_mv = pred_err_mv.mean()
-                std_mv = pred_err_mv.std()
                 if True:
                     corrected_mv = mvfeature + pred_err_mv.detach() if self.detachER else pred_err_mv
                 else:
@@ -2171,8 +2169,6 @@ class Base(nn.Module):
                     pred_err_feature = (rounded_feature + pred_noise_feature - (feature.detach()))
                 else:
                     pred_err_feature = self.resGenNet(rounded_feature) - (feature.detach())
-                mean_feature = pred_err_feature.mean()
-                std_feature = pred_err_feature.std()
                 if True:
                     corrected_feature_renorm = feature + pred_err_feature.detach() if self.detachER else pred_err_feature
                 else:
@@ -2202,8 +2198,6 @@ class Base(nn.Module):
                 pred_err_z = (rounded_z + pred_noise_z - (z.detach()))
             else:
                 pred_err_z = self.respriorGenNet(rounded_z) - (z.detach())
-            mean_z = pred_err_z.mean()
-            std_z = pred_err_z.std()
             if True:
                 corrected_z = z + pred_err_z.detach() if self.detachER else pred_err_z
             else:
@@ -2335,19 +2329,19 @@ class Base(nn.Module):
         bpp_mv = total_bits_mv / (im_shape[0] * im_shape[2] * im_shape[3])
         bpp = bpp_feature + bpp_z + bpp_mv
         Q_err = (mv_Q_err).abs().mean() + (res_Q_err).abs().mean() + (z_Q_err).abs().mean()
+        Q_std = (mv_Q_err).std() + (res_Q_err).std() + (z_Q_err).std()
 
         pred_err = 0
         pred_std = 0
-        pred_mean = 0
         if self.useER:
             pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
-            pred_std = std_mv + std_feature + std_z
+            pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
             # Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
             #          (z_Q_err.abs()<self.noise_scale).sum())/(torch.numel(mv_Q_err) + torch.numel(res_Q_err) + torch.numel(z_Q_err))
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, pred_std), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std), priors
 
 
 # utils for scale-space flow
