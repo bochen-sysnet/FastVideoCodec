@@ -2030,7 +2030,7 @@ class Base(nn.Module):
             #                         (0,3,1,128,64),7])
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5
-            num_blocks = 4
+            num_blocks = 2
             # ER1 add, 4, attach
             self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,128),3]) for _ in range(num_blocks)]) 
             self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
