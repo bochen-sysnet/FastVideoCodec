@@ -2036,9 +2036,10 @@ class Base(nn.Module):
             self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
             self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,64),3]) for _ in range(num_blocks)])
             # ER2 2, add
-            # ER3 4, add, detach
-            # ER4 2, add, detach
+            # ER3 4, single, detach
+            # ER4 2, single, detach
             self.residualER = True
+            self.additiveER = False
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2290,9 +2291,13 @@ class Base(nn.Module):
             # pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             # pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
             for pred_err_x in [pred_err_mv,pred_err_feature,pred_err_z]:
-                for pe in pred_err_x:
-                    pred_err += pe.abs().mean()
-                    pred_std += pe.std()
+                if self.additiveER:
+                    for pe in pred_err_x:
+                        pred_err += pe.abs().mean()
+                        pred_std += pe.std()
+                else:
+                    pred_err += pred_err_x[-1].abs().mean()
+                    pred_std += pred_err_x[-1].std()
             # loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
