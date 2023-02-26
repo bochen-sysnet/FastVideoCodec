@@ -2028,25 +2028,19 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-            # ER2
-            # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
-            #                         (0,5,1,192,192),3,
-            #                         (11,1,1,192,192),
-            #                         (0,5,1,192,192),3,
-            #                         (0,5,1,192,128),
-            #                         (11,1,1,128,128),])
-            # self.resGenNet = CodecNet([(0,5,1,96,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (11,1,1,128,128),
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,96),
-            #                         (11,1,1,96,96),])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (11,1,1,128,128),
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,64),
-            #                         (11,1,1,64,64)])
+            # ER3 no tanh
+            self.mvGenNet = CodecNet([(0,5,1,128,192),3,
+                                    (0,5,1,192,192),3,
+                                    (0,5,1,192,192),3,
+                                    (0,5,1,192,128),3])
+            self.resGenNet = CodecNet([(0,5,1,96,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,96),3])
+            self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,128),3,
+                                    (0,5,1,128,64),3])
             # self.mvGenNet = CodecNet([(11,1,1,128,128)])
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
@@ -2054,21 +2048,20 @@ class Base(nn.Module):
             self.detachER = True # false causes some problems
             self.residualER = True
             self.noise_scale = 0.05
-            # ER
-            # ER3 pure conv
-            # ER4 pure conv and fixed noise
-            self.mvGenNet = CodecNet([(0,5,1,128,128),3,
-                                        (11,1,1,128,128),
-                                        (0,5,1,128,128),3,
-                                        (11,1,1,128,128),])
-            self.resGenNet = CodecNet([(0,5,1,96,96),3,
-                                        (11,1,1,96,96),
-                                        (0,5,1,96,96),3,
-                                        (11,1,1,96,96),])
-            self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
-                                            (11,1,1,64,64),
-                                            (0,5,1,64,64),3,
-                                            (11,1,1,64,64),])
+            # ER1 with tanh
+            # ER2 conv+attn+no tanh
+            # self.mvGenNet = CodecNet([(0,5,1,128,128),3,
+            #                             (11,1,1,128,128),
+            #                             (0,5,1,128,128),3,
+            #                             (11,1,1,128,128),])
+            # self.resGenNet = CodecNet([(0,5,1,96,96),3,
+            #                             (11,1,1,96,96),
+            #                             (0,5,1,96,96),3,
+            #                             (11,1,1,96,96),])
+            # self.respriorGenNet = CodecNet([(0,5,1,64,64),3,
+            #                                 (11,1,1,64,64),
+            #                                 (0,5,1,64,64),3,
+            #                                 (11,1,1,64,64),])
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
