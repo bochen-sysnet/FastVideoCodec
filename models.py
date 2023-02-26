@@ -244,7 +244,7 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
                     if model.useER and model.training:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[4])]
+                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
@@ -2051,7 +2051,7 @@ class Base(nn.Module):
             # self.resGenNet = CodecNet([(11,1,1,96,96)])
             # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
 
-            self.detachER = True # false causes some problems
+            self.detachER = False # false causes some problems
             self.residualER = True
             self.noise_scale = 0.05
             # ER
@@ -2336,13 +2336,13 @@ class Base(nn.Module):
         if self.useER:
             pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
-            loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
+            # loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
             # Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
             #          (z_Q_err.abs()<self.noise_scale).sum())/(torch.numel(mv_Q_err) + torch.numel(res_Q_err) + torch.numel(z_Q_err))
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std, loss), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std), priors
 
 
 # utils for scale-space flow
