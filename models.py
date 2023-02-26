@@ -244,7 +244,7 @@ def parallel_compression(args,model, data, compressI=False):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
                     if model.useER and model.training:
-                        all_loss_list += [(model.r*mseloss + bpp)]
+                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [err[0]]
@@ -2029,43 +2029,13 @@ class Base(nn.Module):
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
 
-            # ER1 attn
-            self.mvGenNet = CodecNet([(0,5,1,128,192),3,
-                                    (0,5,1,192,192),3,
-                                    (0,5,1,192,192),3,
-                                    (0,5,1,192,128),3])
-            self.resGenNet = CodecNet([(0,5,1,96,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,96),3])
-            self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,128),3,
-                                    (0,5,1,128,64),3])
-            # ER2
-            # self.mvGenNet = CodecNet([(11,1,1,128,128),
-            #                             (11,1,1,128,128),])
-            # self.resGenNet = CodecNet([(11,1,1,96,96),
-            #                             (11,1,1,96,96),])
-            # self.respriorGenNet = CodecNet([(11,1,1,64,64),
-            #                                 (11,1,1,64,64),])
+            # ER1 recur, 2
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,5,1,128,192),3,(0,5,1,192,192),3,(0,5,1,192,192),3,(0,5,1,192,128),3]) for i in range(2)]) 
+
+            self.resGenNet = nn.ModuleList([CodecNet([(0,5,1,96,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,96),3]) for i in range(2)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,5,1,64,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,64),3]) for i in range(2)])
             # ER3 no tanh no attn
-            # ER4 no detach
-            # self.mvGenNet = CodecNet([(0,5,1,128,192),3,
-            #                         (0,5,1,192,192),3,
-            #                         (0,5,1,192,192),3,
-            #                         (0,5,1,192,128),3])
-            # self.resGenNet = CodecNet([(0,5,1,96,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,96),3])
-            # self.respriorGenNet = CodecNet([(0,5,1,64,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,128),3,
-            #                         (0,5,1,128,64),3])
-            # self.mvGenNet = CodecNet([(11,1,1,128,128)])
-            # self.resGenNet = CodecNet([(11,1,1,96,96)])
-            # self.respriorGenNet = CodecNet([(11,1,1,64,64)])
+            # ER4 residual + single loss
 
             self.residualER = True
             self.noise_scale = 0.05
@@ -2109,18 +2079,11 @@ class Base(nn.Module):
             # we can predict error from feature
             # so enhance the input to decoder
             if self.useER:
-                rounded_mv = torch.round(mvfeature)
-                # gen noise or final result?
-                if self.residualER:
-                    pred_noise_mv = self.mvGenNet(rounded_mv) #0.5 * torch.tanh(self.mvGenNet(rounded_mv))
-                    pred_err_mv = (rounded_mv + pred_noise_mv - mvfeature)
-                else:
-                    pred_err_mv = self.mvGenNet(rounded_mv) - mvfeature
-                    pred_noise_mv = self.mvGenNet(rounded_mv) - rounded_mv
-                if True:
-                    corrected_mv = mvfeature + (rounded_mv + pred_noise_mv - mvfeature.detach())
-                else:
-                    corrected_mv = mvfeature + torch.empty_like(mvfeature).uniform_(-float(self.noise_scale), float(self.noise_scale))
+                pred_mv = torch.round(mvfeature)
+                for l in self.mvGenNet:
+                    pred_mv = l(pred_mv) + pred_mv
+                pred_err_mv = pred_mv - mvfeature
+                corrected_mv = mvfeature + (pred_mv - mvfeature).detach()
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2164,17 +2127,11 @@ class Base(nn.Module):
             res_Q_err = ((feature - torch.round(feature)))
 
             if self.useER:
-                rounded_feature = torch.round(feature)
-                if self.residualER:
-                    pred_noise_feature = self.resGenNet(rounded_feature) # 0.5 * torch.tanh(self.resGenNet(rounded_feature))
-                    pred_err_feature = (rounded_feature + pred_noise_feature - feature)
-                else:
-                    pred_err_feature = self.resGenNet(rounded_feature) - feature
-                    pred_noise_feature = self.resGenNet(rounded_feature) - rounded_feature
-                if True:
-                    corrected_feature_renorm = feature + (rounded_feature + pred_noise_feature - feature.detach())
-                else:
-                    corrected_feature_renorm = feature + torch.empty_like(feature).uniform_(-float(self.noise_scale), float(self.noise_scale))
+                pred_feature = torch.round(feature)
+                for l in self.resGenNet:
+                    pred_feature = l(pred_feature) + pred_feature
+                pred_err_mv = pred_feature - feature
+                corrected_feature_renorm = feature + (pred_feature - feature).detach()
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2190,21 +2147,11 @@ class Base(nn.Module):
         z_Q_err = ((z - torch.round(z)))
 
         if self.useER:
-            rounded_z = torch.round(z)
-            # if not detach, the feature would cancel itself
-            # more correct means less noise, image could be transmitted less lossy
-            # make it better than uniform noise
-            # we can multiple it by a uniform noise?
-            if self.residualER:
-                pred_noise_z = self.respriorGenNet(rounded_z) #0.5 * torch.tanh(self.respriorGenNet(rounded_z))
-                pred_err_z = (rounded_z + pred_noise_z - z)
-            else:
-                pred_err_z = self.respriorGenNet(rounded_z) - z
-                pred_noise_z = self.respriorGenNet(rounded_z) - rounded_z
-            if True:
-                corrected_z = z + (rounded_z + pred_noise_z - z.detach())
-            else:
-                corrected_z = z + torch.empty_like(z).uniform_(-float(self.noise_scale), float(self.noise_scale))
+            pred_z = torch.round(z)
+            for l in self.respriorGenNet:
+                pred_z = l(pred_z) + pred_z
+            pred_err_z = pred_z - z
+            corrected_z = z + (pred_z - z).detach()
         
         # rec. hyperprior
         if self.useER and self.training:
