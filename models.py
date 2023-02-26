@@ -2030,11 +2030,11 @@ class Base(nn.Module):
             #                         (0,3,1,128,64),7])
 
             # ER1 recur, 2
-            self.mvGenNet = nn.ModuleList([CodecNet([(0,5,1,128,192),3,(0,5,1,192,192),3,(0,5,1,192,192),3,(0,5,1,192,128),3]) for _ in range(2)]) 
-            self.resGenNet = nn.ModuleList([CodecNet([(0,5,1,96,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,96),3]) for _ in range(2)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(0,5,1,64,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,64),3]) for _ in range(2)])
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,5,1,128,192),3,(0,5,1,192,192),3,(0,5,1,192,192),3,(0,5,1,192,128),3]) for _ in range(4)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,5,1,96,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,96),3]) for _ in range(4)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,5,1,64,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,64),3]) for _ in range(4)])
             # ER2 2, add
-            # ER3 4, no add
+            # ER3 4, add, detach
             # ER4 4, add
 
             self.residualER = True
@@ -2083,8 +2083,8 @@ class Base(nn.Module):
                 pred_err_mv = []
                 for l in self.mvGenNet:
                     pred_mv = l(pred_mv) + pred_mv
-                    pred_err_mv += [pred_mv - mvfeature]
-                corrected_mv = mvfeature + (pred_mv - mvfeature).detach()
+                    pred_err_mv += [pred_mv - mvfeature.detach()]
+                corrected_mv = mvfeature + pred_err_mv[-1].detach()
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2132,8 +2132,8 @@ class Base(nn.Module):
                 pred_err_feature = []
                 for l in self.resGenNet:
                     pred_feature = l(pred_feature) + pred_feature
-                    pred_err_feature += [pred_feature - feature]
-                corrected_feature_renorm = feature + (pred_feature - feature).detach()
+                    pred_err_feature += [pred_feature - feature.detach()]
+                corrected_feature_renorm = feature + pred_err_feature[-1].detach()
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2153,8 +2153,8 @@ class Base(nn.Module):
             pred_err_z = []
             for l in self.respriorGenNet:
                 pred_z = l(pred_z) + pred_z
-                pred_err_z += [pred_z - z]
-            corrected_z = z + (pred_z - z).detach()
+                pred_err_z += [pred_z - z.detach()]
+            corrected_z = z + pred_err_z[-1].detach()
         
         # rec. hyperprior
         if self.useER and self.training:
