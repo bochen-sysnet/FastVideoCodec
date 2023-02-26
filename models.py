@@ -2028,17 +2028,17 @@ class Base(nn.Module):
             # self.respriorGenNet = CodecNet([(0,3,1,64,128),3,
             #                         (0,3,1,128,128),3,
             #                         (0,3,1,128,64),7])
-
-            # ER1 recur, 2
-            self.mvGenNet = nn.ModuleList([CodecNet([(0,5,1,128,192),3,(0,5,1,192,192),3,(0,5,1,192,192),3,(0,5,1,192,128),3]) for _ in range(2)]) 
-            self.resGenNet = nn.ModuleList([CodecNet([(0,5,1,96,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,96),3]) for _ in range(2)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(0,5,1,64,128),3,(0,5,1,128,128),3,(0,5,1,128,128),3,(0,5,1,128,64),3]) for _ in range(2)])
+            ch1,ch2,ch3 = 192,128,128
+            kernel_size = 5
+            num_blocks = 4
+            # ER1 add, 4, attach
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,128),3]) for _ in range(num_blocks)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,64),3]) for _ in range(num_blocks)])
             # ER2 2, add
             # ER3 4, add, detach
             # ER4 2, add, detach
-
             self.residualER = True
-            self.noise_scale = 0.05
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
@@ -2084,7 +2084,7 @@ class Base(nn.Module):
                 for l in self.mvGenNet:
                     pred_mv = l(pred_mv) + pred_mv
                     pred_err_mv += [pred_mv - mvfeature.detach()]
-                corrected_mv = mvfeature + pred_err_mv[-1].detach()
+                corrected_mv = mvfeature + pred_err_mv[-1]#.detach()
             
             if self.useER and self.training:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -2133,7 +2133,7 @@ class Base(nn.Module):
                 for l in self.resGenNet:
                     pred_feature = l(pred_feature) + pred_feature
                     pred_err_feature += [pred_feature - feature.detach()]
-                corrected_feature_renorm = feature + pred_err_feature[-1].detach()
+                corrected_feature_renorm = feature + pred_err_feature[-1]#.detach()
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2154,7 +2154,7 @@ class Base(nn.Module):
             for l in self.respriorGenNet:
                 pred_z = l(pred_z) + pred_z
                 pred_err_z += [pred_z - z.detach()]
-            corrected_z = z + pred_err_z[-1].detach()
+            corrected_z = z + pred_err_z[-1]#.detach()
         
         # rec. hyperprior
         if self.useER and self.training:
