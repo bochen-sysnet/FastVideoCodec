@@ -1903,37 +1903,6 @@ class CodecNet(nn.Module):
 
     def forward(self, x,):
         return self.blocks(x)
-
-            # self.mvEncoder = CodecNet([(0,3,2,2,128),3,
-            #                             (0,3,2,128,128),3,
-            #                             (0,3,2,128,128),3,
-            #                             (0,3,2,128,128),3,
-            #                             (0,3,2,128,128),3,
-            #                             (0,3,2,128,128),3,
-            #                             (0,3,2,128,128),3,
-            #                             (0,3,2,128,128)])
-            # self.mvDecoder = CodecNet([(1,3,2,128,128),3,
-            #                             (1,3,2,128,128),3,
-            #                             (1,3,2,128,128),3,
-            #                             (1,3,2,128,128),3,
-            #                             (1,3,2,128,128),3,
-            #                             (1,3,2,128,128),3,
-            #                             (1,3,2,128,128),3,
-            #                             (1,3,2,128,2)])
-        # self.resEncoder = CodecNet([(0,5,2,3,64),4,
-        #                             (0,5,2,64,64),4,
-        #                             (0,5,2,64,64),4,
-        #                             (0,5,2,64,96)])
-            # self.resDecoder = CodecNet([(1,5,2,96,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,64),5,
-            #                             (1,5,2,64,3)])
-        # self.respriorEncoder = CodecNet([(0,3,1,96,64),2,
-        #                                 (0,5,2,64,64),2,
-        #                                 (0,5,2,64,64)])
-            # self.respriorDecoder = CodecNet([(1,5,2,64,64),2,
-            #                                 (1,5,2,64,64),2,
-            #                                 (1,3,1,64,96)])
 # STE/norm not so useful
 # EC effective, sigmoid or not?
 # SSF?
@@ -2035,9 +2004,9 @@ class Base(nn.Module):
             self.additiveER = True
             print(kernel_size,num_blocks,self.residualER,self.additiveER)
             # ER1 add, 4, attach, 
-            self.mvGenNet = nn.ModuleList([CodecNet([(8,kernel_size,1,128,ch1),(8,kernel_size,1,ch1,128)]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet([(8,kernel_size,1,96,ch2),(8,kernel_size,1,ch2,96)]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(8,kernel_size,1,64,ch3),(8,kernel_size,1,ch3,64)]) for _ in range(num_blocks)])
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),4,(0,kernel_size,1,ch1,ch1),4,(0,kernel_size,1,ch1,ch1),4,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),4,(0,kernel_size,1,ch2,ch2),4,(0,kernel_size,1,ch2,ch2),4,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,128),3]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,64),3]) for _ in range(num_blocks)])
