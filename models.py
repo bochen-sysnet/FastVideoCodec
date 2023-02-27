@@ -1979,10 +1979,10 @@ class Base(nn.Module):
 
         if self.useE3C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
-        elif self.useEC:
-            self.resErrEncoder = Synthesis_prior_net(out_channels=out_channel_M)
         else:
             self.respriorDecoder = Synthesis_prior_net()
+        if self.useEC:
+            self.resErrEncoder = Synthesis_prior_net(out_channels=out_channel_M)
 
         # error modeling
         if self.useER: 
