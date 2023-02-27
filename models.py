@@ -2061,7 +2061,7 @@ class Base(nn.Module):
                 pred_mv = torch.round(mvfeature)
                 pred_err_mv = []
                 for l in self.mvGenNet:
-                    pred_mv = l(pred_mv) + pred_mv
+                    pred_mv = l(pred_mv)/2 + pred_mv
                     pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
                 corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
             
@@ -2110,7 +2110,7 @@ class Base(nn.Module):
                 pred_feature = torch.round(feature)
                 pred_err_feature = []
                 for l in self.resGenNet:
-                    pred_feature = l(pred_feature) + pred_feature
+                    pred_feature = l(pred_feature)/2 + pred_feature
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
         else:
@@ -2131,7 +2131,7 @@ class Base(nn.Module):
             pred_z = torch.round(z)
             pred_err_z = []
             for l in self.respriorGenNet:
-                pred_z = l(pred_z) + pred_z
+                pred_z = l(pred_z)/2 + pred_z
                 pred_err_z += [pred_z - (z.detach() if 0 in self.detachMode else z)]
             corrected_z = z + (pred_err_z[-1].detach() if 1 in self.detachMode else pred_err_z[-1])
         
