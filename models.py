@@ -1988,15 +1988,15 @@ class Base(nn.Module):
         if self.useER: 
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5
-            num_blocks = 1
+            num_blocks = 2
             act_func = 4
             self.residualER = True
             self.additiveER = False # both work
             self.detachMode = [1] # 0 not good?
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
-            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
+            # self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
+            # self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
+            # self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # ER3
             # self.additiveER = False
@@ -2143,7 +2143,7 @@ class Base(nn.Module):
             feature_correction = torch.sigmoid(feature_correction) - 0.5
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
-            if self.useER and self.training:
+            if self.useER:
                 pred_feature = torch.round(feature)
                 if self.useEC:
                     res_correction = self.resErrEncoder(corrected_z)
@@ -2156,7 +2156,7 @@ class Base(nn.Module):
                         pred_feature = l(pred_feature) + pred_feature
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
-
+            if self.useER and self.training:
                 recon_res = self.resDecoder(corrected_feature_renorm)
             else:
                 recon_res = self.resDecoder(compressed_feature_renorm)
