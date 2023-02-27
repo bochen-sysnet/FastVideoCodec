@@ -2005,14 +2005,11 @@ class Base(nn.Module):
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             
             # ER2 2, baseline: lrelu to relu, 
-            # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
-            # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
-            # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
-            # ER4 2, baseline, all attention
-            ch1,ch2,ch3=128,96,64
-            self.mvGenNet = nn.ModuleList([CodecNet([(11,kernel_size,1,ch1,ch1),(11,kernel_size,1,ch1,ch1),7]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet([(11,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2),7]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(11,kernel_size,1,ch3,ch3),(11,kernel_size,1,ch3,ch3),7]) for _ in range(num_blocks)])
+            # ER4 2, baseline,
+            kernel_size = 3
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
             # ER3 2, add, mode 1, new arch 
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
@@ -2061,7 +2058,7 @@ class Base(nn.Module):
                 pred_mv = torch.round(mvfeature)
                 pred_err_mv = []
                 for l in self.mvGenNet:
-                    pred_mv = l(pred_mv)/2 + pred_mv
+                    pred_mv = l(pred_mv) + pred_mv
                     pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
                 corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
             
@@ -2110,7 +2107,7 @@ class Base(nn.Module):
                 pred_feature = torch.round(feature)
                 pred_err_feature = []
                 for l in self.resGenNet:
-                    pred_feature = l(pred_feature)/2 + pred_feature
+                    pred_feature = l(pred_feature) + pred_feature
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
         else:
@@ -2131,7 +2128,7 @@ class Base(nn.Module):
             pred_z = torch.round(z)
             pred_err_z = []
             for l in self.respriorGenNet:
-                pred_z = l(pred_z)/2 + pred_z
+                pred_z = l(pred_z) + pred_z
                 pred_err_z += [pred_z - (z.detach() if 0 in self.detachMode else z)]
             corrected_z = z + (pred_err_z[-1].detach() if 1 in self.detachMode else pred_err_z[-1])
         
