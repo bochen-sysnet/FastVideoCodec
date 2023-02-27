@@ -2019,7 +2019,7 @@ class Base(nn.Module):
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
 
                 
-            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode,self.sidechannelER)
+            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode)
             
 
         self.bitEstimator_z = BitEstimator(out_channel_N)
