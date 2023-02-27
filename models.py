@@ -1999,22 +1999,25 @@ class Base(nn.Module):
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,64),3]) for _ in range(num_blocks)])
             
-            # ER1 add, 2 blocks, mode 1, gdn , mode 0
+            # ER1 add, 2 blocks, mode 1, gdn
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),4,(0,kernel_size,1,ch1,ch1),4,(0,kernel_size,1,ch1,ch1),4,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),4,(0,kernel_size,1,ch2,ch2),4,(0,kernel_size,1,ch2,ch2),4,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             
-            # ER2 2, baseline: lrelu to relu, 
-            # act_func = 2
-            # ER4 2, baseline,
+            # ER2 2, baseline: 4*conv,attn
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)],(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)) for _ in range(num_blocks)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64)]) for _ in range(num_blocks)])
+            
+            # ER4 2, baseline, small kernel
             # kernel_size = 3
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
             # ER3 2, add, mode 1, new arch 
-            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64)]) for _ in range(num_blocks)])
+            # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
+            # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
+            # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64)]) for _ in range(num_blocks)])
             
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
