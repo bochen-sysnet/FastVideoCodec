@@ -1988,7 +1988,7 @@ class Base(nn.Module):
         if self.useER: 
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5
-            num_blocks = 2
+            num_blocks = 1
             act_func = 4
             self.residualER = True
             self.additiveER = False # both work
@@ -1997,10 +1997,7 @@ class Base(nn.Module):
             self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
             self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
             self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
-            # GDN is better, small kernel=3 may also work, LReLu not good, no additive better
-            # ER1 1, baseline: 4*conv,1*attn
-            # ER2 small kernel
-            # kernel_size = 3
+            # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # ER3
             # self.additiveER = False
             # self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
@@ -2012,6 +2009,7 @@ class Base(nn.Module):
             # self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             if self.useEC:
+                # ER1
                 num_blocks = 1
                 self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
                 # added input
