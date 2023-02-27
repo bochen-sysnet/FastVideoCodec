@@ -126,7 +126,7 @@ elif 'Base' in CODEC_NAME:
         # model.load_state_dict(checkpoint)
         load_state_dict_whatever(model, checkpoint)
     del checkpoint
-    print("Load whatever exists for",RESUME_CODEC_PATH,'from',RESUME_CODEC_PATH,best_codec_score)
+    print("Load whatever exists for",RESUME_CODEC_PATH,)
     # with open(f'DVC/snapshot/512.model', 'rb') as f:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')
