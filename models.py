@@ -1912,10 +1912,8 @@ class Base(nn.Module):
         self.recursive_flow = True if '-RF' in name else False
         self.useSTE = True if '-STE' in name else False
         self.useSSF = True if '-SSF' in name else False
-        self.useEC = True if '-EC' in name else False # sigmoid + addition
-        self.useE2C = True if '-E2C' in name else False # no act + addition
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
-        self.useE4C = True if '-E4C' in name else False # no act + concat
+        self.useEC = True if '-EC' in name else False
         self.useER = True if '-ER' in name else False # error regularization
         if self.useSSF:
             class Encoder(nn.Sequential):
@@ -1972,15 +1970,17 @@ class Base(nn.Module):
 
         self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
-        if self.useE3C or self.useE4C:
+        if self.useE3C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
 
         self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
-        if self.useEC or self.useE2C or self.useE3C or self.useE4C:
+        if self.useE3C:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
+        elif self.useEC:
+            self.resErrEncoder = Synthesis_prior_net(out_channels=out_channel_M)
         else:
             self.respriorDecoder = Synthesis_prior_net()
 
@@ -1994,9 +1994,9 @@ class Base(nn.Module):
             self.additiveER = False # both work
             self.detachMode = [1] # 0 not good?
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
-            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
+            # self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
+            # self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
+            # self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better
             # ER1 1, baseline: 4*conv,1*attn
             # ER2 small kernel
@@ -2011,7 +2011,14 @@ class Base(nn.Module):
             # self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
-            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode)
+            if self.useEC:
+                self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
+                # added input
+                self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96*2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
+                self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
+
+                
+            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode.self.sidechannelER)
             
 
         self.bitEstimator_z = BitEstimator(out_channel_N)
@@ -2101,14 +2108,6 @@ class Base(nn.Module):
             else:
                 compressed_feature_renorm = torch.round(feature)
             res_Q_err = ((feature - torch.round(feature)))
-
-            if self.useER:
-                pred_feature = torch.round(feature)
-                pred_err_feature = []
-                for l in self.resGenNet:
-                    pred_feature = l(pred_feature) + pred_feature
-                    pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
-                corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
         else:
             compressed_feature_renorm = quantize_ste(feature)
         
@@ -2136,20 +2135,29 @@ class Base(nn.Module):
             recon_sigma = self.respriorDecoder(corrected_z)
         else:
             recon_sigma = self.respriorDecoder(compressed_z)
-        if self.useEC or self.useE2C or self.useE3C or self.useE4C:
+        if self.useE3C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
-            if self.useEC or self.useE3C:
-                feature_correction = torch.sigmoid(feature_correction) - 0.5
-            elif self.useE5C:
-                feature_correction = torch.tanh(feature_correction)
+            
 
         # rec. residual
-        if self.useEC or self.useE2C:
-            recon_res = self.resDecoder(compressed_feature_renorm + feature_correction)
-        elif self.useE3C or self.useE4C:
+        if self.useE3C:
+            feature_correction = torch.sigmoid(feature_correction) - 0.5
             recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
         else:
             if self.useER and self.training:
+                pred_feature = torch.round(feature)
+                if self.useEC:
+                    res_correction = self.resErrEncoder(corrected_z)
+                    res_correction = torch.sigmoid(res_correction) - 0.5
+                pred_err_feature = []
+                for l in self.resGenNet:
+                    if self.useEC:
+                        pred_feature = l(torch.cat((pred_feature,res_correction),dim=1)) + pred_feature
+                    else:
+                        pred_feature = l(pred_feature) + pred_feature
+                    pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
+                corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
+
                 recon_res = self.resDecoder(corrected_feature_renorm)
             else:
                 recon_res = self.resDecoder(compressed_feature_renorm)
