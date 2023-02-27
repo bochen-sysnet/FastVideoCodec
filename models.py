@@ -1999,15 +1999,15 @@ class Base(nn.Module):
             # ER2
             # num_blocks = 1
             # ER3
-            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
+            # self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
+            # self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
+            # self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             # ER4
             if self.useEC:
                 # ER1
-                # num_blocks = 1
+                num_blocks = 1
                 # ER4 
-                num_blocks = 2
+                # num_blocks = 2
                 self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
                 # added input
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96*2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
@@ -2064,7 +2064,7 @@ class Base(nn.Module):
                     pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
                 corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
             
-            if self.useER and self.training:
+            if self.useER:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
             else:
                 quant_mv_upsample = self.mvDecoder(quant_mv)
@@ -2127,7 +2127,7 @@ class Base(nn.Module):
             corrected_z = z + (pred_err_z[-1].detach() if 1 in self.detachMode else pred_err_z[-1])
         
         # rec. hyperprior
-        if self.useER and self.training:
+        if self.useER:
             recon_sigma = self.respriorDecoder(corrected_z)
         else:
             recon_sigma = self.respriorDecoder(compressed_z)
@@ -2153,7 +2153,7 @@ class Base(nn.Module):
                         pred_feature = l(pred_feature) + pred_feature
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
-            if self.useER and self.training:
+            if self.useER:
                 recon_res = self.resDecoder(corrected_feature_renorm)
             else:
                 recon_res = self.resDecoder(compressed_feature_renorm)
