@@ -2001,7 +2001,7 @@ class Base(nn.Module):
             kernel_size = 5
             num_blocks = 2
             self.residualER = True
-            self.additiveER = True
+            self.additiveER = False
             self.detachMode = 1
             print(kernel_size,num_blocks,self.residualER,self.additiveER,self.detachMode)
             # ER1 add, 4, attach, 
@@ -2012,8 +2012,8 @@ class Base(nn.Module):
             self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
             self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,64),3]) for _ in range(num_blocks)])
             # ER2 2, add
-            # ER3 2, single mode 1 
-            # ER4 2, single mode 0
+            # ER3 2, add mode 1 
+            # ER4 2, single mode 1
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
         self.mxrange = 150
