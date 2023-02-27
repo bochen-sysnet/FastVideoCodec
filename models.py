@@ -2005,15 +2005,16 @@ class Base(nn.Module):
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             
             # ER2 2, baseline: lrelu to relu, 
+            # act_func = 2
             # ER4 2, baseline,
-            kernel_size = 3
-            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
+            # kernel_size = 3
+            # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
+            # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
+            # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
             # ER3 2, add, mode 1, new arch 
-            # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
-            # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
-            # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64)]) for _ in range(num_blocks)])
+            self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
+            self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
+            self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64)]) for _ in range(num_blocks)])
             
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
@@ -2273,6 +2274,8 @@ class Base(nn.Module):
                 else:
                     pred_err += pred_err_x[-1].abs().mean()
                     pred_std += pred_err_x[-1].std()
+                pred_err /= len(pred_err_x)
+                pred_std /= len(pred_err_x)
             # loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
             # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
             #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
