@@ -1998,19 +1998,14 @@ class Base(nn.Module):
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,128),3]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,ch2),3,(0,kernel_size,1,ch2,96),3]) for _ in range(num_blocks)])
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,ch3),3,(0,kernel_size,1,ch3,64),3]) for _ in range(num_blocks)])
-            # GDN is better
+            # GDN is better, small kernel=3 may also work
             # ER1 1, baseline: 4*conv,1*attn
             act_func = 4
-            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
+            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
             self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
             self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
-            
-            # ER4 2, baseline, small kernel
-            # kernel_size = 3
-            # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
-            # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
-            # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
-            # ER3 2, 
+            # ER2 small kernel
+
 
         self.bitEstimator_z = BitEstimator(out_channel_N)
         self.warp_weight = 0
