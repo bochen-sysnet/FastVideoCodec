@@ -1989,10 +1989,10 @@ class Base(nn.Module):
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5
             num_blocks = 2
-            act_func = 5
+            act_func = 3
             self.residualER = True
             self.additiveER = True # both work
-            self.detachMode = [0,1] # 0 not good?
+            self.detachMode = [1] # 0 not good?
             print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode)
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,ch1),3,(0,kernel_size,1,ch1,128),3]) for _ in range(num_blocks)]) 
@@ -2005,10 +2005,14 @@ class Base(nn.Module):
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             
             # ER2 2, baseline: lrelu to relu, 
-            # ER4 2, single mode 1
             self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),]) for _ in range(num_blocks)]) 
             self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),]) for _ in range(num_blocks)])
             self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
+            # ER4 2, baseline, all attention
+            # ch1,ch2,ch3=128,96,64
+            # self.mvGenNet = nn.ModuleList([CodecNet([(11,kernel_size,1,ch1,ch1),(11,kernel_size,1,ch1,ch1)]) for _ in range(num_blocks)]) 
+            # self.resGenNet = nn.ModuleList([CodecNet([(11,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2)]) for _ in range(num_blocks)])
+            # self.respriorGenNet = nn.ModuleList([CodecNet([(11,kernel_size,1,ch3,ch3),(11,kernel_size,1,ch3,ch3)]) for _ in range(num_blocks)])
             # ER3 2, add, mode 1, new arch 
             # self.mvGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
             # self.resGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
