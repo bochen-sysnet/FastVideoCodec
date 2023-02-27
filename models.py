@@ -2005,9 +2005,9 @@ class Base(nn.Module):
             # self.respriorGenNet = nn.ModuleList([CodecNet([(0,kernel_size,1,64,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,ch3),4,(0,kernel_size,1,ch3,64),]) for _ in range(num_blocks)])
             
             # ER2 2, baseline: 4*conv,attn
-            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),3,(11,kernel_size,1,ch1,ch1)]) for _ in range(num_blocks)]) 
-            self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),3,(11,kernel_size,1,ch2,ch2)]) for _ in range(num_blocks)])
-            self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),3,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),3,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),3,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),3,(11,kernel_size,1,ch3,ch3)]) for _ in range(num_blocks)])
+            self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),3,(11,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,128),3,(11,kernel_size,1,128,128)]) for _ in range(num_blocks)]) 
+            self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),3,(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,96),3,(11,kernel_size,1,96,96)]) for _ in range(num_blocks)])
+            self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),3,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),3,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,ch3),3,(11,kernel_size,1,ch3,ch3),(0,kernel_size,1,ch3,64),3,(11,kernel_size,1,64,64)]) for _ in range(num_blocks)])
             
             # ER4 2, baseline, small kernel
             # kernel_size = 3
