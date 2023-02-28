@@ -231,7 +231,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0:# and batch_idx>0:
+        if batch_idx % 10000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
@@ -301,11 +301,11 @@ def test(epoch, model, test_dataset):
         # show result
         test_iter.set_description(
             f"{data_idx:6}. "
-            f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-            f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"I:{I_module.val:.4f} ({I_module.avg:.4f}). ")
+            f"I:{I_module.val:.4f} ({I_module.avg:.4f}). "
+            f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
             
         # clear input
         data = []
