@@ -1895,7 +1895,7 @@ class Base(nn.Module):
         if self.useER: 
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5
-            num_blocks = 1
+            num_blocks = 1 # better just one
             act_func = 4
             self.residualER = True
             self.additiveER = False # both work
@@ -1909,15 +1909,15 @@ class Base(nn.Module):
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96*2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
             else:
-                # ER2 default 2 blocks
-                # ER3 detach mode 01 (good)
-                # ER1 
-                num_blocks = 2
+                # ER1 5 1 3 True False [1] 
+                act_func = 3
+                # ER2 [0,1]
+                act_func = 3
                 self.detachMode = [0,1]
                 self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
-                # ER1
+                # ER0 transformer
                 # self.detachMode = [0,1]
                 # self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(12,kernel_size,1,ch1,ch1),(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
                 # self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(12,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
