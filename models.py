@@ -1992,13 +1992,12 @@ class Base(nn.Module):
             act_func = 3
             self.residualER = True
             self.additiveER = False # both work
-            self.detachMode = [1] # 0 not good?
+            self.detachMode = [0,1] # 0 not good?
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             
-            # ER2
-            # num_blocks = 1
-            # ER3
+            # ER2 default
+            # ER3 detach mode 01
             self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
             self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
             self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
@@ -2055,7 +2054,10 @@ class Base(nn.Module):
                 pred_mv = torch.round(mvfeature)
                 pred_err_mv = []
                 for l in self.mvGenNet:
-                    pred_mv = l(pred_mv) + pred_mv
+                    if self.residualER:
+                        pred_mv = l(pred_mv) + pred_mv
+                    else:
+                        pred_mv = l(pred_mv)
                     pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
                 corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
             
@@ -2117,7 +2119,10 @@ class Base(nn.Module):
             pred_z = torch.round(z)
             pred_err_z = []
             for l in self.respriorGenNet:
-                pred_z = l(pred_z) + pred_z
+                if self.residualER:
+                    pred_z = l(pred_z) + pred_z
+                else:
+                    pred_z = l(pred_z)
                 pred_err_z += [pred_z - (z.detach() if 0 in self.detachMode else z)]
             corrected_z = z + (pred_err_z[-1].detach() if 1 in self.detachMode else pred_err_z[-1])
         
@@ -2143,9 +2148,14 @@ class Base(nn.Module):
                 pred_err_feature = []
                 for l in self.resGenNet:
                     if self.useEC:
-                        pred_feature = l(torch.cat((pred_feature,res_correction),dim=1)) + pred_feature
+                        inp = torch.cat((pred_feature,res_correction),dim=1)
                     else:
-                        pred_feature = l(pred_feature) + pred_feature
+                        inp = pred_feature
+                    pred_feature = l(inp) + pred_feature
+                    if self.residualER:
+                        pred_feature = l(inp) + pred_feature
+                    else:
+                        pred_feature = l(inp)
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
             if self.useER:
