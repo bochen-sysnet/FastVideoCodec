@@ -243,15 +243,14 @@ def parallel_compression(args,model, data, compressI=False):
                 # bppres_list += [err[4]]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.training:
-                    if model.useER and model.training:
+                    if model.useER:
                         all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
+                        aux_loss_list += [err[0]]
+                        aux2_loss_list += [err[1]]
+                        aux3_loss_list += [err[2]]
+                        aux4_loss_list += [err[3]]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
-                    aux_loss_list += [err[0]]
-                    aux2_loss_list += [err[1]]
-                    aux3_loss_list += [err[2]]
-                    aux4_loss_list += [err[3]]
-                    # aux4_loss_list += [((bpp + model.r * mseloss).detach() - err[4])**2]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC','RLVC','RLVC2']:
@@ -325,7 +324,6 @@ def parallel_compression(args,model, data, compressI=False):
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
     psnr = torch.stack(psnr_list,dim=0).mean(dim=0).cpu().data.item()
     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux_loss_list else 0
-    print(aux2_loss_list)
     aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux2_loss_list else 0
     aux3_loss = torch.stack(aux3_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux3_loss_list else 0
     aux4_loss = torch.stack(aux4_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux4_loss_list else 0
