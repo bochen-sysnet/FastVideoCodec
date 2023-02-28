@@ -1992,7 +1992,7 @@ class Base(nn.Module):
             act_func = 4
             self.residualER = False
             self.additiveER = False # both work
-            self.detachMode = [1] # 0 not good?
+            self.detachMode = [0,1] # 0 not good?
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # GDN good with EREC; LReLu good with ER
