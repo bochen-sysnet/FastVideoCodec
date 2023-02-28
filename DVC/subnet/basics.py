@@ -370,7 +370,7 @@ class AttentionLayer(nn.Module):
         B,C,H,W = x.size()
         image_pos_emb = self.image_rot_emb(H,W,device=x.device)
         x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-        for (t_attn, s_attn, ff) in self.layers:
+        for (s_attn, ff) in self.layers:
             x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
             x = ff(x) + x
         x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
