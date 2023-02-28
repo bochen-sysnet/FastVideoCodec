@@ -96,7 +96,7 @@ if CODEC_NAME in ['x265', 'x264', 'RAW']:
 elif CODEC_NAME in ['SSF-Official']:
     print('Official model loaded.')
 elif CODEC_NAME in ['DVC-pretrained']:
-    pretrained_model_path = 'DVC/snapshot/512.model'
+    pretrained_model_path = 'DVC/snapshot/256.model'
     from DVC.net import load_model
     load_model(model, pretrained_model_path)
 elif CODEC_NAME in ['ELFVC']:
