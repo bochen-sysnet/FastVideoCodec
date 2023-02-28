@@ -231,7 +231,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 10000 == 0:# and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
@@ -255,6 +255,8 @@ def test(epoch, model, test_dataset):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
+    I_module = AverageMeter()
+    all_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
     model.eval()
@@ -279,21 +281,31 @@ def test(epoch, model, test_dataset):
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True)
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
+                I_module.update(I_psnr)
+                all_loss_module.update(loss.cpu().data.item(),fP+1)
+                img_loss_module.update(img_loss,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
+                all_loss_module.update(loss.cpu().data.item(),l-fP-1)
+                img_loss_module.update(img_loss,l-fP-1)
             else:
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
+                I_module.update(I_psnr)
+                all_loss_module.update(loss.cpu().data.item(),l)
+                img_loss_module.update(img_loss,l)
                 
         # show result
         test_iter.set_description(
             f"{data_idx:6}. "
-            f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-            f"P: {psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"I: {I_psnr:.4f}")
+            f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+            f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
+            f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+            f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+            f"I:{I_module.val:.4f} ({I_module.avg:.4f}). ")
             
         # clear input
         data = []

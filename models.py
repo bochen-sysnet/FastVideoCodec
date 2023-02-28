@@ -1878,14 +1878,12 @@ class Base(nn.Module):
         self.mvDecoder = Synthesis_mv_net()
         self.warpnet = Warp_net()
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
-
         self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
         if self.useE3C:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
-
         self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
         if self.useE3C:
@@ -1939,13 +1937,6 @@ class Base(nn.Module):
         self.loss_type = loss_type
         init_training_params(self)
 
-    def forward_prediction(self, x_ref, motion_info):
-        flow, scale_field = motion_info.chunk(2, dim=1)
-
-        volume = gaussian_volume(x_ref, self.sigma0, self.num_levels)
-        x_pred = warp_volume(volume, flow, scale_field)
-        return x_pred
-
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
         inputfeature = torch.cat((warpframe, ref), 1)
@@ -1954,59 +1945,43 @@ class Base(nn.Module):
 
     def forward(self, input_image, referframe, priors):
         # motion
-        if not self.useSSF:
-            estmv = self.opticFlow(input_image, referframe)
-            if self.recursive_flow and 'mv' in priors:
-                estmv -= priors['mv']
-            mvfeature = self.mvEncoder(estmv)
-            if self.training:
-                half = float(0.5)
-                quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-                quant_mv = mvfeature + quant_noise_mv
-            else:
-                quant_mv = torch.round(mvfeature)
-            mv_Q_err = ((mvfeature - torch.round(mvfeature)))
-
-            # we can predict error from feature
-            # so enhance the input to decoder
-            if self.useER:
-                pred_mv = torch.round(mvfeature)
-                pred_err_mv = []
-                for l in self.mvGenNet:
-                    if self.residualER:
-                        pred_mv = l(pred_mv) + pred_mv
-                    else:
-                        pred_mv = l(pred_mv)
-                    pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
-                corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
-            
-            if self.useER:
-                quant_mv_upsample = self.mvDecoder(corrected_mv)
-            else:
-                quant_mv_upsample = self.mvDecoder(quant_mv)
-            # add rec_motion to priors to reduce bpp
-            if self.recursive_flow and 'mv' in priors:
-                quant_mv_upsample += priors['mv']
-            prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-            if 'mv' in priors:
-                priors['mv'] = quant_mv_upsample.detach() + priors['mv']
-            else:
-                priors['mv'] = quant_mv_upsample.detach()
+        estmv = self.opticFlow(input_image, referframe)
+        if self.recursive_flow and 'mv' in priors:
+            estmv -= priors['mv']
+        mvfeature = self.mvEncoder(estmv)
+        if self.training:
+            half = float(0.5)
+            quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
+            quant_mv = mvfeature + quant_noise_mv
         else:
-            # concate input
-            x = torch.cat((input_image, referframe), dim=1)
-            # encode
-            mvfeature = self.motion_encoder(x)
-            # quantization
-            if self.training:
-                half = float(0.5)
-                quant_noise_mv = torch.empty_like(mvfeature).uniform_(-half, half)
-                quant_mv = mvfeature + quant_noise_mv
-            else:
-                quant_mv = torch.round(mvfeature)
-            # decode the space-scale flow information
-            motion_info = self.motion_decoder(quant_mv)
-            prediction = self.forward_prediction(referframe, motion_info)
+            quant_mv = torch.round(mvfeature)
+        mv_Q_err = ((mvfeature - torch.round(mvfeature)))
+
+        # we can predict error from feature
+        # so enhance the input to decoder
+        if self.useER:
+            pred_mv = torch.round(mvfeature)
+            pred_err_mv = []
+            for l in self.mvGenNet:
+                if self.residualER:
+                    pred_mv = l(pred_mv) + pred_mv
+                else:
+                    pred_mv = l(pred_mv)
+                pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
+            corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
+        
+        if self.useER:
+            quant_mv_upsample = self.mvDecoder(corrected_mv)
+        else:
+            quant_mv_upsample = self.mvDecoder(quant_mv)
+        # add rec_motion to priors to reduce bpp
+        if self.recursive_flow and 'mv' in priors:
+            quant_mv_upsample += priors['mv']
+        prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+        if 'mv' in priors:
+            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
+        else:
+            priors['mv'] = quant_mv_upsample.detach()
 
         # residual   
         input_residual = input_image - prediction
@@ -2053,7 +2028,6 @@ class Base(nn.Module):
         if self.useE3C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             
-
         # rec. residual
         if self.useE3C:
             feature_correction = torch.sigmoid(feature_correction) - 0.5
@@ -2190,8 +2164,6 @@ class Base(nn.Module):
         pred_err = 0
         pred_std = 0
         if self.useER:
-            # pred_err = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
-            # pred_std = pred_err_mv.std() + pred_err_feature.std() + pred_err_z.std()
             for pred_err_x in [pred_err_mv,pred_err_feature,pred_err_z]:
                 if self.additiveER:
                     for pe in pred_err_x:
@@ -2202,11 +2174,6 @@ class Base(nn.Module):
                     pred_std += pred_err_x[-1].std()
                 pred_err /= len(pred_err_x)
                 pred_std /= len(pred_err_x)
-            # loss = (pred_err_mv).abs().mean() + (pred_err_feature).abs().mean() + (pred_err_z).abs().mean()
-            # pred_p = ((pred_err_mv.abs()<self.noise_scale).sum() + (pred_err_feature.abs()<self.noise_scale).sum() +\
-            #          (pred_err_z.abs()<self.noise_scale).sum())/(torch.numel(pred_err_mv) + torch.numel(pred_err_feature) + torch.numel(pred_err_z))
-            # Q_p = ((mv_Q_err.abs()<self.noise_scale).sum() + (res_Q_err.abs()<self.noise_scale).sum() +\
-            #          (z_Q_err.abs()<self.noise_scale).sum())/(torch.numel(mv_Q_err) + torch.numel(res_Q_err) + torch.numel(z_Q_err))
         
         return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std), priors
 
