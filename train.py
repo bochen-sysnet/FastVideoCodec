@@ -123,8 +123,8 @@ elif 'Base' in CODEC_NAME:
         load_state_dict_whatever(model, checkpoint['state_dict'])
         best_codec_score = checkpoint['score']
     else:
-        model.load_state_dict(checkpoint)
-        # load_state_dict_whatever(model, checkpoint)
+        # model.load_state_dict(checkpoint)
+        load_state_dict_whatever(model, checkpoint)
     del checkpoint
     print("Load baseline",pretrained_model_path)
 else:
