@@ -282,7 +282,6 @@ def test(epoch, model, test_dataset):
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
                 I_module.update(I_psnr)
-                print(loss)
                 all_loss_module.update(loss.cpu().data.item(),fP+1)
                 img_loss_module.update(img_loss,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
