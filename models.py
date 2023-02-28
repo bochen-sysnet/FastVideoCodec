@@ -172,8 +172,122 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         bpp_act_list += torch.FloatTensor([bpp])
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
+
+def parallel_compression(model, data, compressI=False):
+    img_loss_list = []; aux_loss_list = []; bpp_est_list = []; psnr_list = []; msssim_list = []; bpp_act_list = []; bpp_res_est_list = []
+    if isinstance(model,nn.DataParallel):
+        name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
+        I_level = model.module.I_level
+        model_name = model.module.name
+        model_r = model.module.r
+    else:
+        name = f"{model.name}-{model.compression_level}-{model.loss_type}-{os.getpid()}"
+        I_level = model.I_level
+        model_name = model.name
+        model_r = model.r
+    x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], I_level, model_name=name)
+    data[0:1] = x_hat
+    if compressI:
+        bpp_est_list += [bpp_est.to(data.device)]
+        bpp_act_list += [bpp_act.to(data.device)]
+        psnr_list += [psnr.to(data.device)]
+    
+    
+    encoding_time = decoding_time = 0
+    # P compression, not including I frame
+    if data.size(0) > 1: 
+        if 'SPVC' in model_name:
+            if model.training:
+                _, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
+            else:
+                _, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = model(data.detach())
+            for pos in range(data.size(0)-1):
+                img_loss_list += [img_loss[pos].to(data.device)]
+                aux_loss_list += [aux_loss[pos].to(data.device)]
+                bpp_est_list += [bpp_est[pos].to(data.device)]
+                if model.training:
+                    bpp_res_est_list += [bpp_res_est[pos].to(data.device)]
+                bpp_act_list += [bpp_act[pos].to(data.device)]
+                psnr_list += [psnr[pos].to(data.device)]
+                msssim_list += [msssim[pos].to(data.device)]
+        elif model_name in ['DVC','RLVC','RLVC2']:
+            B,_,H,W = data.size()
+            hidden = model.init_hidden(H,W,data.device)
+            mv_prior_latent = res_prior_latent = None
+            x_prev = data[0:1]
+            x_hat_list = []
+            for i in range(1,B):
+                if model.training:
+                    x_prev,hidden,bpp_est,bpp_res_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                        model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
+                else:
+                    x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                        model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
+                x_prev = x_prev.detach()
+                img_loss_list += [img_loss.to(data.device)]
+                aux_loss_list += [aux_loss.to(data.device)]
+                bpp_est_list += [bpp_est.to(data.device)]
+                bpp_act_list += [bpp_act.to(data.device)]
+                psnr_list += [psnr.to(data.device)]
+                msssim_list += [msssim.to(data.device)]
+                if model.training:
+                    bpp_res_est_list += [bpp_res_est.to(data.device)]
+                x_hat_list.append(x_prev)
+                encoding_time += model.encoding_time
+                decoding_time += model.decoding_time
+            x_hat = torch.cat(x_hat_list,dim=0)
+            encoding_time /= (B-1)
+            decoding_time /= (B-1)
+        elif model_name in ['DVC-pretrained']:
+            B,_,H,W = data.size()
+            x_prev = data[0:1]
+            x_hat_list = []
+            for i in range(1,B):
+                x_prev, mseloss, warploss, interloss, bpp_feature, bpp_z, bpp_mv, bpp = \
+                    model(data[i:i+1],x_prev)
+                x_prev = x_prev.detach()
+                img_loss_list += [model.r*mseloss.to(data.device)]
+                aux_loss_list += [10.0*torch.log(1/warploss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                bpp_est_list += [bpp.to(data.device)]
+                bpp_act_list += [bpp.to(data.device)]
+                psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                msssim_list += [10.0*torch.log(1/interloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                x_hat_list.append(x_prev)
+                decoding_time += model.decoding_time/(B-1)
+            x_hat = torch.cat(x_hat_list,dim=0)
+        elif 'LSVC' in model_name:
+            B,_,H,W = data.size()
+            x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
+            if model.stage == 'MC':
+                img_loss = mc_loss*model.r
+            elif model.stage == 'REC':
+                img_loss = rec_loss*model.r
+            elif model.stage == 'WP':
+                img_loss = warp_loss*model.r
+            else:
+                print('unknown stage')
+                exit(1)
+            img_loss_list = [img_loss]
+            N = B-1
+            psnr_list += PSNR(data[1:], x_hat, use_list=True)
+            msssim_list += PSNR(data[1:], x_mc, use_list=True)
+            aux_loss_list += PSNR(data[1:], x_wp, use_list=True)
+            x_hat = torch.cat([data[0:1],x_hat], dim=0)
+            for pos in range(N):
+                bpp_est_list += [(bpp).to(data.device)]
+                if model.training:
+                    bpp_res_est_list += [(bpp_res).to(data.device)]
+                bpp_act_list += [(bpp).to(data.device)]
+                # aux_loss_list += [10.0*torch.log(1/warp_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+                # msssim_list += [10.0*torch.log(1/mc_loss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
+            encoding_time = model.encoding_time/(B-1)
+            decoding_time = model.decoding_time/(B-1)
+    if model.training:
+        return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
+    else:
+        return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
       
-def parallel_compression(args,model, data, compressI=False):
+def parallel_compression2(args,model, data, compressI=False):
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];

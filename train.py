@@ -279,7 +279,7 @@ def test(epoch, model, test_dataset):
                 I_module.update(I_psnr)
                 # all_loss_module.update(loss.cpu().data.item(),fP+1)
                 # img_loss_module.update(img_loss,fP+1)
-                # data[fP:fP+1] = com_imgs[0:1]
+                data[fP:fP+1] = com_imgs[0:1]
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
