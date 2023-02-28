@@ -349,3 +349,29 @@ class Modulate(nn.Module):
         phase = (torch.arange(0,C).to(x.device).repeat(B).view(B,C,1,1)/C + level/4.0)*torch.pi
         self.mod = torch.cos(phase) * self.gamma + self.beta
         return self.mod * x
+
+class AttentionLayer(nn.Module):
+    '''
+    Decode residual
+    '''
+    def __init__(self, channels):
+        super(AttentionLayer, self).__init__()
+        self.layers = nn.ModuleList([])
+        depth = 12
+        for _ in range(depth):
+            ff = FeedForward(channels)
+            s_attn = Attention(channels, dim_head = 64, heads = 8)
+            s_attn, ff = map(lambda t: PreNorm(channels, t), (s_attn, ff))
+            self.layers.append(nn.ModuleList([s_attn, ff]))
+        self.image_rot_emb = AxialRotaryEmbedding(64)
+        
+    def forward(self, x):
+        # B,C,H,W->1,BHW,C
+        B,C,H,W = x.size()
+        image_pos_emb = self.image_rot_emb(H,W,device=x.device)
+        x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
+        for (t_attn, s_attn, ff) in self.layers:
+            x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
+            x = ff(x) + x
+        x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
+        return x
