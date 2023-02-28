@@ -115,18 +115,18 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
-elif 'Base' in CODEC_NAME:
+elif 'Base' == CODEC_NAME:
     # load what exists
-    pretrained_model_path = f'DVC/snapshot/512.model'#f'backup/LSVC-A/LSVC-A-{compression_level}P_best.pth'
+    pretrained_model_path = f'DVC/snapshot/512.model'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
         best_codec_score = checkpoint['score']
     else:
-        # model.load_state_dict(checkpoint)
-        load_state_dict_whatever(model, checkpoint)
+        model.load_state_dict(checkpoint)
+        # load_state_dict_whatever(model, checkpoint)
     del checkpoint
-    print("Load whatever exists for",RESUME_CODEC_PATH,)
+    print("Load baseline",pretrained_model_path)
     # with open(f'DVC/snapshot/512.model', 'rb') as f:
     #    pretrained_dict = torch.load(f)
     #    load_state_dict_only(model, pretrained_dict, 'warpnet')

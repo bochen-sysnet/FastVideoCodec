@@ -1762,52 +1762,6 @@ def get_DVC_pretrained(level):
 
 
 # ---------------------------------BASE MODEL--------------------------------------
-class MyMENet(nn.Module):
-    '''
-    Get flow
-    '''
-    def __init__(self, layername='motion_estimation',recursive_flow=False):
-        super(MyMENet, self).__init__()
-        self.L = 4
-        inshape = 10 if recursive_flow else 8
-        self.moduleBasic = torch.nn.ModuleList([ MEBasic(layername + 'modelL' + str(intLevel + 1),inshape=inshape) for intLevel in range(4) ])
-        self.recursive_flow = recursive_flow
-        
-    def forward(self, im1, im2, priors):
-        batchsize = im1.size()[0]
-        im1_pre = im1
-        im2_pre = im2
-        if self.recursive_flow and 'mv' in priors:
-            prior_flow_pre = priors['mv']
-
-        im1list = [im1_pre]
-        im2list = [im2_pre]
-        if self.recursive_flow:
-            prior_flow_list = [prior_flow_pre]
-        for intLevel in range(self.L - 1):
-            im1list.append(F.avg_pool2d(im1list[intLevel], kernel_size=2, stride=2))# , count_include_pad=False))
-            im2list.append(F.avg_pool2d(im2list[intLevel], kernel_size=2, stride=2))#, count_include_pad=False))
-            if self.recursive_flow:
-                prior_flow_list.append(F.avg_pool2d(prior_flow_list[intLevel], kernel_size=2, stride=2))
-
-        shape_fine = im2list[self.L - 1].size()
-        zeroshape = [batchsize, 2, shape_fine[2] // 2, shape_fine[3] // 2]
-        device_id = im1.device.index
-        flowfileds = torch.zeros(zeroshape, dtype=torch.float32, device=device_id)
-        for intLevel in range(self.L):
-            flowfiledsUpsample = bilinearupsacling(flowfileds) * 2.0
-            if self.recursive_flow:
-                priorflow = prior_flow_list[intLevel] if 'mv' in priors else torch.zeros(flowfiledsUpsample.shape, dtype=torch.float32, device=device_id)
-                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
-                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
-                                                                            prior_flow_list[i], # prior flow
-                                                                            flowfiledsUpsample], 1)) # current flow
-            else:
-                flowfileds = flowfiledsUpsample + self.moduleBasic[intLevel](torch.cat([im1list[self.L - 1 - intLevel], # ref image
-                                                                            flow_warp(im2list[self.L - 1 - intLevel], flowfiledsUpsample), # targ image
-                                                                            flowfiledsUpsample], 1)) # current flow
-        return flowfileds
-
 class View(nn.Module):
     def __init__(self):
         super(View, self).__init__()
@@ -1919,58 +1873,11 @@ class Base(nn.Module):
         self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===
         self.useEC = True if '-EC' in name else False
         self.useER = True if '-ER' in name else False # error regularization
-        if self.useSSF:
-            class Encoder(nn.Sequential):
-                def __init__(
-                    self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, norm_type: int = 0
-                ):
-                    if norm_type == 0:
-                        norm_layer = nn.ReLU(inplace=True)
-                    elif norm_type == 1:
-                        norm_layer = nn.LeakyReLU(negative_slope=0.1)
-                    else:
-                        norm_layer = GDN(mid_planes)
-                    super().__init__(
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        norm_layer,
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        norm_layer,
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        norm_layer,
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-
-            class Decoder(nn.Sequential):
-                def __init__(
-                    self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, norm_type: int = 0
-                ):
-                    if norm_type == 0:
-                        norm_layer = nn.ReLU(inplace=True)
-                    elif norm_type == 1:
-                        norm_layer = nn.LeakyReLU(negative_slope=0.1)
-                    else:
-                        norm_layer = GDN(mid_planes)
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        norm_layer,
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        norm_layer,
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        norm_layer,
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-            self.num_levels = 5
-            self.sigma0 = 1.5
-            self.scale_field_shift = 1.0
-            self.motion_encoder = Encoder(2 * 3, norm_type=0)
-            self.motion_decoder = Decoder(2 + 1, norm_type=0)
-            self.bitEstimator_mv = BitEstimator(192)
-        else:
-            self.opticFlow = MyMENet()
-            self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
-            self.mvDecoder = Synthesis_mv_net()
-            self.warpnet = Warp_net()
-            self.bitEstimator_mv = BitEstimator(out_channel_mv)
+        self.opticFlow = ME_Spynet()
+        self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
+        self.mvDecoder = Synthesis_mv_net()
+        self.warpnet = Warp_net()
+        self.bitEstimator_mv = BitEstimator(out_channel_mv)
 
         self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
@@ -2006,7 +1913,7 @@ class Base(nn.Module):
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96*2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
             else:
-                # ER2 default
+                # ER2 default 2 blocks
                 # ER3 detach mode 01 (good)
                 # ER1 
                 num_blocks = 2
