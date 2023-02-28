@@ -1894,12 +1894,12 @@ class Base(nn.Module):
         # error modeling
         if self.useER: 
             ch1,ch2,ch3 = 192,128,128
-            kernel_size = 5
-            num_blocks = 1 # better just one
-            act_func = 4
-            self.residualER = True
+            kernel_size = 5 # test later
+            num_blocks = 1 # better just one is sufficient
+            act_func = 4 # or 3
+            self.residualER = True # must
             self.additiveER = False # both work
-            self.detachMode = [1] # 0 not good?
+            self.detachMode = [1] # or [0,1]
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # GDN good with EREC; LReLu good with ER
@@ -1914,7 +1914,10 @@ class Base(nn.Module):
                 # ER2 [1]
                 # act_func = 4
                 # ER3 [0,1] 3 or 4
-                act_func = 4
+                # act_func = 4
+                # self.detachMode = [0,1]
+                # ER4
+                act_func = 3
                 self.detachMode = [0,1]
                 self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
