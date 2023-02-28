@@ -117,7 +117,7 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     del checkpoint
 elif 'Base' in CODEC_NAME:
     # load what exists
-    pretrained_model_path = f'DVC/snapshot/512.model'
+    pretrained_model_path = f'DVC/snapshot/256.model'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
