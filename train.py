@@ -271,51 +271,27 @@ def test(epoch, model, test_dataset):
             data = torch.stack(data, dim=0).cuda(device)
             l = data.size(0)
             
-            # # compress GoP
-            # if l>fP+1:
-            #     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True)
-            #     ba_loss_module.update(be_loss, fP+1)
-            #     psnr_module.update(psnr,fP+1)
-            #     I_module.update(I_psnr)
-            #     # all_loss_module.update(loss.cpu().data.item(),fP+1)
-            #     # img_loss_module.update(img_loss,fP+1)
-            #     data[fP:fP+1] = com_imgs[0:1]
-            #     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
-            #     ba_loss_module.update(be_loss, l-fP-1)
-            #     psnr_module.update(psnr,l-fP-1)
-            #     # all_loss_module.update(loss.cpu().data.item(),l-fP-1)
-            #     # img_loss_module.update(img_loss,l-fP-1)
-            # else:
-            #     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True)
-            #     ba_loss_module.update(be_loss, l)
-            #     psnr_module.update(psnr,l)
-            #     I_module.update(I_psnr)
-            #     # all_loss_module.update(loss.cpu().data.item(),l)
-            #     # img_loss_module.update(img_loss,l)
-
             # compress GoP
             if l>fP+1:
-                _,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1,encoding_time1,decoding_time1 = parallel_compression(model,torch.flip(data[:fP+1],[0]),True)
-                # data[args.fP:args.fP+1] = com_imgs[0:1]
-                _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2,encoding_time2,decoding_time2 = parallel_compression(model,data[fP:],False)
-                img_loss_list = img_loss_list1[::-1] + img_loss_list2
-                aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
-                psnr_list = psnr_list1[::-1] + psnr_list2
-                msssim_list = msssim_list1[::-1] + msssim_list2
-                bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
-                bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
-                l1,l2 = len(img_loss_list1),len(img_loss_list2)
-                encoding_time,decoding_time = (encoding_time1*l1+encoding_time2*l2)/(l1+l2),(decoding_time1*l1+decoding_time2*l2)/(l1+l2)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True)
+                ba_loss_module.update(be_loss, fP+1)
+                psnr_module.update(psnr,fP+1)
+                I_module.update(I_psnr)
+                # all_loss_module.update(loss.cpu().data.item(),fP+1)
+                # img_loss_module.update(img_loss,fP+1)
+                # data[fP:fP+1] = com_imgs[0:1]
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
+                ba_loss_module.update(be_loss, l-fP-1)
+                psnr_module.update(psnr,l-fP-1)
+                # all_loss_module.update(loss.cpu().data.item(),l-fP-1)
+                # img_loss_module.update(img_loss,l-fP-1)
             else:
-                _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time = parallel_compression(model,torch.flip(data,[0]),True)
-                
-            # aggregate loss
-            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-            
-            # record loss
-            ba_loss_module.update(ba_loss.cpu().data.item(), l)
-            psnr_module.update(psnr.cpu().data.item(),l)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True)
+                ba_loss_module.update(be_loss, l)
+                psnr_module.update(psnr,l)
+                I_module.update(I_psnr)
+                # all_loss_module.update(loss.cpu().data.item(),l)
+                # img_loss_module.update(img_loss,l)
                 
         # show result
         test_iter.set_description(
