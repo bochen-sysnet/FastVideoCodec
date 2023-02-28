@@ -2062,7 +2062,7 @@ class Base(nn.Module):
                     if self.residualER:
                         pred_mv = l(pred_mv) + pred_mv
                     else:
-                        pred_mv = l(pred_mv)
+                        pred_mv = l(pred_mv)/2
                     pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
                 corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
             
@@ -2127,7 +2127,7 @@ class Base(nn.Module):
                 if self.residualER:
                     pred_z = l(pred_z) + pred_z
                 else:
-                    pred_z = l(pred_z)
+                    pred_z = l(pred_z)/2
                 pred_err_z += [pred_z - (z.detach() if 0 in self.detachMode else z)]
             corrected_z = z + (pred_err_z[-1].detach() if 1 in self.detachMode else pred_err_z[-1])
         
@@ -2160,7 +2160,7 @@ class Base(nn.Module):
                     if self.residualER:
                         pred_feature = l(inp) + pred_feature
                     else:
-                        pred_feature = l(inp)
+                        pred_feature = l(inp)/2
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
             if self.useER:
