@@ -1989,7 +1989,7 @@ class Base(nn.Module):
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5
             num_blocks = 1
-            act_func = 4
+            act_func = 3
             self.residualER = True
             self.additiveER = False # both work
             self.detachMode = [1] # 0 not good?
