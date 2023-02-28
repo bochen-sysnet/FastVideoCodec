@@ -185,7 +185,7 @@ def parallel_compression(model, data, compressI=False):
         I_level = model.I_level
         model_name = model.name
         model_r = model.r
-    x_hat, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(data[0:1], I_level, model_name=name)
+    x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
     data[0:1] = x_hat
     if compressI:
         bpp_est_list += [bpp_est.to(data.device)]
@@ -286,26 +286,6 @@ def parallel_compression(model, data, compressI=False):
         return x_hat,img_loss_list,bpp_est_list,bpp_res_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
     else:
         return x_hat,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time
-def I_compression(Y1_raw, I_level, model_name=''):
-    # we can compress with bpg,deepcod ...
-    batch_size, _, Height, Width = Y1_raw.shape
-    prename = "tmp/frames/prebpg" + model_name
-    binname = "tmp/frames/bpg" + model_name
-    postname = "tmp/frames/postbpg" + model_name
-    raw_img = transforms.ToPILImage()(Y1_raw.squeeze(0))
-    raw_img.save(prename + '.jpg')
-    pre_bits = os.path.getsize(prename + '.jpg')*8
-    os.system('bpgenc -f 444 -m 9 ' + prename + '.jpg -o ' + binname + '.bin -q ' + str(I_level))
-    os.system('bpgdec ' + binname + '.bin -o ' + postname + '.jpg')
-    post_bits = os.path.getsize(binname + '.bin')*8/(Height * Width * batch_size)
-    bpp_act = torch.FloatTensor([post_bits]).squeeze(0)
-    bpg_img = Image.open(postname + '.jpg').convert('RGB')
-    Y1_com = transforms.ToTensor()(bpg_img).unsqueeze(0)
-    psnr = PSNR(Y1_raw, Y1_com)
-    msssim = MSSSIM(Y1_raw, Y1_com)
-    bpp_est = bpp_act
-    loss = aux_loss = torch.FloatTensor([0]).squeeze(0)
-    return Y1_com, bpp_est, loss, aux_loss, bpp_act, psnr, msssim
 
 def parallel_compression2(args,model, data, compressI=False):
     all_loss_list = []; 
@@ -477,7 +457,7 @@ class StandardVideoCodecs(nn.Module):
         else:
             return self.r_app*app_loss + self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
         
-def I_compression2(Y1_raw, I_level, model_name=''):
+def I_compression(Y1_raw, I_level, model_name=''):
     # we can compress with bpg,deepcod ...
     batch_size, _, Height, Width = Y1_raw.shape
     prename = "tmp/frames/prebpg" + model_name
