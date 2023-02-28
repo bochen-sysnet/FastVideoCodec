@@ -188,8 +188,8 @@ def parallel_compression(model, data, compressI=False):
     x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
     data[0:1] = x_hat
     if compressI:
-        bpp_est_list += [bpp_est.to(data.device)]
-        bpp_act_list += [bpp_act.to(data.device)]
+        bpp_est_list += [bpp.to(data.device)]
+        bpp_act_list += [bpp.to(data.device)]
         psnr_list += [psnr.to(data.device)]
     
     
