@@ -2003,9 +2003,9 @@ class Base(nn.Module):
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
             else:
                 # ER4 non residual
-                self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),7]) for _ in range(num_blocks)]) 
-                self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),7]) for _ in range(num_blocks)])
-                self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),7]) for _ in range(num_blocks)])
+                self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),5,(0,kernel_size,1,ch1,128),5]) for _ in range(num_blocks)]) 
+                self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),5,(0,kernel_size,1,ch2,96),5]) for _ in range(num_blocks)])
+                self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),5,(0,kernel_size,1,ch3,64),5]) for _ in range(num_blocks)])
             
                 # ER2 default
                 # ER3 detach mode 01
@@ -2062,7 +2062,7 @@ class Base(nn.Module):
                     if self.residualER:
                         pred_mv = l(pred_mv) + pred_mv
                     else:
-                        pred_mv = l(pred_mv)/2
+                        pred_mv = l(pred_mv)
                     pred_err_mv += [pred_mv - (mvfeature.detach() if 0 in self.detachMode else mvfeature)]
                 corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
             
@@ -2127,7 +2127,7 @@ class Base(nn.Module):
                 if self.residualER:
                     pred_z = l(pred_z) + pred_z
                 else:
-                    pred_z = l(pred_z)/2
+                    pred_z = l(pred_z)
                 pred_err_z += [pred_z - (z.detach() if 0 in self.detachMode else z)]
             corrected_z = z + (pred_err_z[-1].detach() if 1 in self.detachMode else pred_err_z[-1])
         
@@ -2160,7 +2160,7 @@ class Base(nn.Module):
                     if self.residualER:
                         pred_feature = l(inp) + pred_feature
                     else:
-                        pred_feature = l(inp)/2
+                        pred_feature = l(inp)
                     pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
                 corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
             if self.useER:
