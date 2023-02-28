@@ -115,7 +115,7 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     load_state_dict_all(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     del checkpoint
-elif 'Base' == CODEC_NAME:
+elif 'Base' in CODEC_NAME:
     # load what exists
     pretrained_model_path = f'DVC/snapshot/512.model'
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
@@ -127,11 +127,6 @@ elif 'Base' == CODEC_NAME:
         # load_state_dict_whatever(model, checkpoint)
     del checkpoint
     print("Load baseline",pretrained_model_path)
-    # with open(f'DVC/snapshot/512.model', 'rb') as f:
-    #    pretrained_dict = torch.load(f)
-    #    load_state_dict_only(model, pretrained_dict, 'warpnet')
-    #    load_state_dict_only(model, pretrained_dict, 'opticFlow')
-       # del pretrained_dict
 else:
     print("Cannot load model codec", RESUME_CODEC_PATH)
 print("===================================================================")
@@ -282,30 +277,30 @@ def test(epoch, model, test_dataset):
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
                 I_module.update(I_psnr)
-                all_loss_module.update(loss.cpu().data.item(),fP+1)
-                img_loss_module.update(img_loss,fP+1)
+                # all_loss_module.update(loss.cpu().data.item(),fP+1)
+                # img_loss_module.update(img_loss,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
-                all_loss_module.update(loss.cpu().data.item(),l-fP-1)
-                img_loss_module.update(img_loss,l-fP-1)
+                # all_loss_module.update(loss.cpu().data.item(),l-fP-1)
+                # img_loss_module.update(img_loss,l-fP-1)
             else:
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
                 I_module.update(I_psnr)
-                all_loss_module.update(loss.cpu().data.item(),l)
-                img_loss_module.update(img_loss,l)
+                # all_loss_module.update(loss.cpu().data.item(),l)
+                # img_loss_module.update(img_loss,l)
                 
         # show result
         test_iter.set_description(
             f"{data_idx:6}. "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"I:{I_module.val:.4f} ({I_module.avg:.4f}). "
-            f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+            f"I:{I_module.val:.4f} ({I_module.avg:.4f}). ")
+            # f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+            # f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
             
         # clear input
         data = []
