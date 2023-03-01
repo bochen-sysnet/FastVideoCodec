@@ -27,7 +27,7 @@ import argparse
 from datetime import datetime
 
 
-from models import get_codec_model,parallel_compression,compress_whole_video,showTimer
+from models import get_codec_model,parallel_compression,compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
@@ -1105,12 +1105,12 @@ def dynamic_simulation(args, test_dataset):
                     f'{fps_module.avg:.2f} {rbr_module.avg:.2f} '+\
                     f'{latency_module.avg:.2f} {gpu_module.avg:.2f}\n'
             f.write(outstr)
-            if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
-                enc_str,dec_str,_,_ = showTimer(model)
-                if args.role == 'standalone' or args.role == 'client':
-                    f.write(enc_str+'\n')
-                if args.role == 'standalone' or args.role == 'server':
-                    f.write(dec_str+'\n')
+            # if args.task in ['RLVC','DVC','AE3D'] or 'SPVC' in args.task:
+            #     enc_str,dec_str,_,_ = showTimer(model)
+            #     if args.role == 'standalone' or args.role == 'client':
+            #         f.write(enc_str+'\n')
+            #     if args.role == 'standalone' or args.role == 'server':
+            #         f.write(dec_str+'\n')
             
         test_dataset.reset()
 
