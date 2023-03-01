@@ -2311,7 +2311,7 @@ class ELFVC(ScaleSpaceFlow):
         # encode the motion information
         if self.prior_flow is None:
             B,C,H,W = x_cur.size()
-            self.prior_flow = torch.zeros(B,C,H,W)
+            self.prior_flow = torch.zeros(B,C,H,W).to(x_cur.device)
         x = torch.cat((x_cur, x_ref, self.prior_flow), dim=1)
         y_motion = self.motion_encoder(x)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
