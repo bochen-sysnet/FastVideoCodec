@@ -347,15 +347,10 @@ def static_simulation_model(args, test_dataset):
                 decompt_list += [decoding_time]
                 decompt_mean = np.array(decompt_list).mean()
                 decompt_std = np.array(decompt_list).std()
-
-                if img_loss_list:
-                    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
-                    img_loss_module.update(img_loss.cpu().data.item(), l)
             
             # show result
             test_iter.set_description(
                 f"{data_idx:6}. "
-                f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
                 f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
                 f"E: {compt_module.avg:.3f} D: {decompt_mean:.5f} ({decompt_std:.5f}). ")
