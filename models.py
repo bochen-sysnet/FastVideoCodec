@@ -2318,7 +2318,7 @@ class ELFVC(ScaleSpaceFlow):
 
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
-        self.prior_flow, _ = motion_info.chunk(2, dim=1)
+        self.prior_flow = motion_info.chunk(2, dim=1)[0].detach()
         x_pred = self.forward_prediction(x_ref, motion_info)
 
         # residual
