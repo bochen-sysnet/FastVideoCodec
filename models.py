@@ -1638,7 +1638,7 @@ class LSVC(nn.Module):
 
         g,layers,parents = graph_from_batch(bs,isLinear=('-L' in self.name),isOnehop=('-O' in self.name))
         ref_index = refidx_from_graph(g,bs)
-        t0_enc = time.perf_counter()
+        t0_enc = t0_dec = time.perf_counter()
         estmv = self.opticFlow(input_image, x[ref_index])
         quant_mv_upsample,total_bits_mv = self.mv_codec(estmv)
 
