@@ -27,7 +27,7 @@ import argparse
 from datetime import datetime
 
 
-from models import get_codec_model,parallel_compression,update_training,compress_whole_video,showTimer
+from models import get_codec_model,parallel_compression,compress_whole_video,showTimer
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
 
