@@ -240,7 +240,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                     x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
                         model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 x_prev = x_prev.detach()
-                print(i,bpp_est,bpp_act)
                 all_loss_list += [(model.r*img_loss + bpp_est).to(data.device)]
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
@@ -1212,6 +1211,7 @@ class IterPredVideoCodecs(nn.Module):
         # compress optical flow
         mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_est,mv_aux,mv_prior_latent = \
             self.mv_codec(mv_tensors, rae_mv_hidden, rpm_mv_hidden, RPM_flag,prior_latent=mv_prior_latent)
+            print(mv_act,mv_est)
         if not self.noMeasure:
             self.meters['E-MV'].update(self.mv_codec.enc_t)
             self.meters['D-MV'].update(self.mv_codec.dec_t)
