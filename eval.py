@@ -338,20 +338,11 @@ def static_simulation_model(args, test_dataset):
                     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,lvl)
                     ba_loss_module.update(be_loss, l)
                     psnr_module.update(psnr,l)
-                    I_module.update(I_psnr)
                 encoding_time = decoding_time = 0
 
-                # aggregate loss
-                ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
-                psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
-                all_psnr_list += torch.stack(psnr_list,dim=0).tolist()
-                
-                # record loss
-                ba_loss_module.update(ba_loss.cpu().data.item(), l)
-                psnr_module.update(psnr.cpu().data.item(),l)
                 compt_module.update(encoding_time,l)
                 decompt_module.update(decoding_time,l)
-                video_bpp_module.update(ba_loss,l)
+                video_bpp_module.update(be_loss,l)
 
                 decompt_list += [decoding_time]
                 decompt_mean = np.array(decompt_list).mean()
