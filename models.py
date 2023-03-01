@@ -2287,19 +2287,38 @@ class ELFVC(ScaleSpaceFlow):
         scale_field_shift: float = 1.0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
+        class Encoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
+            ):
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
+        self.motion_encoder = Encoder(2 * 3 + 2)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
+        self.prior_flow = None
 
     def forward_inter(self, x_cur, x_ref):
         # encode the motion information
-        x = torch.cat((x_cur, x_ref), dim=1)
+        if self.prior_flow is None:
+            B,C,H,W = x_cur.size()
+            self.prior_flow = torch.zeros(B,C,H,W)
+        x = torch.cat((x_cur, x_ref, self.prior_flow), dim=1)
         y_motion = self.motion_encoder(x)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
+        self.prior_flow, _ = motion_info.chunk(2, dim=1)
         x_pred = self.forward_prediction(x_ref, motion_info)
 
         # residual
