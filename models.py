@@ -2020,34 +2020,32 @@ class Base(nn.Module):
             recon_sigma = self.respriorDecoder(compressed_z)
         if self.useE3C:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
+            feature_correction = torch.sigmoid(feature_correction) - 0.5
             
         # rec. residual
-        if self.useE3C:
-            feature_correction = torch.sigmoid(feature_correction) - 0.5
-            recon_res = self.resDecoder(torch.cat((compressed_feature_renorm, feature_correction), dim=1))
-        else:
-            if self.useER:
-                pred_feature = torch.round(feature)
+        if self.useER:
+            pred_feature = torch.round(feature)
+            if self.useEC:
+                res_correction = self.resErrEncoder(corrected_z)
+                res_correction = torch.sigmoid(res_correction) - 0.5
+            pred_err_feature = []
+            for l in self.resGenNet:
                 if self.useEC:
-                    res_correction = self.resErrEncoder(corrected_z)
-                    res_correction = torch.sigmoid(res_correction) - 0.5
-                pred_err_feature = []
-                for l in self.resGenNet:
-                    if self.useEC:
-                        inp = torch.cat((pred_feature,res_correction),dim=1)
-                    else:
-                        inp = pred_feature
+                    inp = torch.cat((pred_feature,res_correction),dim=1)
+                else:
+                    inp = pred_feature
+                pred_feature = l(inp) + pred_feature
+                if self.residualER:
                     pred_feature = l(inp) + pred_feature
-                    if self.residualER:
-                        pred_feature = l(inp) + pred_feature
-                    else:
-                        pred_feature = l(inp)
-                    pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
-                corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
-            if self.useER:
-                recon_res = self.resDecoder(corrected_feature_renorm)
-            else:
-                recon_res = self.resDecoder(compressed_feature_renorm)
+                else:
+                    pred_feature = l(inp)
+                pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
+            corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
+        resDecInput = corrected_feature_renorm if self.useER else compressed_feature_renorm
+        if self.useE3C:
+            recon_res = self.resDecoder(torch.cat((resDecInput, feature_correction), dim=1))
+        else:
+            recon_res = self.resDecoder(resDecInput)
 
         recon_image = prediction + recon_res
         clipped_recon_image = recon_image.clamp(0., 1.)
