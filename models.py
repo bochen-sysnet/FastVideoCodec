@@ -175,7 +175,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
 
 def parallel_compression(args,model, data, compressI=False, level=None):
     if level is None:
-        model.compression_level = torch.randint(8,(1,)) 
+        model.compression_level = int(torch.randint(8,(1,)) )
     else:
         model.compression_level = level
     init_training_params(model)
