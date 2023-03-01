@@ -42,6 +42,8 @@ parser.add_argument('--alpha', type=float, default=1.,
                     help='AD rate')
 parser.add_argument('--resolution', type=int, default=256, choices=[256,720,1080,2160],
                     help='Frame resolution') # or 960,1920; 720,1280;1920,3840
+parser.add_argument('--compression_level', default=0, type=int,
+                    help="Compression level")
 
 args = parser.parse_args()
 
@@ -49,7 +51,7 @@ args = parser.parse_args()
 CODEC_NAME = args.codec
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0-7
+compression_level = args.compression_level # 0-7
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
