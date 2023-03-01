@@ -46,10 +46,10 @@ parser.add_argument('--resolution', type=int, default=256, choices=[256,720,1080
 args = parser.parse_args()
 
 # OPTION
-CODEC_NAME = args.codec #'Base-ER2'
+CODEC_NAME = args.codec
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = 0 # 0,1,2,3
+compression_level = 0 # 0-7
 RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
 LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
@@ -90,19 +90,14 @@ best_codec_score = [1,0,0]
 ####### Load yowo model
 # ---------------------------------------------------------------
 # try to load codec model 
-if CODEC_NAME in ['x265', 'x264', 'RAW']:
-    # nothing to load
-    print("No need to load for ", CODEC_NAME)
-elif CODEC_NAME in ['SSF-Official']:
+if CODEC_NAME in ['SSF-Official']:
     print('Official model loaded.')
 elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/256.model'
     from DVC.net import load_model
     load_model(model, pretrained_model_path)
 elif CODEC_NAME in ['ELFVC']:
-    # pretrained_model_path = '/home/monet/research/FastVideoCodec/backup/SSF-Official/SSF-Official-0P_best.pth'
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    # BEGIN_EPOCH = checkpoint['epoch'] + 1
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
     # load_state_dict_all(model, checkpoint['state_dict'])
@@ -246,7 +241,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     return best_codec_score
     
-def test(epoch, model, test_dataset, level=0):
+def test(epoch, model, test_dataset, level=None):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -329,7 +324,9 @@ train_dataset = FrameDataset('../dataset/vimeo', frame_size=256)
 test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution)
 # test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 if args.evaluate:
-    score = test(0, model, test_dataset)
+    for level in range(8):
+        score = test(0, model, test_dataset, level)
+        if model.name not in ['ELFVC','ELFVC-L','SSF-Official']:break
     exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):

@@ -298,12 +298,9 @@ def static_simulation_model(args, test_dataset):
         else:
             model = model.cpu()
         model.eval()
-        aux_loss_module = AverageMeter()
         img_loss_module = AverageMeter()
         ba_loss_module = AverageMeter()
-        be_loss_module = AverageMeter()
         psnr_module = AverageMeter()
-        msssim_module = AverageMeter()
         all_loss_module = AverageMeter()
         compt_module = AverageMeter()
         decompt_module = AverageMeter()
@@ -311,10 +308,6 @@ def static_simulation_model(args, test_dataset):
         video_bpp_module = AverageMeter()
         ds_size = len(test_dataset)
         GoP = args.fP + args.bP +1
-        GoP_meters = [AverageMeter() for _ in range(GoP)]
-        GoP_meters2 = [AverageMeter() for _ in range(GoP)]
-        WP_meters = [AverageMeter() for _ in range(GoP)]
-        MC_meters = [AverageMeter() for _ in range(GoP)]
         data = []
         all_psnr_list = []
         test_iter = tqdm(range(ds_size))
@@ -334,29 +327,21 @@ def static_simulation_model(args, test_dataset):
                 
                 # compress GoP
                 if l>args.fP+1:
-                    _,img_loss_list1,bpp_est_list1,aux_loss_list1,psnr_list1,msssim_list1,bpp_act_list1,encoding_time1,decoding_time1 = parallel_compression(model,torch.flip(data[:args.fP+1],[0]),True)
-                    # data[args.fP:args.fP+1] = com_imgs[0:1]
-                    _,img_loss_list2,bpp_est_list2,aux_loss_list2,psnr_list2,msssim_list2,bpp_act_list2,encoding_time2,decoding_time2 = parallel_compression(model,data[args.fP:],False)
-                    if args.use_ep:
-                        for idx,wp in enumerate(aux_loss_list1):
-                            WP_meters[5-idx].update(wp)
-                        for idx,mc in enumerate(msssim_list1):
-                            MC_meters[5-idx].update(mc)
-                        for idx,wp in enumerate(aux_loss_list2):
-                            WP_meters[7+idx].update(wp)
-                        for idx,mc in enumerate(msssim_list2):
-                            MC_meters[7+idx].update(mc)
-                    img_loss_list = img_loss_list1[::-1] + img_loss_list2
-                    aux_loss_list = aux_loss_list1[::-1] + aux_loss_list2
-                    psnr_list = psnr_list1[::-1] + psnr_list2
-                    msssim_list = msssim_list1[::-1] + msssim_list2
-                    bpp_act_list = bpp_act_list1[::-1] + bpp_act_list2
-                    bpp_est_list = bpp_est_list1[::-1] + bpp_est_list2
-                    l1,l2 = len(img_loss_list1),len(img_loss_list2)
-                    encoding_time,decoding_time = (encoding_time1*l1+encoding_time2*l2)/(l1+l2),(decoding_time1*l1+decoding_time2*l2)/(l1+l2)
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:args.fP+1],[0]),True,lvl)
+                    ba_loss_module.update(be_loss, fP+1)
+                    psnr_module.update(psnr,fP+1)
+                    I_module.update(I_psnr)
+                    data[fP:fP+1] = com_imgs[0:1]
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[args.fP:],False,lvl)
+                    ba_loss_module.update(be_loss, l-fP-1)
+                    psnr_module.update(psnr,l-fP-1)
                 else:
-                    _,img_loss_list,bpp_est_list,aux_loss_list,psnr_list,msssim_list,bpp_act_list,encoding_time,decoding_time = parallel_compression(model,torch.flip(data,[0]),True)
-                    
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,lvl)
+                    ba_loss_module.update(be_loss, l)
+                    psnr_module.update(psnr,l)
+                    I_module.update(I_psnr)
+                encoding_time = decoding_time = 0
+
                 # aggregate loss
                 ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
                 psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
@@ -365,28 +350,17 @@ def static_simulation_model(args, test_dataset):
                 # record loss
                 ba_loss_module.update(ba_loss.cpu().data.item(), l)
                 psnr_module.update(psnr.cpu().data.item(),l)
-
                 compt_module.update(encoding_time,l)
                 decompt_module.update(decoding_time,l)
                 video_bpp_module.update(ba_loss,l)
+
                 decompt_list += [decoding_time]
                 decompt_mean = np.array(decompt_list).mean()
                 decompt_std = np.array(decompt_list).std()
 
-                if aux_loss_list:
-                    aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0)
-                    aux_loss_module.update(aux_loss.cpu().data.item(), l)
+                if img_loss_list:
                     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0)
                     img_loss_module.update(img_loss.cpu().data.item(), l)
-                    msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
-                    msssim_module.update(msssim.cpu().data.item(), l)
-
-                # record psnr per position
-                if args.use_ep:
-                    for idx,p in enumerate(psnr_list):
-                        GoP_meters[idx%GoP].update(p)
-                    for idx,b in enumerate(bpp_act_list):
-                        GoP_meters2[idx%GoP].update(b)
             
             # show result
             test_iter.set_description(
@@ -394,9 +368,6 @@ def static_simulation_model(args, test_dataset):
                 f"IL: {img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
                 f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). "
-                f"A: {aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-                f"I: {float(max(psnr_list)):.2f}. "
                 f"E: {compt_module.avg:.3f} D: {decompt_mean:.5f} ({decompt_std:.5f}). ")
                 
             # clear input
@@ -410,19 +381,9 @@ def static_simulation_model(args, test_dataset):
                 compt_module.reset()
                 decompt_module.reset()
                 video_bpp_module.reset()
-
             
         test_dataset.reset()
-        if args.use_ep:
-            psnrs = [float(gm.avg) for gm in GoP_meters]
-            bpps = [float(gm.avg) for gm in GoP_meters2]
-            psnrs2 = [float(gm.avg) for gm in MC_meters]
-            psnrs3 = [float(gm.avg) for gm in WP_meters]
-            print(lvl,bpps)
-            print(psnrs)
-            print(psnrs2)
-            print(psnrs3)
-    return [ba_loss_module.avg,psnr_module.avg,msssim_module.avg]
+    return [ba_loss_module.avg,psnr_module.avg]
 
 def block_until_open(ip_addr,port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1230,9 +1191,6 @@ if __name__ == '__main__':
     parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
     parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
     parser.set_defaults(use_cuda=True)
-    parser.add_argument('--use_ep', dest='use error prop', action='store_true')
-    parser.add_argument('--no-use_ep', dest='use error prop', action='store_false')
-    parser.set_defaults(use_ep=False)
     parser.add_argument('--use_disp', dest='use_disp', action='store_true')
     parser.add_argument('--no-use_disp', dest='use_disp', action='store_false')
     parser.set_defaults(use_disp=False)

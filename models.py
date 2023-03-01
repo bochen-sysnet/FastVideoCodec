@@ -46,7 +46,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'Base' in name:
         model_codec = Base(name, loss_type='P', compression_level=compression_level)
     elif 'SSF-Official' in name:
-        model_codec = compressai.zoo.ssf2020(1, metric='mse', pretrained=True, progress=True)
+        model_codec = compressai.zoo.ssf2020(compression_level+1, metric='mse', pretrained=True, progress=True)
         model_codec.name = 'SSF-Official'
         model_codec.compression_level = compression_level
         model_codec.loss_type = loss_type
@@ -174,11 +174,9 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
 def parallel_compression(args,model, data, compressI=False, level=None):
-    if level is None:
+    if level is None and 'ELFVC' in model_name:
         model.compression_level = int(torch.randint(8,(1,)) )
-    else:
-        model.compression_level = level
-    init_training_params(model)
+        init_training_params(model)
 
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
@@ -2305,8 +2303,13 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
         self.level_max = 8
-        self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
-        self.res_encoder = Encoder(3 + self.level_max)
+        if '-L' in name:
+            self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
+            self.res_encoder = Encoder(3 + self.level_max)
+            self.useLevel = True
+        else:
+            self.motion_encoder = Encoder(2 * 3 + 2)
+            self.useLevel = False
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
@@ -2318,10 +2321,14 @@ class ELFVC(ScaleSpaceFlow):
         if self.prior_flow is None:
             self.prior_flow = torch.zeros(B,2,H,W).to(x_cur.device)
         # concat one hot
-        level_map = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+        if self.useLevel:
+            level_map = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
 
         # encode the motion information
-        x = torch.cat((x_cur, x_ref, self.prior_flow, level_map), dim=1)
+        if self.useLevel:
+            x = torch.cat((x_cur, x_ref, self.prior_flow, level_map), dim=1)
+        else:
+            x = torch.cat((x_cur, x_ref, self.prior_flow), dim=1)
         y_motion = self.motion_encoder(x)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
@@ -2332,7 +2339,10 @@ class ELFVC(ScaleSpaceFlow):
 
         # residual
         x_res = x_cur - x_pred
-        y_res = self.res_encoder(torch.cat((x_res, level_map), dim=1))
+        if self.useLevel:
+            y_res = self.res_encoder(torch.cat((x_res, level_map), dim=1))
+        else:
+            y_res = self.res_encoder(x_res)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
