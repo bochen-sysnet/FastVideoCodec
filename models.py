@@ -206,7 +206,7 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
-            print(model.r,model.I_level)
+            # mu = torch.pow(10,torch.linspace(-1.7, -3.7, steps=8))
             for i in range(1,B):
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
@@ -216,7 +216,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                         torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
                 bpp = (mot_bits + res_bits) / (H * W)
                 bpp_res = (res_bits) / (H * W)
-                mot_err = res_err = (mot_bits) / (H * W)
                 mseloss = torch.mean((x_prev - data[i:i+1]).pow(2))
 
                 x_prev = x_prev.detach()
@@ -225,8 +224,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 bpp_list += [bpp.to(data.device)]
                 bppres_list += [(bpp_res).to(data.device)]
-                aux_loss_list += [mot_err.to(data.device)]
-                aux2_loss_list += [res_err.to(data.device)]
                 x_hat_list.append(x_prev)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
