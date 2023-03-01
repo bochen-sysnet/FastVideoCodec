@@ -20,7 +20,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-from models import get_codec_model,parallel_compression,update_training,compress_whole_video
+from models import get_codec_model,parallel_compression,compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 from dataset import VideoDataset, FrameDataset
@@ -161,8 +161,6 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
     
     model.train()
     if model.name == 'DVC-pretrained':model.eval()
-    update_training(model,epoch,warmup_epoch=WARMUP_EPOCH)
-    
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     

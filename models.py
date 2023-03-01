@@ -77,34 +77,6 @@ def init_training_params(model):
                     'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
                     'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
-    
-def showTimer(model):
-    enc = sum([val.avg if 'E-' in key else 0 for key,val in model.meters.items()])
-    dec = sum([val.avg if 'D-' in key else 0 for key,val in model.meters.items()])
-    enc_str = model.fmt_enc_str.format(model.meters['E-FL'].avg,model.meters['E-MV'].avg,
-        model.meters['E-MC'].avg,model.meters['E-RES'].avg,
-        model.bitscounter['M'].avg,model.bitscounter['R'].avg)
-    dec_str = model.fmt_dec_str.format(model.meters["D-MV"].avg,model.meters["D-MC"].avg,
-        model.meters["D-RES"].avg)
-    # print(enc,enc_str)
-    # print(dec,dec_str)
-    return enc_str,dec_str,enc,dec
-    
-def update_training(model, epoch, batch_idx=None, warmup_epoch=30):
-    # warmup with all gamma set to 1
-    # optimize for bpp,img loss and focus only reconstruction loss
-    # optimize bpp and app loss only
-    # model.r_img, model.r_bpp, model.r_aux = 1,1,1
-    # setup training weights
-    if epoch <= warmup_epoch:
-        model.stage = 'REC' # WP->MC->REC
-        model.r_bpp = 1
-    else:
-        model.stage = 'REC'
-        model.r_bpp = 1
-    
-    model.epoch = epoch
-    print('Update training:',model.r_img, model.r_bpp, model.r_aux, model.stage)
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     imgByteArr = io.BytesIO()
@@ -1480,7 +1452,7 @@ class LSVC(nn.Module):
         useAttn = ('-A' in name)
         useSynAttn = ('-S' in name)
         channels = 128 if '-128' in name else out_channel_M 
-        self.mvEncoder = Analysis_mv_net(useAttn=useAttn,channels=channels)
+        self.mvEncoder = Analysis_mv_net(useAttn=useAttn,conv_channels=channels)
         self.mvDecoder = Synthesis_mv_net(channels=channels,useAttn=useSynAttn)
         self.resEncoder = Analysis_net(useAttn=useAttn)
         self.resDecoder = Synthesis_net(useAttn=useSynAttn)
