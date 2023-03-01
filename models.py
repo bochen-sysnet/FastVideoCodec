@@ -69,14 +69,14 @@ def init_training_params(model):
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
     # print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
     
-    # model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
-    # model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f}"
-    # model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
-    #                 'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),
-    #                 'E-NET':AverageMeter(),
-    #                 'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
-    #                 'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
-    # model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
+    model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
+    model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f}"
+    model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
+                    'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),
+                    'E-NET':AverageMeter(),
+                    'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
+                    'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
+    model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
     
 def showTimer(model):
     enc = sum([val.avg if 'E-' in key else 0 for key,val in model.meters.items()])
