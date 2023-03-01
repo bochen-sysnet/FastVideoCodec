@@ -1896,7 +1896,7 @@ class Base(nn.Module):
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5 # test later
             num_blocks = 1 # better just one is sufficient
-            act_func = 3 # or 3
+            act_func = 4 # or 3
             self.residualER = True # must
             self.additiveER = False # both work
             self.detachMode = [0,1] # [0,1] both are better
