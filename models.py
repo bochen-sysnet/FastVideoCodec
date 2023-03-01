@@ -62,21 +62,21 @@ def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
     model.stage = 'REC'
     
-    psnr_list = [256,512,1024,2048,4096,8192,16384,16384*2]
+    self.psnr_list = [256,512,1024,2048,4096,8192,16384,16384*2]
     msssim_list = [8,16,32,64]
-    I_lvl_list = [37,32,27,22,17,12,7,2]
+    self.I_lvl_list = [37,32,27,22,17,12,7,2]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
     # print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
     
-    model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
-    model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f}"
-    model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
-                    'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),
-                    'E-NET':AverageMeter(),
-                    'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
-                    'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
-    model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
+    # model.fmt_enc_str = "{0:.3f} {1:.3f} {2:.3f} {3:.3f} {4:.3f} {5:.3f}"
+    # model.fmt_dec_str = "{0:.3f} {1:.3f} {2:.3f}"
+    # model.meters = {'E-FL':AverageMeter(),'E-MV':AverageMeter(),'eEMV':AverageMeter(),
+    #                 'E-MC':AverageMeter(),'E-RES':AverageMeter(),'eERES':AverageMeter(),
+    #                 'E-NET':AverageMeter(),
+    #                 'D-MV':AverageMeter(),'eDMV':AverageMeter(),'D-MC':AverageMeter(),
+    #                 'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
+    # model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
     
 def showTimer(model):
     enc = sum([val.avg if 'E-' in key else 0 for key,val in model.meters.items()])
@@ -173,7 +173,13 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
-def parallel_compression(args,model, data, compressI=False):
+def parallel_compression(args,model, data, compressI=False, level=None):
+    if level is None:
+        model.compression_level = torch.randint(8,(1,)) 
+    else:
+        model.compression_level = level
+    init_training_params(model)
+
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
@@ -200,6 +206,7 @@ def parallel_compression(args,model, data, compressI=False):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
+            print(model.r,model.I_level)
             for i in range(1,B):
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
@@ -2300,7 +2307,9 @@ class ELFVC(ScaleSpaceFlow):
                     nn.ReLU(inplace=True),
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
-        self.motion_encoder = Encoder(2 * 3 + 2)
+        self.level_max = 8
+        self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
+        self.res_encoder = Encoder(3 + self.level_max)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
@@ -2308,11 +2317,14 @@ class ELFVC(ScaleSpaceFlow):
         self.prior_flow = None
 
     def forward_inter(self, x_cur, x_ref):
-        # encode the motion information
+        B,C,H,W = x_cur.size()
         if self.prior_flow is None:
-            B,C,H,W = x_cur.size()
             self.prior_flow = torch.zeros(B,2,H,W).to(x_cur.device)
-        x = torch.cat((x_cur, x_ref, self.prior_flow), dim=1)
+        # concat one hot
+        level_map = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+
+        # encode the motion information
+        x = torch.cat((x_cur, x_ref, self.prior_flow, level_map), dim=1)
         y_motion = self.motion_encoder(x)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
@@ -2323,7 +2335,7 @@ class ELFVC(ScaleSpaceFlow):
 
         # residual
         x_res = x_cur - x_pred
-        y_res = self.res_encoder(x_res)
+        y_res = self.res_encoder(torch.cat(x_res, level_map), dim=1)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
