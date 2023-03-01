@@ -1453,7 +1453,7 @@ class LSVC(nn.Module):
         useSynAttn = ('-S' in name)
         channels = 128 if '-128' in name else out_channel_M 
         self.mvEncoder = Analysis_mv_net(useAttn=useAttn,conv_channels=channels)
-        self.mvDecoder = Synthesis_mv_net(channels=channels,useAttn=useSynAttn)
+        self.mvDecoder = Synthesis_mv_net(in_channels=channels,useAttn=useSynAttn)
         self.resEncoder = Analysis_net(useAttn=useAttn)
         self.resDecoder = Synthesis_net(useAttn=useSynAttn)
         self.respriorEncoder = Analysis_prior_net(useAttn=useAttn)
