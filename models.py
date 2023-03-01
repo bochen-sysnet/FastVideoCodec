@@ -240,6 +240,7 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                     x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
                         model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 x_prev = x_prev.detach()
+                print(i,bpp_est,bpp_act)
                 all_loss_list += [(model.r*img_loss + bpp_est).to(data.device)]
                 img_loss_list += [img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
