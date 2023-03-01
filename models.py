@@ -2335,7 +2335,7 @@ class ELFVC(ScaleSpaceFlow):
 
         # residual
         x_res = x_cur - x_pred
-        y_res = self.res_encoder(torch.cat(x_res, level_map), dim=1)
+        y_res = self.res_encoder(torch.cat((x_res, level_map), dim=1))
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
