@@ -1208,10 +1208,10 @@ if __name__ == '__main__':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
         dynamic_simulation(args, test_dataset)
     elif args.mode == 'static':
-        assert(args.task in ['RLVC2','DVC-pretrained'] or 'LSVC' in args.task or 'x26' in args.task)
+        assert(args.task in ['RLVC2','DVC-pretrained','SSF-Official'] or 'LSVC' in args.task or 'x26' in args.task)
         if 'x26' in args.task:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC2','SPVC','DVC-pretrained'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC2','SPVC','DVC-pretrained','SSF-Official'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
     elif args.mode == 'speed_test':
         speed_test()
