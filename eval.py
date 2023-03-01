@@ -328,13 +328,13 @@ def static_simulation_model(args, test_dataset):
                 # compress GoP
                 if l>args.fP+1:
                     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:args.fP+1],[0]),True,lvl)
-                    ba_loss_module.update(be_loss, fP+1)
-                    psnr_module.update(psnr,fP+1)
+                    ba_loss_module.update(be_loss, args.fP+1)
+                    psnr_module.update(psnr,args.fP+1)
                     I_module.update(I_psnr)
-                    data[fP:fP+1] = com_imgs[0:1]
+                    data[args.fP:args.fP+1] = com_imgs[0:1]
                     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[args.fP:],False,lvl)
-                    ba_loss_module.update(be_loss, l-fP-1)
-                    psnr_module.update(psnr,l-fP-1)
+                    ba_loss_module.update(be_loss, l-args.fP-1)
+                    psnr_module.update(psnr,l-args.fP-1)
                 else:
                     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,lvl)
                     ba_loss_module.update(be_loss, l)
