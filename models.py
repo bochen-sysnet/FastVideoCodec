@@ -1896,7 +1896,7 @@ class Base(nn.Module):
             ch1,ch2,ch3 = 192,128,128
             kernel_size = 5 # test later
             num_blocks = 1 # better just one is sufficient
-            act_func = 4 # or 3
+            act_func = 4 # 4 (better) or 3 (stable)
             self.residualER = True # must
             self.additiveER = False # both work
             self.detachMode = [0,1] # [0,1] both are better
@@ -2292,6 +2292,26 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
 
-    def forward_inter(self, input_image, referframe):
-        print('h')
-        exit(0)
+    def forward_inter(self, x_cur, x_ref):
+        # encode the motion information
+        x = torch.cat((x_cur, x_ref), dim=1)
+        y_motion = self.motion_encoder(x)
+        y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
+
+        # decode the space-scale flow information
+        motion_info = self.motion_decoder(y_motion_hat)
+        x_pred = self.forward_prediction(x_ref, motion_info)
+
+        # residual
+        x_res = x_cur - x_pred
+        y_res = self.res_encoder(x_res)
+        y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
+
+        # y_combine
+        y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
+        x_res_hat = self.res_decoder(y_combine)
+
+        # final reconstruction: prediction + residual
+        x_rec = x_pred + x_res_hat
+
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
