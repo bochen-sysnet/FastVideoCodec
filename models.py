@@ -1871,6 +1871,8 @@ class Base(nn.Module):
             self.residualER = True # must
             self.additiveER = False # both work
             self.detachMode = [0,1] # [0,1] both are better
+            self.soft2hard = True
+            # ER0 soft
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # GDN good with EREC; LReLu good with ER
@@ -1889,7 +1891,7 @@ class Base(nn.Module):
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
                 
-            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode)
+            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode,self.soft2hard)
             
 
         self.bitEstimator_z = BitEstimator(out_channel_N)
@@ -1935,7 +1937,10 @@ class Base(nn.Module):
             corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
         
         if self.useER:
-            quant_mv_upsample = self.mvDecoder(corrected_mv)
+            if self.training and self.soft2hard:
+                quant_mv_upsample = self.mvDecoder(mvfeature)
+            else:
+                quant_mv_upsample = self.mvDecoder(corrected_mv)
         else:
             quant_mv_upsample = self.mvDecoder(quant_mv)
         # add rec_motion to priors to reduce bpp
@@ -1986,7 +1991,10 @@ class Base(nn.Module):
         
         # rec. hyperprior
         if self.useER:
-            recon_sigma = self.respriorDecoder(corrected_z)
+            if self.training and self.soft2hard:
+                recon_sigma = self.respriorDecoder(z)
+            else:
+                recon_sigma = self.respriorDecoder(corrected_z)
         else:
             recon_sigma = self.respriorDecoder(compressed_z)
         if self.useE3C:
@@ -2012,7 +2020,14 @@ class Base(nn.Module):
                     pred_feature = l(inp)
                 pred_err_feature += [pred_feature - (feature.detach() if 0 in self.detachMode else feature)]
             corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
-        resDecInput = corrected_feature_renorm if self.useER else compressed_feature_renorm
+        
+        if self.useER:
+            if self.training and self.soft2hard:
+                resDecInput = feature 
+            else:
+                resDecInput = corrected_feature_renorm 
+        else:
+            resDecInput = corrected_feature_renorm 
         if self.useE3C:
             recon_res = self.resDecoder(torch.cat((resDecInput, feature_correction), dim=1))
         else:
