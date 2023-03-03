@@ -98,7 +98,7 @@ elif CODEC_NAME in ['DVC-pretrained']:
     pretrained_model_path = 'DVC/snapshot/256.model'
     from DVC.net import load_model
     load_model(model, pretrained_model_path)
-elif CODEC_NAME in ['ELFVC']:
+elif CODEC_NAME in ['ELFVC','ELFVC0']:
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     best_codec_score = checkpoint['score']
     load_state_dict_whatever(model, checkpoint['state_dict'])
