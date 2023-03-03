@@ -2017,7 +2017,7 @@ class Base(nn.Module):
             else:
                 resDecInput = corrected_feature_renorm 
         else:
-            resDecInput = corrected_feature_renorm 
+            resDecInput = compressed_feature_renorm 
         if self.useEC:
             recon_res = self.resDecoder(torch.cat((resDecInput, feature_correction), dim=1))
         else:
