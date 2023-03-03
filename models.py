@@ -2291,6 +2291,7 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
         self.level_max = 8
+        self.residual_motion = False
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
             self.res_encoder = Encoder(3 + self.level_max)
@@ -2323,10 +2324,11 @@ class ELFVC(ScaleSpaceFlow):
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
         # add delta
-        flow_delta, scale_field = motion_info.chunk(2, dim=1)
-        flow = flow_delta + self.prior_flow
+        if self.residual_motion:
+            flow_delta, scale_field = motion_info.chunk(2, dim=1)
+            flow = flow_delta + self.prior_flow
+            motion_info = torch.cat((flow, scale_field), dim=1)
         self.prior_flow = motion_info.chunk(2, dim=1)[0].detach()
-        motion_info = torch.cat((flow, scale_field), dim=1)
         # apply motion
         x_pred = self.forward_prediction(x_ref, motion_info)
 
