@@ -2291,7 +2291,7 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
         self.level_max = 8
-        self.residual_motion = False
+        self.residual_motion = True
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
             self.res_encoder = Encoder(3 + self.level_max)
