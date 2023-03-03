@@ -198,7 +198,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
-            alpha = args.alpha
             for i in range(1,B):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err = \
                     model(data[i:i+1],x_prev)
@@ -219,9 +218,9 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.useER:
                     if model.soft2hard and model.training:
-                        all_loss_list += [(model.r*(mseloss + mseloss1 + mseloss2)/3 + bpp + alpha * err[1])]
+                        all_loss_list += [(model.r*(mseloss + mseloss1 + mseloss2)/3 + bpp + err[1])]
                     else:
-                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
+                        all_loss_list += [(model.r*mseloss + bpp + err[1])]
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
                     aux3_loss_list += [err[2]]
