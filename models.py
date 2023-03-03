@@ -1943,7 +1943,7 @@ class Base(nn.Module):
         
         if self.useER:
             if self.training and self.soft2hard:
-                quant_mv_upsample = self.mvDecoder(torch.round(mv))
+                quant_mv_upsample = self.mvDecoder(torch.round(mvfeature))
             else:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
         else:
