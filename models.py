@@ -1942,7 +1942,7 @@ class Base(nn.Module):
             quant_mv_upsample = self.mvDecoder(quant_mv)
 
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-        if self.soft2hard and self.s2h_stage > 1:
+        if self.training and self.soft2hard and self.s2h_stage > 1:
             prediction = prediction.detach()
 
         # residual   
