@@ -201,23 +201,24 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             for i in range(1,B):
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err = \
                     model(data[i:i+1],x_prev)
-                if model.training and model.soft2hard:
+                if model.training and model.useER and model.soft2hard:
                     model.s2h_stage = 1
                     _, mseloss1, _, _, _, _, _, _ = \
                         model(data[i:i+1],x_prev)
                     model.s2h_stage = 2
                     _, mseloss2, _, _, _, _, _, _ = \
                         model(data[i:i+1],x_prev)
+                    model.s2h_stage = 0
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss]
                 bpp_list += [bpp]
-                if model.training and model.soft2hard:
+                if model.training and model.useER and model.soft2hard:
                     bppres_list += [model.r*(mseloss + mseloss1 + mseloss2)/3]
                 else:
                     bppres_list += [(bpp_feature + bpp_z)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.useER:
-                    if model.training and model.soft2hard:
+                    if model.training and model.useER and model.soft2hard:
                         all_loss_list += [(model.r*(mseloss + mseloss1 + mseloss2)/3 + bpp + err[1])]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp + err[1])]
@@ -1942,7 +1943,7 @@ class Base(nn.Module):
             quant_mv_upsample = self.mvDecoder(quant_mv)
 
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-        if self.training and self.soft2hard and self.s2h_stage > 1:
+        if self.training and self.useER and self.soft2hard and self.s2h_stage > 1:
             prediction = prediction.detach()
 
         # residual   
