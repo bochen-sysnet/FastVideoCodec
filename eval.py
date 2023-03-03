@@ -76,7 +76,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
         load_state_dict_all(model, checkpoint['state_dict'])
         # print("Loaded model codec score: ", checkpoint['score'])
         del checkpoint
-    elif 'LSVC-L-128' in CODEC_NAME:
+    elif 'Base' == CODEC_NAME:
         psnr_list = [256,512,1024,2048]
         DVC_ckpt_name = f'DVC/snapshot/{psnr_list[compression_level]}.model'
         checkpoint = torch.load(DVC_ckpt_name,map_location=torch.device('cuda:0'))
@@ -1208,10 +1208,10 @@ if __name__ == '__main__':
         assert(args.task in ['RLVC','DVC','x264','x265'] or 'SPVC' in args.task)
         dynamic_simulation(args, test_dataset)
     elif args.mode == 'static':
-        assert(args.task in ['RLVC2','DVC-pretrained','SSF-Official'] or 'LSVC' in args.task or 'x26' in args.task)
+        assert(args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base'] or 'LSVC' in args.task or 'x26' in args.task)
         if 'x26' in args.task:
             static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC2','SPVC','DVC-pretrained','SSF-Official'] or 'LSVC' in args.task:
+        elif args.task in ['RLVC2','SPVC','DVC-pretrained','SSF-Official','Base'] or 'LSVC' in args.task:
             static_simulation_model(args, test_dataset)
     elif args.mode == 'speed_test':
         speed_test()

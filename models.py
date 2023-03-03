@@ -200,24 +200,26 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             x_hat_list = []
             alpha = args.alpha
             for i in range(1,B):
-                if model.soft2hard and model.training:
-                    model.soft2hard = False
-                    _, mseloss_off, _, _, _, _, _, _ = \
-                        model(data[i:i+1],x_prev)
-                    model.soft2hard = True
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err = \
                     model(data[i:i+1],x_prev)
+                if model.soft2hard and model.training:
+                    model.s2h_stage = 1
+                    _, mseloss1, _, _, _, _, _, _ = \
+                        model(data[i:i+1],x_prev)
+                    model.s2h_stage = 2
+                    _, mseloss2, _, _, _, _, _, _ = \
+                        model(data[i:i+1],x_prev)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss]
                 bpp_list += [bpp]
                 if model.soft2hard and model.training:
-                    bppres_list += [model.r*mseloss_off]
+                    bppres_list += [model.r*(mseloss + mseloss1 + mseloss2)/3]
                 else:
                     bppres_list += [(bpp_feature + bpp_z)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.useER:
                     if model.soft2hard and model.training:
-                        all_loss_list += [(model.r*(mseloss + mseloss_off)/2 + bpp + alpha * err[1])]
+                        all_loss_list += [(model.r*(mseloss + mseloss1 + mseloss2)/3 + bpp + alpha * err[1])]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
                     aux_loss_list += [err[0]]
@@ -1933,7 +1935,7 @@ class Base(nn.Module):
             corrected_mv = mvfeature + (pred_err_mv[-1].detach() if 1 in self.detachMode else pred_err_mv[-1])
         
         if self.useER:
-            if self.training and self.soft2hard:
+            if self.training and self.soft2hard and self.s2h_stage > 0:
                 quant_mv_upsample = self.mvDecoder(torch.round(mvfeature))
             else:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
@@ -1941,6 +1943,8 @@ class Base(nn.Module):
             quant_mv_upsample = self.mvDecoder(quant_mv)
 
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
+        if self.soft2hard and self.s2h_stage > 1:
+            prediction = prediction.detach()
 
         # residual   
         input_residual = input_image - prediction
@@ -1978,7 +1982,7 @@ class Base(nn.Module):
         
         # rec. hyperprior
         if self.useER:
-            if self.training and self.soft2hard and self.s2h_stage == 1:
+            if self.training and self.soft2hard and self.s2h_stage > 1:
                 recon_sigma = self.respriorDecoder(torch.round(z))
             else:
                 recon_sigma = self.respriorDecoder(corrected_z)
@@ -2009,7 +2013,7 @@ class Base(nn.Module):
             corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
         
         if self.useER:
-            if self.training and self.soft2hard and self.s2h_stage == 1:
+            if self.training and self.soft2hard and self.s2h_stage > 1:
                 resDecInput = torch.round(feature)
             else:
                 resDecInput = corrected_feature_renorm 
