@@ -471,7 +471,7 @@ Sbpps = [
 [0.073,0.1238,0.1965,0.2991,0.4348,0.6325,0.8969],
 [0.0778],
 ]
-sc_labels = ['x265','DVC','RLVC','SSF']
+sc_labels = ['x265','DVC','RLVC','SSF','ELFVC']
 line_plot(Sbpps,SPSNRs,sc_labels,colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff.eps',
 		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)

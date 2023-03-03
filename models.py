@@ -175,7 +175,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
-            priors = {}
             for i in range(1,B):
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
@@ -199,16 +198,15 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
-            priors = {}
             alpha = args.alpha
             for i in range(1,B):
                 if model.soft2hard and model.training:
                     model.soft2hard = False
-                    _, mseloss_off, _, _, _, _, _, _, _ = \
-                        model(data[i:i+1],x_prev,priors)
+                    _, mseloss_off, _, _, _, _, _, _ = \
+                        model(data[i:i+1],x_prev)
                     model.soft2hard = True
-                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
-                    model(data[i:i+1],x_prev,priors)
+                x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err = \
+                    model(data[i:i+1],x_prev)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss]
                 bpp_list += [bpp]
@@ -1840,12 +1838,8 @@ class CodecNet(nn.Module):
 class Base(nn.Module):
     def __init__(self,name,loss_type='P',compression_level=0):
         super(Base, self).__init__()
-        self.recursive_flow = True if '-RF' in name else False
-        self.useSTE = True if '-STE' in name else False
-        self.useSSF = True if '-SSF' in name else False
-        self.useE3C = True if '-E3C' in name else False # sigmoid + concat ===current best===0.061,28.8
-        self.useEC = True if '-EC' in name else False
-        self.useER = True if '-ER' in name else False # error regularization
+        self.useEC = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
+        self.useER = True if '-ER' in name else False # predictive quantization mitigates noise
         self.opticFlow = ME_Spynet()
         self.mvEncoder = Analysis_mv_net(out_channels = out_channel_mv)
         self.mvDecoder = Synthesis_mv_net()
@@ -1853,18 +1847,16 @@ class Base(nn.Module):
         self.bitEstimator_mv = BitEstimator(out_channel_mv)
         self.resEncoder = Analysis_net(out_channels = out_channel_M)
 
-        if self.useE3C:
+        if self.useEC:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M*2)
         else:
             self.resDecoder = Synthesis_net(in_channels = out_channel_M)
         self.respriorEncoder = Analysis_prior_net(conv_channels = out_channel_N)
 
-        if self.useE3C:
+        if self.useEC:
             self.respriorDecoder = Synthesis_prior_net(out_channels=out_channel_M*2)
         else:
             self.respriorDecoder = Synthesis_prior_net()
-        if self.useEC:
-            self.resErrEncoder = Synthesis_prior_net(out_channels=out_channel_M)
 
         # error modeling
         if self.useER: 
@@ -1875,12 +1867,14 @@ class Base(nn.Module):
             self.residualER = True # must
             self.additiveER = False # both work
             self.detachMode = [0,1] # [0,1] both are better
-            self.soft2hard = True
+            self.soft2hard = True;self.s2h_stage = 0
+            self.sideCorrection = False
             # ER0 soft
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # GDN good with EREC; LReLu good with ER
-            if self.useEC:
+            if self.sideCorrection:
+                self.resErrEncoder = Synthesis_prior_net(out_channels=out_channel_M)
                 self.mvGenNet = nn.ModuleList([CodecNet(        [(0,kernel_size,1,128,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,ch1),act_func,(0,kernel_size,1,ch1,128),act_func]) for _ in range(num_blocks)]) 
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96*2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
@@ -1895,7 +1889,7 @@ class Base(nn.Module):
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
                 
-            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode,self.soft2hard)
+            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode,self.soft2hard,self.s2h_stage,self.sideCorrection)
             
 
         self.bitEstimator_z = BitEstimator(out_channel_N)
@@ -1913,11 +1907,9 @@ class Base(nn.Module):
         prediction = self.warpnet(inputfeature) + warpframe
         return prediction, warpframe
 
-    def forward(self, input_image, referframe, priors):
+    def forward(self, input_image, referframe):
         # motion
         estmv = self.opticFlow(input_image, referframe)
-        if self.recursive_flow and 'mv' in priors:
-            estmv -= priors['mv']
         mvfeature = self.mvEncoder(estmv)
         if self.training:
             half = float(0.5)
@@ -1947,14 +1939,8 @@ class Base(nn.Module):
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
         else:
             quant_mv_upsample = self.mvDecoder(quant_mv)
-        # add rec_motion to priors to reduce bpp
-        if self.recursive_flow and 'mv' in priors:
-            quant_mv_upsample += priors['mv']
+
         prediction, warpframe = self.motioncompensation(referframe, quant_mv_upsample)
-        if 'mv' in priors:
-            priors['mv'] = quant_mv_upsample.detach() + priors['mv']
-        else:
-            priors['mv'] = quant_mv_upsample.detach()
 
         # residual   
         input_residual = input_image - prediction
@@ -1995,25 +1981,25 @@ class Base(nn.Module):
         
         # rec. hyperprior
         if self.useER:
-            if self.training and self.soft2hard:
+            if self.training and self.soft2hard and self.s2h_stage == 1:
                 recon_sigma = self.respriorDecoder(torch.round(z))
             else:
                 recon_sigma = self.respriorDecoder(corrected_z)
         else:
             recon_sigma = self.respriorDecoder(compressed_z)
-        if self.useE3C:
+        if self.useEC:
             recon_sigma, feature_correction = recon_sigma.chunk(2, dim=1)
             feature_correction = torch.sigmoid(feature_correction) - 0.5
             
         # rec. residual
         if self.useER:
             pred_feature = torch.round(feature)
-            if self.useEC:
+            if self.sideCorrection:
                 res_correction = self.resErrEncoder(corrected_z)
                 res_correction = torch.sigmoid(res_correction) - 0.5
             pred_err_feature = []
             for l in self.resGenNet:
-                if self.useEC:
+                if self.sideCorrection:
                     inp = torch.cat((pred_feature,res_correction),dim=1)
                 else:
                     inp = pred_feature
@@ -2026,13 +2012,13 @@ class Base(nn.Module):
             corrected_feature_renorm = feature + (pred_err_feature[-1].detach() if 1 in self.detachMode else pred_err_feature[-1])
         
         if self.useER:
-            if self.training and self.soft2hard:
+            if self.training and self.soft2hard and self.s2h_stage == 1:
                 resDecInput = torch.round(feature)
             else:
                 resDecInput = corrected_feature_renorm 
         else:
             resDecInput = corrected_feature_renorm 
-        if self.useE3C:
+        if self.useEC:
             recon_res = self.resDecoder(torch.cat((resDecInput, feature_correction), dim=1))
         else:
             recon_res = self.resDecoder(resDecInput)
@@ -2156,7 +2142,7 @@ class Base(nn.Module):
                 pred_err /= len(pred_err_x)
                 pred_std /= len(pred_err_x)
         
-        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std), priors
+        return clipped_recon_image, mse_loss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, (Q_err, pred_err, Q_std, pred_std)
 
 
 # utils for scale-space flow
@@ -2291,7 +2277,7 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
         self.level_max = 8
-        self.residual_motion = False
+        self.recursive_flow = False
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
             self.res_encoder = Encoder(3 + self.level_max)
@@ -2324,7 +2310,7 @@ class ELFVC(ScaleSpaceFlow):
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
         # add delta
-        if self.residual_motion:
+        if self.recursive_flow:
             flow_delta, scale_field = motion_info.chunk(2, dim=1)
             flow = flow_delta + self.prior_flow
             motion_info = torch.cat((flow, scale_field), dim=1)
