@@ -1946,16 +1946,13 @@ class Base(nn.Module):
         input_residual = input_image - prediction
         feature = self.resEncoder(input_residual)
         # quantization
-        if not self.useSTE:
-            if self.training:
-                half = float(0.5)
-                quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
-                compressed_feature_renorm = feature + quant_noise_feature
-            else:
-                compressed_feature_renorm = torch.round(feature)
-            res_Q_err = ((feature - torch.round(feature)))
+        if self.training:
+            half = float(0.5)
+            quant_noise_feature = torch.empty_like(feature).uniform_(-half, half)
+            compressed_feature_renorm = feature + quant_noise_feature
         else:
-            compressed_feature_renorm = quantize_ste(feature)
+            compressed_feature_renorm = torch.round(feature)
+        res_Q_err = ((feature - torch.round(feature)))
         
         # hyperprior
         z = self.respriorEncoder(feature)
