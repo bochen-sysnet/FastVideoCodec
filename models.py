@@ -203,21 +203,23 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             priors = {}
             alpha = args.alpha
             for i in range(1,B):
-                if model.switchoff and model.training:
-                    model.switchoff = False
+                if model.soft2hard and model.training:
+                    model.soft2hard = False
                     _, mseloss_off, _, _, _, _, _, _, _ = \
                         model(data[i:i+1],x_prev,priors)
-                    model.switchoff = True
+                    model.soft2hard = True
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
-                img_loss_list += [model.r*mseloss.to(data.device)]
-                bpp_list += [bpp.to(data.device)]
-                bppres_list += [(bpp_feature + bpp_z).to(data.device)]
-                # bppres_list += [err[4]]
+                img_loss_list += [model.r*mseloss]
+                bpp_list += [bpp]
+                if model.soft2hard and model.training:
+                    bppres_list += [model.r*mseloss_off]
+                else:
+                    bppres_list += [(bpp_feature + bpp_z)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.useER:
-                    if model.switchoff and model.training:
+                    if model.soft2hard and model.training:
                         all_loss_list += [(model.r*(mseloss + mseloss_off)/2 + bpp + alpha * err[1])]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
@@ -1875,8 +1877,6 @@ class Base(nn.Module):
             self.additiveER = False # both work
             self.detachMode = [0,1] # [0,1] both are better
             self.soft2hard = True
-            self.switchoff = True # switch detach or not the features
-            # optimize latter half?
             # ER0 soft
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
@@ -1896,7 +1896,7 @@ class Base(nn.Module):
                 self.resGenNet = nn.ModuleList([CodecNet(       [(0,kernel_size,1,96,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,96),act_func]) for _ in range(num_blocks)])
                 self.respriorGenNet = nn.ModuleList([CodecNet(  [(0,kernel_size,1,64,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,64),act_func]) for _ in range(num_blocks)])
                 
-            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode,self.soft2hard,self.switchoff)
+            print(kernel_size,num_blocks, act_func,self.residualER,self.additiveER,self.detachMode,self.soft2hard)
             
 
         self.bitEstimator_z = BitEstimator(out_channel_N)
@@ -1943,9 +1943,7 @@ class Base(nn.Module):
         
         if self.useER:
             if self.training and self.soft2hard:
-                quant_mv_upsample = self.mvDecoder(mvfeature)
-            elif self.switchoff:
-                quant_mv_upsample = self.mvDecoder(torch.round(mvfeature))
+                quant_mv_upsample = self.mvDecoder(corrected_mv.detach())
             else:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
         else:
@@ -1999,9 +1997,7 @@ class Base(nn.Module):
         # rec. hyperprior
         if self.useER:
             if self.training and self.soft2hard:
-                recon_sigma = self.respriorDecoder(z)
-            elif self.switchoff:
-                recon_sigma = self.respriorDecoder(torch.round(z))
+                recon_sigma = self.respriorDecoder(corrected_z.detach())
             else:
                 recon_sigma = self.respriorDecoder(corrected_z)
         else:
@@ -2032,9 +2028,7 @@ class Base(nn.Module):
         
         if self.useER:
             if self.training and self.soft2hard:
-                resDecInput = feature 
-            elif self.switchoff:
-                resDecInput = torch.round(feature)
+                resDecInput = corrected_feature_renorm.detach()
             else:
                 resDecInput = corrected_feature_renorm 
         else:
