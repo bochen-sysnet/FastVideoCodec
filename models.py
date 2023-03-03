@@ -1943,7 +1943,7 @@ class Base(nn.Module):
         
         if self.useER:
             if self.training and self.soft2hard:
-                quant_mv_upsample = self.mvDecoder(corrected_mv.detach())
+                quant_mv_upsample = self.mvDecoder(torch.round(mv))
             else:
                 quant_mv_upsample = self.mvDecoder(corrected_mv)
         else:
@@ -1997,7 +1997,7 @@ class Base(nn.Module):
         # rec. hyperprior
         if self.useER:
             if self.training and self.soft2hard:
-                recon_sigma = self.respriorDecoder(corrected_z.detach())
+                recon_sigma = self.respriorDecoder(torch.round(z))
             else:
                 recon_sigma = self.respriorDecoder(corrected_z)
         else:
@@ -2028,7 +2028,7 @@ class Base(nn.Module):
         
         if self.useER:
             if self.training and self.soft2hard:
-                resDecInput = corrected_feature_renorm.detach()
+                resDecInput = torch.round(feature)
             else:
                 resDecInput = corrected_feature_renorm 
         else:
