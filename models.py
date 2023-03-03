@@ -176,7 +176,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             x_prev = data[0:1]
             x_hat_list = []
             priors = {}
-            # mu = torch.pow(10,torch.linspace(-1.7, -3.7, steps=8))
             for i in range(1,B):
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
@@ -203,15 +202,26 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             priors = {}
             alpha = args.alpha
             for i in range(1,B):
+                if model.soft2hard and model.training:
+                    model.soft2hard = False
+                    _, mseloss_off, _, _, _, _, _, _, _ = \
+                        model(data[i:i+1],x_prev,priors)
+                    model.soft2hard = True
                 x_prev, mseloss, interloss, bpp_feature, bpp_z, bpp_mv, bpp, err, priors = \
                     model(data[i:i+1],x_prev,priors)
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss]
                 bpp_list += [bpp]
-                bppres_list += [(bpp_feature + bpp_z)]
+                if model.soft2hard and model.training:
+                    bppres_list += [model.r*mseloss_off]
+                else:
+                    bppres_list += [(bpp_feature + bpp_z)]
                 psnr_list += [10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)]
                 if model.useER:
-                    all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
+                    if model.soft2hard and model.training:
+                        all_loss_list += [(model.r*(mseloss + mseloss_off)/2 + bpp + alpha * err[1])]
+                    else:
+                        all_loss_list += [(model.r*mseloss + bpp + alpha * err[1])]
                     aux_loss_list += [err[0]]
                     aux2_loss_list += [err[1]]
                     aux3_loss_list += [err[2]]
@@ -1866,7 +1876,7 @@ class Base(nn.Module):
             self.additiveER = False # both work
             self.detachMode = [0,1] # [0,1] both are better
             self.soft2hard = True
-            # ER0 soft based on 3
+            # ER0 soft
             # possible solution: additive/or not, detachmode=[1], network below, lrelu
             # GDN is better, small kernel=3 may also work, LReLu not good, no additive better, attn not improve
             # GDN good with EREC; LReLu good with ER
@@ -2312,7 +2322,12 @@ class ELFVC(ScaleSpaceFlow):
 
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
+        # add delta
+        flow_delta, scale_field = motion_info.chunk(2, dim=1)
+        flow = flow_delta + self.prior_flow
         self.prior_flow = motion_info.chunk(2, dim=1)[0].detach()
+        motion_info = torch.cat((flow, scale_field), dim=1)
+        # apply motion
         x_pred = self.forward_prediction(x_ref, motion_info)
 
         # residual
