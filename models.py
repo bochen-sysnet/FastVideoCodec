@@ -2319,8 +2319,7 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=1),
                 )
         self.level_max = 8
-        if self.residual_motion:
-            self.flow_predictor = FlowPredictor(3)
+        self.flow_predictor = FlowPredictor(3)
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
             self.motion_decoder = Decoder(2 + 1, in_planes=192 + self.level_max)
