@@ -145,6 +145,13 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
+def next_level(cur):
+    nxt = cur + torch.normal(torch.FloatTensor([0]),torch.FloatTensor([.5]))
+    nxt = torch.round(nxt)
+    nxt = min(7,nxt)
+    nxt = max(0,nxt)
+    return nxt
+
 def parallel_compression(args,model, data, compressI=False, level=None):
     if 'ELFVC-L' in model.name:
         if level is None:
@@ -179,6 +186,9 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             x_prev = data[0:1]
             x_hat_list = []
             for i in range(1,B):
+                if 'ELFVC-L' in name and model.training:
+                    model.compression_level = next_level(model.compression_level)
+                    init_training_params(model)
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
@@ -2281,7 +2291,6 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
         self.level_max = 8
-        self.recursive_flow = False
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
             self.res_encoder = Encoder(3 + self.level_max)
@@ -2313,11 +2322,6 @@ class ELFVC(ScaleSpaceFlow):
 
         # decode the space-scale flow information
         motion_info = self.motion_decoder(y_motion_hat)
-        # add delta
-        if self.recursive_flow:
-            flow_delta, scale_field = motion_info.chunk(2, dim=1)
-            flow = flow_delta + self.prior_flow
-            motion_info = torch.cat((flow, scale_field), dim=1)
         self.prior_flow = motion_info.chunk(2, dim=1)[0].detach()
         # apply motion
         x_pred = self.forward_prediction(x_ref, motion_info)
