@@ -146,8 +146,11 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
 def parallel_compression(args,model, data, compressI=False, level=None):
-    if level is None and 'ELFVC' in model.name:
-        model.compression_level = int(torch.randint(8,(1,)) )
+    if 'ELFVC-L' in model.name:
+        if level is None:
+            model.compression_level = int(torch.randint(8,(1,)) )
+        else:
+            model.compression_level = level
         init_training_params(model)
 
     all_loss_list = []; 
