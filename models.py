@@ -154,7 +154,7 @@ def next_level(cur):
 
 def parallel_compression(args,model, data, compressI=False, level=None):
     if 'ELFVC-L' in model.name:
-        if level is None:
+        if model.training:
             model.compression_level = int(torch.randint(8,(1,)) )
         else:
             model.compression_level = level
