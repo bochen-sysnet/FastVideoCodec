@@ -147,7 +147,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256):
 
 def next_level(cur):
     nxt = cur + torch.normal(torch.FloatTensor([0]),torch.FloatTensor([.5]))
-    nxt = torch.round(nxt)
+    nxt = int(torch.round(nxt))
     nxt = min(7,nxt)
     nxt = max(0,nxt)
     return nxt
