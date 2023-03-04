@@ -34,7 +34,7 @@ parser.add_argument('--codec', type=str, default='Base',
                     help='name of codec')
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
-parser.add_argument('--epoch', type=int, nargs='+', default=[0,10],
+parser.add_argument('--epoch', type=int, nargs='+', default=[0,20],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
