@@ -2320,7 +2320,7 @@ class ELFVC(ScaleSpaceFlow):
         self.level_max = 8
         self.flow_predictor = FlowPredictor(9)
         if '-L' in name:
-            self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
+            self.motion_encoder = Encoder(2 * 3 + self.level_max)
             self.motion_decoder = Decoder(2 + 1, in_planes=192 + self.level_max)
             self.res_encoder = Encoder(3 + self.level_max)
             self.res_decoder = Decoder(3, in_planes=384 + self.level_max)
