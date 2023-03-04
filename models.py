@@ -181,10 +181,12 @@ def parallel_compression(args,model, data, compressI=False, level=None):
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if model_name in ['SSF-Official','ELFVC','ELFVC-L','ELFVC0']:
+        if model_name in ['SSF-Official','ELFVC','ELFVC-L']:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
+            if self.training and 'ELFVC' in name:
+                model.reset()
             for i in range(1,B):
                 if 'ELFVC-L' in name and model.training:
                     model.compression_level = next_level(model.compression_level)
@@ -2290,40 +2292,83 @@ class ELFVC(ScaleSpaceFlow):
                     nn.ReLU(inplace=True),
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
+        class Decoder(nn.Sequential):
+            def __init__(
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
+            ):
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
+        class FlowPredictor(nn.Sequential):
+            def __init__(
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 2
+            ):
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=1),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=1),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=1),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=1),
+                )
         self.level_max = 8
+        if self.residual_motion:
+            self.flow_predictor = FlowPredictor(3)
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
+            self.motion_decoder = Decoder(2 + 1, in_planes=192 + self.level_max)
             self.res_encoder = Encoder(3 + self.level_max)
+            self.res_decoder = Decoder(3, in_planes=384 + self.level_max)
             self.useLevel = True
         else:
-            self.motion_encoder = Encoder(2 * 3 + 2)
             self.useLevel = False
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.prior_flow = None
+        self.motion_info_prior = None
+        self.x_ref_ref = None
+
+    def reset(self):
+        self.motion_info_prior = None
+        self.x_ref_ref = None
 
     def forward_inter(self, x_cur, x_ref):
         B,C,H,W = x_cur.size()
-        if self.prior_flow is None:
-            self.prior_flow = torch.zeros(B,2,H,W).to(x_cur.device)
+        if self.motion_info_prior is None:
+            self.motion_info_prior = torch.zeros(B,2,H,W).to(x_cur.device)
+        if self.x_ref_ref is None:
+            self.x_ref_ref = torch.zeros(B,3,H,W).to(x_cur.device)
+
         # concat one hot
         if self.useLevel:
             level_map = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
 
+        # flow intial prediction
+        motion_info_local = self.flow_predictor(torch.cat((x_ref, self.x_ref_ref, self.motion_info_prior), dim=1))
+        x_pred_local = self.forward_prediction(x_ref, motion_info_local)
+
         # encode the motion information
         if self.useLevel:
-            x = torch.cat((x_cur, x_ref, self.prior_flow, level_map), dim=1)
+            y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local, level_map), dim=1))
         else:
-            x = torch.cat((x_cur, x_ref, self.prior_flow), dim=1)
-        y_motion = self.motion_encoder(x)
+            y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
-        motion_info = self.motion_decoder(y_motion_hat)
-        self.prior_flow = motion_info.chunk(2, dim=1)[0].detach()
-        # apply motion
+        if self.useLevel:
+            motion_info_delta = self.motion_decoder(torch.cat((y_motion_hat, level_map), dim=1))
+        else:
+            motion_info_delta = self.motion_decoder(y_motion_hat)
+        motion_info = self.motion_info_prior + motion_info_delta
+        self.motion_info_prior = motion_info.detach()
         x_pred = self.forward_prediction(x_ref, motion_info)
 
         # residual
@@ -2335,10 +2380,16 @@ class ELFVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
-        y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
+        if self.useLevel:
+            y_combine = torch.cat((y_res_hat, y_motion_hat, level_map), dim=1)
+        else:
+            y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
         x_res_hat = self.res_decoder(y_combine)
 
         # final reconstruction: prediction + residual
         x_rec = x_pred + x_res_hat
+
+        # record
+        self.x_ref_ref = x_ref.detach()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
