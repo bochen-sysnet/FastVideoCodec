@@ -2339,15 +2339,10 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = None
 
     def forward_inter(self, x_cur, x_ref):
-        B,C,H,W = x_cur.size()
         if self.motion_info_prior is None:
+            B,C,H,W = x_cur.size()
             self.motion_info_prior = torch.zeros(B,3,H,W).to(x_cur.device)
-        if self.x_ref_ref is None:
             self.x_ref_ref = torch.zeros(B,3,H,W).to(x_cur.device)
-
-        # concat one hot
-        if self.useLevel:
-            level_map = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
 
         # flow intial prediction
         motion_info_local = self.flow_predictor(torch.cat((x_ref, self.x_ref_ref, self.motion_info_prior), dim=1))
@@ -2355,14 +2350,18 @@ class ELFVC(ScaleSpaceFlow):
 
         # encode the motion information
         if self.useLevel:
-            y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local, level_map), dim=1))
+            B,C,H,W = x_cur.size()
+            level_map1 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local, level_map1), dim=1))
         else:
             y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
         if self.useLevel:
-            motion_info_delta = self.motion_decoder(torch.cat((y_motion_hat, level_map), dim=1))
+            B,C,H,W = y_motion_hat.size()
+            level_map2 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            motion_info_delta = self.motion_decoder(torch.cat((y_motion_hat, level_map2), dim=1))
         else:
             motion_info_delta = self.motion_decoder(y_motion_hat)
         motion_info = self.motion_info_prior + motion_info_delta
@@ -2372,14 +2371,18 @@ class ELFVC(ScaleSpaceFlow):
         # residual
         x_res = x_cur - x_pred
         if self.useLevel:
-            y_res = self.res_encoder(torch.cat((x_res, level_map), dim=1))
+            B,C,H,W = x_res.size()
+            level_map3 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            y_res = self.res_encoder(torch.cat((x_res, level_map3), dim=1))
         else:
             y_res = self.res_encoder(x_res)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
         if self.useLevel:
-            y_combine = torch.cat((y_res_hat, y_motion_hat, level_map), dim=1)
+            B,C,H,W = y_res_hat.size()
+            level_map4 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            y_combine = torch.cat((y_res_hat, y_motion_hat, level_map4), dim=1)
         else:
             y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
         x_res_hat = self.res_decoder(y_combine)
