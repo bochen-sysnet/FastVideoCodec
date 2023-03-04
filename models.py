@@ -185,8 +185,7 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
-            if self.training and 'ELFVC' in name:
-                model.reset()
+            if 'ELFVC' in name:model.reset()
             for i in range(1,B):
                 if 'ELFVC-L' in name and model.training:
                     model.compression_level = next_level(model.compression_level)
