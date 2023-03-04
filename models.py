@@ -2306,7 +2306,7 @@ class ELFVC(ScaleSpaceFlow):
                 )
         class FlowPredictor(nn.Sequential):
             def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 2
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 3
             ):
                 super().__init__(
                     conv(in_planes, mid_planes, kernel_size=5, stride=1),
@@ -2318,7 +2318,7 @@ class ELFVC(ScaleSpaceFlow):
                     conv(mid_planes, out_planes, kernel_size=5, stride=1),
                 )
         self.level_max = 8
-        self.flow_predictor = FlowPredictor(3)
+        self.flow_predictor = FlowPredictor(8)
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + 2 + self.level_max)
             self.motion_decoder = Decoder(2 + 1, in_planes=192 + self.level_max)
@@ -2341,7 +2341,7 @@ class ELFVC(ScaleSpaceFlow):
     def forward_inter(self, x_cur, x_ref):
         B,C,H,W = x_cur.size()
         if self.motion_info_prior is None:
-            self.motion_info_prior = torch.zeros(B,2,H,W).to(x_cur.device)
+            self.motion_info_prior = torch.zeros(B,3,H,W).to(x_cur.device)
         if self.x_ref_ref is None:
             self.x_ref_ref = torch.zeros(B,3,H,W).to(x_cur.device)
 
