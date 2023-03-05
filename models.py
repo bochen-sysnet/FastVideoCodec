@@ -2435,6 +2435,8 @@ class ELFVC(ScaleSpaceFlow):
 
                 return x
 
+        from compressai.models import CompressionModel
+
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
                 super().__init__()
