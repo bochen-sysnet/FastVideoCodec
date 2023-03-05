@@ -2403,7 +2403,7 @@ class ELFVC(ScaleSpaceFlow):
             self.useLevel = True
         else:
             self.useLevel = False
-            if useDM:
+            if self.useDM:
                 self.motion_encoder = DMEncoder(2 * 3)
                 self.motion_decoder = DMDecoder(2 + 1)
                 self.res_encoder = DMEncoder(3)
