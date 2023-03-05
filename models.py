@@ -2265,6 +2265,17 @@ def warp_volume(volume, flow, scale_field, padding_mode: str = "border"):
     )
     return out.squeeze(2)
 
+class ChannelNorm(nn.Module):
+    def __init__(self, channel):
+        super(ChannelNorm, self).__init__()
+        self.layer_norm = torch.nn.LayerNorm(channel)
+
+    def forward(self, x):
+        x = x.permute(0,2,3,1)
+        x = self.layer_norm(x)
+        x = x.permute(0,3,1,2)
+        return x
+
 class DMBlock(nn.Module):
     def __init__(self, channel):
         super(DMBlock, self).__init__()
@@ -2316,8 +2327,8 @@ class DMEncoder(nn.Sequential):
         self, in_planes: int, mid_planes: int = 256, out_planes: int = 96
     ):
         super().__init__(
-            conv(in_planes, mid_planes, kernel_size=3, stride=1),
-            nn.AvgPool2d(4,4),
+            ChannelNorm(in_planes),
+            conv(in_planes, mid_planes, kernel_size=5, stride=4),
             nn.ReLU(inplace=True),
             DMBlock(mid_planes),
             conv(mid_planes, mid_planes, kernel_size=3, stride=2),
@@ -2334,6 +2345,7 @@ class DMDecoder(nn.Sequential):
         self, out_planes: int, in_planes: int = 96, mid_planes: int = 64, out_planes_tmp: int = 32
     ):
         super().__init__(
+            ChannelNorm(in_planes),
             conv(in_planes, mid_planes, kernel_size=1, stride=1),
             nn.ReLU(inplace=True),
             DMBlock(mid_planes),
@@ -2347,8 +2359,7 @@ class DMDecoder(nn.Sequential):
             nn.ReLU(inplace=True),
             conv(mid_planes, out_planes_tmp, kernel_size=3, stride=1),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=4),
-            deconv(out_planes_tmp, out_planes, kernel_size=3, stride=1)
+            deconv(out_planes_tmp, out_planes, kernel_size=5, stride=4)
         )
 
 from compressai.models.video import ScaleSpaceFlow
