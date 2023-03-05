@@ -2437,6 +2437,7 @@ class ELFVC(ScaleSpaceFlow):
 
         from compressai.models import CompressionModel
         from compressai.entropy_models import EntropyBottleneck, GaussianConditional
+        from compressai.ops import quantize_ste
 
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
