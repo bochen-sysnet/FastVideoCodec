@@ -2316,7 +2316,8 @@ class DMEncoder(nn.Sequential):
         self, in_planes: int, mid_planes: int = 256, out_planes: int = 96
     ):
         super().__init__(
-            conv(in_planes, mid_planes, kernel_size=5, stride=4),
+            conv(in_planes, mid_planes, kernel_size=3, stride=1),
+            nn.AvgPool2d(4,4),
             nn.ReLU(inplace=True),
             DMBlock(mid_planes),
             conv(mid_planes, mid_planes, kernel_size=3, stride=2),
@@ -2346,7 +2347,8 @@ class DMDecoder(nn.Sequential):
             nn.ReLU(inplace=True),
             conv(mid_planes, out_planes_tmp, kernel_size=3, stride=1),
             nn.ReLU(inplace=True),
-            deconv(out_planes_tmp, out_planes, kernel_size=5, stride=4)
+            nn.Upsample(scale_factor=4),
+            deconv(out_planes_tmp, out_planes, kernel_size=3, stride=1)
         )
 
 from compressai.models.video import ScaleSpaceFlow
