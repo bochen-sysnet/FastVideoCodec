@@ -336,20 +336,6 @@ class DMBlock(nn.Module):
         out = self.aggr(x5) + x
         return out
 
-class Modulate(nn.Module):
-    def __init__(self, gamma = 0.1, beta = 1):
-        super().__init__()
-        self.gamma = gamma
-        self.beta = beta
-
-    def forward(self, x, level):
-        # modulate map
-        B,C,H,W = x.size()
-        # level: [0,1]
-        phase = (torch.arange(0,C).to(x.device).repeat(B).view(B,C,1,1)/C + level/4.0)*torch.pi
-        self.mod = torch.cos(phase) * self.gamma + self.beta
-        return self.mod * x
-
 class AttentionLayer(nn.Module):
     '''
     Decode residual
@@ -375,3 +361,5 @@ class AttentionLayer(nn.Module):
             x = ff(x) + x
         x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
         return x
+
+    

@@ -2265,6 +2265,81 @@ def warp_volume(volume, flow, scale_field, padding_mode: str = "border"):
     )
     return out.squeeze(2)
 
+class DMBlock(nn.Module):
+    def __init__(self, channel):
+        super(DMBlock, self).__init__()
+        self.l1 = BasicBlock(channel, channel, 1, 0)
+        self.l2 = BasicBlock(channel, channel, 3, 1)
+        self.l3 = BasicBlock(channel, channel, 1, 0)
+        self.l4 = BasicBlock(channel, channel, 3, 1)
+        self.aggr = BasicBlock(channel*4, channel, 1, 0)
+
+    def forward(self, x):
+        x1 = self.l1(x)
+        x2 = self.l2(x1)
+        x3 = self.l3(x2)
+        x4 = self.l4(x3)
+        x5 = torch.cat((x1,x2,x3,x4),1)
+        out = self.aggr(x5) + x
+        return out
+
+class DMFlowPredictor(nn.Module):
+    def __init__(
+        self, in_planes: int, mid_planes: int = 128, out_planes: int = 3
+    ):
+        super(DMFlowPredictor, self).__init__()
+        self.S2D_4 = conv(in_planes, mid_planes, kernel_size=5, stride=4)
+        self.S2D_2 = conv(mid_planes, mid_planes, kernel_size=3, stride=2)
+        self.DM_128_1 = DMBlock(mid_planes)
+        self.D2S_2 = conv(mid_planes, mid_planes, kernel_size=3, stride=2)
+        self.DM_128_2 = DMBlock(mid_planes)
+        self.conv3 = conv(mid_planes, out_planes, kernel_size=1, stride=1)
+
+    def forward(self, x):
+        x1 = self.S2D_4(x)
+        x2_1 = self.D2S_2(self.DM_128_1(self.S2D_2(x1)))
+        x2_2 = self.DM_128_2(x1)
+        out = self.conv3(x2_1 + x2_2)
+        return out
+
+class DMEncoder(nn.Sequential):
+    def __init__(
+        self, in_planes: int, mid_planes: int = 256, out_planes: int = 96
+    ):
+        super().__init__(
+            conv(in_planes, mid_planes, kernel_size=5, stride=4),
+            nn.ReLU(inplace=True),
+            DMBlock(mid_planes),
+            conv(mid_planes, mid_planes, kernel_size=3, stride=2),
+            nn.ReLU(inplace=True),
+            DMBlock(mid_planes),
+            conv(mid_planes, mid_planes, kernel_size=3, stride=2),
+            nn.ReLU(inplace=True),
+            DMBlock(mid_planes),
+            conv(mid_planes, out_planes, kernel_size=1, stride=1),
+        )
+
+class DMDecoder(nn.Sequential):
+    def __init__(
+        self, out_planes: int, in_planes: int = 96, mid_planes: int = 64, out_planes_tmp: int = 32
+    ):
+        super().__init__(
+            conv(in_planes, mid_planes, kernel_size=1, stride=1),
+            nn.ReLU(inplace=True),
+            DMBlock(mid_planes),
+            deconv(mid_planes, mid_planes, kernel_size=3, stride=2),
+            nn.ReLU(inplace=True),
+            DMBlock(mid_planes),
+            deconv(mid_planes, mid_planes, kernel_size=3, stride=2),
+            nn.ReLU(inplace=True),
+            DMBlock(mid_planes),
+            conv(mid_planes, mid_planes, kernel_size=3, stride=1),
+            nn.ReLU(inplace=True),
+            conv(mid_planes, out_planes_tmp, kernel_size=3, stride=1),
+            nn.ReLU(inplace=True),
+            conv(out_planes_tmp, out_planes, kernel_size=5, stride=4)
+        )
+
 from compressai.models.video import ScaleSpaceFlow
 
 class ELFVC(ScaleSpaceFlow):
@@ -2319,6 +2394,7 @@ class ELFVC(ScaleSpaceFlow):
                 )
         self.level_max = 8
         self.flow_predictor = FlowPredictor(9)
+        self.useDM = True if '-DM' in name else False
         if '-L' in name:
             self.motion_encoder = Encoder(2 * 3 + self.level_max)
             self.motion_decoder = Decoder(2 + 1, in_planes=192 + self.level_max)
@@ -2327,6 +2403,11 @@ class ELFVC(ScaleSpaceFlow):
             self.useLevel = True
         else:
             self.useLevel = False
+            if useDM:
+                self.motion_encoder = DMEncoder(2 * 3)
+                self.motion_decoder = DMDecoder(2 + 1)
+                self.res_encoder = DMEncoder(3)
+                self.res_decoder = DMDecoder(3, mid_planes=128, out_planes_tmp=48)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
@@ -2337,6 +2418,11 @@ class ELFVC(ScaleSpaceFlow):
     def reset(self):
         self.motion_info_prior = None
         self.x_ref_ref = None
+
+    def get_level_map(self, feature):
+        B,C,H,W = feature.size()
+        level_map = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(feature.device)
+        return level_map    
 
     def forward_inter(self, x_cur, x_ref):
         if self.motion_info_prior is None:
@@ -2350,8 +2436,7 @@ class ELFVC(ScaleSpaceFlow):
 
         # encode the motion information
         if self.useLevel:
-            B,C,H,W = x_cur.size()
-            level_map1 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            level_map1 = self.get_level_map(x_cur)
             y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local, level_map1), dim=1))
         else:
             y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
@@ -2359,20 +2444,17 @@ class ELFVC(ScaleSpaceFlow):
 
         # decode the space-scale flow information
         if self.useLevel:
-            B,C,H,W = y_motion_hat.size()
-            level_map2 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            level_map2 = self.get_level_map(y_motion_hat)
             motion_info_delta = self.motion_decoder(torch.cat((y_motion_hat, level_map2), dim=1))
         else:
             motion_info_delta = self.motion_decoder(y_motion_hat)
         motion_info = self.motion_info_prior + motion_info_delta
-        self.motion_info_prior = motion_info.detach()
         x_pred = self.forward_prediction(x_ref, motion_info)
 
         # residual
         x_res = x_cur - x_pred
         if self.useLevel:
-            B,C,H,W = x_res.size()
-            level_map3 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            level_map3 = self.get_level_map(x_res)
             y_res = self.res_encoder(torch.cat((x_res, level_map3), dim=1))
         else:
             y_res = self.res_encoder(x_res)
@@ -2380,8 +2462,7 @@ class ELFVC(ScaleSpaceFlow):
 
         # y_combine
         if self.useLevel:
-            B,C,H,W = y_res_hat.size()
-            level_map4 = F.one_hot(torch.arange(self.compression_level, self.compression_level+1).repeat(1,H,W),self.level_max).permute(0,3,1,2).to(x_cur.device)
+            level_map4 = self.get_level_map(y_res_hat)
             y_combine = torch.cat((y_res_hat, y_motion_hat, level_map4), dim=1)
         else:
             y_combine = torch.cat((y_res_hat, y_motion_hat), dim=1)
@@ -2392,5 +2473,6 @@ class ELFVC(ScaleSpaceFlow):
 
         # record
         self.x_ref_ref = x_ref.detach()
+        self.motion_info_prior = motion_info.detach()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
