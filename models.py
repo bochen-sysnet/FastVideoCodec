@@ -2417,7 +2417,7 @@ class ELFVC(ScaleSpaceFlow):
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
                 super().__init__()
-
+                from compressai.layers import QReLU
                 def qrelu(input, bit_depth=8, beta=100):
                     return QReLU.apply(input, bit_depth, beta)
 
