@@ -2268,6 +2268,15 @@ def warp_volume(volume, flow, scale_field, padding_mode: str = "border"):
 class DMBlock(nn.Module):
     def __init__(self, channel):
         super(DMBlock, self).__init__()
+        class BasicBlock(nn.Module):
+            def __init__(self, in_planes, out_planes, kernel_size, padding):
+                super(BasicBlock, self).__init__()
+                self.bn1 = nn.BatchNorm2d(in_planes)
+                self.relu = nn.ReLU(inplace=True)
+                self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=1, padding=padding)
+            def forward(self, x):
+                out = self.conv1(self.relu(self.bn1(x)))
+                return out
         self.l1 = BasicBlock(channel, channel, 1, 0)
         self.l2 = BasicBlock(channel, channel, 3, 1)
         self.l3 = BasicBlock(channel, channel, 1, 0)
