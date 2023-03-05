@@ -2327,7 +2327,7 @@ class DMEncoder(nn.Sequential):
         self, in_planes: int, mid_planes: int = 256, out_planes: int = 96
     ):
         super().__init__(
-            ChannelNorm(in_planes),
+            # ChannelNorm(in_planes),
             conv(in_planes, mid_planes, kernel_size=5, stride=4),
             nn.ReLU(inplace=True),
             DMBlock(mid_planes),
@@ -2345,7 +2345,7 @@ class DMDecoder(nn.Sequential):
         self, out_planes: int, in_planes: int = 96, mid_planes: int = 64, out_planes_tmp: int = 32
     ):
         super().__init__(
-            ChannelNorm(in_planes),
+            # ChannelNorm(in_planes),
             conv(in_planes, mid_planes, kernel_size=1, stride=1),
             nn.ReLU(inplace=True),
             DMBlock(mid_planes),
@@ -2380,7 +2380,7 @@ class ELFVC(ScaleSpaceFlow):
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
             ):
                 super().__init__(
-                    ChannelNorm(in_planes),
+                    # ChannelNorm(in_planes),
                     conv(in_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
                     conv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2394,7 +2394,7 @@ class ELFVC(ScaleSpaceFlow):
                 self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
             ):
                 super().__init__(
-                    ChannelNorm(in_planes),
+                    # ChannelNorm(in_planes),
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
                     deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
