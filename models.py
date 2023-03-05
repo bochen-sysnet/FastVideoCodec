@@ -2380,6 +2380,7 @@ class ELFVC(ScaleSpaceFlow):
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
             ):
                 super().__init__(
+                    ChannelNorm(in_planes),
                     conv(in_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
                     conv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2393,6 +2394,7 @@ class ELFVC(ScaleSpaceFlow):
                 self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
             ):
                 super().__init__(
+                    ChannelNorm(in_planes),
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
                     deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2532,6 +2534,13 @@ class ELFVC(ScaleSpaceFlow):
                 self.res_decoder = DMDecoder(3, in_planes=192, mid_planes=128, out_planes_tmp=48)
                 self.res_hyperprior = Hyperprior(96, 96)
                 self.motion_hyperprior = Hyperprior(96, 96)
+            else:
+                self.motion_encoder = Encoder(2 * 3)
+                self.motion_decoder = Decoder(2 + 1)
+                self.res_encoder = Encoder(3)
+                self.res_decoder = Decoder(3, in_planes=384)
+                self.res_hyperprior = Hyperprior()
+                self.motion_hyperprior = Hyperprior()
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
