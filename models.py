@@ -2346,7 +2346,7 @@ class DMDecoder(nn.Sequential):
             nn.ReLU(inplace=True),
             conv(mid_planes, out_planes_tmp, kernel_size=3, stride=1),
             nn.ReLU(inplace=True),
-            conv(out_planes_tmp, out_planes, kernel_size=5, stride=4)
+            deconv(out_planes_tmp, out_planes, kernel_size=5, stride=4)
         )
 
 from compressai.models.video import ScaleSpaceFlow
