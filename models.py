@@ -181,13 +181,13 @@ def parallel_compression(args,model, data, compressI=False, level=None):
     
     # P compression, not including I frame
     if data.size(0) > 1: 
-        if model_name in ['SSF-Official','ELFVC','ELFVC-L','ELFVC1']:
+        if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
             B,_,H,W = data.size()
             x_prev = data[0:1]
             x_hat_list = []
-            if 'ELFVC' in name:model.reset()
+            if 'ELFVC' in model_name:model.reset()
             for i in range(1,B):
-                if 'ELFVC-L' in name and model.training:
+                if 'ELFVC-L' in model_name and model.training:
                     model.compression_level = next_level(model.compression_level)
                     init_training_params(model)
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
