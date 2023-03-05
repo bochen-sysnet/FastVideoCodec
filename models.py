@@ -2516,8 +2516,8 @@ class ELFVC(ScaleSpaceFlow):
                 self.motion_decoder = DMDecoder(2 + 1)
                 self.res_encoder = DMEncoder(3)
                 self.res_decoder = DMDecoder(3, mid_planes=128, out_planes_tmp=48)
-                self.res_hyperprior = Hyperprior(96)
-                self.motion_hyperprior = Hyperprior(96)
+                self.res_hyperprior = Hyperprior(96, 96)
+                self.motion_hyperprior = Hyperprior(96, 96)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
