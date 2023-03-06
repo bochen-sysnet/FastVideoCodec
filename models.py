@@ -173,7 +173,9 @@ def parallel_compression(args,model, data, compressI=False, level=None):
         I_level = model.I_level
         model_name = model.name
         model_r = model.r
-    x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
+    x_hat, bpp, psnr = I_compression(data[0:1], 17, model_name=name)
+    print(psnr)
+    exit(0)
     data[0:1] = x_hat
     if compressI:
         bpp_list += [bpp.to(data.device)]
@@ -264,9 +266,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                 bpp_list += [bpp_est.to(data.device)]
                 psnr_list += [psnr.to(data.device)]
                 x_hat_list.append(x_prev)
-            print(psnr_list)
-            print(model.I_level,model.r)
-            exit(0)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC-pretrained']:
             B,_,H,W = data.size()
