@@ -347,6 +347,7 @@ def I_compression(Y1_raw, I_level, model_name=''):
     bpp = torch.FloatTensor([post_bits]).squeeze(0)
     bpg_img = Image.open(postname + '.jpg').convert('RGB')
     Y1_com = transforms.ToTensor()(bpg_img).unsqueeze(0)
+    print(torch.mean((Y1_com - Y1_raw).pow(2)),I_level,post_bits)
     psnr = PSNR(Y1_raw, Y1_com)
     # msssim = MSSSIM(Y1_raw, Y1_com)
     return Y1_com, bpp, psnr
