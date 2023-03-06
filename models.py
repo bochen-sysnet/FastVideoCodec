@@ -348,6 +348,7 @@ def I_compression(Y1_raw, I_level, model_name=''):
     bpg_img = Image.open(postname + '.jpg').convert('RGB')
     Y1_com = transforms.ToTensor()(bpg_img).unsqueeze(0)
     print(torch.mean((Y1_com.to(Y1_raw.device) - Y1_raw).pow(2)),I_level,post_bits)
+    exit(0)
     psnr = PSNR(Y1_raw, Y1_com)
     # msssim = MSSSIM(Y1_raw, Y1_com)
     return Y1_com, bpp, psnr
