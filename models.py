@@ -398,14 +398,6 @@ def MSSSIM(Y1_raw, Y1_com, use_list=False):
         for i in range(bs):
             quality.append(pytorch_msssim.ms_ssim(Y1_raw[i].unsqueeze(0), Y1_com[i].unsqueeze(0)))
     return quality
-    
-def calc_loss(Y1_raw, Y1_com, r, use_psnr):
-    if use_psnr:
-        loss = torch.mean(torch.pow(Y1_raw - Y1_com.to(Y1_raw.device), 2))*r
-    else:
-        metrics = MSSSIM(Y1_raw, Y1_com.to(Y1_raw.device))
-        loss = r*(1-metrics)
-    return loss
 
 class ConvLSTM(nn.Module):
     def __init__(self, channels=128, forget_bias=1.0, activation=F.relu):
@@ -462,24 +454,6 @@ class Coder2D(nn.Module):
             self.entropy_bottleneck = RecProbModel(channels)
             self.conv_type = 'rec'
             self.entropy_type = 'rpm'
-        elif keyword in ['attn']:
-            # for batch model
-            self.entropy_bottleneck = MeanScaleHyperPriors(channels,entropy_trick=entropy_trick)
-            self.conv_type = 'attn'
-            self.entropy_type = 'mshp'
-        elif keyword in ['mshp']:
-            # for image codec, single frame
-            self.entropy_bottleneck = MeanScaleHyperPriors(channels,entropy_trick=entropy_trick)
-            self.conv_type = 'non-rec' # not need for single image compression
-            self.entropy_type = 'mshp'
-        elif keyword in ['DVC','base','DCVC','DCVC_v2']:
-            # for sequential model with no recurrent network
-            from compressai.entropy_models import EntropyBottleneck
-            EntropyBottleneck.get_actual_bits = get_actual_bits
-            EntropyBottleneck.get_estimate_bits = get_estimate_bits
-            self.entropy_bottleneck = EntropyBottleneck(channels)
-            self.conv_type = 'non-rec'
-            self.entropy_type = 'base'
         elif keyword == 'RLVC2':
             self.conv_type = 'rec'
             self.entropy_type = 'rpm2'
@@ -495,170 +469,11 @@ class Coder2D(nn.Module):
         if self.conv_type == 'rec':
             self.enc_lstm = ConvLSTM(channels)
             self.dec_lstm = ConvLSTM(channels)
-        elif self.conv_type == 'attn':
-            from DVC.subnet import FeedForward,Attention,PreNorm,RotaryEmbedding,AxialRotaryEmbedding
-            self.layers = nn.ModuleList([])
-            depth = 12
-            for _ in range(depth):
-                ff = FeedForward(channels)
-                s_attn = Attention(channels, dim_head = 64, heads = 8)
-                t_attn = Attention(channels, dim_head = 64, heads = 8)
-                t_attn, s_attn, ff = map(lambda t: PreNorm(channels, t), (t_attn, s_attn, ff))
-                self.layers.append(nn.ModuleList([t_attn, s_attn, ff]))
-            self.frame_rot_emb = RotaryEmbedding(64)
-            self.image_rot_emb = AxialRotaryEmbedding(64)
             
         self.downsample = downsample
         self.updated = False
         self.noMeasure = noMeasure
         # include two average meter to measure time
-        
-    def compress(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, decodeLatent=False, prior_latent=None):
-        # update only once during testing
-        if not self.updated and not self.training:
-            self.entropy_bottleneck.update(force=True)
-            self.updated = True
-            
-        # record network time and arithmetic coding time
-        self.net_t = 0
-        self.AC_t = 0
-        
-        t_0 = time.perf_counter()
-            
-        # latent states
-        if self.conv_type == 'rec':
-            state_enc, state_dec = torch.split(rae_hidden.to(x.device),self.channels*2,dim=1)
-            
-        # compress
-        if self.downsample:
-            x = self.gdn1(self.enc_conv1(x))
-            x = self.gdn2(self.enc_conv2(x))
-            
-            if self.conv_type == 'rec':
-                x, state_enc = self.enc_lstm(x, state_enc)
-                
-            x = self.gdn3(self.enc_conv3(x))
-            x = self.enc_conv4(x) # latent optical flow
-            
-            if self.conv_type == 'attn':
-                B,C,H,W = x.size()
-                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
-                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
-                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-                for (t_attn, s_attn, ff) in self.layers:
-                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
-                    x = ff(x) + x
-                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
-                
-            latent = x
-        else:
-            latent = x
-        
-        self.net_t += time.perf_counter() - t_0
-            
-        # quantization + entropy coding
-        if self.entropy_type == 'base':
-            # encoding
-            t_0 = time.perf_counter()
-            latent_string = self.entropy_bottleneck.compress(latent)
-            if decodeLatent:
-                latent_hat, _ = self.entropy_bottleneck(latent, training=self.training)
-            self.entropy_bottleneck.eNet_t = 0
-            self.entropy_bottleneck.eAC_t = time.perf_counter() - t_0
-            latentSize = latent.size()[-2:]
-        elif self.entropy_type == 'mshp':
-            latent_hat, latent_string, latentSize = self.entropy_bottleneck.compress_slow(latent,decode=decodeLatent)
-        else:
-            self.entropy_bottleneck.set_RPM(RPM_flag)
-            latent_hat, latent_string, rpm_hidden, prior_latent = self.entropy_bottleneck.compress_slow(latent,rpm_hidden,prior_latent)
-            latentSize = latent.size()[-2:]
-            
-        self.net_t += self.entropy_bottleneck.eNet_t
-        self.AC_t += self.entropy_bottleneck.eAC_t
-        # if decodeLatent and self.entropy_type != 'rpm':
-        #     self.net_t += self.entropy_bottleneck.dnet_t
-        #     self.AC_t += self.entropy_bottleneck.dAC_t
-            
-        if decodeLatent:
-            t_0 = time.perf_counter()
-            # decompress
-            if self.downsample:
-                x = latent_hat
-                x = self.igdn1(self.dec_conv1(x))
-                x = self.igdn2(self.dec_conv2(x))
-                
-                if self.conv_type == 'rec':
-                    x, state_dec = self.enc_lstm(x, state_dec)
-                    
-                x = self.igdn3(self.dec_conv3(x))
-                hat = self.dec_conv4(x)
-            else:
-                hat = latent_hat
-            self.net_t += time.perf_counter() - t_0
-            
-        if self.conv_type == 'rec':
-            rae_hidden = torch.cat((state_enc, state_dec),dim=1)
-            if rae_hidden is not None:
-                rae_hidden = rae_hidden.detach()
-                
-        # actual bits
-        bits_act = self.entropy_bottleneck.get_actual_bits(latent_string)
-        
-        if decodeLatent:
-            return hat,latent_string, rae_hidden, rpm_hidden, bits_act, latentSize, prior_latent
-        else:
-            return latent_string, rae_hidden, rpm_hidden, bits_act, latentSize, prior_latent
-        
-    def decompress(self, latent_string, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, latentSize=None, prior_latent=None):
-        # update only once during testing
-        if not self.updated and not self.training:
-            self.entropy_bottleneck.update(force=True)
-            self.updated = True
-            
-        self.net_t = 0
-        self.AC_t = 0
-            
-        if self.entropy_type == 'base':
-            t_0 = time.perf_counter()
-            latent_hat = self.entropy_bottleneck.decompress(latent_string, latentSize)
-            self.entropy_bottleneck.dnet_t = 0
-            self.entropy_bottleneck.dAC_t = time.perf_counter() - t_0
-        elif self.entropy_type == 'mshp':
-            latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, latentSize)
-        else:
-            self.entropy_bottleneck.set_RPM(RPM_flag)
-            latent_hat, rpm_hidden, prior_latent = self.entropy_bottleneck.decompress_slow(latent_string, latentSize, rpm_hidden, prior_latent)
-            
-        self.net_t += self.entropy_bottleneck.dnet_t
-        self.AC_t += self.entropy_bottleneck.dAC_t
-            
-        # latent states
-        if self.conv_type == 'rec':
-            state_enc, state_dec = torch.split(rae_hidden.to(latent_hat.device),self.channels*2,dim=1)
-        
-        t_0 = time.perf_counter()
-        # decompress
-        if self.downsample:
-            x = latent_hat
-            x = self.igdn1(self.dec_conv1(x))
-            x = self.igdn2(self.dec_conv2(x))
-            
-            if self.conv_type == 'rec':
-                x, state_dec = self.enc_lstm(x, state_dec)
-                
-            x = self.igdn3(self.dec_conv3(x))
-            hat = self.dec_conv4(x)
-        else:
-            hat = latent_hat
-        self.net_t += time.perf_counter() - t_0
-        
-        if self.conv_type == 'rec':
-            rae_hidden = torch.cat((state_enc, state_dec),dim=1)
-            if rae_hidden is not None:
-                rae_hidden = rae_hidden.detach()
-            
-        return hat, rae_hidden, rpm_hidden, prior_latent
         
     def forward(self, x, rae_hidden=None, rpm_hidden=None, RPM_flag=False, prior=None, prior_latent=None):
         # Time measurement: start
@@ -685,22 +500,9 @@ class Coder2D(nn.Module):
             
             if self.conv_type == 'rec':
                 x, state_enc = self.enc_lstm(x, state_enc)
-            elif self.conv_type == 'attn':
-                pass
                 
             x = self.gdn3(self.enc_conv3(x))
             x = self.enc_conv4(x) # latent optical flow
-            
-            if self.conv_type == 'attn':
-                B,C,H,W = x.size()
-                frame_pos_emb = self.frame_rot_emb(B,device=x.device)
-                image_pos_emb = self.image_rot_emb(H,W,device=x.device)
-                x = x.permute(0,2,3,1).reshape(1,-1,C).contiguous()
-                for (t_attn, s_attn, ff) in self.layers:
-                    x = t_attn(x, 'b (f n) d', '(b n) f d', n = H*W, rot_emb = frame_pos_emb) + x
-                    x = s_attn(x, 'b (f n) d', '(b f) n d', f = B, rot_emb = image_pos_emb) + x
-                    x = ff(x) + x
-                x = x.view(B,H,W,C).permute(0,3,1,2).contiguous()
                 
             latent = x
         else:
@@ -711,29 +513,7 @@ class Coder2D(nn.Module):
             self.enc_t += time.perf_counter() - t_0
         
         # quantization + entropy coding
-        if self.entropy_type == 'base':
-            if self.noMeasure:
-                latent_hat, likelihoods = self.entropy_bottleneck(latent, training=self.training)
-                if self.realCom:
-                    latent_string = self.entropy_bottleneck.compress(latent)
-            else:
-                # encoding
-                t_0 = time.perf_counter()
-                latent_string = self.entropy_bottleneck.compress(latent)
-                self.entropy_bottleneck.enc_t = time.perf_counter() - t_0
-                # decoding
-                t_0 = time.perf_counter()
-                latent_hat = self.entropy_bottleneck.decompress(latent_string, latent.size()[-2:])
-                self.entropy_bottleneck.dec_t = time.perf_counter() - t_0
-        elif self.entropy_type == 'mshp':
-            if self.noMeasure:
-                latent_hat, likelihoods = self.entropy_bottleneck(latent, training=self.training)
-                if self.realCom:
-                    latent_string = self.entropy_bottleneck.compress(latent)
-            else:
-                _,latent_string, shape = self.entropy_bottleneck.compress_slow(latent, decode=True)
-                latent_hat = self.entropy_bottleneck.decompress_slow(latent_string, shape)
-        elif self.entropy_type == 'rpm2':
+        if self.entropy_type == 'rpm2':
             if self.training:
                 half = float(0.5)
                 noise = torch.empty_like(latent).uniform_(-half, half)
@@ -812,42 +592,6 @@ class Coder2D(nn.Module):
         aux_loss = self.entropy_bottleneck.loss() if self.entropy_type != 'rpm2' else torch.FloatTensor([0]).to(hat.device)
             
         return hat, rae_hidden, rpm_hidden, bits_act, bits_est, aux_loss, prior_latent
-            
-    def compress_sequence(self,x):
-        bs,c,h,w = x.size()
-        x_est = torch.FloatTensor([0 for _ in x]).cuda()
-        x_act = torch.FloatTensor([0 for _ in x]).cuda()
-        x_aux = torch.FloatTensor([0]).cuda()
-        if not self.downsample:
-            rpm_hidden = torch.zeros(1,self.channels*2,h,w)
-        else:
-            rpm_hidden = torch.zeros(1,self.channels*2,h//16,w//16)
-        rae_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
-        prior_latent = None
-        if not self.noMeasure:
-            enc_t = dec_t = 0
-        x_hat_list = []
-        for frame_idx in range(bs): 
-            x_i = x[frame_idx,:,:,:].unsqueeze(0)
-            x_hat_i,rae_hidden,rpm_hidden,x_act_i,x_est_i,x_aux_i,prior_latent = self.forward(x_i, rae_hidden, rpm_hidden, frame_idx>=1,prior_latent=prior_latent)
-            x_hat_list.append(x_hat_i.squeeze(0))
-            
-            # calculate bpp (estimated) if it is training else it will be set to 0
-            x_est[frame_idx] += x_est_i.cuda()
-            
-            # calculate bpp (actual)
-            x_act[frame_idx] += x_act_i.cuda()
-            
-            # aux
-            x_aux += x_aux_i.cuda()
-            
-            if not self.noMeasure:
-                enc_t += self.enc_t
-                dec_t += self.dec_t
-        x_hat = torch.stack(x_hat_list, dim=0)
-        if not self.noMeasure:
-            self.enc_t,self.dec_t = enc_t,dec_t
-        return x_hat,x_act,x_est,x_aux/bs
     
 def generate_graph(graph_type='default'):
     # 7 nodes, 6 edges
@@ -921,26 +665,6 @@ def flow_warp(im, flow):
 
     return warp
 
-
-def loadweightformnp(layername):
-    index = layername.find('modelL')
-    if index == -1:
-        print('laod models error!!')
-    else:
-        name = layername[index:index + 11]
-        modelweight = modelspath + name + '-weight.npy'
-        modelbias = modelspath + name + '-bias.npy'
-        weightnp = np.load(modelweight)
-        # weightnp = np.transpose(weightnp, [2, 3, 1, 0])
-        # print(weightnp)
-        biasnp = np.load(modelbias)
-
-        # init_weight = lambda shape, dtype: weightnp
-        # init_bias   = lambda shape, dtype: biasnp
-        # print('Done!')
-
-        return torch.from_numpy(weightnp), torch.from_numpy(biasnp)
-        # return init_weight, init_bias
 def bilinearupsacling(inputfeature):
     inputheight = inputfeature.size()[2]
     inputwidth = inputfeature.size()[3]
@@ -1027,19 +751,14 @@ class MEBasic(nn.Module):
     def __init__(self, layername, inshape=8):
         super(MEBasic, self).__init__()
         self.conv1 = nn.Conv2d(inshape, 32, 7, 1, padding=3)
-        # self.conv1.weight.data, self.conv1.bias.data = loadweightformnp(layername + '_F-1')
         self.relu1 = nn.ReLU()
         self.conv2 = nn.Conv2d(32, 64, 7, 1, padding=3)
-        # self.conv2.weight.data, self.conv2.bias.data = loadweightformnp(layername + '_F-2')
         self.relu2 = nn.ReLU()
         self.conv3 = nn.Conv2d(64, 32, 7, 1, padding=3)
-        # self.conv3.weight.data, self.conv3.bias.data = loadweightformnp(layername + '_F-3')
         self.relu3 = nn.ReLU()
         self.conv4 = nn.Conv2d(32, 16, 7, 1, padding=3)
-        # self.conv4.weight.data, self.conv4.bias.data = loadweightformnp(layername + '_F-4')
         self.relu4 = nn.ReLU()
         self.conv5 = nn.Conv2d(16, 2, 7, 1, padding=3)
-        # self.conv5.weight.data, self.conv5.bias.data = loadweightformnp(layername + '_F-5')
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -1114,37 +833,6 @@ def TFE(warpnet,x_ref,bs,mv_hat,layers,parents,use_split,detach=False):
     MC_frames = torch.cat(MC_frame_list,dim=0)
     warped_frames = torch.cat(warped_frame_list,dim=0)
     return MC_frames,warped_frames
-                
-def TFE2(warpnet,x_ref,bs,mv_hat,layers,parents,use_split):
-    warped_frame_list = [None for _ in range(bs)]
-    # for layers in graph
-    # get elements of this layers
-    # get parents of all elements above
-    for layer in layers:
-        ref = [] # reference frame
-        diff = [] # motion
-        for tar in layer: # id of frames in this layer
-            if tar>bs:continue
-            parent = parents[tar]
-            ref += [x_ref if parent==0 else warped_frame_list[parent-1]] # ref needed for this id
-            diff += [mv_hat[tar-1:tar].cuda(1) if use_split else mv_hat[tar-1:tar]] # motion needed for this id
-        if ref:
-            ref = torch.cat(ref,dim=0)
-            diff = torch.cat(diff,dim=0)
-            warped_frame = flow_warp(ref, diff)
-            for i,tar in enumerate(layer):
-                if tar>bs:continue
-                warped_frame_list[tar-1] = warped_frame[i:i+1]
-    warped_frames = torch.cat(warped_frame_list,dim=0)
-    if bs<6:
-        pad = 6-bs
-        warped_frames = torch.cat((warped_frames, warped_frames[-1].repeat(pad,1,1,1)), 0)
-        mv_hat = torch.cat((mv_hat, mv_hat[-1].repeat(pad,1,1,1)), 0)
-    _,_,h,w = mv_hat.size()
-    inputfeature = torch.cat((warped_frames, mv_hat), 1)
-    prediction = warpnet(inputfeature.view(1,30,h,w)) + warped_frames.view(1,18,h,w)
-    MC_frames = prediction.view(6,3,h,w)
-    return MC_frames[:bs],warped_frames[:bs]
     
 def graph_from_batch(bs,isLinear=False,isOnehop=False):
     if isLinear:
@@ -1259,8 +947,7 @@ class IterPredVideoCodecs(nn.Module):
         self.decoding_time = self.meters['D-MV'].avg + self.meters['D-MC'].avg + self.meters['D-RES'].avg
         ##### compute bits
         # estimated bits
-        bpp_est = ((mv_est if self.stage != 'RES' else mv_est.detach()) + \
-                (res_est.to(mv_est.device).detach() if self.stage == 'MC' else res_est.to(mv_est.device)))/(Height * Width * batch_size)
+        bpp_est = (mv_est + res_est.to(mv_est.device))/(Height * Width * batch_size)
         bpp_res_est = (res_est)/(Height * Width * batch_size)
         # actual bits
         bpp_act = (mv_act + res_act.to(mv_act.device))/(Height * Width * batch_size)
@@ -1270,77 +957,13 @@ class IterPredVideoCodecs(nn.Module):
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
         msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
-        warp_loss = calc_loss(Y1_raw, Y1_warp.to(Y1_raw.device), 1024, True)
-        mc_loss = calc_loss(Y1_raw, Y1_MC.to(Y1_raw.device), 1024, True)
-        rec_loss = calc_loss(Y1_raw, Y1_com.to(Y1_raw.device), self.r, self.use_psnr)
-        img_loss = mc_loss if self.stage == 'MC' else rec_loss
+        img_loss = mseloss = torch.mean((Y1_raw - Y1_com.to(Y1_raw.device)).pow(2))
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         if self.training:
             return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
         else:
             return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
-        
-    def compress(self, Y0_com, Y1_raw, hidden_states, RPM_flag, mv_prior_latent, res_prior_latent):
-        bs, c, h, w = Y1_raw[1:].size()
-        # hidden states
-        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
-        # estimate optical flow
-        t_0 = time.perf_counter()
-        #mv_tensors, l0, l1, l2, l3, l4 = self.opticFlow(Y0_com, Y1_raw)
-        mv_tensors = self.opticFlow(Y1_raw, Y0_com)
-        self.meters['E-FL'].update(time.perf_counter() - t_0)
-        # compress optical flow
-        mv_hat,mv_string,rae_mv_hidden,rpm_mv_hidden,mv_act,mv_size,mv_prior_latent = \
-            self.mv_codec.compress(mv_tensors, rae_mv_hidden, rpm_mv_hidden, RPM_flag, decodeLatent=True, prior_latent=mv_prior_latent)
-        self.meters['E-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
-        self.meters['eEMV'].update(self.mv_codec.AC_t)
-        # motion compensation
-        t_0 = time.perf_counter()
-        Y1_MC, _ = motioncompensation(self.warpnet, Y0_com, mv_hat.cuda(1) if self.use_split else mv_hat)
-        t_comp = time.perf_counter() - t_0
-        self.meters['E-MC'].update(t_comp)
-        # compress residual
-        res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
-        res_hat,res_string,rae_res_hidden,rpm_res_hidden,res_act,res_size,res_prior_latent = \
-            self.res_codec.compress(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag, decodeLatent=True, prior_latent=res_prior_latent)
-        self.meters['E-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
-        self.meters['eERES'].update(self.res_codec.AC_t)
-        # reconstruction
-        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1).to(Y1_raw.device)
-        # hidden states
-        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-        self.bitscounter['M'].update(float(mv_act)) 
-        self.bitscounter['R'].update(float(res_act)) 
-        return Y1_com,mv_string,res_string,hidden_states,mv_prior_latent,res_prior_latent
-    
-    def decompress(self, x_ref, mv_string, res_string, hidden_states, RPM_flag, mv_prior_latent, res_prior_latent):
-        latent_size = torch.Size([16,16])
-        # hidden states
-        rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
-        # compress optical flow
-        mv_hat,rae_mv_hidden,rpm_mv_hidden,mv_prior_latent = self.mv_codec.decompress(mv_string, rae_mv_hidden, rpm_mv_hidden, RPM_flag, latentSize=latent_size, prior_latent=mv_prior_latent)
-        self.meters['D-MV'].update(self.mv_codec.net_t + self.mv_codec.AC_t)
-        self.meters['eDMV'].update(self.mv_codec.AC_t)
-        # motion compensation
-        t_0 = time.perf_counter()
-        Y1_MC,Y1_warp = motioncompensation(self.warpnet, x_ref, mv_hat.cuda(1) if self.use_split else mv_hat)
-        t_comp = time.perf_counter() - t_0
-        self.meters['D-MC'].update(t_comp)
-        # compress residual
-        res_hat,rae_res_hidden,rpm_res_hidden,res_prior_latent = self.res_codec.decompress(res_string, rae_res_hidden, rpm_res_hidden, RPM_flag, latentSize=latent_size, prior_latent=res_prior_latent)
-        self.meters['D-RES'].update(self.res_codec.net_t + self.res_codec.AC_t)
-        self.meters['eDRES'].update(self.res_codec.AC_t)
-        # reconstruction
-        Y1_com = torch.clip(res_hat + Y1_MC, min=0, max=1).to(x_ref.device)
-        # hidden states
-        hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
-            
-        return Y1_com,hidden_states, mv_prior_latent, res_prior_latent
-        
-    def loss(self, pix_loss, bpp_loss, aux_loss):
-        loss = self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
-        return loss
     
     def init_hidden(self, h, w, device):
         rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
