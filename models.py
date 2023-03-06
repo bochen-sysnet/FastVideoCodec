@@ -261,9 +261,11 @@ def parallel_compression(args,model, data, compressI=False, level=None):
                 all_loss_list += [(model.r*img_loss + bpp_est).to(data.device)]
                 img_loss_list += [model.r*img_loss.to(data.device)]
                 aux_loss_list += [aux_loss.to(data.device)]
-                bpp_list += [bpp_act.to(data.device)]
+                bpp_list += [bpp_est.to(data.device)]
                 psnr_list += [psnr.to(data.device)]
                 x_hat_list.append(x_prev)
+            print(psnr_list)
+            exit(0)
             x_hat = torch.cat(x_hat_list,dim=0)
         elif model_name in ['DVC-pretrained']:
             B,_,H,W = data.size()
