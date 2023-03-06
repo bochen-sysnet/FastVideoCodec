@@ -29,16 +29,8 @@ import torchac
 import compressai
 
 def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True):
-    if name in ['RLVC','DVC','RAW','RLVC2']:
+    if name in ['RLVC','DVC','RLVC2']:
         model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
-    elif 'SPVC' in name:
-        model_codec = SPVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
-    elif name in ['SCVC']:
-        model_codec = SCVC(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure)
-    elif name in ['AE3D']:
-        model_codec = AE3D(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
-    elif name in ['x264','x265']:
-        model_codec = StandardVideoCodecs(name)
     elif name in ['DVC-pretrained']:
         model_codec = get_DVC_pretrained(compression_level)
     elif 'LSVC' in name:
@@ -284,17 +276,8 @@ def parallel_compression(args,model, data, compressI=False, level=None):
         elif 'LSVC' in model_name:
             B,_,H,W = data.size()
             x_hat, x_mc, x_wp, rec_loss, warp_loss, mc_loss, bpp_res, bpp = model(data.detach())
-            if model.stage == 'MC':
-                img_loss = mc_loss*model.r
-            elif model.stage == 'REC':
-                img_loss = rec_loss*model.r
-            elif model.stage == 'WP':
-                img_loss = warp_loss*model.r
-            else:
-                print('unknown stage')
-                exit(1)
-            img_loss_list = [img_loss]
-            all_loss_list += [(img_loss + bpp).to(data.device)]
+            img_loss_list = [rec_loss*model.r]
+            all_loss_list += [(rec_loss*model.r + bpp).to(data.device)]
             N = B-1
             psnr_list += PSNR(data[1:], x_hat, use_list=True)
             aux2_loss_list += PSNR(data[1:], x_mc, use_list=True)
@@ -319,19 +302,6 @@ def parallel_compression(args,model, data, compressI=False, level=None):
 
     return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
         
-class StandardVideoCodecs(nn.Module):
-    def __init__(self, name):
-        super(StandardVideoCodecs, self).__init__()
-        self.name = name # x264, x265?
-        self.placeholder = torch.nn.Parameter(torch.zeros(1))
-        init_training_params(self)
-    
-    def loss(self, pix_loss, bpp_loss, aux_loss, app_loss=None):
-        if app_loss is None:
-            return self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
-        else:
-            return self.r_app*app_loss + self.r_img*pix_loss + self.r_bpp*bpp_loss + self.r_aux*aux_loss
-        
 def I_compression(Y1_raw, I_level, model_name=''):
     # we can compress with bpg,deepcod ...
     batch_size, _, Height, Width = Y1_raw.shape
@@ -347,8 +317,6 @@ def I_compression(Y1_raw, I_level, model_name=''):
     bpp = torch.FloatTensor([post_bits]).squeeze(0)
     bpg_img = Image.open(postname + '.jpg').convert('RGB')
     Y1_com = transforms.ToTensor()(bpg_img).unsqueeze(0)
-    print(torch.mean((Y1_com.to(Y1_raw.device) - Y1_raw).pow(2)),I_level,post_bits)
-    exit(0)
     psnr = PSNR(Y1_raw, Y1_com)
     # msssim = MSSSIM(Y1_raw, Y1_com)
     return Y1_com, bpp, psnr
@@ -642,7 +610,6 @@ def generate_graph(graph_type='default'):
         exit(1)
     return g,layers,parents
 
-modelspath = 'DVC/flow_pretrain_np/'
 Backward_tensorGrid = {}
 
 def torch_warp(tensorInput, tensorFlow):
