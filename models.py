@@ -252,10 +252,10 @@ def parallel_compression(args,model, data, compressI=False, level=None):
             x_hat_list = []
             for i in range(1,B):
                 if model.training:
-                    x_prev,hidden,bpp_est,bpp_res_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                    x_prev,hidden,bpp_est,bpp_res_est,img_loss,aux_loss,bpp_act,psnr,mv_prior_latent,res_prior_latent = \
                         model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 else:
-                    x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,msssim,mv_prior_latent,res_prior_latent = \
+                    x_prev,hidden,bpp_est,img_loss,aux_loss,bpp_act,psnr,mv_prior_latent,res_prior_latent = \
                         model(x_prev, data[i:i+1], hidden, i>1,mv_prior_latent,res_prior_latent)
                 x_prev = x_prev.detach()
                 all_loss_list += [(model.r*img_loss + bpp_est).to(data.device)]
@@ -900,15 +900,6 @@ class IterPredVideoCodecs(nn.Module):
         # Y0_com: compressed previous frame, [1,c,h,w]
         # Y1_raw: uncompressed current frame
         batch_size, _, Height, Width = Y1_raw.shape
-        if self.name == 'RAW':
-            bpp_est = bpp_act = metrics = torch.FloatTensor([0]).cuda(0)
-            aux_loss = img_loss = torch.FloatTensor([0]).squeeze(0).cuda(0)
-            return Y1_raw, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, metrics
-        if Y0_com is None:
-            exit(0)
-            # Y1_com, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim = I_compression(Y1_raw, self.I_level)
-            # return Y1_com, hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim
-        # otherwise, it's P frame
         # hidden states
         rae_mv_hidden, rae_res_hidden, rpm_mv_hidden, rpm_res_hidden = hidden_states
         # estimate optical flow
@@ -933,8 +924,6 @@ class IterPredVideoCodecs(nn.Module):
         if not self.noMeasure:
             self.meters['E-MC'].update(t_comp)
             self.meters['D-MC'].update(t_comp)
-        # compress residual
-        if self.stage == 'RES': Y1_MC = Y1_MC.detach()
         res_tensor = Y1_raw.to(Y1_MC.device) - Y1_MC
         res_hat,rae_res_hidden,rpm_res_hidden,res_act,res_est,res_aux,res_prior_latent = \
             self.res_codec(res_tensor, rae_res_hidden, rpm_res_hidden, RPM_flag,prior_latent=res_prior_latent)
@@ -959,14 +948,13 @@ class IterPredVideoCodecs(nn.Module):
                     (res_aux.to(mv_aux.device).detach() if self.stage == 'MC' else res_aux.to(mv_aux.device))/2
         # calculate metrics/loss
         psnr = PSNR(Y1_raw, Y1_com.to(Y1_raw.device))
-        msssim = PSNR(Y1_raw, Y1_MC.to(Y1_raw.device))
-        img_loss = mseloss = torch.mean((Y1_raw - Y1_com.to(Y1_raw.device)).pow(2))
+        img_loss = torch.mean((Y1_raw - Y1_com.to(Y1_raw.device)).pow(2))
         # hidden states
         hidden_states = (rae_mv_hidden.detach(), rae_res_hidden.detach(), rpm_mv_hidden, rpm_res_hidden)
         if self.training:
-            return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
+            return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, bpp_res_est, img_loss, aux_loss, bpp_act, psnr, mv_prior_latent, res_prior_latent
         else:
-            return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, msssim, mv_prior_latent, res_prior_latent
+            return Y1_com.to(Y1_raw.device), hidden_states, bpp_est, img_loss, aux_loss, bpp_act, psnr, mv_prior_latent, res_prior_latent
     
     def init_hidden(self, h, w, device):
         rae_mv_hidden = torch.zeros(1,self.channels*4,h//4,w//4)
