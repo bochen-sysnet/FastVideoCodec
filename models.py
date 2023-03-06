@@ -173,7 +173,7 @@ def parallel_compression(args,model, data, compressI=False, level=None):
         I_level = model.I_level
         model_name = model.name
         model_r = model.r
-    x_hat, bpp, psnr = I_compression(data[0:1], 37, model_name=name)
+    x_hat, bpp, psnr = I_compression(data[0:1], 2, model_name=name)
     print(psnr)
     exit(0)
     data[0:1] = x_hat
