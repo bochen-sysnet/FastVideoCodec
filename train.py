@@ -252,6 +252,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False):
         parameters = [p for n, p in model.named_parameters()]
         optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         scaler = torch.cuda.amp.GradScaler(enabled=True)
+        # model.train()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
