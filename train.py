@@ -263,7 +263,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         if doEvolve and (data_idx == 0 or eof):
-            evolve(model, test_dataset)
+            evolve(model, test_dataset, data_idx, ds_size)
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
@@ -310,10 +310,9 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
 
-def evolve(model, test_dataset):
+def evolve(model, test_dataset, start, end):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     model.train()
-    ds_size = len(test_dataset)
     fP,bP = 6,6
     GoP = fP+bP+1
     min_loss = 100
@@ -328,7 +327,8 @@ def evolve(model, test_dataset):
             psnr_module = AverageMeter()
             all_loss_module = AverageMeter()
             data = []
-            for data_idx in range(ds_size):
+            test_iter = tqdm(range(start, end))
+            for data_idx,_ in enumerate(test_iter):
                 frame,eof = test_dataset[data_idx]
                 data.append(transforms.ToTensor()(frame))
                 if len(data) < GoP and not eof:
@@ -364,6 +364,14 @@ def evolve(model, test_dataset):
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
+                        
+                # show result
+                test_iter.set_description(
+                    f"{encoder_name} {data_idx:6}. "
+                    f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+                    f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+                    f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+                    f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
                     
                 # clear input
                 data = []
