@@ -356,7 +356,6 @@ def shrink_learning_rate(optimizer):
     LR_DECAY_RATE = 0.1
     for param_group in optimizer.param_groups:
         param_group['lr'] *= LR_DECAY_RATE
-    return r
 
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level):
     import shutil
