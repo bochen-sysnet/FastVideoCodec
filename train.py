@@ -297,6 +297,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False):
 
             if evolve:
                 # backward
+                print(loss)
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
