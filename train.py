@@ -249,10 +249,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     
 def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     model.eval()
-    # finetune option
-    if evolve:
-        scaler = torch.cuda.amp.GradScaler(enabled=True)
-        model.train()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -264,38 +260,16 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     
     data = []
     test_iter = tqdm(range(ds_size))
+    eof = False
     for data_idx,_ in enumerate(test_iter):
+        if args.evolve and (data_idx == 0 or eof):
+            evolve_one(model, test_dataset)
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
             continue
             
-        if not evolve:
-            with torch.no_grad():
-                data = torch.stack(data, dim=0).cuda(device)
-                l = data.size(0)
-                
-                # compress GoP
-                if l>fP+1:
-                    com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
-                    ba_loss_module.update(be_loss, fP+1)
-                    psnr_module.update(psnr,fP+1)
-                    all_loss_module.update(float(loss1),fP+1)
-                    img_loss_module.update(img_loss,fP+1)
-                    data[fP:fP+1] = com_imgs[0:1]
-                    com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False,level)
-                    ba_loss_module.update(be_loss, l-fP-1)
-                    psnr_module.update(psnr,l-fP-1)
-                    all_loss_module.update(float(loss2),l-fP-1)
-                    img_loss_module.update(img_loss,l-fP-1)
-                    loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
-                else:
-                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
-                    ba_loss_module.update(be_loss, l)
-                    psnr_module.update(psnr,l)
-                    all_loss_module.update(float(loss),l)
-                    img_loss_module.update(img_loss,l)
-        else:
+        with torch.no_grad():
             data = torch.stack(data, dim=0).cuda(device)
             l = data.size(0)
             
@@ -304,27 +278,21 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
                 com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
-                all_loss_module.update(loss1.cpu().data.item(),fP)
-                img_loss_module.update(img_loss,fP)
+                all_loss_module.update(float(loss1),fP+1)
+                img_loss_module.update(img_loss,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
                 com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False,level)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
-                all_loss_module.update(loss2.cpu().data.item(),l-fP-1)
+                all_loss_module.update(float(loss2),l-fP-1)
                 img_loss_module.update(img_loss,l-fP-1)
                 loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
             else:
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
-                all_loss_module.update(loss.cpu().data.item(),l-1)
-                img_loss_module.update(img_loss,l-1)
-
-            # backward
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
+                all_loss_module.update(float(loss),l)
+                img_loss_module.update(img_loss,l)
                 
         # show result
         test_iter.set_description(
@@ -336,12 +304,87 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
             
         # clear input
         data = []
-    if evolve:
-        test_dataset._frame_counter = -1
-        return all_loss_module.avg
-    else:
-        test_dataset.reset()
-        return [ba_loss_module.avg,psnr_module.avg]
+    test_dataset.reset()
+    return [ba_loss_module.avg,psnr_module.avg]
+
+def evolve_one(model, test_dataset):
+    scaler = torch.cuda.amp.GradScaler(enabled=True)
+    model.train()
+    ds_size = len(test_dataset)
+    fP,bP = 6,6
+    GoP = fP+bP+1
+    min_loss = 100
+    for encoder_name in ['motion_encoder','res_encoder']:
+        parameters = [p for n, p in model.named_parameters() if encoder_name in n]
+        optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        converge_count = 0
+        for _ in range(30):
+            img_loss_module = AverageMeter()
+            ba_loss_module = AverageMeter()
+            psnr_module = AverageMeter()
+            all_loss_module = AverageMeter()
+            data = []
+            test_iter = tqdm(range(ds_size))
+            for data_idx,_ in enumerate(test_iter):
+                frame,eof = test_dataset[data_idx]
+                data.append(transforms.ToTensor()(frame))
+                if len(data) < GoP and not eof:
+                    continue
+                    
+                data = torch.stack(data, dim=0).cuda(device)
+                l = data.size(0)
+                
+                # compress GoP
+                if l>fP+1:
+                    com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
+                    ba_loss_module.update(be_loss, fP+1)
+                    psnr_module.update(psnr,fP+1)
+                    all_loss_module.update(loss1.cpu().data.item(),fP)
+                    img_loss_module.update(img_loss,fP)
+                    data[fP:fP+1] = com_imgs[0:1]
+                    com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False,level)
+                    ba_loss_module.update(be_loss, l-fP-1)
+                    psnr_module.update(psnr,l-fP-1)
+                    all_loss_module.update(loss2.cpu().data.item(),l-fP-1)
+                    img_loss_module.update(img_loss,l-fP-1)
+                    loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
+                else:
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
+                    ba_loss_module.update(be_loss, l)
+                    psnr_module.update(psnr,l)
+                    all_loss_module.update(loss.cpu().data.item(),l-1)
+                    img_loss_module.update(img_loss,l-1)
+
+                # backward
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+                        
+                # show result
+                test_iter.set_description(
+                    f"E {data_idx:6}. "
+                    f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+                    f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+                    f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+                    f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+                    
+                # clear input
+                data = []
+
+                if eof:
+                    test_dataset._frame_counter = -1
+                    break
+
+            if all_loss_module.avg < min_loss:
+                min_loss = all_loss_module.avg
+                best_state_dict = model.state_dict()
+                converge_count = 0
+            else:
+                converge_count += 1
+                if converge_count == 3:
+                    break
+    load_state_dict_all(model, best_state_dict)
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -375,7 +418,7 @@ if args.evaluate:
             for encoder_name in ['motion_encoder','res_encoder']:
                 parameters = [p for n, p in model.named_parameters() if encoder_name in n]
                 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-                converge_count = 0; shrink_count = 0
+                converge_count = 0
                 for _ in range(30):
                     cur_loss = test(0, model, test_dataset, level, True, optimizer)
                     if cur_loss < min_loss:
@@ -385,14 +428,9 @@ if args.evaluate:
                     else:
                         converge_count += 1
                     if converge_count == 3:
-                        if shrink_count < 0:
-                            shrink_learning_rate(optimizer)
-                            converge_count = 0
-                            shrink_count += 1
-                        else:
-                            break
+                        break
                 load_state_dict_all(model, best_state_dict)
-        score = test(0, model, test_dataset, level, False)
+        score = test(0, model, test_dataset, level, args.evolve)
         if model.name not in ['ELFVC-L']:break
     exit(0)
 
