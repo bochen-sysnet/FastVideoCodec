@@ -249,7 +249,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False):
     model.eval()
     # finetune option
     if evolve:
-        parameters = [p for n, p in model.named_parameters() if 'encoder' in n]
+        parameters = [p for n, p in model.named_parameters()]
         optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         scaler = torch.cuda.amp.GradScaler(enabled=True)
         model.train()
