@@ -247,7 +247,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     return best_codec_score
     
-def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
+def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     model.eval()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -262,7 +262,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     test_iter = tqdm(range(ds_size))
     eof = False
     for data_idx,_ in enumerate(test_iter):
-        if args.evolve and (data_idx == 0 or eof):
+        if doEvolve and (data_idx == 0 or eof):
             evolve(model, test_dataset)
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
