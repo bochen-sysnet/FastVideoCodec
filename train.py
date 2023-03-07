@@ -372,7 +372,7 @@ if args.evaluate:
     for level in range(8):
         if args.evolve:
             min_loss = 100; 
-            for encoder_name in ['motion_encoder','res_encoder']:
+            for encoder_name in ['encoder']:
                 parameters = [p for n, p in model.named_parameters() if encoder_name in n]
                 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
                 converge_count = 0; shrink_count = 0
