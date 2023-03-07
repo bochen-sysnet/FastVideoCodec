@@ -280,20 +280,20 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
                     com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
                     ba_loss_module.update(be_loss, fP+1)
                     psnr_module.update(psnr,fP+1)
-                    all_loss_module.update(loss1.cpu().data.item(),fP+1)
+                    all_loss_module.update(float(loss1),fP+1)
                     img_loss_module.update(img_loss,fP+1)
                     data[fP:fP+1] = com_imgs[0:1]
                     com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False,level)
                     ba_loss_module.update(be_loss, l-fP-1)
                     psnr_module.update(psnr,l-fP-1)
-                    all_loss_module.update(loss2.cpu().data.item(),l-fP-1)
+                    all_loss_module.update(float(loss2),l-fP-1)
                     img_loss_module.update(img_loss,l-fP-1)
                     loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
                 else:
                     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                     ba_loss_module.update(be_loss, l)
                     psnr_module.update(psnr,l)
-                    all_loss_module.update(loss.cpu().data.item(),l)
+                    all_loss_module.update(float(loss),l)
                     img_loss_module.update(img_loss,l)
         else:
             data = torch.stack(data, dim=0).cuda(device)
