@@ -263,7 +263,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         if args.evolve and (data_idx == 0 or eof):
-            evolve_one(model, test_dataset)
+            evolve(model, test_dataset)
         frame,eof = test_dataset[data_idx]
         data.append(transforms.ToTensor()(frame))
         if len(data) < GoP and not eof:
@@ -307,7 +307,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
 
-def evolve_one(model, test_dataset):
+def evolve(model, test_dataset):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     model.train()
     ds_size = len(test_dataset)
@@ -413,23 +413,6 @@ test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution, args.
 # test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 if args.evaluate:
     for level in range(8):
-        if args.evolve:
-            min_loss = 100; 
-            for encoder_name in ['motion_encoder','res_encoder']:
-                parameters = [p for n, p in model.named_parameters() if encoder_name in n]
-                optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-                converge_count = 0
-                for _ in range(30):
-                    cur_loss = test(0, model, test_dataset, level, True, optimizer)
-                    if cur_loss < min_loss:
-                        min_loss = cur_loss
-                        best_state_dict = model.state_dict()
-                        converge_count = 0
-                    else:
-                        converge_count += 1
-                    if converge_count == 3:
-                        break
-                load_state_dict_all(model, best_state_dict)
         score = test(0, model, test_dataset, level, args.evolve)
         if model.name not in ['ELFVC-L']:break
     exit(0)
