@@ -46,6 +46,8 @@ parser.add_argument('--compression_level', default=0, type=int,
                     help="Compression level")
 parser.add_argument('--max_files', default=0, type=int,
                     help="Maximum loaded files")
+parser.add_argument('--evolve_rounds', default=1, type=int,
+                    help="Maximum evolving rounds")
 
 args = parser.parse_args()
 
@@ -245,12 +247,10 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     return best_codec_score
     
-def test(epoch, model, test_dataset, level=0, evolve=False):
+def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     model.eval()
     # finetune option
     if evolve:
-        parameters = [p for n, p in model.named_parameters() if 'encoder' in n]
-        optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         scaler = torch.cuda.amp.GradScaler(enabled=True)
         model.train()
     img_loss_module = AverageMeter()
@@ -336,23 +336,24 @@ def test(epoch, model, test_dataset, level=0, evolve=False):
             
         # clear input
         data = []
-
-        # if evolve and eof:
-        #     img_loss_module = AverageMeter()
-        #     ba_loss_module = AverageMeter()
-        #     psnr_module = AverageMeter()
-        #     all_loss_module = AverageMeter()
-        #     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-        #     load_state_dict_all(model, checkpoint['state_dict'])
-        
-    test_dataset.reset()
-    return [ba_loss_module.avg,psnr_module.avg]
+    if evolve:
+        test_dataset._frame_counter = 0
+        return all_loss_module.avg
+    else:
+        test_dataset.reset()
+        return [ba_loss_module.avg,psnr_module.avg]
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] *= r
+    return r
+
+def shrink_learning_rate(optimizer):
+    LR_DECAY_RATE = 0.1
     for param_group in optimizer.param_groups:
         param_group['lr'] *= r
     return r
@@ -371,8 +372,19 @@ test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution, args.
 if args.evaluate:
     for level in range(8):
         if args.evolve:
-            for _ in range(5):
-                test(0, model, test_dataset, level, True)
+            min_loss = 100; converge_count = 0; shrink_count = 0
+            parameters = [p for n, p in model.named_parameters() if 'encoder' in n]
+            optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+            for _ in range(50):
+                cur_loss = test(0, model, test_dataset, level, True, optimizer)
+                if cur_loss < min_loss:
+                    min_loss = cur_loss
+                else:
+                    converge_count += 1
+                if converge_count == 3 and shrink_count < 2:
+                    shrink_learning_rate(optimizer)
+                else:
+                    break
         score = test(0, model, test_dataset, level, False)
         if model.name not in ['ELFVC-L']:break
     exit(0)
