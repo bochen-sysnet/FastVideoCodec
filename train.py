@@ -381,10 +381,12 @@ if args.evaluate:
                     min_loss = cur_loss
                 else:
                     converge_count += 1
-                if converge_count == 3 and shrink_count < 2:
-                    shrink_learning_rate(optimizer)
-                else:
-                    break
+                if converge_count == 3:
+                    if shrink_count < 2:
+                        shrink_learning_rate(optimizer)
+                        converge_count = 0
+                    else:
+                        break
         score = test(0, model, test_dataset, level, False)
         if model.name not in ['ELFVC-L']:break
     exit(0)
