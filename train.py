@@ -379,9 +379,10 @@ if args.evaluate:
                 if cur_loss < min_loss:
                     min_loss = cur_loss
                     best_state_dict = model.state_dict()
+                    converge_count = 0
                 else:
                     converge_count += 1
-                if converge_count == 3:
+                if converge_count == 5:
                     if shrink_count < 2:
                         shrink_learning_rate(optimizer)
                         converge_count = 0
