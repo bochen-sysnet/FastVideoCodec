@@ -382,9 +382,10 @@ def evolve(model, test_dataset):
                 converge_count = 0
             else:
                 converge_count += 1
-                if converge_count == 3:
+                if converge_count == 1:
                     break
     load_state_dict_all(model, best_state_dict)
+    model.eval()
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
