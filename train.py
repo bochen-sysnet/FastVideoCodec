@@ -319,6 +319,7 @@ def evolve(model, test_dataset):
     min_loss = 100
     for encoder_name in ['motion_encoder','res_encoder']:
         parameters = [p for n, p in model.named_parameters() if encoder_name in n]
+        # this learning rate to avoid overfitting
         optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         converge_count = 0
         for _ in range(30):
@@ -327,8 +328,7 @@ def evolve(model, test_dataset):
             psnr_module = AverageMeter()
             all_loss_module = AverageMeter()
             data = []
-            test_iter = tqdm(range(ds_size))
-            for data_idx,_ in enumerate(test_iter):
+            for data_idx in range(ds_size):
                 frame,eof = test_dataset[data_idx]
                 data.append(transforms.ToTensor()(frame))
                 if len(data) < GoP and not eof:
@@ -364,14 +364,6 @@ def evolve(model, test_dataset):
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
-                        
-                # show result
-                test_iter.set_description(
-                    f"{encoder_name} {data_idx:6}. "
-                    f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-                    f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-                    f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-                    f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
                     
                 # clear input
                 data = []
@@ -386,7 +378,7 @@ def evolve(model, test_dataset):
                 converge_count = 0
             else:
                 converge_count += 1
-                if converge_count == 1:
+                if converge_count == 3:
                     break
     load_state_dict_all(model, best_state_dict)
     model.eval()
