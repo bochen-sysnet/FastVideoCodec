@@ -372,26 +372,28 @@ if args.evaluate:
     for level in range(8):
         if args.evolve:
             min_loss = 100; 
-            for encoder_name in ['encoder']:
-                parameters = [p for n, p in model.named_parameters() if encoder_name in n]
+            converge_count = 0; shrink_count = 0
+            for i in range(30):
+                if i%2 == 0:
+                    parameters = [p for n, p in model.named_parameters() if 'motion_encoder' in n]
+                else:
+                    parameters = [p for n, p in model.named_parameters() if 'res_encoder' in n]
                 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-                converge_count = 0; shrink_count = 0
-                for _ in range(30):
-                    cur_loss = test(0, model, test_dataset, level, True, optimizer)
-                    if cur_loss < min_loss:
-                        min_loss = cur_loss
-                        best_state_dict = model.state_dict()
+                cur_loss = test(0, model, test_dataset, level, True, optimizer)
+                if cur_loss < min_loss:
+                    min_loss = cur_loss
+                    best_state_dict = model.state_dict()
+                    converge_count = 0
+                else:
+                    converge_count += 1
+                if converge_count == 3:
+                    if shrink_count < 2:
+                        shrink_learning_rate(optimizer)
                         converge_count = 0
+                        shrink_count += 1
                     else:
-                        converge_count += 1
-                    if converge_count == 3:
-                        if shrink_count < 2:
-                            shrink_learning_rate(optimizer)
-                            converge_count = 0
-                            shrink_count += 1
-                        else:
-                            break
-                load_state_dict_all(model, best_state_dict)
+                        break
+            load_state_dict_all(model, best_state_dict)
         score = test(0, model, test_dataset, level, False)
         if model.name not in ['ELFVC-L']:break
     exit(0)
