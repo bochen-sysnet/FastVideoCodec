@@ -415,6 +415,7 @@ test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution, args.
 if args.evaluate:
     for level in range(8):
         score = test(0, model, test_dataset, level, args.evolve)
+        print(score)
         if model.name not in ['ELFVC-L']:break
     exit(0)
 
