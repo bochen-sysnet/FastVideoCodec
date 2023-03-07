@@ -331,7 +331,7 @@ if args.evaluate:
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     print('training at epoch %d' % (epoch))
-    best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
+    best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
