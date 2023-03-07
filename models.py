@@ -144,7 +144,7 @@ def next_level(cur):
     nxt = max(0,nxt)
     return nxt
 
-def parallel_compression(args,model, data, compressI=False, level=None):
+def parallel_compression(args,model, data, compressI=False, level=0):
     if 'ELFVC-L' in model.name:
         if model.training:
             model.compression_level = int(torch.randint(8,(1,)) )

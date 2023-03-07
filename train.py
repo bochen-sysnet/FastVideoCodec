@@ -80,10 +80,6 @@ model = model.cuda(device)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
-####### Create optimizer
-# ---------------------------------------------------------------
-parameters = [p for n, p in model.named_parameters()]
-optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 # initialize best score
 best_codec_score = [1,0,0]
 
@@ -144,7 +140,14 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
         
-def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset):
+def train(epoch, model, train_dataset, best_codec_score, test_dataset):
+    # create optimizer
+    # if finetune, only optimize encoder part
+    parameters = [p for n, p in model.named_parameters()]
+    optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    # Adjust learning rate
+    adjust_learning_rate(optimizer, epoch)
+
     img_loss_module = AverageMeter()
     be_loss_module = AverageMeter()
     be_res_loss_module = AverageMeter()
@@ -221,7 +224,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
         if batch_idx % 10000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
-                score = test(epoch, model, test_dataset, 0)
+                score = test(epoch, model, test_dataset)
                 
                 is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
                 if is_best:
@@ -238,7 +241,7 @@ def train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     return best_codec_score
     
-def test(epoch, model, test_dataset, level=None):
+def test(epoch, model, test_dataset, level=0):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -327,10 +330,7 @@ if args.evaluate:
     exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-    # Adjust learning rate
-    r = adjust_learning_rate(optimizer, epoch)
-    
-    print('training at epoch %d, r=%.2f' % (epoch,r))
+    print('training at epoch %d' % (epoch))
     best_codec_score = train(epoch, model, train_dataset, optimizer, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
