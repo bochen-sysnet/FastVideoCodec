@@ -382,7 +382,7 @@ def evolve(model, test_dataset):
                 converge_count = 0
             else:
                 converge_count += 1
-                if converge_count == 1:
+                if converge_count == 3:
                     break
     load_state_dict_all(model, best_state_dict)
     model.eval()
@@ -415,6 +415,7 @@ test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution, args.
 if args.evaluate:
     for level in range(8):
         score = test(0, model, test_dataset, level, args.evolve)
+        print(score)
         if model.name not in ['ELFVC-L']:break
     exit(0)
 
