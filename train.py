@@ -363,7 +363,7 @@ def evolve(model, test_dataset):
                         
                 # show result
                 test_iter.set_description(
-                    f"E {data_idx:6}. "
+                    f"{encoder_name} {data_idx:6}. "
                     f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                     f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
                     f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
