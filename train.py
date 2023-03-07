@@ -287,7 +287,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False):
                 psnr_module.update(psnr,l-fP-1)
                 all_loss_module.update(loss2.cpu().data.item(),l-fP-1)
                 img_loss_module.update(img_loss,l-fP-1)
-                loss = (loss1 * fP + loss2 * (l - fp - 1))/(l - 1)
+                loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
             else:
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                 ba_loss_module.update(be_loss, l)
@@ -342,7 +342,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution)
+test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution, args.max_files)
 # test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 if args.evaluate:
     for level in range(8):
