@@ -252,7 +252,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     # finetune option
     if evolve:
         scaler = torch.cuda.amp.GradScaler(enabled=True)
-        # model.train()
+        model.train()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -374,7 +374,7 @@ if args.evaluate:
             min_loss = 100; converge_count = 0; shrink_count = 0
             parameters = [p for n, p in model.named_parameters() if 'encoder' in n]
             optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-            for _ in range(20):
+            for _ in range(5):
                 cur_loss = test(0, model, test_dataset, level, True, optimizer)
             #     if cur_loss < min_loss:
             #         min_loss = cur_loss
