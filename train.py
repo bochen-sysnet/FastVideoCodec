@@ -317,6 +317,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
+                print(loss)
                 all_loss_module.update(loss.cpu().data.item(),l-1)
                 img_loss_module.update(img_loss,l-1)
 
