@@ -252,7 +252,7 @@ def test(epoch, model, test_dataset, level=0, evolve=False, optimizer=None):
     # finetune option
     if evolve:
         scaler = torch.cuda.amp.GradScaler(enabled=True)
-        model.train()
+        # model.train()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
