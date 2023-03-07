@@ -2055,34 +2055,6 @@ class ELFVC(ScaleSpaceFlow):
                 y_hat = quantize_ste(y - means) + means
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods}
 
-            def compress(self, y):
-                z = self.hyper_encoder(y)
-
-                z_string = self.entropy_bottleneck.compress(z)
-                z_hat = self.entropy_bottleneck.decompress(z_string, z.size()[-2:])
-
-                scales = self.hyper_decoder_scale(z_hat)
-                means = self.hyper_decoder_mean(z_hat)
-
-                indexes = self.gaussian_conditional.build_indexes(scales)
-                y_string = self.gaussian_conditional.compress(y, indexes, means)
-                y_hat = self.gaussian_conditional.quantize(y, "dequantize", means)
-
-                return y_hat, {"strings": [y_string, z_string], "shape": z.size()[-2:]}
-
-            def decompress(self, strings, shape):
-                assert isinstance(strings, list) and len(strings) == 2
-                z_hat = self.entropy_bottleneck.decompress(strings[1], shape)
-
-                scales = self.hyper_decoder_scale(z_hat)
-                means = self.hyper_decoder_mean(z_hat)
-                indexes = self.gaussian_conditional.build_indexes(scales)
-                y_hat = self.gaussian_conditional.decompress(
-                    strings[0], indexes, z_hat.dtype, means
-                )
-
-                return y_hat
-
         class FlowPredictor(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 3
