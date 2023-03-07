@@ -359,10 +359,11 @@ def evolve(model, test_dataset):
                     img_loss_module.update(img_loss,l-1)
 
                 # backward
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-                optimizer.zero_grad()
+                if loss:
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                    optimizer.zero_grad()
                         
                 # show result
                 test_iter.set_description(
@@ -385,7 +386,7 @@ def evolve(model, test_dataset):
                 converge_count = 0
             else:
                 converge_count += 1
-                if converge_count == 3:
+                if converge_count == 1:
                     break
     load_state_dict_all(model, best_state_dict)
     model.eval()
