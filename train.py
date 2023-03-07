@@ -374,22 +374,22 @@ if args.evaluate:
             min_loss = 100; converge_count = 0; shrink_count = 0
             parameters = [p for n, p in model.named_parameters() if 'encoder' in n]
             optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-            for _ in range(5):
+            for _ in range(20):
                 cur_loss = test(0, model, test_dataset, level, True, optimizer)
-            #     if cur_loss < min_loss:
-            #         min_loss = cur_loss
-            #         best_state_dict = model.state_dict()
-            #         converge_count = 0
-            #     else:
-            #         converge_count += 1
-            #     if converge_count == 5:
-            #         if shrink_count < 2:
-            #             shrink_learning_rate(optimizer)
-            #             converge_count = 0
-            #             shrink_count += 1
-            #         else:
-            #             break
-            # load_state_dict_all(model, best_state_dict)
+                if cur_loss < min_loss:
+                    min_loss = cur_loss
+                    best_state_dict = model.state_dict()
+                    converge_count = 0
+                else:
+                    converge_count += 1
+                if converge_count == 3:
+                    if shrink_count < 2:
+                        shrink_learning_rate(optimizer)
+                        converge_count = 0
+                        shrink_count += 1
+                    else:
+                        break
+            load_state_dict_all(model, best_state_dict)
         score = test(0, model, test_dataset, level, False)
         if model.name not in ['ELFVC-L']:break
     exit(0)
