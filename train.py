@@ -328,7 +328,7 @@ def evolve(model, test_dataset, start, end):
             all_loss_module = AverageMeter()
             data = []
             test_iter = tqdm(range(start, end))
-            for data_idx,_ in enumerate(test_iter):
+            for data_idx in test_iter:
                 frame,eof = test_dataset[data_idx]
                 data.append(transforms.ToTensor()(frame))
                 if len(data) < GoP and not eof:
