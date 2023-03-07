@@ -380,8 +380,8 @@ if args.evaluate:
                     min_loss = cur_loss
                 else:
                     converge_count += 1
-                if converge_count == 3:
-                    if shrink_count < 2:
+                if converge_count == 5:
+                    if shrink_count < 1:
                         shrink_learning_rate(optimizer)
                         converge_count = 0
                         shrink_count += 1
