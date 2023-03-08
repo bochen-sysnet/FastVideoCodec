@@ -25,14 +25,15 @@ from models import load_state_dict_whatever, load_state_dict_all, load_state_dic
 class VideoDataset(Dataset):
     def __init__(self, root_dir, resolution, max_files=0):
         self._dataset_dir = os.path.join(root_dir)
-        if resolution == 256:
-            self._frame_size = (256,256)
-        elif resolution == 720:
-            self._frame_size = (720,1280)
-        elif resolution == 1080:
-            self._frame_size = (960,1920)
-        elif resolution == 2160:
-            self._frame_size = (1920,3840)
+        self._frame_size = resolution
+        # if resolution == 256:
+        #     self._frame_size = (256,256)
+        # elif resolution == 720:
+        #     self._frame_size = (720,1280)
+        # elif resolution == 1080:
+        #     self._frame_size = (960,1920)
+        # elif resolution == 2160:
+        #     self._frame_size = (1920,3840)
 
         self._total_frames = 0 # Storing file names in object 
         

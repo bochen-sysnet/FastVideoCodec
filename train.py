@@ -40,8 +40,10 @@ parser.add_argument('--epoch', type=int, nargs='+', default=[0,20],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
-parser.add_argument('--resolution', type=int, default=256, choices=[256,720,1080,2160],
-                    help='Frame resolution') # or 960,1920; 720,1280;1920,3840
+parser.add_argument('--width', type=int, default=256,
+                    help='Frame width') 
+parser.add_argument('--height', type=int, default=256,
+                    help='Frame height') 
 parser.add_argument('--compression_level', default=0, type=int,
                     help="Compression level")
 parser.add_argument('--max_files', default=0, type=int,
@@ -414,7 +416,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-test_dataset = VideoDataset(f'../dataset/{args.dataset}', args.resolution, args.max_files)
+test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
 # test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
 if args.evaluate:
     for level in range(8):
