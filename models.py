@@ -1955,11 +1955,11 @@ class ELFVC(ScaleSpaceFlow):
         if self.pred_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
-                    pred_err += pe.abs().mean()
-                    pred_std += pe.std()
+                    pred_err += likelihoods[pe].abs().mean()
+                    pred_std += likelihoods[pe].std()
                 for qe in ['Q_err_y', 'Q_err_z']:
-                    Q_err += qe.abs().mean()
-                    Q_std += qe.std()
+                    Q_err += likelihoods[qe].abs().mean()
+                    Q_std += likelihoods[qe].std()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
                         "pred_err": pred_err, "pred_std": pred_std, "Q_err": Q_err, "Q_std": Q_std}
