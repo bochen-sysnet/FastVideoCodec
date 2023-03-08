@@ -1952,7 +1952,7 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = motion_info.detach()
 
         pred_err = 0; pred_std = 0; Q_err = 0; Q_std = 0
-        if self.useER:
+        if self.pred_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     pred_err += pe.abs().mean()
