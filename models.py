@@ -1894,6 +1894,7 @@ class ELFVC(ScaleSpaceFlow):
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         self.pred_nc = True if '-ER' in name else False # predictive quantization mitigates noise
+        self.train_nc = True if '-ET' in name else False # error aware training
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192 if not self.side_channel_nc else 192 * 2)
         self.res_encoder = Encoder(3)

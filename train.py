@@ -304,7 +304,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             
         # clear input
         data = []
-        if eof:
+        if doEvolve and eof:
             checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
             load_state_dict_all(model, checkpoint['state_dict'])
     test_dataset.reset()
