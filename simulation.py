@@ -37,8 +37,8 @@ for i, (name, linestyle) in enumerate(linestyle_dict.items()):
     linestyles += [linestyle]
     
 
-GOP = 13
-width,height = 960,640
+GOP = 16
+width,height = 2048,1024
 pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,

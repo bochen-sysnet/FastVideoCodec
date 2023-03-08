@@ -50,6 +50,8 @@ parser.add_argument('--max_files', default=0, type=int,
                     help="Maximum loaded files")
 parser.add_argument('--evolve_rounds', default=1, type=int,
                     help="Maximum evolving rounds")
+parser.add_argument('--resume', type=str, default='',
+                    help='Resume path')
 
 args = parser.parse_args()
 
@@ -58,7 +60,10 @@ CODEC_NAME = args.codec
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
 compression_level = args.compression_level # 0-7
-RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+if args.resume == '':
+    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+else:
+    RESUME_CODEC_PATH = args.resume
 LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = args.epoch[0]
@@ -96,16 +101,6 @@ best_codec_score = [1,0,0]
 # try to load codec model 
 if CODEC_NAME in ['SSF-Official']:
     print('Official model loaded.')
-elif CODEC_NAME in ['DVC-pretrained']:
-    pretrained_model_path = 'DVC/snapshot/256.model'
-    from DVC.net import load_model
-    load_model(model, pretrained_model_path)
-elif CODEC_NAME in ['ELFVC','ELFVC-L','ELFVC-DM']:
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    best_codec_score = checkpoint['score']
-    # load_state_dict_whatever(model, checkpoint['state_dict'])
-    load_state_dict_all(model, checkpoint['state_dict'])
-    print("Loaded model ",CODEC_NAME, ':', best_codec_score)
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
@@ -229,7 +224,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 10000 == 0 and batch_idx>0:
+        if batch_idx % 15000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
@@ -395,7 +390,6 @@ def evolve(model, test_dataset, start, end):
                         
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    LEARNING_RATE = 1e-4
     LR_DECAY_RATE = 0.1
     r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
     for param_group in optimizer.param_groups:

@@ -70,11 +70,10 @@ def init_training_params(model):
                     'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
         
-def compress_whole_video(name, raw_clip, Q, width=256,height=256):
+def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=23):
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
-    GOP = 13
     output_filename = f'tmp/videostreams/{name}.mp4'
     if name == 'x265-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
