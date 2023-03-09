@@ -1873,9 +1873,9 @@ class ELFVC(ScaleSpaceFlow):
                 y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.y_predictor is not None:
-                    pred_y = torch.round(y - means) + means
+                    pred_y = torch.round(y - means)
                     pred_y = self.y_predictor(pred_y) + pred_y
-                    pred_err_y = pred_y - y.detach()
+                    pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y.detach()
                 else:
                     pred_err_y = 0
