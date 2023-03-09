@@ -173,7 +173,7 @@ class AverageMeter(object):
                         
 def static_simulation_x26x(args,test_dataset):
     ds_size = len(test_dataset)
-    quality_levels = [7,11,15,19,23,27,31]
+    quality_levels = [7,11,15,19,23,27,31,35]
     
     Q_list = quality_levels[args.level_range[0]:args.level_range[1]]
     for lvl,Q in enumerate(Q_list):
