@@ -1752,6 +1752,7 @@ class ELFVC(ScaleSpaceFlow):
         scale_field_shift: float = 1.0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
+        self.test_mode = True if '-T' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -1843,7 +1844,8 @@ class ELFVC(ScaleSpaceFlow):
                 self.gaussian_conditional = GaussianConditional(None)
                 self.hyper_decoder_side_channel = HyperDecoder(planes, mid_planes, planes) if side_channel_nc else None
                 if pred_nc:
-                    kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
+                    # default 3; elfvc1: 4
+                    kernel_size = 5; act_func = 4; num_blocks = 1; ch2 = ch3 = planes
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes)])
                     self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes)])
                 else:
