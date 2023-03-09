@@ -144,13 +144,6 @@ def next_level(cur):
     return nxt
 
 def parallel_compression(args,model, data, compressI=False, level=0):
-    if 'ELFVC-L' in model.name:
-        if model.training:
-            model.compression_level = int(torch.randint(8,(1,)) )
-        else:
-            model.compression_level = level
-        init_training_params(model)
-
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
@@ -178,9 +171,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             x_hat_list = []
             if 'ELFVC' in model_name:model.reset()
             for i in range(1,B):
-                if 'ELFVC-L' in model_name and model.training:
-                    model.compression_level = next_level(model.compression_level)
-                    init_training_params(model)
                 x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
@@ -201,10 +191,10 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
                     aux_loss_list += [likelihoods["pred_err"]]
                     aux2_loss_list += [likelihoods["pred_std"]]
-                    aux3_loss_list += [likelihoods["Q_err"]]
-                    aux4_loss_list += [likelihoods["Q_std"]]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
+                aux3_loss_list += [likelihoods["Q_err"]]
+                aux4_loss_list += [likelihoods["Q_std"]]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1951,15 +1941,17 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = x_ref.detach()
         self.motion_info_prior = motion_info.detach()
 
-        pred_err = 0; pred_std = 0; Q_err = 0; Q_std = 0
+        pred_err = 0; pred_std = 0
         if self.pred_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     pred_err += likelihoods[pe].abs().mean()
                     pred_std += likelihoods[pe].std()
-                for qe in ['Q_err_y', 'Q_err_z']:
-                    Q_err += likelihoods[qe].abs().mean()
-                    Q_std += likelihoods[qe].std()
+        Q_err = 0; Q_std = 0
+        for likelihoods in [motion_likelihoods, res_likelihoods]:
+            for qe in ['Q_err_y', 'Q_err_z']:
+                Q_err += likelihoods[qe].abs().mean()
+                Q_std += likelihoods[qe].std()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
                         "pred_err": pred_err, "pred_std": pred_std, "Q_err": Q_err, "Q_std": Q_std}
