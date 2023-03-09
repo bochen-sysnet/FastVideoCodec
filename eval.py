@@ -296,31 +296,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='standalone', help='server or client or standalone')
     parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
-    parser.add_argument('--server_ip', type=str, default='127.0.0.1', help='server IP')
-    parser.add_argument('--client_ip', type=str, default='127.0.0.1', help='server IP')
-    parser.add_argument('--stream_port', type=str, default='8846', help='RTSP port')
-    parser.add_argument('--srdy_port', type=str, default='8847', help='Port to check if server is ready')
-    parser.add_argument('--crdy_port', type=str, default='8848', help='Port to check if client is ready')
-    parser.add_argument('--Q_option', type=str, default='Fast', help='Slow or Fast')
     parser.add_argument('--task', type=str, default='x264-veryfast', help='RLVC,DVC,SPVC,AE3D,x265,x264')
-    parser.add_argument('--mode', type=str, default='static', help='dynamic or static simulation')
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
     parser.set_defaults(use_split=False)
     parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
     parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
     parser.set_defaults(use_cuda=True)
-    parser.add_argument('--use_disp', dest='use_disp', action='store_true')
-    parser.add_argument('--no-use_disp', dest='use_disp', action='store_false')
-    parser.set_defaults(use_disp=False)
     parser.add_argument("--fP", type=int, default=15, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=0, help="The number of backward P frames")
-    parser.add_argument('--encoder_test', dest='encoder_test', action='store_true')
-    parser.add_argument('--no-encoder_test', dest='encoder_test', action='store_false')
-    parser.set_defaults(encoder_test=False)
-    parser.add_argument("--channels", type=int, default=128, help="Channels of SPVC")
-    parser.add_argument('--fps', type=float, default=1000., help='frame rate of sender')
-    parser.add_argument('--target_rate', type=float, default=30., help='Target rate of receiver')
     parser.add_argument("--width", type=int, default=2048, help="Input width")
     parser.add_argument("--height", type=int, default=1024, help="Input height")
     parser.add_argument('--level_range', type=int, nargs='+', default=[0,1])
@@ -331,14 +315,10 @@ if __name__ == '__main__':
         args.use_split = False
 
     # setup streaming parameters
-    if args.mode in['static']:
-        test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
         
-    if args.mode == 'static':
-        assert(args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base'] or 'x26' in args.task)
-        if 'x26' in args.task:
-            static_simulation_x26x(args, test_dataset)
-        elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base']:
-            static_simulation_model(args, test_dataset)
-    else:
-        print('Unknown mode:',args.mode)
+    assert(args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base'] or 'x26' in args.task)
+    if 'x26' in args.task:
+        static_simulation_x26x(args, test_dataset)
+    elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base']:
+        static_simulation_model(args, test_dataset)
