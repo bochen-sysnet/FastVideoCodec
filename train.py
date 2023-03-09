@@ -317,7 +317,7 @@ def evolve(model, test_dataset, start, end):
         parameters = [p for n, p in model.named_parameters() if encoder_name in n]
         # this learning rate to avoid overfitting
         optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-        converge_count = 0
+        converge_count = shrink_count = 0
         for _ in range(30):
             img_loss_module = AverageMeter()
             ba_loss_module = AverageMeter()
@@ -384,7 +384,12 @@ def evolve(model, test_dataset, start, end):
             else:
                 converge_count += 1
                 if converge_count == 3:
-                    break
+                    if shrink_count < 2:
+                        shrink_learning_rate(optimizer)
+                        converge_count = 0
+                        shrink_count += 1
+                    else:
+                        break
     load_state_dict_all(model, best_state_dict)
     model.eval()
                         
@@ -411,7 +416,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
           
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
 test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
-# test_dataset2 = VideoDataset('../dataset/MCL-JCV', frame_size=(256,256))
+if args.evolve:
+    assert args.evaluate and (args.max_files == 0)
 if args.evaluate:
     for level in range(8):
         score = test(0, model, test_dataset, level, args.evolve)
@@ -433,4 +439,3 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
-    # test(epoch, model, test_dataset2)
