@@ -1753,7 +1753,7 @@ class ELFVC(ScaleSpaceFlow):
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         self.test_mode = True if '-T' in name else False
-        self.uniform_noise = True if '-UN' in name else False
+        uniform_noise = True if '-UN' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -1871,7 +1871,7 @@ class ELFVC(ScaleSpaceFlow):
                 else:
                     side_channel_correction = None
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                if not self.uniform_noise:
+                if not uniform_noise:
                     y_hat = quantize_ste(y - means) + means
                 else:
                     if self.training:
