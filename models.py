@@ -1881,7 +1881,7 @@ class ELFVC(ScaleSpaceFlow):
                     y_hat = y + pred_err_y.detach()
                 else:
                     pred_err_y = 0
-
+                print(pred_err_y,Q_err_y,pred_err_z,Q_err_z)
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "side_channel_correction": side_channel_correction, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
@@ -1950,7 +1950,6 @@ class ELFVC(ScaleSpaceFlow):
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     pred_err += likelihoods[pe].abs().mean()
-                    print(pe, likelihoods[pe].abs().mean())
                     pred_std += likelihoods[pe].std()
         Q_err = 0; Q_std = 0
         for likelihoods in [motion_likelihoods, res_likelihoods]:
