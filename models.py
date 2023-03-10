@@ -1870,16 +1870,9 @@ class ELFVC(ScaleSpaceFlow):
                     side_channel_correction = torch.sigmoid(self.hyper_decoder_side_channel(z_hat)) - 0.5  
                 else:
                     side_channel_correction = None
-                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                y_hat, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 if not uniform_noise:
                     y_hat = quantize_ste(y - means) + means
-                else:
-                    if self.training:
-                        half = float(0.5)
-                        quant_noise_y = torch.empty_like(y).uniform_(-half, half)
-                        y_hat = y + quant_noise_y
-                    else:
-                        y_hat = torch.round(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.y_predictor is not None:
                     pred_y = torch.round(y - means)
