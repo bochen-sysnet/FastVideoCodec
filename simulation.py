@@ -138,6 +138,7 @@ def task_to_video_trace(task):
             if line_count%2 == 0:
                 l = l.split(',')
                 lvl,bpp,enct,dect = int(l[0]),float(l[1]),float(l[2]),float(l[3])
+                # estimate the encoding and decoding and put it here
                 if 'VC' in task:
                     # encdec1080=[[0.0324,0.0188];[0.0402,0.0285];[0.0632,0.0475]]
                     # encdec2080=[[0.0195,0.0093];[0.028,0.017];[0.0526,0.0408]]

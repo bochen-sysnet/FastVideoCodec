@@ -307,7 +307,7 @@ if __name__ == '__main__':
     parser.add_argument("--bP", type=int, default=0, help="The number of backward P frames")
     parser.add_argument("--width", type=int, default=2048, help="Input width")
     parser.add_argument("--height", type=int, default=1024, help="Input height")
-    parser.add_argument('--level_range', type=int, nargs='+', default=[0,1])
+    parser.add_argument('--level_range', type=int, nargs='+', default=[0,8])
     args = parser.parse_args()
     
     # check gpu
@@ -316,9 +316,8 @@ if __name__ == '__main__':
 
     # setup streaming parameters
     test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
-        
-    assert(args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base'] or 'x26' in args.task)
+    
     if 'x26' in args.task:
         static_simulation_x26x(args, test_dataset)
-    elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base']:
+    elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base','ELFVC','ELFVC-ER-EC']:
         static_simulation_model(args, test_dataset)
