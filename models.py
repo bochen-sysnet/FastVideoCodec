@@ -1891,9 +1891,10 @@ class ELFVC(ScaleSpaceFlow):
                     y_hat = y + pred_err_y.detach()
                 else:
                     pred_err_y = None
-                if self.hyper_decoder_side_channel is None: 
-                    z2_likelihoods = None
+                if self.hyper_decoder_side_channel is not None: 
                     Q_err_z = None
+                else:
+                    z2_likelihoods = None
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "z2": z2_likelihoods, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
