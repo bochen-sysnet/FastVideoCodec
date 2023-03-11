@@ -1846,7 +1846,7 @@ class ELFVC(ScaleSpaceFlow):
                 self.hyper_decoder_side_channel = HyperDecoder(planes, mid_planes, planes) if side_channel_nc else None
                 if pred_nc:
                     # default 3; elfvc1: 4
-                    kernel_size = 5; act_func = 4; num_blocks = 1; ch2 = ch3 = planes
+                    kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes)])
                     self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes)])
                 else:
