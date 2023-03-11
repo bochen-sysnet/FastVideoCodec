@@ -1888,12 +1888,14 @@ class ELFVC(ScaleSpaceFlow):
                     z2 = self.hyper_encoder_side_channel(y - means - torch.round(y - means))
                     z2_hat, z2_likelihoods = self.entropy_bottleneck_side_channel(z2)
                     pred_y = self.hyper_decoder_side_channel(z2_hat) + torch.round(y - means)
-                    pred_y = 0.5 * torch.tanh(self.hyper_decoder_side_channel(z2_hat)) + torch.round(y - means)
+                    # pred_y = 0.5 * torch.tanh(self.hyper_decoder_side_channel(z2_hat)) + torch.round(y - means)
                     pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y.detach()
-                    Q_err_z = None
+                    y_hat = y + pred_err_y
                 else:
                     pred_err_y = None
+
+                if pred_err_z is None:
+                    Q_err_z = None
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "z2": z2_likelihoods, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
