@@ -1867,8 +1867,8 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
                     pred_z = torch.round(z)
-                    pred_z = self.z_predictor(pred_z) + pred_z
-                    # pred_z = 0.5 * torch.tanh(self.z_predictor(pred_z)) + pred_z
+                    # pred_z = self.z_predictor(pred_z) + pred_z
+                    pred_z = 0.5 * torch.tanh(self.z_predictor(pred_z)) + pred_z
                     pred_err_z = pred_z - z#.detach()
                     z_hat = z + pred_err_z.detach()
                     # z_hat = z + pred_err_z
@@ -1883,8 +1883,8 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.y_predictor is not None:
                     pred_y = torch.round(y - means)
-                    pred_y = self.y_predictor(pred_y) + pred_y
-                    # pred_y = 0.5 * torch.tanh(self.y_predictor(pred_y)) + pred_y
+                    # pred_y = self.y_predictor(pred_y) + pred_y
+                    pred_y = 0.5 * torch.tanh(self.y_predictor(pred_y)) + pred_y
                     pred_err_y = pred_y - (y - means)#.detach()
                     y_hat = y + pred_err_y.detach()
                     # y_hat = y + pred_err_y
