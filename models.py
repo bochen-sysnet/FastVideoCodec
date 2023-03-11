@@ -1869,7 +1869,8 @@ class ELFVC(ScaleSpaceFlow):
                     pred_z = torch.round(z)
                     pred_z = self.z_predictor(pred_z) + pred_z
                     pred_err_z = pred_z - z.detach()
-                    z_hat = z + pred_err_z.detach()
+                    # z_hat = z + pred_err_z.detach()
+                    z_hat = z + pred_err_z
                 else:
                     pred_err_z = None
 
