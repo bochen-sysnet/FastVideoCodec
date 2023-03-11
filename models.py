@@ -1859,10 +1859,6 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = self.z_predictor = None
 
             def forward(self, y):
-                if self.hyper_decoder_side_channel is None: 
-                    z2_likelihoods = None
-                    Q_err_z = None
-                    
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
                 # how much noise added to original data
@@ -1895,6 +1891,10 @@ class ELFVC(ScaleSpaceFlow):
                     y_hat = y + pred_err_y.detach()
                 else:
                     pred_err_y = None
+                if self.hyper_decoder_side_channel is None: 
+                    z2_likelihoods = None
+                    Q_err_z = None
+                    
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "z2": z2_likelihoods, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
