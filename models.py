@@ -1847,8 +1847,8 @@ class ELFVC(ScaleSpaceFlow):
                 if pred_nc:
                     # default 3; elfvc1: 4
                     kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
-                    self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes)])
-                    self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes)])
+                    self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),7])
+                    self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes),7])
                 else:
                     self.y_predictor = self.z_predictor = None
 
@@ -1860,7 +1860,7 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
                     pred_z = torch.round(z)
-                    pred_z = self.z_predictor(pred_z) + pred_z
+                    pred_z = self.z_predictor(pred_z)/2 + pred_z
                     pred_err_z = pred_z - z.detach()
                     z_hat = z + pred_err_z.detach()
                 else:
@@ -1878,7 +1878,7 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.y_predictor is not None:
                     pred_y = torch.round(y - means)
-                    pred_y = self.y_predictor(pred_y) + pred_y
+                    pred_y = self.y_predictor(pred_y)/2 + pred_y
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y.detach()
                 else:
@@ -1950,14 +1950,14 @@ class ELFVC(ScaleSpaceFlow):
         if self.pred_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
-                    # pred_err += likelihoods[pe].abs().mean()
-                    pred_err += torch.pow(likelihoods[pe],2).mean()
+                    pred_err += likelihoods[pe].abs().mean()
+                    # pred_err += torch.pow(likelihoods[pe],2).mean()
                     pred_std += likelihoods[pe].abs().std()
         Q_err = 0; Q_std = 0
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             for qe in ['Q_err_y', 'Q_err_z']:
-                # Q_err += likelihoods[qe].abs().mean()
-                Q_err += torch.pow(likelihoods[qe],2).mean()
+                Q_err += likelihoods[qe].abs().mean()
+                # Q_err += torch.pow(likelihoods[qe],2).mean()
                 Q_std += likelihoods[qe].abs().std()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
