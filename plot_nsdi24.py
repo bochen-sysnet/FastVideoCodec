@@ -457,6 +457,21 @@ H is the hatch used for identification of the different dataframe"""
     plt.close()
     return axe
 
+Sbpps = [
+[0.0231,0.0361,0.0583,0.0958,0.1591,0.2681,0.4726,0.8669],
+[0.0216,0.0334,0.0538,0.0889,0.1482,0.2515,0.4520,0.8534],
+[0.0136,0.0229,0.0382,0.0643,0.1086,0.1852,0.3282,0.6105],
+]
+SPSNRs = [
+[34.02,35.46,36.72,37.76,38.59,39.20,39.67,40.00],
+[33.75,35.23,36.56,37.69,38.57,39.21,39.68,40.02],
+[33.82,35.22,36.46,37.54,38.42,39.09,39.56,39.89],
+]
+sc_labels = ['x264-medium','x264-veryslow','x265-veryslow',]
+line_plot(Sbpps,SPSNRs,sc_labels,colors,
+		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_2k.eps',
+		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)
+
 SPSNRs = [
 [29.91,31.6,33.17,34.45,35.43,36.13,36.58],
 [29.22,31.01,32.33,33.16,33.81,34.48,34.95,35.17],
@@ -473,5 +488,5 @@ Sbpps = [
 ]
 sc_labels = ['x265','DVC','RLVC','SSF','ELFVC']
 line_plot(Sbpps,SPSNRs,sc_labels,colors,
-		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff.eps',
+		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_256.eps',
 		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)

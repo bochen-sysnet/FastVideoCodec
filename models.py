@@ -1754,7 +1754,6 @@ class ELFVC(ScaleSpaceFlow):
         super().__init__(num_levels,sigma0,scale_field_shift)
         self.test_mode = True if '-T' in name else False
         uniform_noise = True if '-UN' in name else False
-        zero_noise = True if '-ZN' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -1856,6 +1855,8 @@ class ELFVC(ScaleSpaceFlow):
             def forward(self, y):
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
+                # how much noise added to original data
+                # quantify discrepancy
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
                     pred_z = torch.round(z)
@@ -1864,8 +1865,6 @@ class ELFVC(ScaleSpaceFlow):
                     z_hat = z + pred_err_z.detach()
                 else:
                     pred_err_z = 0
-                if zero_noise:
-                    z_hat = z
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
@@ -1884,8 +1883,6 @@ class ELFVC(ScaleSpaceFlow):
                     y_hat = y + pred_err_y.detach()
                 else:
                     pred_err_y = 0
-                if zero_noise:
-                    y_hat = y
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "side_channel_correction": side_channel_correction, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
@@ -1954,12 +1951,12 @@ class ELFVC(ScaleSpaceFlow):
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     pred_err += likelihoods[pe].abs().mean()
-                    pred_std += likelihoods[pe].std()
+                    pred_std += likelihoods[pe].abs().std()
         Q_err = 0; Q_std = 0
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             for qe in ['Q_err_y', 'Q_err_z']:
                 Q_err += likelihoods[qe].abs().mean()
-                Q_std += likelihoods[qe].std()
+                Q_std += likelihoods[qe].abs().std()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
                         "pred_err": pred_err, "pred_std": pred_std, "Q_err": Q_err, "Q_std": Q_std}
