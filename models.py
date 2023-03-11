@@ -1859,6 +1859,10 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = self.z_predictor = None
 
             def forward(self, y):
+                if self.hyper_decoder_side_channel is None: 
+                    z2_likelihoods = None
+                    Q_err_z = None
+                    
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
                 # how much noise added to original data
@@ -1874,12 +1878,6 @@ class ELFVC(ScaleSpaceFlow):
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
-                if self.hyper_decoder_side_channel is not None:
-                    z2 = self.hyper_encoder_side_channel(y - means - torch.round(y - means))
-                    z2_hat, z2_likelihoods = self.entropy_bottleneck_side_channel(z2)
-                    side_channel_correction = self.hyper_decoder_side_channel(z2_hat)
-                else:
-                    z2_likelihoods = None
                 y_hat, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 if not uniform_noise:
                     y_hat = quantize_ste(y - means) + means
@@ -1890,7 +1888,9 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y.detach()
                 elif self.hyper_decoder_side_channel is not None:
-                    pred_y = torch.round(y - means) + side_channel_correction
+                    z2 = self.hyper_encoder_side_channel(y - means - torch.round(y - means))
+                    z2_hat, z2_likelihoods = self.entropy_bottleneck_side_channel(z2)
+                    pred_y = self.hyper_decoder_side_channel(z2_hat) + torch.round(y - means)
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y.detach()
                 else:
@@ -1963,9 +1963,10 @@ class ELFVC(ScaleSpaceFlow):
         Q_err = 0; Q_std = 0
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             for qe in ['Q_err_y', 'Q_err_z']:
-                Q_err += likelihoods[qe].abs().mean()
-                # Q_err += torch.pow(likelihoods[qe],2).mean()
-                Q_std += likelihoods[qe].abs().std()
+                if likelihoods[qe] is not None:
+                    Q_err += likelihoods[qe].abs().mean()
+                    # Q_err += torch.pow(likelihoods[qe],2).mean()
+                    Q_std += likelihoods[qe].abs().std()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
                         "pred_err": pred_err, "pred_std": pred_std, "Q_err": Q_err, "Q_std": Q_std}
