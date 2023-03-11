@@ -1870,7 +1870,7 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_z = pred_z - z.detach()
                     z_hat = z + pred_err_z.detach()
                 else:
-                    pred_err_z = 0
+                    pred_err_z = None
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
@@ -1894,7 +1894,7 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y.detach()
                 else:
-                    pred_err_y = 0
+                    pred_err_y = None
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "z2": z2_likelihoods, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
@@ -1956,7 +1956,7 @@ class ELFVC(ScaleSpaceFlow):
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
-                    if likelihoods[pe] != 0:
+                    if likelihoods[pe] is not None:
                         pred_err += likelihoods[pe].abs().mean()
                         # pred_err += torch.pow(likelihoods[pe],2).mean()
                         pred_std += likelihoods[pe].abs().std()
