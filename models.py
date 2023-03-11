@@ -1956,7 +1956,7 @@ class ELFVC(ScaleSpaceFlow):
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
-                    if likelihoods[pe]:
+                    if likelihoods[pe] != 0:
                         pred_err += likelihoods[pe].abs().mean()
                         # pred_err += torch.pow(likelihoods[pe],2).mean()
                         pred_std += likelihoods[pe].abs().std()
