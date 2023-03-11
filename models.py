@@ -1950,12 +1950,14 @@ class ELFVC(ScaleSpaceFlow):
         if self.pred_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
-                    pred_err += likelihoods[pe].abs().mean()
+                    # pred_err += likelihoods[pe].abs().mean()
+                    pred_err += torch.pow(likelihoods[pe],2).mean()
                     pred_std += likelihoods[pe].abs().std()
         Q_err = 0; Q_std = 0
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             for qe in ['Q_err_y', 'Q_err_z']:
-                Q_err += likelihoods[qe].abs().mean()
+                # Q_err += likelihoods[qe].abs().mean()
+                Q_err += torch.pow(likelihoods[qe],2).mean()
                 Q_std += likelihoods[qe].abs().std()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
