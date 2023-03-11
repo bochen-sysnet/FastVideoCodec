@@ -175,8 +175,12 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+                if mot_like["z2"] is not None:
+                    mot_bits += torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z2"] + 1e-5) / math.log(2.0), 0, 50))
                 res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+                if res_like["z2"] is not None:
+                    res_bits += torch.sum(torch.clamp(-1.0 * torch.log(res_like["z2"] + 1e-5) / math.log(2.0), 0, 50))
                 bpp = (mot_bits + res_bits) / (H * W)
                 bpp_res = (res_bits) / (H * W)
                 mseloss = torch.mean((x_prev - data[i:i+1]).pow(2))
@@ -187,7 +191,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 bpp_list += [bpp.to(data.device)]
                 bppres_list += [(bpp_res).to(data.device)]
                 x_hat_list.append(x_prev)
-                if model.pred_nc:
+                if model.pred_nc or model.side_channel_nc:
                     all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
                     aux_loss_list += [likelihoods["pred_err"]]
                     aux2_loss_list += [likelihoods["pred_std"]]
@@ -1802,7 +1806,7 @@ class ELFVC(ScaleSpaceFlow):
                     nn.ReLU(inplace=True),
                     conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
-                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
                 )
         class HyperDecoder(nn.Sequential):
             def __init__(
@@ -1838,12 +1842,14 @@ class ELFVC(ScaleSpaceFlow):
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False):
                 super().__init__()
-                self.entropy_bottleneck = EntropyBottleneck(mid_planes)
+                self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
+                self.hyper_encoder_side_channel = HyperEncoder(planes, mid_planes, planes) if side_channel_nc else None
                 self.hyper_decoder_side_channel = HyperDecoder(planes, mid_planes, planes) if side_channel_nc else None
+                self.entropy_bottleneck_side_channel = EntropyBottleneck(mid_planes) if side_channel_nc else None
                 if pred_nc:
                     # default 3; elfvc1: 4
                     kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
@@ -1860,7 +1866,7 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
                     pred_z = torch.round(z)
-                    pred_z = torch.sigmoid(self.z_predictor(pred_z)) - 0.5 + pred_z
+                    pred_z = self.z_predictor(pred_z) + pred_z
                     pred_err_z = pred_z - z.detach()
                     z_hat = z + pred_err_z.detach()
                 else:
@@ -1869,30 +1875,36 @@ class ELFVC(ScaleSpaceFlow):
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
                 if self.hyper_decoder_side_channel is not None:
-                    side_channel_correction = torch.sigmoid(self.hyper_decoder_side_channel(z_hat)) - 0.5  
+                    z2 = self.hyper_encoder_side_channel(y - means - torch.round(y - means))
+                    z2_hat, z2_likelihoods = self.entropy_bottleneck_side_channel(z2)
+                    side_channel_correction = self.hyper_decoder_side_channel(z2_hat)
                 else:
-                    side_channel_correction = None
+                    z2_likelihoods = None
                 y_hat, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 if not uniform_noise:
                     y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.y_predictor is not None:
                     pred_y = torch.round(y - means)
-                    pred_y = torch.sigmoid(self.y_predictor(pred_y)) - 0.5 + pred_y
+                    pred_y = self.y_predictor(pred_y) + pred_y
+                    pred_err_y = pred_y - (y - means).detach()
+                    y_hat = y + pred_err_y.detach()
+                elif self.hyper_decoder_side_channel is not None:
+                    pred_y = torch.round(y - means) + side_channel_correction
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y.detach()
                 else:
                     pred_err_y = 0
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "side_channel_correction": side_channel_correction, 
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "z2": z2_likelihoods, 
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
-        self.pred_nc = True if '-ER' in name else False # predictive quantization mitigates noise
+        self.pred_nc = True if '-ER' in name else False # predictive quantization mitigates noise, power of 2 or tanh good
         self.train_nc = True if '-ET' in name else False # error aware training
         self.motion_encoder = Encoder(2 * 3)
-        self.motion_decoder = Decoder(2 + 1, in_planes=192 if not self.side_channel_nc else 192 * 2)
+        self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
-        self.res_decoder = Decoder(3, in_planes=384 if not self.side_channel_nc else 384 + 192)
+        self.res_decoder = Decoder(3, in_planes=384)
         self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc)
         self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc)
         self.name = name
@@ -1921,10 +1933,7 @@ class ELFVC(ScaleSpaceFlow):
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
-        if self.side_channel_nc:
-            motion_info_delta = self.motion_decoder(torch.cat((y_motion_hat, motion_likelihoods["side_channel_correction"]), dim=1))
-        else:
-            motion_info_delta = self.motion_decoder(y_motion_hat)
+        motion_info_delta = self.motion_decoder(y_motion_hat)
         motion_info = self.motion_info_prior + motion_info_delta
         x_pred = self.forward_prediction(x_ref, motion_info)
 
@@ -1934,10 +1943,7 @@ class ELFVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
-        if self.side_channel_nc:
-            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat, res_likelihoods["side_channel_correction"]), dim=1))
-        else:
-            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
         # final reconstruction: prediction + residual
         x_rec = x_pred + x_res_hat
@@ -1947,7 +1953,7 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = motion_info.detach()
 
         pred_err = 0; pred_std = 0
-        if self.pred_nc:
+        if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     pred_err += likelihoods[pe].abs().mean()
