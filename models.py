@@ -188,7 +188,8 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 bppres_list += [(bpp_res).to(data.device)]
                 x_hat_list.append(x_prev)
                 if model.pred_nc or model.side_channel_nc:
-                    all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
+                    # all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
+                    all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [likelihoods["pred_err"]]
                     aux2_loss_list += [likelihoods["pred_std"]]
                 else:
@@ -1848,7 +1849,11 @@ class ELFVC(ScaleSpaceFlow):
                     # default 3; elfvc1: 4
                     # a form of resnet to improve precision
                     kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
-                    self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                    if not side_channel_nc:
+                        self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                    else:
+                        self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+
                     self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes),])
                 else:
                     self.y_predictor = self.z_predictor = None
@@ -1876,15 +1881,22 @@ class ELFVC(ScaleSpaceFlow):
                 if not uniform_noise:
                     y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
-                if self.y_predictor is not None:
+                if self.y_predictor is not None and self.hyper_decoder_side_channel is None:
                     pred_y = torch.round(y - means)
                     pred_y = self.y_predictor(pred_y) + pred_y 
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
-                elif self.hyper_decoder_side_channel is not None:
+                elif self.hyper_decoder_side_channel is not None and self.y_predictor is None:
                     pred_y = self.hyper_decoder_side_channel(z_hat) + torch.round(y - means)
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
+                elif self.y_predictor is not None and self.hyper_decoder_side_channel is not None:
+                    round_y = torch.round(y - means)
+                    side_info = self.hyper_decoder_side_channel(z_hat)
+                    all_info = torch.cat((round_y, side_info), dim=1)
+                    pred_y = self.y_predictor(all_info) + round_y 
+                    pred_err_y = pred_y - (y - means).detach()
+                    y_hat = y + pred_err_y 
                 else:
                     pred_err_y = None
 
@@ -1895,7 +1907,9 @@ class ELFVC(ScaleSpaceFlow):
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
+        # cat input seems better
         self.pred_nc = True if '-ER' in name else False # predictive quantization mitigates noise, power of 2 or tanh good
+        # use single loss is better
         self.train_nc = True if '-ET' in name else False # error aware training
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
@@ -1909,6 +1923,9 @@ class ELFVC(ScaleSpaceFlow):
         init_training_params(self)
         self.motion_info_prior = None
         self.x_ref_ref = None
+        # ER2 single loss
+        # EC1 no cat
+        # EC2 cat
 
     def reset(self):
         self.motion_info_prior = None
