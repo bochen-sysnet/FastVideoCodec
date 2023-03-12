@@ -192,7 +192,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 bppres_list += [(bpp_res).to(data.device)]
                 x_hat_list.append(x_prev)
                 if model.pred_nc or model.side_channel_nc:
-                    all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
+                    all_loss_list += [(model.r*mseloss + bpp)]
                     aux_loss_list += [likelihoods["pred_err"]]
                     aux2_loss_list += [likelihoods["pred_std"]]
                 else:
@@ -1867,11 +1867,9 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
                     pred_z = torch.round(z)
-                    # pred_z = self.z_predictor(pred_z) + pred_z
-                    pred_z = 0.5 * torch.tanh(self.z_predictor(pred_z)) + pred_z
-                    pred_err_z = pred_z - z#.detach()
-                    z_hat = z + pred_err_z.detach()
-                    # z_hat = z + pred_err_z
+                    pred_z = self.z_predictor(pred_z) + pred_z
+                    pred_err_z = pred_z - z.detach()
+                    z_hat = z + pred_err_z
                 else:
                     pred_err_z = None
 
@@ -1883,11 +1881,9 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.y_predictor is not None:
                     pred_y = torch.round(y - means)
-                    # pred_y = self.y_predictor(pred_y) + pred_y
-                    pred_y = 0.5 * torch.tanh(self.y_predictor(pred_y)) + pred_y
-                    pred_err_y = pred_y - (y - means)#.detach()
-                    y_hat = y + pred_err_y.detach()
-                    # y_hat = y + pred_err_y
+                    pred_y = self.y_predictor(pred_y) + pred_y 
+                    pred_err_y = pred_y - (y - means).detach()
+                    y_hat = y + pred_err_y 
                 elif self.hyper_decoder_side_channel is not None:
                     z2 = self.hyper_encoder_side_channel(y - means - torch.round(y - means))
                     z2_hat, z2_likelihoods = self.entropy_bottleneck_side_channel(z2)
