@@ -1895,7 +1895,7 @@ class ELFVC(ScaleSpaceFlow):
                     # for example, use predictor to down sample to the dimension of z_hat, concat and upsample
                     round_y = torch.round(y - means)
                     side_info = F.interpolate(input=z_hat, scale_factor=4, mode='bilinear', align_corners=True)
-                    print(round_y.size(),side_info.size())
+                    print(round_y.size(),side_info.size(),z_hat.size())
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
