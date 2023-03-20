@@ -309,6 +309,8 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     return [ba_loss_module.avg,psnr_module.avg]
 
 def evolve(model, test_dataset, start, end):
+    # should check if evolved version is available
+    # if not, training will keep the best version for this video
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     model.train()
     fP,bP = 6,6

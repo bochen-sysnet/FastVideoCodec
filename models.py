@@ -1753,8 +1753,6 @@ class ELFVC(ScaleSpaceFlow):
         scale_field_shift: float = 1.0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
-        self.test_mode = True if '-T' in name else False
-        uniform_noise = True if '-UN' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -1844,22 +1842,26 @@ class ELFVC(ScaleSpaceFlow):
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
-                self.hyper_decoder_side_channel = HyperDecoder(planes, mid_planes, planes) if side_channel_nc else None
-                if pred_nc:
-                    # default 3; elfvc1: 4
-                    # a form of resnet to improve precision
-                    kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
-                    if not side_channel_nc:
-                        self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
-                    else:
-                        self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
+                if pred_nc and not side_channel_nc:
+                    self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                elif pred_nc and side_channel_nc:
+                    self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                elif not pred_nc and side_channel_nc:
+                    self.y_predictor = HyperDecoder(planes, mid_planes, planes)
+                else:
+                    self.y_predictor = None
 
+                if pred_nc:
                     self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes),])
                 else:
-                    self.y_predictor = self.z_predictor = None
+                    self.z_predictor = None
+                self.side_channel_nc = side_channel_nc
+                self.pred_nc = pred_nc
 
             def forward(self, y):
-                if self.hyper_decoder_side_channel is not None:
+                # use side channel for noise cancelling
+                if self.side_channel_nc:
                     z = self.hyper_encoder(torch.cat((y, y - torch.round(y)), dim=1))
                 else:
                     z = self.hyper_encoder(y)
@@ -1878,21 +1880,21 @@ class ELFVC(ScaleSpaceFlow):
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
                 y_hat, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                if not uniform_noise:
-                    y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
-                if self.y_predictor is not None and self.hyper_decoder_side_channel is None:
+                if self.pred_nc and not self.side_channel_nc:
                     pred_y = torch.round(y - means)
                     pred_y = self.y_predictor(pred_y) + pred_y 
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
-                elif self.hyper_decoder_side_channel is not None and self.y_predictor is None:
-                    pred_y = self.hyper_decoder_side_channel(z_hat) + torch.round(y - means)
+                elif not self.pred_nc and self.side_channel_nc:
+                    pred_y = self.y_predictor(z_hat) + torch.round(y - means)
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
-                elif self.y_predictor is not None and self.hyper_decoder_side_channel is not None:
+                elif self.pred_nc and self.side_channel_nc:
+                    # maybe a better combination way
+                    # for example, use predictor to down sample to the dimension of z_hat, concat and upsample
                     round_y = torch.round(y - means)
-                    side_info = self.hyper_decoder_side_channel(z_hat)
+                    side_info = F.interpolate(input=z_hat, scale_factor=4, mode='bilinear', align_corners=True)
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
@@ -1923,9 +1925,6 @@ class ELFVC(ScaleSpaceFlow):
         init_training_params(self)
         self.motion_info_prior = None
         self.x_ref_ref = None
-        # ER2 single loss
-        # EC1 no cat
-        # EC2 cat
 
     def reset(self):
         self.motion_info_prior = None
