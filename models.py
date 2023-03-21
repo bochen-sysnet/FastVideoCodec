@@ -1742,6 +1742,16 @@ from compressai.models import CompressionModel
 from compressai.entropy_models import EntropyBottleneck, GaussianConditional
 from compressai.ops import quantize_ste
 
+class ChannelNorm(nn.Module):
+    def __init__(self, channel):
+        super(ChannelNorm, self).__init__()
+        self.layer_norm = torch.nn.LayerNorm(channel)
+    def forward(self, x):
+        x = x.permute(0,2,3,1)
+        x = self.layer_norm(x)
+        x = x.permute(0,3,1,2)
+        return x
+
 class ELFVC(ScaleSpaceFlow):
     def __init__(
         self,
@@ -1847,6 +1857,7 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif pred_nc and side_channel_nc:
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                    self.channel_norm = ChannelNorm(planes * 2)
                     # self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif not pred_nc and side_channel_nc:
                     self.y_predictor = HyperDecoder(planes, mid_planes, planes)
@@ -1898,6 +1909,7 @@ class ELFVC(ScaleSpaceFlow):
                     side_info = F.interpolate(input=z_hat, scale_factor=8, mode='bilinear', align_corners=True)
                     # side_info = z_hat.view(-1,3,16,16)
                     all_info = torch.cat((round_y, side_info), dim=1)
+                    all_info = self.channel_norm(all_info)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
