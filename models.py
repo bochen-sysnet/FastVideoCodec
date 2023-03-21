@@ -1846,7 +1846,8 @@ class ELFVC(ScaleSpaceFlow):
                 if pred_nc and not side_channel_nc:
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif pred_nc and side_channel_nc:
-                    self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                    # self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                    self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif not pred_nc and side_channel_nc:
                     self.y_predictor = HyperDecoder(planes, mid_planes, planes)
                 else:
@@ -1894,8 +1895,8 @@ class ELFVC(ScaleSpaceFlow):
                     # maybe a better combination way
                     # for example, use predictor to down sample to the dimension of z_hat, concat and upsample
                     round_y = torch.round(y - means)
-                    print(round_y.size(),z_hat.size())
-                    side_info = F.interpolate(input=z_hat, scale_factor=8, mode='bilinear', align_corners=True)
+                    # side_info = F.interpolate(input=z_hat, scale_factor=8, mode='bilinear', align_corners=True)
+                    side_info = z_hat.view(-1,3,16,16)
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
