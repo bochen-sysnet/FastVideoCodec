@@ -1848,7 +1848,7 @@ class ELFVC(ScaleSpaceFlow):
             def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
-                self.hyper_encoder = HyperEncoder(planes*2, mid_planes, planes) if side_channel_nc else HyperEncoder(planes, mid_planes, planes)
+                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
@@ -1873,10 +1873,7 @@ class ELFVC(ScaleSpaceFlow):
 
             def forward(self, y):
                 # use side channel for noise cancelling
-                if self.side_channel_nc:
-                    z = self.hyper_encoder(torch.cat((y, y - torch.round(y)), dim=1))
-                else:
-                    z = self.hyper_encoder(y)
+                z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
                 # how much noise added to original data
                 # quantify discrepancy
