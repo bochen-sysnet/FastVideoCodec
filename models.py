@@ -1851,14 +1851,14 @@ class ELFVC(ScaleSpaceFlow):
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
-                kernel_size = 5; act_func = 3; num_blocks = 1; ch2 = ch3 = planes
+                kernel_size = 5; act_func = 3; ch2 = ch3 = planes
                 if pred_nc and not side_channel_nc:
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif pred_nc and side_channel_nc:
                     # default
                     # self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                     # 0
-                    self.y_predictor1 = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),])
+                    self.y_predictor1 = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                     self.y_predictor2 = HyperDecoder(planes, mid_planes, planes)
                     self.y_predictor = CodecNet([act_func,(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),])
                 elif not pred_nc and side_channel_nc:
