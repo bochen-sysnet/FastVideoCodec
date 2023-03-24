@@ -1391,12 +1391,12 @@ class CodecNet(nn.Module):
                 layer = nn.ReLU(inplace=True)
             elif conv_type == 3:
                 layer = nn.LeakyReLU(negative_slope=0.1)
-            elif conv_type == 4:
-                layer = GDN(lastCh,inverse=False)
-            elif conv_type == 5:
-                layer = GDN(lastCh,inverse=True)
-            elif conv_type == 6:
-                layer = nn.BatchNorm2d(lastCh)
+            # elif conv_type == 4:
+            #     layer = GDN(lastCh,inverse=False)
+            # elif conv_type == 5:
+            #     layer = GDN(lastCh,inverse=True)
+            # elif conv_type == 6:
+            #     layer = nn.BatchNorm2d(lastCh)
             elif conv_type == 7:
                 layer = nn.Tanh()
             elif conv_type == 8:
@@ -1414,7 +1414,6 @@ class CodecNet(nn.Module):
             else:
                 print('conv type not found')
                 exit(0)
-            lastCh = ch2
             self.blocks.append(layer)
         self.blocks = nn.Sequential(*self.blocks)
         for module in self.modules():
