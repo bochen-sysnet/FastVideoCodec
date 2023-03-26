@@ -1858,9 +1858,11 @@ class ELFVC(ScaleSpaceFlow):
                     # default
                     # self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                     # 1
-                    self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),(11,kernel_size,1,planes,planes)])
+                    # self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),(11,kernel_size,1,planes,planes)])
                     # 0
                     # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
+                    # 2
+                    self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
                     r = 8
                     self.upsampler = nn.PixelShuffle(r)
                 elif not pred_nc and side_channel_nc:
