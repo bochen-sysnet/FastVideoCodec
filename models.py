@@ -1366,6 +1366,7 @@ class BasicBlock(nn.Module):
         # relu-gate and gate-relu is same
         out = F.relu(self.bn1(self.conv1(out)))
         out = self.bn2(self.conv2(out))
+        print(out.size(),self.shortcut(x).size())
         out += self.shortcut(x)
         out = F.relu(out)
         return out
@@ -1862,7 +1863,7 @@ class ELFVC(ScaleSpaceFlow):
                     # 0
                     # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
                     # 2
-                    self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(0,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
+                    self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
                     r = 8
                     self.upsampler = nn.PixelShuffle(r)
                 elif not pred_nc and side_channel_nc:
