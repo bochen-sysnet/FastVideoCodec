@@ -1354,11 +1354,9 @@ class BasicBlock(nn.Module):
         self.shortcut = nn.Sequential()  # do nothing
         if stride != 1 or in_planes != outplanes:
             """For CIFAR10 ResNet paper uses option A."""
-            self.shortcut = LambdaLayer(lambda x:
-                                        F.pad(x[:, :, ::2, ::2] if stride != 1 else x, (
-                                            0, 0, 0, 0, (outplanes - in_planes) // 2, (outplanes - in_planes) // 2),
-                                              "constant",
-                                              0))
+            self.shortcut = nn.Sequential(
+                                nn.Conv2d(in_planes, outplanes,kernel_size=1, stride=stride, bias=False),
+                                nn.BatchNorm2d(outplanes))
 
     def forward(self, x):
         out = x
@@ -1366,7 +1364,6 @@ class BasicBlock(nn.Module):
         # relu-gate and gate-relu is same
         out = F.relu(self.bn1(self.conv1(out)))
         out = self.bn2(self.conv2(out))
-        print(out.size(),self.shortcut(x).size())
         out += self.shortcut(x)
         out = F.relu(out)
         return out
