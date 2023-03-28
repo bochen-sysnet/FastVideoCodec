@@ -168,20 +168,20 @@ def parallel_compression(args,model, data, compressI=False, level=0):
         if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
             B,_,H,W = data.size()
             # if evaluate, the batch size is the same as GOP size
-            batch = B if args.evaluate else args.batch
-            x_prev = data[0::batch]
+            GOP_size = B if args.evaluate else B//args.batch_size
+            x_prev = data[0::GOP_size]
             x_hat_list = []
             if 'ELFVC' in model_name:model.reset()
-            for i in range(1,B):
-                x_cur = data[i::batch]
+            for i in range(1,GOP_size):
+                x_cur = data[i::GOP_size]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
                 res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-                bpp = (mot_bits + res_bits) / (H * W)
-                bpp_res = (res_bits) / (H * W)
+                bpp = (mot_bits + res_bits) / (H * W * x_cur.size(0))
+                bpp_res = (res_bits) / (H * W * x_cur.size(0))
                 mseloss = torch.mean((x_prev - x_cur).pow(2))
 
                 x_prev = x_prev.detach()
@@ -193,7 +193,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
 
                 if 'ELFVC' not in model_name: continue
                 if model.pred_nc or model.side_channel_nc:
-                    # all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
                     all_loss_list += [(model.r*mseloss + bpp)]
                     pred_err_mean = pred_err_std = 0
                     for pred_err in likelihoods["pred_err"]:
@@ -1964,7 +1963,6 @@ class ELFVC(ScaleSpaceFlow):
         x_pred_local = self.forward_prediction(x_ref, motion_info_local)
 
         # encode the motion information
-        print(x_cur.size(),x_pred_local.size())
         y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 

@@ -28,7 +28,7 @@ from dataset import VideoDataset, FrameDataset
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
 parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
                     help='evaluating dataset (default: UVG)')
-parser.add_argument('--batch', default=4, type=int,
+parser.add_argument('--batch_size', default=4, type=int,
                     help="batch size")
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -424,7 +424,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
-train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, batch_size=args.batch) 
+train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, batch_size=args.batch_size) 
 test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
 if args.evolve:
     assert args.evaluate and (args.max_files == 0)
