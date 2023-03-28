@@ -229,7 +229,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         if batch_idx % 3200 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
-                score = test(epoch, model, test_dataset)
+                score, stats = test(epoch, model, test_dataset)
                 
                 is_best = score <= best_codec_score
                 if is_best:
@@ -237,7 +237,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                     best_codec_score = score
                 else:
                     print(score)
-                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 model.train()
             else:
@@ -307,7 +307,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
             load_state_dict_all(model, checkpoint['state_dict'])
     test_dataset.reset()
-    return ba_loss_module.avg+img_loss_module.avg
+    return ba_loss_module.avg+img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
 def evolve(model, test_dataset, start, end):
     # should check if evolved version is available
@@ -424,8 +424,8 @@ if args.evolve:
     assert args.evaluate and (args.max_files == 0)
 if args.evaluate:
     for level in range(8):
-        score = test(0, model, test_dataset, level, args.evolve)
-        print(score)
+        score, stats = test(0, model, test_dataset, level, args.evolve)
+        print(score, stats)
         if model.name not in ['ELFVC-L']:break
     exit(0)
 
@@ -434,12 +434,12 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
-    score = test(epoch, model, test_dataset)
+    score, stats = test(epoch, model, test_dataset)
     
     is_best = score <= best_codec_score
     if is_best:
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score
-    state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score}
+    state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)

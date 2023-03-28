@@ -147,7 +147,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
-    no_batch = (args.evaluate or not model.training)
+    no_batch = len(data.size()) == 4
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
@@ -161,12 +161,17 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     if no_batch:
         x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
         data[0:1] = x_hat
-        if compressI:
-            bpp_list += [bpp.to(data.device)]
-            psnr_list += [psnr.to(data.device)]
     else:
+        bpp = psnr = 0
         for i in range(data.size(0)):
-            data[i,0:1], _,_ = I_compression(data[i,0:1], I_level, model_name=name)
+            data[i,0:1], bpp_i, psnr_i = I_compression(data[i,0:1], I_level, model_name=name)
+            bpp += bpp_i
+            psnr += psnr_i
+        bpp /= data.size(0)
+        psnr /= data.size(0)
+    if compressI:
+        bpp_list += [bpp.to(data.device)]
+        psnr_list += [psnr.to(data.device)]
     
     # P compression, not including I frame
     if data.size(0) > 1: 
