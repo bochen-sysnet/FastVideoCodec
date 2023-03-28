@@ -109,8 +109,8 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     # BEGIN_EPOCH = checkpoint['epoch'] + 1
     if isinstance(checkpoint['score'],float):
         best_codec_score = checkpoint['score']
-    # load_state_dict_all(model, checkpoint['state_dict'])
-    load_state_dict_whatever(model, checkpoint['state_dict'])
+    load_state_dict_all(model, checkpoint['state_dict'])
+    # load_state_dict_whatever(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     if hasattr(checkpoint, 'stats'):
         print(checkpoint['stats'])
@@ -198,13 +198,9 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         
         # backward
         scaler.scale(loss).backward()
-        if batch_idx%10 == 0 and batch_idx > 0:
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
-        # scaler.step(optimizer)
-        # scaler.update()
-        # optimizer.zero_grad()
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad()
 
             
         # show result
