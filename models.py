@@ -301,6 +301,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     bppres_list += [(bpp_res).to(data.device)]
 
     # aggregate loss
+    print(data.size())
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
