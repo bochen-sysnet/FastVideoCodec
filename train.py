@@ -28,6 +28,8 @@ from dataset import VideoDataset, FrameDataset
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
 parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
                     help='evaluating dataset (default: UVG)')
+parser.add_argument('--batch', default=4, type=int,
+                    help="batch size")
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--evolve', action='store_true',
@@ -105,7 +107,8 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     # BEGIN_EPOCH = checkpoint['epoch'] + 1
-    best_codec_score = checkpoint['score']
+    if isinstance(checkpoint['score'],float):
+        best_codec_score = checkpoint['score']
     # load_state_dict_all(model, checkpoint['state_dict'])
     load_state_dict_whatever(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
@@ -116,7 +119,8 @@ elif 'Base' in CODEC_NAME:
     checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
     if 'state_dict' in checkpoint.keys():
         load_state_dict_whatever(model, checkpoint['state_dict'])
-        best_codec_score = checkpoint['score']
+        if isinstance(checkpoint['score'],float):
+            best_codec_score = checkpoint['score']
     else:
         # model.load_state_dict(checkpoint)
         load_state_dict_whatever(model, checkpoint)
@@ -194,10 +198,13 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         # backward
         scaler.scale(loss).backward()
         # update model after compress each video
-        if batch_idx%10 == 0 and batch_idx > 0:
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad()
+        # if batch_idx%10 == 0 and batch_idx > 0:
+        #     scaler.step(optimizer)
+        #     scaler.update()
+        #     optimizer.zero_grad()
 
             
         # show result
@@ -225,12 +232,12 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 15000 == 0 and batch_idx>0:
+        if batch_idx % 16000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score = test(epoch, model, test_dataset)
                 
-                is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
+                is_best = score <= best_codec_score
                 if is_best:
                     print("New best score: ", score, ". Previous: ", best_codec_score)
                     best_codec_score = score
@@ -306,7 +313,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
             load_state_dict_all(model, checkpoint['state_dict'])
     test_dataset.reset()
-    return [ba_loss_module.avg,psnr_module.avg]
+    return ba_loss_module.avg+img_loss_module.avg
 
 def evolve(model, test_dataset, start, end):
     # should check if evolved version is available
@@ -417,7 +424,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
-train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
+train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, batch_size=args.batch) 
 test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
 if args.evolve:
     assert args.evaluate and (args.max_files == 0)
@@ -435,7 +442,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
     
-    is_best = score[0] <= best_codec_score[0] and score[1] >= best_codec_score[1]
+    is_best = score <= best_codec_score
     if is_best:
         print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
         best_codec_score = score

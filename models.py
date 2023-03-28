@@ -167,11 +167,14 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     if data.size(0) > 1: 
         if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
             B,_,H,W = data.size()
-            x_prev = data[0:1]
+            # if evaluate, the batch size is the same as GOP size
+            batch = B if args.evaluate else args.batch
+            x_prev = data[0::batch]
             x_hat_list = []
             if 'ELFVC' in model_name:model.reset()
             for i in range(1,B):
-                x_prev, likelihoods = model.forward_inter(data[i:i+1],x_prev)
+                x_cur = data[i::batch]
+                x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
@@ -179,7 +182,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                         torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
                 bpp = (mot_bits + res_bits) / (H * W)
                 bpp_res = (res_bits) / (H * W)
-                mseloss = torch.mean((x_prev - data[i:i+1]).pow(2))
+                mseloss = torch.mean((x_prev - x_cur).pow(2))
 
                 x_prev = x_prev.detach()
                 img_loss_list += [model.r*mseloss.to(data.device)]
@@ -187,15 +190,25 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 bpp_list += [bpp.to(data.device)]
                 bppres_list += [(bpp_res).to(data.device)]
                 x_hat_list.append(x_prev)
+
+                if 'ELFVC' not in model_name: continue
                 if model.pred_nc or model.side_channel_nc:
                     # all_loss_list += [(model.r*mseloss + bpp + likelihoods["pred_err"])]
                     all_loss_list += [(model.r*mseloss + bpp)]
-                    aux_loss_list += [likelihoods["pred_err"]]
-                    aux2_loss_list += [likelihoods["pred_std"]]
+                    pred_err_mean = pred_err_std = 0
+                    for pred_err in likelihoods["pred_err"]:
+                        pred_err_mean += pred_err.abs().mean()
+                        pred_err_std += pred_err.abs().std()
+                    aux_loss_list += [pred_err_mean]
+                    aux2_loss_list += [pred_err_std]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
-                aux3_loss_list += [likelihoods["Q_err"]]
-                aux4_loss_list += [likelihoods["Q_std"]]
+                Q_err_mean = Q_err_std = 0
+                for Q_err in likelihoods["Q_err"]:
+                    Q_err_mean += Q_err.abs().mean()
+                    Q_err_std += Q_err.abs().std()
+                aux3_loss_list += [Q_err_mean]
+                aux4_loss_list += [Q_err_std]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1749,6 +1762,7 @@ class ChannelNorm(nn.Module):
         x = x.permute(0,3,1,2)
         return x
 
+# batch?
 class ELFVC(ScaleSpaceFlow):
     def __init__(
         self,
@@ -1854,13 +1868,11 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif pred_nc and side_channel_nc:
                     # default
-                    # self.y_predictor = CodecNet([(0,kernel_size,1,planes * 2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
-                    # 1
                     # self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),(11,kernel_size,1,planes,planes)])
                     # 0
-                    # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
+                    self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
                     # 2
-                    self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
+                    # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
                     r = 8
                     self.upsampler = nn.PixelShuffle(r)
                 elif not pred_nc and side_channel_nc:
@@ -1908,12 +1920,12 @@ class ELFVC(ScaleSpaceFlow):
                     # for example, use predictor to down sample to the dimension of z_hat, concat and upsample
                     round_y = torch.round(y - means)
 
-                    side_info = self.upsampler(z_hat)
-                    all_info = torch.cat((round_y, side_info), dim=1)
+                    # side_info = self.upsampler(z_hat)
+                    # all_info = torch.cat((round_y, side_info), dim=1)
 
-                    # info1 = self.y_predictor1(round_y)
-                    # info2 = self.y_predictor2(z_hat)
-                    # all_info = torch.cat((info1, info2), dim=1)
+                    info1 = self.y_predictor1(round_y)
+                    info2 = self.y_predictor2(z_hat)
+                    all_info = torch.cat((info1, info2), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
@@ -1982,21 +1994,17 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = x_ref.detach()
         self.motion_info_prior = motion_info.detach()
 
-        pred_err = 0; pred_std = 0
+        pred_err = []
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     if likelihoods[pe] is not None:
-                        pred_err += likelihoods[pe].abs().mean()
-                        # pred_err += torch.pow(likelihoods[pe],2).mean()
-                        pred_std += likelihoods[pe].abs().std()
-        Q_err = 0; Q_std = 0
+                        pred_err += [likelihoods[pe]]
+        Q_err = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             for qe in ['Q_err_y', 'Q_err_z']:
                 if likelihoods[qe] is not None:
-                    Q_err += likelihoods[qe].abs().mean()
-                    # Q_err += torch.pow(likelihoods[qe],2).mean()
-                    Q_std += likelihoods[qe].abs().std()
+                    Q_err += [likelihoods[qe]]
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
-                        "pred_err": pred_err, "pred_std": pred_std, "Q_err": Q_err, "Q_std": Q_std}
+                        "pred_err": pred_err, "Q_err": Q_err}
