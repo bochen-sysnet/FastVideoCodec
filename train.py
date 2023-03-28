@@ -176,6 +176,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
+        print(data.size())
         data = data[0].cuda(device)
         l = data.size(0)-1
         
