@@ -184,6 +184,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
                 bpp = (mot_bits + res_bits) / (x_cur.size(0) * x_cur.size(2) * x_cur.size(3))
+                print(i,bpp)
                 bpp_res = (res_bits) / (x_cur.size(0) * x_cur.size(2) * x_cur.size(3))
                 mseloss = torch.mean((x_prev - x_cur).pow(2))
 
@@ -301,7 +302,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     bppres_list += [(bpp_res).to(data.device)]
 
     # aggregate loss
-    print(data.size())
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
