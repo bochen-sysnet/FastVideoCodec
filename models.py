@@ -165,7 +165,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             psnr_list += [psnr.to(data.device)]
     else:
         for i in range(data.size(0)):
-            data[i,0:1] = I_compression(data[i,0:1], I_level, model_name=name)
+            data[i,0:1], _,_ = I_compression(data[i,0:1], I_level, model_name=name)
     
     # P compression, not including I frame
     if data.size(0) > 1: 
