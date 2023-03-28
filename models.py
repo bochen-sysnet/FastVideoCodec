@@ -172,7 +172,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             psnr += psnr_i
         bpp /= data.size(0)
         psnr /= data.size(0)
-        print(bpp,psnr)
+        print(bpp,psnr,data.size())
     
     # P compression, not including I frame
     if data.size(0) > 1 or not args.evaluate: 
@@ -308,7 +308,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
-    print(bpp_list,img_loss_list)
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
