@@ -96,7 +96,7 @@ pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_g
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
 # initialize best score
-best_codec_score = [1,0,0]
+best_codec_score = 100
 
 ####### Load yowo model
 # ---------------------------------------------------------------
@@ -431,7 +431,7 @@ if args.evaluate:
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     print('training at epoch %d' % (epoch))
-    # best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
+    best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
     
     print('testing at epoch %d' % (epoch))
     score = test(epoch, model, test_dataset)
