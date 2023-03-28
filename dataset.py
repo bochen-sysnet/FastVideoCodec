@@ -127,12 +127,11 @@ class VideoDataset(Dataset):
         # print("[log] Total frames: ", self._total_frames)
         
 class FrameDataset(Dataset):
-    def __init__(self, root_dir, frame_size=None, batch_size=4):
+    def __init__(self, root_dir, frame_size=None):
         self._dataset_dir = os.path.join(root_dir,'vimeo_septuplet','sequences')
         self._train_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_trainlist.txt')
         self._test_list_dir = os.path.join(root_dir,'vimeo_septuplet','sep_testlist.txt')
         self._frame_size = frame_size
-        self._batch_size = batch_size
         self._total_frames = 0 # Storing file names in object
         self.get_septuplet_names()
         
@@ -150,21 +149,20 @@ class FrameDataset(Dataset):
         print("[log] Number of septuplets found {}".format(len(self.__septuplet_names)))
                 
     def __len__(self):
-        return len(self.__septuplet_names)//self._batch_size
+        return len(self.__septuplet_names)
         
-    def __getitem__(self, batch_idx):
+    def __getitem__(self, idx):
         data = []
-        for idx in range(batch_idx * self._batch_size, (batch_idx + 1) * self._batch_size):
-            for img_idx in range(1,8):
-                base_dir = self.__septuplet_names[idx]
-                img_dir = base_dir+'/'+f'im{img_idx}.png'
-                img = Image.open(img_dir).convert('RGB')
-                if self._frame_size is not None:
-                    if img_idx == 1:
-                        i, j, h, w = transforms.RandomResizedCrop.get_params(img, (0.08, 1.0), (0.75, 1.3333333333333333))
-                    img = transforms.functional.resized_crop(img, i, j, h, w,(self._frame_size,self._frame_size))
-                    # img = img.resize((self._frame_size,self._frame_size)) 
-                data.append(transforms.ToTensor()(img))
+        for img_idx in range(1,8):
+            base_dir = self.__septuplet_names[idx]
+            img_dir = base_dir+'/'+f'im{img_idx}.png'
+            img = Image.open(img_dir).convert('RGB')
+            if self._frame_size is not None:
+                if img_idx == 1:
+                    i, j, h, w = transforms.RandomResizedCrop.get_params(img, (0.08, 1.0), (0.75, 1.3333333333333333))
+                img = transforms.functional.resized_crop(img, i, j, h, w,(self._frame_size,self._frame_size))
+                # img = img.resize((self._frame_size,self._frame_size)) 
+            data.append(transforms.ToTensor()(img))
         data = torch.stack(data, dim=0)
         return data
                 
