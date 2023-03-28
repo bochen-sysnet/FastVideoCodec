@@ -169,7 +169,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     aux3_loss_module = AverageMeter()
     aux4_loss_module = AverageMeter()
     scaler = torch.cuda.amp.GradScaler(enabled=True)
-    batch_size = 7
     ds_size = len(train_dataset)
     
     model.train()
@@ -179,7 +178,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
         data = data.cuda(device)
-        if (data.size(0)==1): data = data[0]
         
         # run model
         _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
@@ -219,7 +217,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
 
         # clear result every 1000 batches
-        if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 500 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
@@ -229,7 +227,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux2_loss_module.reset() 
             I_module.reset()    
             
-        if batch_idx % 15000 == 0 and batch_idx>0:
+        if batch_idx % 3200 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score, stats = test(epoch, model, test_dataset)
