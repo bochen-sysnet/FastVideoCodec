@@ -169,7 +169,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             data[i,0:1], bpp_i, psnr_i = I_compression(data[i,0:1], I_level, model_name=name)
     
     # P compression, not including I frame
-    if data.size(0) > 1 or not args.evaluate: 
+    if (no_batch and data.size(0) > 1) or (not no_batch): 
         if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
             GOP_size = data.size(0) if no_batch else data.size(1)
             x_prev = data[0:1] if no_batch else data[:,0]
@@ -301,10 +301,10 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     bppres_list += [(bpp_res).to(data.device)]
 
     # aggregate loss
-    loss = torch.stack(all_loss_list,dim=0).mean(dim=0) if all_loss_list else 0
-    be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
-    be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
-    img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
+    loss = torch.stack(all_loss_list,dim=0).sum(dim=0) if all_loss_list else 0
+    be_loss = torch.stack(bpp_list,dim=0).sum(dim=0).cpu().data.item()
+    be_res_loss = torch.stack(bppres_list,dim=0).sum(dim=0).cpu().data.item() if bppres_list else 0
+    img_loss = torch.stack(img_loss_list,dim=0).sum(dim=0).cpu().data.item() if all_loss_list else 0
     psnr = torch.stack(psnr_list,dim=0).mean(dim=0).cpu().data.item()
     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux_loss_list else 0
     aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux2_loss_list else 0
