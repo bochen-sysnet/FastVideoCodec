@@ -147,6 +147,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
+    no_batch = (args.evaluate or not model.training)
     if isinstance(model,nn.DataParallel):
         name = f"{model.module.name}-{model.module.compression_level}-{model.module.loss_type}-{os.getpid()}"
         I_level = model.module.I_level
@@ -157,7 +158,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
         I_level = model.I_level
         model_name = model.name
         model_r = model.r
-    if args.evaluate:
+    if no_batch:
         x_hat, bpp, psnr = I_compression(data[0:1], I_level, model_name=name)
         data[0:1] = x_hat
         if compressI:
@@ -170,12 +171,12 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     # P compression, not including I frame
     if data.size(0) > 1: 
         if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
-            GOP_size = data.size(0) if args.evaluate else data.size(1)
-            x_prev = data[0:1] if args.evaluate else data[:,0]
+            GOP_size = data.size(0) if no_batch else data.size(1)
+            x_prev = data[0:1] if no_batch else data[:,0]
             x_hat_list = []
             if 'ELFVC' in model_name:model.reset()
             for i in range(1,GOP_size):
-                x_cur = data[i:i+1] if args.evaluate else data[:,i]
+                x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
