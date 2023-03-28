@@ -1871,7 +1871,7 @@ class ELFVC(ScaleSpaceFlow):
                     # self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),(11,kernel_size,1,planes,planes)])
                     # 0
                     self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
-                    # 2
+                    # 1
                     # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
                     r = 8
                     self.upsampler = nn.PixelShuffle(r)
@@ -1916,16 +1916,9 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
                 elif self.pred_nc and self.side_channel_nc:
-                    # maybe a better combination way
-                    # for example, use predictor to down sample to the dimension of z_hat, concat and upsample
                     round_y = torch.round(y - means)
-
-                    # side_info = self.upsampler(z_hat)
-                    # all_info = torch.cat((round_y, side_info), dim=1)
-
-                    info1 = self.y_predictor1(round_y)
-                    info2 = self.y_predictor2(z_hat)
-                    all_info = torch.cat((info1, info2), dim=1)
+                    side_info = self.upsampler(z_hat)
+                    all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
