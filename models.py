@@ -175,6 +175,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             x_prev = data[0:1] if no_batch else data[:,0]
             x_hat_list = []
             if 'ELFVC' in model_name:model.reset()
+            print(GOP_size)
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
