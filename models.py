@@ -1964,6 +1964,7 @@ class ELFVC(ScaleSpaceFlow):
         x_pred_local = self.forward_prediction(x_ref, motion_info_local)
 
         # encode the motion information
+        print(x_cur.size(),x_pred_local.size())
         y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
