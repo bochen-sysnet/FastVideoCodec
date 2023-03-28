@@ -179,6 +179,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
         data = data.cuda(device)
+        if (data.size(0)==1): data = data[0]
         
         # run model
         _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)

@@ -172,7 +172,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             psnr += psnr_i
         bpp /= data.size(0)
         psnr /= data.size(0)
-        print(bpp,psnr,data.size())
     
     # P compression, not including I frame
     if data.size(0) > 1 or not args.evaluate: 
