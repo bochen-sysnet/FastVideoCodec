@@ -168,10 +168,11 @@ def parallel_compression(args,model, data, compressI=False, level=0):
         bpp = psnr = 0
         for i in range(data.size(0)):
             data[i,0:1], bpp_i, psnr_i = I_compression(data[i,0:1], I_level, model_name=name)
-        #     bpp += bpp_i
-        #     psnr += psnr_i
-        # bpp /= data.size(0)
-        # psnr /= data.size(0)
+            bpp += bpp_i
+            psnr += psnr_i
+        bpp /= data.size(0)
+        psnr /= data.size(0)
+        print(bpp,psnr)
     
     # P compression, not including I frame
     if data.size(0) > 1 or not args.evaluate: 
