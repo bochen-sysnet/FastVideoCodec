@@ -176,36 +176,29 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        print(data.size())
-        data = data[0].cuda(device)
-        l = data.size(0)-1
+        data = data.cuda(device)
         
         # run model
         _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
 
         # record loss
-        all_loss_module.update(loss.cpu().data.item(), l)
-        img_loss_module.update(img_loss, l)
-        be_loss_module.update(be_loss, l)
-        be_res_loss_module.update(be_res_loss, l)
+        all_loss_module.update(loss.cpu().data.item())
+        img_loss_module.update(img_loss)
+        be_loss_module.update(be_loss)
+        be_res_loss_module.update(be_res_loss)
         if not math.isinf(psnr):
-            psnr_module.update(psnr,l)
+            psnr_module.update(psnr)
             I_module.update(I_psnr)
-        aux_loss_module.update(aux_loss, l)
-        aux2_loss_module.update(aux_loss2, l)
-        aux3_loss_module.update(aux_loss3, l)
-        aux4_loss_module.update(aux_loss4, l)
+        aux_loss_module.update(aux_loss)
+        aux2_loss_module.update(aux_loss2)
+        aux3_loss_module.update(aux_loss3)
+        aux4_loss_module.update(aux_loss4)
         
         # backward
         scaler.scale(loss).backward()
-        # update model after compress each video
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad()
-        # if batch_idx%10 == 0 and batch_idx > 0:
-        #     scaler.step(optimizer)
-        #     scaler.update()
-        #     optimizer.zero_grad()
 
             
         # show result

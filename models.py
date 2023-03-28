@@ -166,22 +166,20 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     # P compression, not including I frame
     if data.size(0) > 1: 
         if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
-            B,_,H,W = data.size()
-            # if evaluate, the batch size is the same as GOP size
-            GOP_size = B if args.evaluate else B//args.batch_size
-            x_prev = data[0::GOP_size]
+            GOP_size = data.size(0) if args.evaluate else data.size(1)
+            x_prev = data[0:1] if args.evaluate else data[:,0]
             x_hat_list = []
             if 'ELFVC' in model_name:model.reset()
             for i in range(1,GOP_size):
-                x_cur = data[i::GOP_size]
+                x_cur = data[i:i+1] if args.evaluate else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
                 res_bits = torch.sum(torch.clamp(-1.0 * torch.log(res_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(res_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-                bpp = (mot_bits + res_bits) / (H * W * x_cur.size(0))
-                bpp_res = (res_bits) / (H * W * x_cur.size(0))
+                bpp = (mot_bits + res_bits) / (x_cur.size(0) * x_cur.size(2) * x_cur.size(3))
+                bpp_res = (res_bits) / (x_cur.size(0) * x_cur.size(2) * x_cur.size(3))
                 mseloss = torch.mean((x_prev - x_cur).pow(2))
 
                 x_prev = x_prev.detach()
