@@ -195,21 +195,20 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 x_hat_list.append(x_prev)
 
                 if 'ELFVC' not in model_name: continue
+                loss = model.r*mseloss + bpp
                 if model.pred_nc or model.side_channel_nc:
                     pred_err_mean = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
                     aux_loss_list += [pred_err_mean]
+                    
                     if likelihoods["pred_loss"]:
                         pred_loss_mean = 0
                         for pred_loss in likelihoods["pred_loss"]:
                             pred_loss_mean += pred_loss.abs().mean()
                         aux2_loss_list += [pred_loss_mean]
-                        all_loss_list += [(model.r*mseloss + bpp + pred_loss_mean)]
-                    else:
-                        all_loss_list += [(model.r*mseloss + bpp)]
-                else:
-                    all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
+                        loss += pred_loss_mean
+                all_loss_list += [loss]
                 Q_err_mean = 0
                 for Q_err in likelihoods["Q_err"]:
                     Q_err_mean += Q_err.abs().mean()
