@@ -196,24 +196,23 @@ def parallel_compression(args,model, data, compressI=False, level=0):
 
                 if 'ELFVC' not in model_name: continue
                 if model.pred_nc or model.side_channel_nc:
-                    pred_err_mean = pred_err_std = 0
+                    pred_err_mean = pred_loss_mean = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
-                        pred_err_std += pred_err.abs().std()
-                    aux_loss_list += [pred_err_mean]
-                    aux2_loss_list += [pred_err_std]
+                    for pred_loss in likelihoods["pred_loss"]:
+                        pred_loss_mean += pred_loss.abs().mean()
+                    aux_loss_list += [pred_loss_mean]
+                    aux2_loss_list += [pred_err_mean]
                     if '-D' in model_name:
-                        all_loss_list += [(model.r*mseloss + bpp + pred_err_mean)]
+                        all_loss_list += [(model.r*mseloss + bpp + pred_loss_mean)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
-                Q_err_mean = Q_err_std = 0
+                Q_err_mean = 0
                 for Q_err in likelihoods["Q_err"]:
                     Q_err_mean += Q_err.abs().mean()
-                    Q_err_std += Q_err.abs().std()
                 aux3_loss_list += [Q_err_mean]
-                aux4_loss_list += [Q_err_std]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1897,6 +1896,7 @@ class ELFVC(ScaleSpaceFlow):
                 self.pred_nc = pred_nc
 
             def forward(self, y):
+                pred_loss_y = pred_loss_z = None
                 # use side channel for noise cancelling
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
@@ -1911,11 +1911,10 @@ class ELFVC(ScaleSpaceFlow):
                         z_hat = z + pred_err_z.detach()
                         # more general predictor so it wont change when q error changes
                         if self.training:
-                            Q_err_z = pred_err_z
                             half = float(0.5)
                             noise_z = torch.empty_like(z).uniform_(-half, half)
                             noisy_z = z.detach() + noise_z
-                            pred_err_z = self.z_predictor(noisy_z) + noisy_z - z.detach()
+                            pred_loss_z = self.z_predictor(noisy_z) + noisy_z - z.detach()
                     else:
                         z_hat = z + pred_err_z
                 else:
@@ -1944,11 +1943,10 @@ class ELFVC(ScaleSpaceFlow):
                     if '-D' in name:
                         y_hat = y + pred_err_y.detach()
                         if self.training:
-                            Q_err_y = pred_err_y
                             half = float(0.5)
                             noise_y = torch.empty_like(y).uniform_(-half, half)
                             noisy_y = (y - means).detach() + noise_y
-                            pred_err_y = self.y_predictor(torch.cat((noisy_y, side_info), dim=1)) + noisy_y - (y - means).detach()
+                            pred_loss_y = self.y_predictor(torch.cat((noisy_y, side_info), dim=1)) + noisy_y - (y - means).detach()
                     else:
                         y_hat = y + pred_err_y 
                 else:
@@ -1957,7 +1955,7 @@ class ELFVC(ScaleSpaceFlow):
                 if pred_err_z is None:
                     Q_err_z = None
                     
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, 
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_loss_y": pred_loss_y, "pred_loss_z": pred_loss_z,
                                 "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
@@ -2017,16 +2015,20 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = motion_info.detach()
 
         pred_err = []
+        pred_loss = []
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 for pe in ['pred_err_y', 'pred_err_z']:
                     if likelihoods[pe] is not None:
                         pred_err += [likelihoods[pe]]
+                for pl in ['pred_loss_y', 'pred_loss_z']:
+                    if likelihoods[pl] is not None:
+                        pred_loss += [likelihoods[pl]]
         Q_err = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             for qe in ['Q_err_y', 'Q_err_z']:
                 if likelihoods[qe] is not None:
                     Q_err += [likelihoods[qe]]
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_loss": pred_loss,
                         "pred_err": pred_err, "Q_err": Q_err}
