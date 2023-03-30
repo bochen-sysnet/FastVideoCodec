@@ -196,13 +196,15 @@ def parallel_compression(args,model, data, compressI=False, level=0):
 
                 if 'ELFVC' not in model_name: continue
                 if model.pred_nc or model.side_channel_nc:
-                    pred_err_mean = pred_loss_mean = 0
+                    pred_err_mean = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
-                    for pred_loss in likelihoods["pred_loss"]:
-                        pred_loss_mean += pred_loss.abs().mean()
-                    aux_loss_list += [pred_loss_mean]
-                    aux2_loss_list += [pred_err_mean]
+                    aux_loss_list += [pred_err_mean]
+                    if likelihoods["pred_loss"]:
+                        pred_loss_mean = 0
+                        for pred_loss in likelihoods["pred_loss"]:
+                            pred_loss_mean += pred_loss.abs().mean()
+                        aux2_loss_list += [pred_loss_mean]
                     if '-D' in model_name:
                         all_loss_list += [(model.r*mseloss + bpp + pred_loss_mean)]
                     else:
@@ -308,7 +310,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
     psnr = torch.stack(psnr_list,dim=0).mean(dim=0).cpu().data.item()
-    print(aux_loss_list)
     aux_loss = torch.stack(aux_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux_loss_list else 0
     aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux2_loss_list else 0
     aux3_loss = torch.stack(aux3_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux3_loss_list else 0
