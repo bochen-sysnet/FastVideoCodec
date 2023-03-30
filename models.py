@@ -196,13 +196,14 @@ def parallel_compression(args,model, data, compressI=False, level=0):
 
                 if 'ELFVC' not in model_name: continue
                 if model.pred_nc or model.side_channel_nc:
-                    all_loss_list += [(model.r*mseloss + bpp)]
+                    # all_loss_list += [(model.r*mseloss + bpp)]
                     pred_err_mean = pred_err_std = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
                         pred_err_std += pred_err.abs().std()
                     aux_loss_list += [pred_err_mean]
                     aux2_loss_list += [pred_err_std]
+                    all_loss_list += [(model.r*mseloss + bpp + pred_err_mean)]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 Q_err_mean = Q_err_std = 0
@@ -1902,9 +1903,9 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
                     pred_z = torch.round(z)
-                    pred_z = self.z_predictor(pred_z)
+                    pred_z = self.z_predictor(pred_z) + pred_z
                     pred_err_z = pred_z - z.detach()
-                    z_hat = z + pred_err_z
+                    z_hat = z + pred_err_z.detach()
                 else:
                     pred_err_z = None
 
@@ -1925,9 +1926,9 @@ class ELFVC(ScaleSpaceFlow):
                     round_y = torch.round(y - means)
                     side_info = self.upsampler(z_hat)
                     all_info = torch.cat((round_y, side_info), dim=1)
-                    pred_y = self.y_predictor(all_info)
+                    pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y 
+                    y_hat = y + pred_err_y.detach() 
                 else:
                     pred_err_y = None
 

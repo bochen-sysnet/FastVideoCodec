@@ -141,10 +141,8 @@ class SPnet(nn.Module):
         self.mid_attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
         self.mid_block2 = block_klass(mid_dim, mid_dim)
 
-        # self.final_res_block = block_klass(mid_dim, dim)
-        # self.final_conv = nn.Conv2d(dim, output_channels, 1)
-
-        self.final_res_block = block_klass(mid_dim, output_channels)
+        self.final_res_block = block_klass(mid_dim, dim)
+        self.final_conv = nn.Conv2d(dim, output_channels, 1)
 
     def forward(self, x):
         x = self.init_conv(x)
@@ -155,5 +153,4 @@ class SPnet(nn.Module):
         x = self.mid_block2(x)
 
         x = self.final_res_block(x)
-        # return self.final_conv(x)
-        return x
+        return self.final_conv(x)
