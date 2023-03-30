@@ -196,13 +196,16 @@ def parallel_compression(args,model, data, compressI=False, level=0):
 
                 if 'ELFVC' not in model_name: continue
                 if model.pred_nc or model.side_channel_nc:
-                    all_loss_list += [(model.r*mseloss + bpp)]
                     pred_err_mean = pred_err_std = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
                         pred_err_std += pred_err.abs().std()
                     aux_loss_list += [pred_err_mean]
                     aux2_loss_list += [pred_err_std]
+                    if '-D' in model_name:
+                        all_loss_list += [(model.r*mseloss + bpp + pred_err_mean)]
+                    else:
+                        all_loss_list += [(model.r*mseloss + bpp)]
                 else:
                     all_loss_list += [(model.r*mseloss + bpp).to(data.device)]
                 Q_err_mean = Q_err_std = 0
@@ -1904,13 +1907,23 @@ class ELFVC(ScaleSpaceFlow):
                     pred_z = torch.round(z)
                     pred_z = self.z_predictor(pred_z) + pred_z
                     pred_err_z = pred_z - z.detach()
-                    z_hat = z + pred_err_z
+                    if '-D' in name:
+                        z_hat = z + pred_err_z.detach()
+                        # more general predictor so it wont change when q error changes
+                        if self.training:
+                            half = float(0.5)
+                            noise_z = torch.empty_like(z).uniform_(-half, half)
+                            noisy_z = z.detach() + noise_z
+                            pred_err_z = self.z_predictor(noisy_z) + noisy_z - z.detach()
+                    else:
+                        z_hat = z + pred_err_z
                 else:
                     pred_err_z = None
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
-                y_hat, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.pred_nc and not self.side_channel_nc:
                     pred_y = torch.round(y - means)
@@ -1927,7 +1940,15 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y 
+                    if '-D' in name:
+                        y_hat = y + pred_err_y.detach()
+                        if self.training:
+                            half = float(0.5)
+                            noise_y = torch.empty_like(y).uniform_(-half, half)
+                            noisy_y = (y - means).detach() + noise_y
+                            pred_err_y = self.y_predictor(torch.cat((noisy_y, side_info), dim=1)) + noisy_y - (y - means).detach()
+                    else:
+                        y_hat = y + pred_err_y 
                 else:
                     pred_err_y = None
 

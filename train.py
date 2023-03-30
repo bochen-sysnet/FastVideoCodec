@@ -233,7 +233,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 
                 is_best = score <= best_codec_score
                 if is_best:
-                    print("New best score: ", score, ". Previous: ", best_codec_score)
+                    print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
                     best_codec_score = score
                 else:
                     print(score)
@@ -438,7 +438,7 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     
     is_best = score <= best_codec_score
     if is_best:
-        print("New best score is achieved: ", score, ". Previous score was: ", best_codec_score)
+        print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
         best_codec_score = score
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
