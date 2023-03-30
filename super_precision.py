@@ -153,4 +153,4 @@ class SPnet(nn.Module):
         x = self.mid_block2(x)
 
         x = self.final_res_block(x)
-        return self.final_conv(x)
+        return self.final_conv(x) + x
