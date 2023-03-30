@@ -20,7 +20,7 @@ from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 from torch.autograd import Function
 from torchvision import transforms
-from compressai.layers import GDN, AttentionBlock
+from compressai.layers import GDN, AttentionBlock, ResidualBlock
 from entropy_models import RecProbModel,MeanScaleHyperPriors,RPM
 from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
@@ -1424,6 +1424,8 @@ class CodecNet(nn.Module):
             elif conv_type == 12:
                 assert ch1==ch2
                 layer = AttentionLayer(ch2)
+            elif conv_type == 13:
+                layer = ResidualBlock(ch1, ch2)
             else:
                 print('conv type not found')
                 exit(0)
@@ -1764,7 +1766,7 @@ class ChannelNorm(nn.Module):
         x = x.permute(0,3,1,2)
         return x
 
-# batch?
+from super_precision import SPnet
 class ELFVC(ScaleSpaceFlow):
     def __init__(
         self,
@@ -1869,12 +1871,12 @@ class ELFVC(ScaleSpaceFlow):
                 if pred_nc and not side_channel_nc:
                     self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
                 elif pred_nc and side_channel_nc:
-                    # default
-                    # self.y_predictor = CodecNet([(0,kernel_size,1,planes + 3,ch2),act_func,(0,kernel_size,1,ch2,ch2),(11,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),(11,kernel_size,1,planes,planes)])
+                    # new
+                    self.y_predictor = SPnet(input_channels=planes + 3, output_channels=planes)
                     # 0
                     # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
                     # 1
-                    self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
+                    # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
                     r = 8
                     self.upsampler = nn.PixelShuffle(r)
                 elif not pred_nc and side_channel_nc:
@@ -1883,7 +1885,9 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = None
 
                 if pred_nc:
-                    self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes),])
+                    # new
+                    self.z_predictor = SPnet(input_channels=planes, output_channels=planes)
+                    # self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes),])
                 else:
                     self.z_predictor = None
                 self.side_channel_nc = side_channel_nc
