@@ -205,7 +205,6 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                         for pred_loss in likelihoods["pred_loss"]:
                             pred_loss_mean += pred_loss.abs().mean()
                         aux2_loss_list += [pred_loss_mean]
-                    if '-D' in model_name:
                         all_loss_list += [(model.r*mseloss + bpp + pred_loss_mean)]
                     else:
                         all_loss_list += [(model.r*mseloss + bpp)]
