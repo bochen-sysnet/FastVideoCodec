@@ -1911,6 +1911,7 @@ class ELFVC(ScaleSpaceFlow):
                         z_hat = z + pred_err_z.detach()
                         # more general predictor so it wont change when q error changes
                         if self.training:
+                            Q_err_z = pred_err_z
                             half = float(0.5)
                             noise_z = torch.empty_like(z).uniform_(-half, half)
                             noisy_z = z.detach() + noise_z
@@ -1943,6 +1944,7 @@ class ELFVC(ScaleSpaceFlow):
                     if '-D' in name:
                         y_hat = y + pred_err_y.detach()
                         if self.training:
+                            Q_err_y = pred_err_y
                             half = float(0.5)
                             noise_y = torch.empty_like(y).uniform_(-half, half)
                             noisy_y = (y - means).detach() + noise_y
