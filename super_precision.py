@@ -129,7 +129,7 @@ class SPnet(nn.Module):
 
         # determine dimensions
 
-        init_dim = dim
+        init_dim = 8 * dim
         self.init_conv = nn.Conv2d(input_channels, init_dim, 7, padding = 3)
 
         block_klass = partial(ResnetBlock, groups = resnet_block_groups)
