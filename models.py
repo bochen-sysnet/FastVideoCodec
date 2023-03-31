@@ -1903,7 +1903,7 @@ class ELFVC(ScaleSpaceFlow):
                     # we add noise to it
                     # predict with noise
                     # cancel noise
-                    if '-D' in name or self.training:
+                    if '-D' in name:
                         round_z = torch.round(z)
                     else:
                         round_z = z_hat
@@ -1931,7 +1931,7 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
                 elif self.pred_nc and self.side_channel_nc:
-                    if '-D' in name or self.training:
+                    if '-D' in name:
                         round_y = torch.round(y - means)
                     else:
                         round_y = quantize_ste(y - means) 
