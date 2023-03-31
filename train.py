@@ -108,8 +108,8 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     if isinstance(checkpoint['score'],float):
         best_codec_score = checkpoint['score']
-    # load_state_dict_all(model, checkpoint['state_dict'])
-    load_state_dict_whatever(model, checkpoint['state_dict'])
+    load_state_dict_all(model, checkpoint['state_dict'])
+    # load_state_dict_whatever(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     if 'stats' in checkpoint:
         print(checkpoint['stats'])
