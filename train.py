@@ -214,19 +214,8 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
             f"3:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"4:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
-
-        # clear result every 1000 batches
-        if batch_idx % 500 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
-            img_loss_module.reset()
-            aux_loss_module.reset()
-            be_loss_module.reset()
-            be_res_loss_module.reset()
-            all_loss_module.reset()
-            psnr_module.reset()
-            aux2_loss_module.reset() 
-            I_module.reset()    
             
-        if batch_idx % 3200 == 0 and batch_idx>0:
+        if batch_idx % 1000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score, stats = test(epoch, model, test_dataset)
@@ -244,6 +233,17 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 print('')
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+
+        # clear result every 1000 batches
+        if batch_idx % 5000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+            img_loss_module.reset()
+            aux_loss_module.reset()
+            be_loss_module.reset()
+            be_res_loss_module.reset()
+            all_loss_module.reset()
+            psnr_module.reset()
+            aux2_loss_module.reset() 
+            I_module.reset()    
     return best_codec_score
     
 def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
@@ -252,6 +252,8 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     all_loss_module = AverageMeter()
+    aux_loss_module = AverageMeter()
+    aux2_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
     fP,bP = 6,6
@@ -279,12 +281,16 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
                 psnr_module.update(psnr,fP+1)
                 all_loss_module.update(float(loss1),fP+1)
                 img_loss_module.update(img_loss,fP+1)
+                aux_loss_module.update(aux_loss,fP+1)
+                aux2_loss_module.update(aux_loss2,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
                 com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False,level)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
                 all_loss_module.update(float(loss2),l-fP-1)
                 img_loss_module.update(img_loss,l-fP-1)
+                aux_loss_module.update(aux_loss,l-fP-1)
+                aux2_loss_module.update(aux_loss2,l-fP-1)
                 loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
             else:
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
@@ -292,6 +298,8 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
                 psnr_module.update(psnr,l)
                 all_loss_module.update(float(loss),l)
                 img_loss_module.update(img_loss,l)
+                aux_loss_module.update(aux_loss,l)
+                aux2_loss_module.update(aux_loss2,l)
                 
         # show result
         test_iter.set_description(
@@ -299,7 +307,9 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
+            f"1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
             
         # clear input
         data = []
