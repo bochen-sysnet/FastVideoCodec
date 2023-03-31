@@ -1899,8 +1899,15 @@ class ELFVC(ScaleSpaceFlow):
                 # quantify discrepancy
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
-                    pred_z = torch.round(z)
-                    pred_z = self.z_predictor(pred_z) + pred_z
+                    # it might be better to replace round z
+                    # we add noise to it
+                    # predict with noise
+                    # cancel noise
+                    if '-D' in name or self.training:
+                        round_z = torch.round(z)
+                    else:
+                        round_z = z_hat
+                    pred_z = self.z_predictor(round_z) + round_z
                     pred_err_z = pred_z - z.detach()
                     if '-D' in name:
                         z_hat = z + pred_err_z.detach()
@@ -1915,8 +1922,8 @@ class ELFVC(ScaleSpaceFlow):
                 y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
                 if self.pred_nc and not self.side_channel_nc:
-                    pred_y = torch.round(y - means)
-                    pred_y = self.y_predictor(pred_y) + pred_y 
+                    round_y = torch.round(y - means)
+                    pred_y = self.y_predictor(round_y) + round_y 
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
                 elif not self.pred_nc and self.side_channel_nc:
@@ -1924,7 +1931,10 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
                 elif self.pred_nc and self.side_channel_nc:
-                    round_y = torch.round(y - means)
+                    if '-D' in name or self.training:
+                        round_y = torch.round(y - means)
+                    else:
+                        round_y = quantize_ste(y - means) 
                     side_info = self.upsampler(z_hat)
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
