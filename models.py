@@ -201,8 +201,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
                     aux_loss_list += [pred_err_mean]
-                    if '-D' in model_name:
-                        loss += pred_err_mean
+                    loss += pred_err_mean
                 all_loss_list += [loss]
                 Q_err_mean = 0
                 for Q_err in likelihoods["Q_err"]:
