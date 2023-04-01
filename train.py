@@ -205,8 +205,8 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         train_iter.set_description(
             f"{batch_idx:6}. "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-            f"I:{img_loss_module.val:.2f} ({img_loss_module.avg:.2f}). "
-            f"B:{be_loss_module.val:.2f} ({be_loss_module.avg:.2f}). "
+            f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
+            f"B:{be_loss_module.val:.4f} ({be_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"PE:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
             f"QE:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
