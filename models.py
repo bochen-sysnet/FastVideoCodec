@@ -198,16 +198,17 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 loss = model.r*mseloss + bpp
                 if model.pred_nc or model.side_channel_nc:
                     pred_err_mean = 0
+                    pred_loss = 0
                     for pred_err in likelihoods["pred_err"]:
-                        # pred_err_mean += pred_err.abs().mean()
-                        pred_err_mean += torch.pow(pred_err,2).mean()
+                        pred_err_mean += pred_err.abs().mean()
+                        # pred_loss += torch.pow(pred_err,2).mean()
+                        pred_loss += pred_err.abs().mean()
                     aux_loss_list += [pred_err_mean]
-                    loss += pred_err_mean
+                    loss += pred_loss
                 all_loss_list += [loss]
                 Q_err_mean = 0
                 for Q_err in likelihoods["Q_err"]:
-                    # Q_err_mean += Q_err.abs().mean()
-                    Q_err_mean += torch.pow(Q_err,2).mean()
+                    Q_err_mean += Q_err.abs().mean()
                 aux2_loss_list += [Q_err_mean]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
