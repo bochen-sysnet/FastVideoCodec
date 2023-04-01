@@ -200,6 +200,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     pred_err_mean = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
+                        pred_err_mean += torch.pow(pred_err,2).mean()
                     aux_loss_list += [pred_err_mean]
                     loss += pred_err_mean
                 all_loss_list += [loss]

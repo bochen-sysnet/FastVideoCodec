@@ -182,7 +182,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
 
         # record loss
-        all_loss_module.update(loss.cpu().data.item())
+        all_loss_module.update(img_loss + be_loss)
         img_loss_module.update(img_loss)
         be_loss_module.update(be_loss)
         be_res_loss_module.update(be_res_loss)
