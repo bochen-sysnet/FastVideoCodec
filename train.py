@@ -54,6 +54,10 @@ parser.add_argument('--evolve_rounds', default=1, type=int,
                     help="Maximum evolving rounds")
 parser.add_argument('--resume', type=str, default='',
                     help='Resume path')
+parser.add_argument('--norm', default=2, type=int,
+                    help="Norm type")
+parser.add_argument('--alpha', type=float, default=0.001,
+                    help='Controlling norm scale')
 
 args = parser.parse_args()
 
@@ -207,9 +211,11 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{be_loss_module.val:.4f} ({be_loss_module.avg:.4f}). "
-            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"PE:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"QE:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
+            # f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"PN:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"PE:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"QN:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"QE:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
         if batch_idx % 5000 == 0 and batch_idx>0:
             if True:
@@ -250,6 +256,8 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     all_loss_module = AverageMeter()
     aux_loss_module = AverageMeter()
     aux2_loss_module = AverageMeter()
+    aux3_loss_module = AverageMeter()
+    aux4_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
     fP,bP = 6,6
@@ -272,30 +280,36 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             
             # compress GoP
             if l>fP+1:
-                com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
+                com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
                 all_loss_module.update(float(loss1),fP+1)
                 img_loss_module.update(img_loss,fP+1)
                 aux_loss_module.update(aux_loss,fP+1)
                 aux2_loss_module.update(aux_loss2,fP+1)
+                aux3_loss_module.update(aux_loss3,fP+1)
+                aux4_loss_module.update(aux_loss4,fP+1)
                 data[fP:fP+1] = com_imgs[0:1]
-                com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data[fP:],False,level)
+                com_imgs,loss2,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data[fP:],False,level)
                 ba_loss_module.update(be_loss, l-fP-1)
                 psnr_module.update(psnr,l-fP-1)
                 all_loss_module.update(float(loss2),l-fP-1)
                 img_loss_module.update(img_loss,l-fP-1)
                 aux_loss_module.update(aux_loss,l-fP-1)
                 aux2_loss_module.update(aux_loss2,l-fP-1)
+                aux3_loss_module.update(aux_loss3,l-fP-1)
+                aux4_loss_module.update(aux_loss4,l-fP-1)
                 loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
             else:
-                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
                 all_loss_module.update(float(loss),l)
                 img_loss_module.update(img_loss,l)
                 aux_loss_module.update(aux_loss,l)
                 aux2_loss_module.update(aux_loss2,l)
+                aux3_loss_module.update(aux_loss3,l)
+                aux4_loss_module.update(aux_loss4,l)
                 
         # show result
         test_iter.set_description(
@@ -304,8 +318,10 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-            f"1:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"2:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). ")
+            f"PN:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"PE:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"QN:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"QE:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
         # clear input
         data = []
