@@ -201,7 +201,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     pred_norm = 0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += pred_err.abs().mean()
-                        pred_norm += torch.norm(pred_err,args.norm_type) # 1
+                        pred_norm += torch.norm(pred_err,args.norm) # 1
                     aux_loss_list += [pred_err_mean]
                     aux2_loss_list += [pred_norm]
                     loss += args.alpha * pred_norm
@@ -210,7 +210,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                 Q_norm = 0
                 for Q_err in likelihoods["Q_err"]:
                     Q_err_mean += Q_err.abs().mean()
-                    Q_norm += torch.norm(Q_err, args.norm_type)
+                    Q_norm += torch.norm(Q_err, args.norm)
                 aux3_loss_list += [Q_err_mean]
                 aux4_loss_list += [Q_norm]
             x_hat = torch.cat(x_hat_list,dim=0)
