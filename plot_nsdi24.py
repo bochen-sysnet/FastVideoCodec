@@ -485,7 +485,7 @@ SPSNRs = [
 [29.13,31,32.34,33.23,33.93,34.23,34.89,35.59],
 [28.69,30.19,31.46,32.6,33.71,35,36.17],
 [28.72,30.13,31.23,31.91,32.64,33.58],
-[28.8]
+[29.2]
 ]
 Sbpps = [
 [0.0667,0.1099,0.1784,0.2847,0.4486,0.706,1.1164],
@@ -498,4 +498,4 @@ Sbpps = [
 sc_labels = ['x265','DVC','RLVC','SSF','ELFVC','Vesper']
 line_plot(Sbpps,SPSNRs,sc_labels,colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_256.eps',
-		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)
+		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18,markersize=1)
