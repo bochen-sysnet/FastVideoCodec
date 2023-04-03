@@ -1954,9 +1954,9 @@ class ELFVC(ScaleSpaceFlow):
                         pass
                     else:
                         if '-D' in name:
-                            y_hat = pred_y.detach()
+                            y_hat = pred_y.detach() + means
                         else:
-                            y_hat = pred_y.detach()
+                            y_hat = pred_y + means
                 else:
                     pred_err_y = None
                     
