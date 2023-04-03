@@ -217,7 +217,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"QE:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"QN:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 3200 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score, stats = test(epoch, model, test_dataset)
@@ -237,7 +237,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
 
         # clear result every 1000 batches
-        if batch_idx % 5000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 3200 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
