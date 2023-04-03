@@ -1896,6 +1896,7 @@ class ELFVC(ScaleSpaceFlow):
                 self.pred_nc = pred_nc
 
             def forward(self, y):
+                # the training of encoder should not be affected by noise predictor
                 pred_loss_y = pred_loss_z = None
                 # use side channel for noise cancelling
                 z = self.hyper_encoder(y)
@@ -1929,12 +1930,12 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y 
                 elif not self.pred_nc and self.side_channel_nc:
-                    pred_y = self.y_predictor(z_hat) + torch.round(y - means)
+                    pred_y = self.y_predictor(torch.round(z)) + torch.round(y - means)
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
                 elif self.pred_nc and self.side_channel_nc:
                     round_y = torch.round(y - means)
-                    side_info = self.upsampler(z_hat)
+                    side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y 
                     pred_err_y = pred_y - (y - means).detach()

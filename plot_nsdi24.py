@@ -483,7 +483,7 @@ bpps2 = [0.075*i for i in range(1,10)]
 bpps1 = np.array(bpps1)
 bpps2 = np.array(bpps2)
 PSNRs1 = 10*np.log10(256/(0.5-bpps1))
-PSNRs2 = 10*np.log10(256/(0.75-bpps2))
+PSNRs2 = 10*np.log10(512/(0.75-bpps2))
 
 SPSNRs = [
 [29.91,31.6,33.17,34.45,35.43,36.13,36.58],
