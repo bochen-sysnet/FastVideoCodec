@@ -478,46 +478,24 @@ H is the hatch used for identification of the different dataframe"""
 # 		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_2k.eps',
 # 		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)
 
-bpps1 = [0.05*i for i in range(1,10)]
-bpps2 = [0.075*i for i in range(1,10)]
-bpps1 = np.array(bpps1)
-bpps2 = np.array(bpps2)
-PSNRs1 = 10*np.log10(256/(0.5-bpps1))
-PSNRs2 = 10*np.log10(512/(0.75-bpps2))
 
 SPSNRs = [
 [29.91,31.6,33.17,34.45,35.43,36.13,36.58],
-PSNRs1,# [29.04]
-PSNRs2
+[29.22,31.01,32.33,33.16,33.81,34.48,34.95,35.17],
+[29.13,31,32.34,33.23,33.93,34.23,34.89,35.59],
+[28.69,30.19,31.46,32.6,33.71,35,36.17],
+[28.72,30.13,31.23,31.91,32.64,33.58],
+[28.9]
 ]
 Sbpps = [
 [0.0667,0.1099,0.1784,0.2847,0.4486,0.706,1.1164],
-bpps1,# [0.09]
-bpps2
+[0.0792,0.1280,0.1926,0.2776,0.3364,0.4715,0.6509,0.8680],
+[0.0634,0.1098,0.1684,0.2439,0.3399,0.4767,0.6794,0.9825],
+[0.073,0.1238,0.1965,0.2991,0.4348,0.6325,0.8969],
+[0.0694,0.112,0.1755,0.25,0.37,0.543],
+[0.07]
 ]
-sc_labels = ['x265','test1','test2']
+sc_labels = ['x265','DVC','RLVC','SSF','ELFVC','Vesper']
 line_plot(Sbpps,SPSNRs,sc_labels,colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_256.eps',
-		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18,markersize=1)
-
-
-# SPSNRs = [
-# [29.91,31.6,33.17,34.45,35.43,36.13,36.58],
-# [29.22,31.01,32.33,33.16,33.81,34.48,34.95,35.17],
-# [29.13,31,32.34,33.23,33.93,34.23,34.89,35.59],
-# [28.69,30.19,31.46,32.6,33.71,35,36.17],
-# [28.72,30.13,31.23,31.91,32.64,33.58],
-# [29.04]
-# ]
-# Sbpps = [
-# [0.0667,0.1099,0.1784,0.2847,0.4486,0.706,1.1164],
-# [0.0792,0.1280,0.1926,0.2776,0.3364,0.4715,0.6509,0.8680],
-# [0.0634,0.1098,0.1684,0.2439,0.3399,0.4767,0.6794,0.9825],
-# [0.073,0.1238,0.1965,0.2991,0.4348,0.6325,0.8969],
-# [0.0694,0.112,0.1755,0.25,0.37,0.543],
-# [0.09]
-# ]
-# sc_labels = ['x265','DVC','RLVC','SSF','ELFVC','Vesper']
-# line_plot(Sbpps,SPSNRs,sc_labels,colors,
-# 		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_256.eps',
-# 		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18,markersize=1)
+		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)
