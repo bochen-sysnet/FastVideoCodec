@@ -1905,16 +1905,15 @@ class ELFVC(ScaleSpaceFlow):
                 # quantify discrepancy
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
-                    # it might be better to replace round z
-                    # we add noise to it
-                    # predict with noise
-                    # cancel noise
-                    round_z = torch.round(z)
-                    pred_z = self.z_predictor(round_z) + round_z # this roundz could be removed
-                    pred_err_z = pred_z - z.detach()
                     if '-D' in name:
+                        round_z = torch.round(z)
+                        pred_z = self.z_predictor(round_z) + round_z
+                        pred_err_z = pred_z - z.detach()
                         z_hat = z + pred_err_z.detach()
                     else:
+                        round_z = quantize_ste(z)
+                        pred_z = self.z_predictor(round_z) + round_z
+                        pred_err_z = pred_z - z.detach()
                         z_hat = z + pred_err_z
                 else:
                     pred_err_z = None
@@ -1934,14 +1933,19 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
                 elif self.pred_nc and self.side_channel_nc:
-                    round_y = torch.round(y - means)
-                    side_info = self.upsampler(torch.round(z))
-                    all_info = torch.cat((round_y, side_info), dim=1)
-                    pred_y = self.y_predictor(all_info) + round_y 
-                    pred_err_y = pred_y - (y - means).detach()
                     if '-D' in name:
+                        round_y = torch.round(y - means)
+                        side_info = self.upsampler(torch.round(z))
+                        all_info = torch.cat((round_y, side_info), dim=1)
+                        pred_y = self.y_predictor(all_info) + round_y 
+                        pred_err_y = pred_y - (y - means).detach()
                         y_hat = y + pred_err_y.detach()
                     else:
+                        round_y = quantize_ste(y - means)
+                        side_info = self.upsampler(z_hat)
+                        all_info = torch.cat((round_y, side_info), dim=1)
+                        pred_y = self.y_predictor(all_info) + round_y 
+                        pred_err_y = pred_y - (y - means).detach()
                         y_hat = y + pred_err_y 
                 else:
                     pred_err_y = None
