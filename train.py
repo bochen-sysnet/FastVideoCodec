@@ -212,10 +212,10 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{be_loss_module.val:.4f} ({be_loss_module.avg:.4f}). "
             # f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"PN:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"PE:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-            f"QN:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"QE:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+            f"PE:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"PN:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"QE:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"QN:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
         if batch_idx % 5000 == 0 and batch_idx>0:
             if True:
@@ -318,10 +318,10 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-            f"PN:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"PE:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-            f"QN:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"QE:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+            f"PE:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"PN:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"QE:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"QN:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
         # clear input
         data = []
