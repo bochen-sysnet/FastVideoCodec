@@ -143,7 +143,7 @@ def next_level(cur):
     nxt = max(0,nxt)
     return nxt
 
-def parallel_compression(args,model, data, compressI=False, level=0):
+def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0):
     all_loss_list = []; 
     img_loss_list = []; bpp_list = []; psnr_list = []; bppres_list = []
     aux_loss_list = []; aux2_loss_list = [];aux3_loss_list = []; aux4_loss_list = [];
@@ -174,7 +174,10 @@ def parallel_compression(args,model, data, compressI=False, level=0):
             GOP_size = data.size(0) if no_batch else data.size(1)
             x_prev = data[0:1] if no_batch else data[:,0]
             x_hat_list = []
-            if 'ELFVC' in model_name:model.reset()
+            if 'ELFVC' in model_name:
+                model.reset()
+                if model.pred_nc and model.side_channel_nc:
+                    model.stage = batch_idx%3
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
@@ -205,6 +208,7 @@ def parallel_compression(args,model, data, compressI=False, level=0):
                     aux_loss_list += [pred_err_mean]
                     aux2_loss_list += [pred_norm]
                     loss += args.alpha * pred_norm
+                    model.stage = 0
                 all_loss_list += [loss]
                 Q_err_mean = 0
                 Q_norm = 0
@@ -1894,6 +1898,7 @@ class ELFVC(ScaleSpaceFlow):
                     self.z_predictor = None
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
+                self.fix_encoder = False
 
             def forward(self, y):
                 # the training of encoder should not be affected by noise predictor
@@ -1911,10 +1916,15 @@ class ELFVC(ScaleSpaceFlow):
                         pred_err_z = pred_z - z.detach()
                         z_hat = z + pred_err_z.detach()
                     else:
-                        round_z = quantize_ste(z)
+                        # the training of encoder should not be bothered by decoder
+                        round_z = torch.round(z)
                         pred_z = self.z_predictor(round_z) + round_z
                         pred_err_z = pred_z - z.detach()
-                        # z_hat = z + pred_err_z
+                        if self.training and not self.fix_encoder:
+                            # do nothing to z_hat
+                            z_hat = z
+                        else:
+                            z_hat = pred_z
                 else:
                     pred_err_z = None
 
@@ -1941,12 +1951,16 @@ class ELFVC(ScaleSpaceFlow):
                         pred_err_y = pred_y - (y - means).detach()
                         y_hat = y + pred_err_y.detach()
                     else:
-                        round_y = quantize_ste(y - means)
-                        side_info = self.upsampler(quantize_ste(z))
+                        round_y = torch.round(y - means)
+                        side_info = self.upsampler(torch.round(z))
                         all_info = torch.cat((round_y, side_info), dim=1)
                         pred_y = self.y_predictor(all_info) + round_y 
                         pred_err_y = pred_y - (y - means).detach()
-                        # y_hat = y + pred_err_y 
+                        if self.training and not self.fix_encoder:
+                            # do nothing to z_hat
+                            y_hat = y
+                        else:
+                            y_hat = pred_y
                 else:
                     pred_err_y = None
                     
@@ -1970,6 +1984,7 @@ class ELFVC(ScaleSpaceFlow):
         init_training_params(self)
         self.motion_info_prior = None
         self.x_ref_ref = None
+        self.stage = 0
 
     def reset(self):
         self.motion_info_prior = None
@@ -1987,6 +2002,7 @@ class ELFVC(ScaleSpaceFlow):
 
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
+        self.motion_hyperprior.fix_encoder = (self.stage > 0)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
@@ -1997,6 +2013,7 @@ class ELFVC(ScaleSpaceFlow):
         # residual
         x_res = x_cur - x_pred
         y_res = self.res_encoder(x_res)
+        self.res_hyperprior.fix_encoder = (self.stage > 1)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine

@@ -183,7 +183,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         data = data.cuda(device)
         
         # run model
-        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
+        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True, batch_idx=batch_idx)
 
         # record loss
         all_loss_module.update(img_loss + be_loss)
