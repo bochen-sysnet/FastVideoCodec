@@ -1916,8 +1916,7 @@ class ELFVC(ScaleSpaceFlow):
                     # the training of encoder should not be bothered by decoder
                     if self.training and not self.fix_encoder:
                         # do nothing to z_hat
-                        # z_hat = z
-                        pass
+                        z_hat = z
                     else:
                         if '-D' in name:
                             # z_hat = z + pred_err_z.detach()
@@ -1950,8 +1949,7 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     if self.training and not self.fix_encoder:
                         # do nothing to z_hat
-                        # y_hat = y
-                        pass
+                        y_hat = y
                     else:
                         if '-D' in name:
                             y_hat = pred_y.detach()
