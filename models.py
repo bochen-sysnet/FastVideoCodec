@@ -1910,21 +1910,20 @@ class ELFVC(ScaleSpaceFlow):
                 # quantify discrepancy
                 Q_err_z = z - torch.round(z)
                 if self.z_predictor is not None:
-                    if '-D' in name:
-                        round_z = torch.round(z)
-                        pred_z = self.z_predictor(round_z) + round_z
-                        pred_err_z = pred_z - z.detach()
-                        z_hat = z + pred_err_z.detach()
+                    round_z = torch.round(z)
+                    pred_z = self.z_predictor(round_z) + round_z
+                    pred_err_z = pred_z - z.detach()
+                    # the training of encoder should not be bothered by decoder
+                    if self.training and not self.fix_encoder:
+                        # do nothing to z_hat
+                        # z_hat = z
+                        pass
                     else:
-                        # the training of encoder should not be bothered by decoder
-                        round_z = torch.round(z)
-                        pred_z = self.z_predictor(round_z) + round_z
-                        pred_err_z = pred_z - z.detach()
-                        if self.training and not self.fix_encoder:
-                            # do nothing to z_hat
-                            # z_hat = z
-                            pass
+                        if '-D' in name:
+                            # z_hat = z + pred_err_z.detach()
+                            z_hat = pred_z.detach()
                         else:
+                            # z_hat = z + pred_err_z
                             z_hat = pred_z
                 else:
                     pred_err_z = None
@@ -1944,23 +1943,18 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     y_hat = y + pred_err_y
                 elif self.pred_nc and self.side_channel_nc:
-                    if '-D' in name:
-                        round_y = torch.round(y - means)
-                        side_info = self.upsampler(torch.round(z))
-                        all_info = torch.cat((round_y, side_info), dim=1)
-                        pred_y = self.y_predictor(all_info) + round_y 
-                        pred_err_y = pred_y - (y - means).detach()
-                        y_hat = y + pred_err_y.detach()
+                    round_y = torch.round(y - means)
+                    side_info = self.upsampler(torch.round(z))
+                    all_info = torch.cat((round_y, side_info), dim=1)
+                    pred_y = self.y_predictor(all_info) + round_y 
+                    pred_err_y = pred_y - (y - means).detach()
+                    if self.training and not self.fix_encoder:
+                        # do nothing to z_hat
+                        # y_hat = y
+                        pass
                     else:
-                        round_y = torch.round(y - means)
-                        side_info = self.upsampler(torch.round(z))
-                        all_info = torch.cat((round_y, side_info), dim=1)
-                        pred_y = self.y_predictor(all_info) + round_y 
-                        pred_err_y = pred_y - (y - means).detach()
-                        if self.training and not self.fix_encoder:
-                            # do nothing to z_hat
-                            # y_hat = y
-                            pass
+                        if '-D' in name:
+                            y_hat = pred_y.detach()
                         else:
                             y_hat = pred_y
                 else:
