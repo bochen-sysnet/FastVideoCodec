@@ -1912,7 +1912,7 @@ class ELFVC(ScaleSpaceFlow):
                         z_hat = z + pred_err_z.detach()
                     else:
                         round_z = quantize_ste(z)
-                        pred_z = (self.z_predictor(round_z)) + round_z
+                        pred_z = torch.sigmoid(self.z_predictor(round_z)) + round_z
                         pred_err_z = pred_z - z.detach()
                         z_hat = z + pred_err_z
                 else:
@@ -1944,7 +1944,7 @@ class ELFVC(ScaleSpaceFlow):
                         round_y = quantize_ste(y - means)
                         side_info = self.upsampler(quantize_ste(z))
                         all_info = torch.cat((round_y, side_info), dim=1)
-                        pred_y = (self.y_predictor(all_info)) + round_y 
+                        pred_y = torch.sigmoid(self.y_predictor(all_info)) + round_y 
                         pred_err_y = pred_y - (y - means).detach()
                         y_hat = y + pred_err_y 
                 else:
