@@ -1950,7 +1950,7 @@ class ELFVC(ScaleSpaceFlow):
     def optim_parameters(self):
         if self.stage == 2:
             parameters = []
-            parameters += self.res_decoder.parameters()
+            # parameters += self.res_decoder.parameters()
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.motion_hyperprior.y_predictor.parameters()
             return parameters
