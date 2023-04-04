@@ -1949,9 +1949,9 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self):
         if self.stage == 2:
-            return [p for n, p in model.named_parameters() if 'res_decoder' in n]
+            return [p for n, p in self.named_parameters() if 'res_decoder' in n]
         else:
-            return [p for n, p in model.named_parameters()]
+            return [p for n, p in self.named_parameters()]
 
     def freeze_based_on_stage(self):
         # [self.flow_predictor, self.motion_encoder, self.motion_decoder, self.motion_hyperprior, self.res_encoder, self.res_decoder, self.res_hyperprior]
