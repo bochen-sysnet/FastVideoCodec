@@ -1951,10 +1951,8 @@ class ELFVC(ScaleSpaceFlow):
         if self.stage == 2:
             parameters = []
             parameters += self.res_decoder.parameters()
-            print(parameters)
-            exit(0)
-            parameters += self.res_hyperprior.y_predictor.named_parameters()
-            parameters += self.motion_hyperprior.y_predictor.named_parameters()
+            parameters += self.res_hyperprior.y_predictor.parameters()
+            parameters += self.motion_hyperprior.y_predictor.parameters()
             return parameters
         else:
             return [p for n, p in self.named_parameters()]
