@@ -160,6 +160,8 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     else:
         parameters = model.optim_parameters()
         model.eval()
+        print(test(epoch, model, test_dataset))
+        exit(0)
     optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     # Adjust learning rate
     adjust_learning_rate(optimizer, epoch)
@@ -230,7 +232,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                     print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
                     best_codec_score = score
                 else:
-                    print(score)
+                    print(stats, score)
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 model.train()
