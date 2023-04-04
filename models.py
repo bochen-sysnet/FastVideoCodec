@@ -1992,10 +1992,10 @@ class ELFVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
-        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1).detach())
 
         # final reconstruction: prediction + residual
-        x_rec = x_pred + x_res_hat
+        x_rec = x_pred.detach() + x_res_hat
 
         # record
         self.x_ref_ref = x_ref.detach()
@@ -2011,4 +2011,4 @@ class ELFVC(ScaleSpaceFlow):
             if likelihoods['Q_err_y'] is not None:
                 Q_err += [likelihoods['Q_err_y']]
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
+        return x_rec, {"motion": motion_likelihoods.detach(), "residual": res_likelihoods.detach(), "pred_err": pred_err, "Q_err": Q_err}
