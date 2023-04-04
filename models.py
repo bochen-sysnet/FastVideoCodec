@@ -1922,7 +1922,7 @@ class ELFVC(ScaleSpaceFlow):
                 else:
                     pred_err_y = None
                     
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
+                return y_hat, {"y": y_likelihoods.detach(), "z": z_likelihoods.detach(), "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -2013,4 +2013,4 @@ class ELFVC(ScaleSpaceFlow):
             if likelihoods['Q_err_y'] is not None:
                 Q_err += [likelihoods['Q_err_y']]
 
-        return x_rec, {"motion": motion_likelihoods.detach(), "residual": res_likelihoods.detach(), "pred_err": pred_err, "Q_err": Q_err}
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
