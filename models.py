@@ -177,7 +177,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
             if 'ELFVC' in model_name:
                 model.reset()
                 if model.pred_nc and model.side_channel_nc:
-                    model.stage = (batch_idx%3000)//1000
+                    model.stage = (batch_idx%9000)//3000
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
