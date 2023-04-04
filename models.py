@@ -1986,7 +1986,29 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = None
         self.x_ref_ref = None
 
+    def freeze_based_on_stage(self):
+        if self.stage == 0:
+            for module in [self.motion_decoder, self.motion_hyperprior,\
+                            self.res_encoder, self.res_decoder, self.res_hyperprior]:
+                for param in module.parameters():
+                    param.requires_grad = False
+        elif self.stage == 1:
+            for module in [self.flow_predictor, self.motion_encoder, self.motion_decoder, self.motion_hyperprior,\
+                            self.res_encoder]:
+                for param in module.parameters():
+                    param.requires_grad = False
+        elif self.stage == 2:
+            for module in [self.res_decoder, self.res_hyperprior]:
+                for param in module.parameters():
+                    param.requires_grad = False
+
+    def unfreeze_based_on_stage(self):
+        for param in self.parameters():
+            param.requires_grad = True
+
     def forward_inter(self, x_cur, x_ref):
+        self.freeze_based_on_stage()
+
         if self.motion_info_prior is None:
             B,C,H,W = x_cur.size()
             self.motion_info_prior = torch.zeros(B,3,H,W).to(x_cur.device)
@@ -2034,5 +2056,6 @@ class ELFVC(ScaleSpaceFlow):
                 if likelihoods[qe] is not None:
                     Q_err += [likelihoods[qe]]
 
+        self.unfreeze_based_on_stage()
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
                         "pred_err": pred_err, "Q_err": Q_err}
