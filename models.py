@@ -177,7 +177,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
             if 'ELFVC' in model_name:
                 model.reset()
                 if model.pred_nc and model.side_channel_nc:
-                    model.stage = batch_idx%3
+                    model.stage = (batch_idx%3000)//1000
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
@@ -1920,10 +1920,7 @@ class ELFVC(ScaleSpaceFlow):
                     if self.training and not self.fix_encoder:
                         pass
                     else:
-                        if '-D' in name:
-                            z_hat = pred_z.detach()
-                        else:
-                            z_hat = pred_z
+                        z_hat = pred_z.detach()
                 else:
                     pred_err_z = None
 
@@ -1952,10 +1949,7 @@ class ELFVC(ScaleSpaceFlow):
                     if self.training and not self.fix_encoder:
                         pass
                     else:
-                        if '-D' in name:
-                            y_hat = pred_y.detach() + means
-                        else:
-                            y_hat = pred_y + means
+                        y_hat = pred_y.detach() + means
                 else:
                     pred_err_y = None
                     
