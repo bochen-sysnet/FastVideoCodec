@@ -1939,7 +1939,7 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self, epoch):
         if self.pred_nc and self.side_channel_nc:
-            self.stage = 1
+            self.stage = 2
         else:
             self.stage = 0
         if self.stage == 1:
