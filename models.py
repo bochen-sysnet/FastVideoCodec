@@ -1949,7 +1949,11 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self):
         if self.stage == 2:
-            return [p for n, p in self.named_parameters() if 'res_decoder' in n]
+            parameters = []
+            parameters += self.res_decoder.parameters()
+            parameters += self.res_hyperprior.y_predictor.named_parameters()
+            parameters += self.motion_hyperprior.y_predictor.named_parameters()
+            return parameters
         else:
             return [p for n, p in self.named_parameters()]
 
