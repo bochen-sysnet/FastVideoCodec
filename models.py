@@ -1910,10 +1910,7 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    # if '-D' in name:
-                    #     y_hat = pred_y.detach() + means
-                    # else:
-                    #     y_hat = pred_y + means
+                    y_hat = pred_y.detach() + means
                     # y_hat = torch.round(y - means) + means
                 else:
                     pred_err_y = None
