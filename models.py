@@ -1956,7 +1956,7 @@ class ELFVC(ScaleSpaceFlow):
                     param.requires_grad = False
         elif self.stage == 2:
             for module in [self.flow_predictor, self.motion_encoder, self.motion_decoder, \
-                        self.motion_hyperprior, self.res_encoder, self.res_hyperprior.get_modules(True)]:
+                        self.motion_hyperprior, self.res_encoder, *self.res_hyperprior.get_modules(True)]:
                 if module is None: continue
                 for param in module.parameters():
                     param.requires_grad = False
