@@ -155,8 +155,10 @@ class AverageMeter(object):
         
 def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     # create optimizer
-    # if finetune, only optimize encoder part
-    parameters = [p for n, p in model.named_parameters()]
+    if 'ELFVC' not in model.name:
+        parameters = [p for n, p in model.named_parameters()]
+    else:
+        parameters = model.optim_parameters()
     optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     # Adjust learning rate
     adjust_learning_rate(optimizer, epoch)
