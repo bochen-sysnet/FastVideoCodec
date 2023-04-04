@@ -1922,7 +1922,7 @@ class ELFVC(ScaleSpaceFlow):
                 else:
                     pred_err_y = None
                     
-                return y_hat, {"y": y_likelihoods.detach(), "z": z_likelihoods.detach(), "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -1949,8 +1949,6 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self):
         if self.stage == 2:
-            for n, p in self.named_parameters():
-                if 'res_decoder' in n: print(n)
             return [p for n, p in self.named_parameters() if 'res_decoder' in n]
         else:
             return [p for n, p in self.named_parameters()]
@@ -1994,10 +1992,10 @@ class ELFVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
-        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1).detach())
+        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
         # final reconstruction: prediction + residual
-        x_rec = x_pred.detach() + x_res_hat
+        x_rec = x_pred + x_res_hat
 
         # record
         self.x_ref_ref = x_ref.detach()
