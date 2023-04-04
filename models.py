@@ -1944,7 +1944,9 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self, epoch):
         if self.pred_nc and self.side_channel_nc:
-            self.stage = 2
+            self.stage = 1
+        else:
+            self.stage = 0
         if self.stage == 1:
             parameters = []
             parameters += self.motion_hyperprior.y_predictor.parameters()
