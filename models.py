@@ -176,8 +176,6 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
             x_hat_list = []
             if 'ELFVC' in model_name:
                 model.reset()
-                if model.pred_nc and model.side_channel_nc:
-                    model.stage = 2
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
@@ -1939,13 +1937,15 @@ class ELFVC(ScaleSpaceFlow):
         init_training_params(self)
         self.motion_info_prior = None
         self.x_ref_ref = None
-        self.stage = 2
 
     def reset(self):
         self.motion_info_prior = None
         self.x_ref_ref = None
 
     def optim_parameters(self, epoch):
+        print('!!!')
+        if self.pred_nc and self.side_channel_nc:
+            self.stage = 2
         if self.stage == 1:
             parameters = []
             parameters += self.motion_hyperprior.y_predictor.parameters()
@@ -1962,20 +1962,6 @@ class ELFVC(ScaleSpaceFlow):
             return parameters
         else:
             return [p for n, p in self.named_parameters()]
-
-    def freeze_based_on_stage(self):
-        # [self.flow_predictor, self.motion_encoder, self.motion_decoder, self.motion_hyperprior, self.res_encoder, self.res_decoder, self.res_hyperprior]
-        if self.stage == 1:
-            for module in [self.flow_predictor, self.motion_encoder, *self.motion_hyperprior.get_modules(True)]:
-                if module is None: continue
-                for param in module.parameters():
-                    param.requires_grad = False
-        elif self.stage == 2:
-            for module in [self.flow_predictor, self.motion_encoder, self.motion_decoder, \
-                        self.motion_hyperprior, self.res_encoder, *self.res_hyperprior.get_modules(True)]:
-                if module is None: continue
-                for param in module.parameters():
-                    param.requires_grad = False
 
     def forward_inter(self, x_cur, x_ref):
         if self.motion_info_prior is None:
