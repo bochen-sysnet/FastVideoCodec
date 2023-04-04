@@ -112,8 +112,8 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     if isinstance(checkpoint['score'],float):
         best_codec_score = checkpoint['score']
-    load_state_dict_all(model, checkpoint['state_dict'])
-    # load_state_dict_whatever(model, checkpoint['state_dict'])
+    # load_state_dict_all(model, checkpoint['state_dict'])
+    load_state_dict_whatever(model, checkpoint['state_dict'])
     print("Loaded model codec score: ", checkpoint['score'])
     if 'stats' in checkpoint:
         print(checkpoint['stats'])
@@ -219,7 +219,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"QE:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"QN:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
-        if batch_idx % 1000 == 0 and batch_idx>0:
+        if batch_idx % 5000 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score, stats = test(epoch, model, test_dataset)
@@ -239,7 +239,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
 
         # clear result every 1000 batches
-        if batch_idx % 1000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 5000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
