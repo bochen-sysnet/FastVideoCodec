@@ -177,7 +177,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
             if 'ELFVC' in model_name:
                 model.reset()
                 if model.pred_nc and model.side_channel_nc:
-                    model.stage = 0
+                    model.stage = 2
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
@@ -1873,54 +1873,30 @@ class ELFVC(ScaleSpaceFlow):
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
-                kernel_size = 5; act_func = 3; ch2 = ch3 = planes
                 if pred_nc and not side_channel_nc:
-                    self.y_predictor = CodecNet([(0,kernel_size,1,planes,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,ch2),act_func,(0,kernel_size,1,ch2,planes),])
+                    self.y_predictor = SPnet(input_channels=planes, output_channels=planes)
+                elif not pred_nc and side_channel_nc:
+                    self.y_predictor = HyperDecoder(planes, mid_planes, planes)
                 elif pred_nc and side_channel_nc:
                     # new
                     self.y_predictor = SPnet(input_channels=planes + 3, output_channels=planes)
-                    # 0
-                    # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(11,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(11,kernel_size,1,planes,planes)])
-                    # 1
-                    # self.y_predictor = CodecNet([(8,kernel_size,1,planes + 3,ch2),(12,kernel_size,1,ch2,ch2),(8,kernel_size,1,ch2,ch2),(12,kernel_size,1,planes,planes)])
                     r = 8
                     self.upsampler = nn.PixelShuffle(r)
-                elif not pred_nc and side_channel_nc:
-                    self.y_predictor = HyperDecoder(planes, mid_planes, planes)
                 else:
                     self.y_predictor = None
-
-                if pred_nc:
-                    # new
-                    self.z_predictor = SPnet(input_channels=planes, output_channels=planes)
-                    # self.z_predictor = CodecNet([(0,kernel_size,1,planes,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,ch3),act_func,(0,kernel_size,1,ch3,planes),])
-                else:
-                    self.z_predictor = None
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
-                self.fix_encoder = False
-                self.fix_pred = False
+
+            def get_modules(self, encoder=True):
+                if encoder:
+                    return [self.entropy_bottleneck, self.gaussian_conditional, self.hyper_encoder, self.hyper_decoder_mean, self.hyper_decoder_scale]
+                else:
+                    return [self.y_predictor]
 
             def forward(self, y):
-                # the training of encoder should not be affected by noise predictor
-                pred_loss_y = pred_loss_z = None
-                # use side channel for noise cancelling
+                pred_loss_y = None
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                # how much noise added to original data
-                # quantify discrepancy
-                Q_err_z = z - torch.round(z)
-                if self.z_predictor is not None:
-                    round_z = torch.round(z)
-                    pred_z = self.z_predictor(round_z) + round_z
-                    pred_err_z = pred_z - z.detach()
-                    # the training of encoder should not be bothered by decoder
-                    if self.training and not self.fix_encoder:
-                        pass
-                    else:
-                        z_hat = pred_z.detach()
-                else:
-                    pred_err_z = None
 
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
@@ -1942,15 +1918,11 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if self.training and not self.fix_encoder:
-                        pass
-                    else:
-                        y_hat = pred_y.detach() + means
+                    # y_hat = pred_y.detach() + means
                 else:
                     pred_err_y = None
                     
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, 
-                                "pred_err_y": pred_err_y, "pred_err_z": pred_err_z, "Q_err_y": Q_err_y, "Q_err_z": Q_err_z}
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -1975,7 +1947,27 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = None
         self.x_ref_ref = None
 
+    def freeze_based_on_stage(self):
+        # [self.flow_predictor, self.motion_encoder, self.motion_decoder, self.motion_hyperprior, self.res_encoder, self.res_decoder, self.res_hyperprior]
+        if self.stage == 1:
+            for module in [self.flow_predictor, self.motion_encoder, *self.motion_hyperprior.get_modules(True)]:
+                if module is None: continue
+                for param in module.parameters():
+                    param.requires_grad = False
+        elif self.stage == 2:
+            for module in [self.flow_predictor, self.motion_encoder, self.motion_decoder, \
+                        self.motion_hyperprior, self.res_encoder, self.res_hyperprior.get_modules(True)]:
+                if module is None: continue
+                for param in module.parameters():
+                    param.requires_grad = False
+
+    def unfreeze_based_on_stage(self):
+        for param in self.parameters():
+            param.requires_grad = True
+
     def forward_inter(self, x_cur, x_ref):
+        self.freeze_based_on_stage()
+
         if self.motion_info_prior is None:
             B,C,H,W = x_cur.size()
             self.motion_info_prior = torch.zeros(B,3,H,W).to(x_cur.device)
@@ -1987,7 +1979,6 @@ class ELFVC(ScaleSpaceFlow):
 
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
-        self.motion_hyperprior.fix_encoder = (self.stage > 0)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
@@ -1998,7 +1989,6 @@ class ELFVC(ScaleSpaceFlow):
         # residual
         x_res = x_cur - x_pred
         y_res = self.res_encoder(x_res)
-        self.res_hyperprior.fix_encoder = (self.stage > 1)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # y_combine
@@ -2014,14 +2004,13 @@ class ELFVC(ScaleSpaceFlow):
         pred_err = []
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
-                for pe in ['pred_err_y', 'pred_err_z']:
-                    if likelihoods[pe] is not None:
-                        pred_err += [likelihoods[pe]]
+                if likelihoods['pred_err_y'] is not None:
+                    pred_err += [likelihoods[pe]]
         Q_err = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
-            for qe in ['Q_err_y', 'Q_err_z']:
-                if likelihoods[qe] is not None:
-                    Q_err += [likelihoods[qe]]
+            if likelihoods['Q_err_y'] is not None:
+                Q_err += [likelihoods[qe]]
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, 
-                        "pred_err": pred_err, "Q_err": Q_err}
+        self.unfreeze_based_on_stage()
+
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
