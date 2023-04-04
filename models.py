@@ -1949,6 +1949,8 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self):
         if self.stage == 2:
+            for n, p in self.named_parameters():
+                if 'res_decoder' in n: print(n)
             return [p for n, p in self.named_parameters() if 'res_decoder' in n]
         else:
             return [p for n, p in self.named_parameters()]
