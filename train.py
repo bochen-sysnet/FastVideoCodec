@@ -159,6 +159,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         parameters = [p for n, p in model.named_parameters()]
     else:
         parameters = model.optim_parameters()
+        model.eval()
     optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     # Adjust learning rate
     adjust_learning_rate(optimizer, epoch)
@@ -219,7 +220,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"QE:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"QN:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
-        if batch_idx % 10 == 0 and batch_idx>0:
+        if batch_idx % 1 == 0 and batch_idx>0:
             if True:
                 print('Testing at batch_idx %d' % (batch_idx))
                 score, stats = test(epoch, model, test_dataset)
@@ -239,7 +240,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
 
         # clear result every 1000 batches
-        if batch_idx % 10 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 1 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
