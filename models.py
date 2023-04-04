@@ -1864,7 +1864,7 @@ class ELFVC(ScaleSpaceFlow):
                 x = self.qrelu3(self.deconv3(x))
                 return x
         class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False):
+            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False, res: bool = False):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
@@ -1884,6 +1884,7 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = None
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
+                self.residual = res
 
             def forward(self, y):
                 pred_loss_y = None
@@ -1895,25 +1896,24 @@ class ELFVC(ScaleSpaceFlow):
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
-                if self.pred_nc and not self.side_channel_nc:
-                    round_y = torch.round(y - means)
-                    pred_y = self.y_predictor(round_y) + round_y 
-                    pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y 
-                elif not self.pred_nc and self.side_channel_nc:
-                    pred_y = self.y_predictor(torch.round(z)) + torch.round(y - means)
-                    pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y
-                elif self.pred_nc and self.side_channel_nc:
-                    round_y = torch.round(y - means)
-                    side_info = self.upsampler(torch.round(z))
-                    all_info = torch.cat((round_y, side_info), dim=1)
-                    pred_y = self.y_predictor(all_info) + round_y
-                    pred_err_y = pred_y - (y - means).detach()
-                    y_hat = pred_y.detach() + means
-                    # y_hat = torch.round(y - means) + means
-                else:
-                    pred_err_y = None
+                pred_err_y = None
+                if self.residual:
+                    if self.pred_nc and not self.side_channel_nc:
+                        round_y = torch.round(y - means)
+                        pred_y = self.y_predictor(round_y) + round_y 
+                        pred_err_y = pred_y - (y - means).detach()
+                        y_hat = y + pred_err_y 
+                    elif not self.pred_nc and self.side_channel_nc:
+                        pred_y = self.y_predictor(torch.round(z)) + torch.round(y - means)
+                        pred_err_y = pred_y - (y - means).detach()
+                        y_hat = y + pred_err_y
+                    elif self.pred_nc and self.side_channel_nc:
+                        round_y = torch.round(y - means)
+                        side_info = self.upsampler(torch.round(z))
+                        all_info = torch.cat((round_y, side_info), dim=1)
+                        pred_y = self.y_predictor(all_info) + round_y
+                        pred_err_y = pred_y - (y - means).detach()
+                        y_hat = pred_y.detach() + means
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
@@ -1926,8 +1926,8 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc)
-        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc)
+        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, res=True)
+        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, res=False)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
