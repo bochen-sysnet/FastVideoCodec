@@ -1949,17 +1949,19 @@ class ELFVC(ScaleSpaceFlow):
 
     def freeze_based_on_stage(self):
         # [self.flow_predictor, self.motion_encoder, self.motion_decoder, self.motion_hyperprior, self.res_encoder, self.res_decoder, self.res_hyperprior]
-        if self.stage == 1:
-            for module in [self.flow_predictor, self.motion_encoder, *self.motion_hyperprior.get_modules(True)]:
-                if module is None: continue
-                for param in module.parameters():
-                    param.requires_grad = False
-        elif self.stage == 2:
-            for module in [self.flow_predictor, self.motion_encoder, self.motion_decoder, \
-                        self.motion_hyperprior, self.res_encoder, *self.res_hyperprior.get_modules(True)]:
-                if module is None: continue
-                for param in module.parameters():
-                    param.requires_grad = False
+        # if self.stage == 1:
+        #     for module in [self.flow_predictor, self.motion_encoder, *self.motion_hyperprior.get_modules(True)]:
+        #         if module is None: continue
+        #         for param in module.parameters():
+        #             param.requires_grad = False
+        # elif self.stage == 2:
+        #     for module in [self.flow_predictor, self.motion_encoder, self.motion_decoder, \
+        #                 self.motion_hyperprior, self.res_encoder, *self.res_hyperprior.get_modules(True)]:
+        #         if module is None: continue
+        #         for param in module.parameters():
+        #             param.requires_grad = False
+        for param in self.parameters():
+            param.requires_grad = True
 
     def unfreeze_based_on_stage(self):
         for param in self.parameters():
