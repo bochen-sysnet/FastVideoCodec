@@ -1887,12 +1887,6 @@ class ELFVC(ScaleSpaceFlow):
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
 
-            def get_modules(self, encoder=True):
-                if encoder:
-                    return [self.entropy_bottleneck, self.gaussian_conditional, self.hyper_encoder, self.hyper_decoder_mean, self.hyper_decoder_scale]
-                else:
-                    return [self.y_predictor]
-
             def forward(self, y):
                 pred_loss_y = None
                 z = self.hyper_encoder(y)
@@ -1918,7 +1912,10 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    y_hat = pred_y.detach() + means
+                    if '-D' in name:
+                        y_hat = pred_y.detach() + means
+                    else:
+                        y_hat = pred_y + means
                     # y_hat = torch.round(y - means) + means
                 else:
                     pred_err_y = None
@@ -1948,12 +1945,20 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = None
         self.x_ref_ref = None
 
-    def optim_parameters(self):
-        if self.stage == 2:
+    def optim_parameters(self, epoch):
+        if self.stage == 1:
             parameters = []
+            parameters += self.motion_hyperprior.y_predictor.parameters()
+            parameters += self.motion_decoder.parameters()
+            parameters += self.res_encoder.parameters()
             parameters += self.res_decoder.parameters()
+            parameters += self.res_hyperprior.parameters()
+            return parameters
+        elif self.stage == 2:
+            parameters = []
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.motion_hyperprior.y_predictor.parameters()
+            parameters += self.res_decoder.parameters()
             return parameters
         else:
             return [p for n, p in self.named_parameters()]
