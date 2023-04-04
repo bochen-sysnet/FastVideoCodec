@@ -306,7 +306,6 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
 
     # aggregate loss
     loss = torch.stack(all_loss_list,dim=0).sum(dim=0) if all_loss_list else 0
-    print(all_loss_list,loss)
     be_loss = torch.stack(bpp_list,dim=0).mean(dim=0).cpu().data.item()
     be_res_loss = torch.stack(bppres_list,dim=0).mean(dim=0).cpu().data.item() if bppres_list else 0
     img_loss = torch.stack(img_loss_list,dim=0).mean(dim=0).cpu().data.item() if all_loss_list else 0
