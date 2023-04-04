@@ -177,7 +177,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
             if 'ELFVC' in model_name:
                 model.reset()
                 if model.pred_nc and model.side_channel_nc:
-                    model.stage = (batch_idx%9000)//3000
+                    model.stage = batch_idx//3200
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
@@ -1914,8 +1914,6 @@ class ELFVC(ScaleSpaceFlow):
                     round_z = torch.round(z)
                     pred_z = self.z_predictor(round_z) + round_z
                     pred_err_z = pred_z - z.detach()
-                    if self.fix_pred:
-                        pred_err_z = pred_err_z.detach()
                     # the training of encoder should not be bothered by decoder
                     if self.training and not self.fix_encoder:
                         pass
@@ -1944,8 +1942,6 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if self.fix_pred:
-                        pred_err_y = pred_err_y.detach()
                     if self.training and not self.fix_encoder:
                         pass
                     else:
@@ -1992,7 +1988,6 @@ class ELFVC(ScaleSpaceFlow):
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_pred_local), dim=1))
         self.motion_hyperprior.fix_encoder = (self.stage > 0)
-        self.motion_hyperprior.fix_pred = (self.stage == 2)
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
