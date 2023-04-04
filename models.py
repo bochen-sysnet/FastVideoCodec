@@ -2005,11 +2005,11 @@ class ELFVC(ScaleSpaceFlow):
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 if likelihoods['pred_err_y'] is not None:
-                    pred_err += [likelihoods[pe]]
+                    pred_err += [likelihoods['pred_err_y']]
         Q_err = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             if likelihoods['Q_err_y'] is not None:
-                Q_err += [likelihoods[qe]]
+                Q_err += [likelihoods['Q_err_y']]
 
         self.unfreeze_based_on_stage()
 
