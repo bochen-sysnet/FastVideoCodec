@@ -1912,9 +1912,12 @@ class ELFVC(ScaleSpaceFlow):
         # cat input seems better
         self.pred_nc = True if '-ER' in name else False # predictive quantization mitigates noise, power of 2 or tanh good
         # use single loss is better
-        self.stage = 0
-        motion_sp = self.stage > 0
-        res_sp = self.stage > 1
+        self.compression_level = compression_level
+        self.loss_type = loss_type
+        init_training_params(self)
+        self.spstage = 0
+        motion_sp = self.spstage > 0
+        res_sp = self.spstage > 1
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
@@ -1922,9 +1925,6 @@ class ELFVC(ScaleSpaceFlow):
         self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
         self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp)
         self.name = name
-        self.compression_level = compression_level
-        self.loss_type = loss_type
-        init_training_params(self)
         self.motion_info_prior = None
         self.x_ref_ref = None
 
@@ -1933,16 +1933,17 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = None
 
     def optim_parameters(self, epoch):
-        print('Current stage:',self.stage)
-        if self.stage == 1:
+        print('Current stage:',self.spstage)
+        if self.spstage == 1:
             parameters = []
+            # use this or not? Maybe yes as the input might change, so does this. The predictor might drift
             parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.motion_decoder.parameters()
             parameters += self.res_encoder.parameters()
             parameters += self.res_decoder.parameters()
             parameters += self.res_hyperprior.parameters()
             return parameters
-        elif self.stage == 2:
+        elif self.spstage == 2:
             parameters = []
             parameters += self.res_hyperprior.y_predictor.parameters()
             # parameters += self.motion_hyperprior.y_predictor.parameters()
