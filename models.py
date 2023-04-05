@@ -1938,10 +1938,8 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = None
 
     def optim_parameters(self, epoch):
-        if self.pred_nc and self.side_channel_nc:
-            self.stage = 2
-        else:
-            self.stage = 0
+        self.stage = 0
+        print('Current stage:',self.stage)
         if self.stage == 1:
             parameters = []
             parameters += self.motion_hyperprior.y_predictor.parameters()
@@ -1953,7 +1951,7 @@ class ELFVC(ScaleSpaceFlow):
         elif self.stage == 2:
             parameters = []
             parameters += self.res_hyperprior.y_predictor.parameters()
-            parameters += self.motion_hyperprior.y_predictor.parameters()
+            # parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
             return parameters
         else:
