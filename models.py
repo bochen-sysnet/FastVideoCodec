@@ -1864,7 +1864,7 @@ class ELFVC(ScaleSpaceFlow):
                 x = self.qrelu3(self.deconv3(x))
                 return x
         class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False):
+            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False, sp: bool = False):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
@@ -1884,6 +1884,7 @@ class ELFVC(ScaleSpaceFlow):
                     self.y_predictor = None
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
+                self.sp = sp
 
             def forward(self, y):
                 pred_loss_y = None
@@ -1896,22 +1897,14 @@ class ELFVC(ScaleSpaceFlow):
                 y_hat = quantize_ste(y - means) + means
                 Q_err_y = y - (torch.round(y - means) + means)
                 pred_err_y = None
-                if self.pred_nc and not self.side_channel_nc:
-                    round_y = torch.round(y - means)
-                    pred_y = self.y_predictor(round_y) + round_y 
-                    pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y 
-                elif not self.pred_nc and self.side_channel_nc:
-                    pred_y = self.y_predictor(torch.round(z)) + torch.round(y - means)
-                    pred_err_y = pred_y - (y - means).detach()
-                    y_hat = y + pred_err_y
-                elif self.pred_nc and self.side_channel_nc:
+                if self.pred_nc and self.side_channel_nc:
                     round_y = torch.round(y - means)
                     side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    y_hat = pred_y.detach() + means
+                    if self.sp:
+                        y_hat = pred_y.detach() + means
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
@@ -1919,13 +1912,15 @@ class ELFVC(ScaleSpaceFlow):
         # cat input seems better
         self.pred_nc = True if '-ER' in name else False # predictive quantization mitigates noise, power of 2 or tanh good
         # use single loss is better
-        self.train_nc = True if '-ET' in name else False # error aware training
+        self.stage = 0
+        motion_sp = self.stage > 0
+        res_sp = self.stage > 1
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc)
-        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc)
+        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
+        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp)
         self.name = name
         self.compression_level = compression_level
         self.loss_type = loss_type
@@ -1938,7 +1933,6 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = None
 
     def optim_parameters(self, epoch):
-        self.stage = 0
         print('Current stage:',self.stage)
         if self.stage == 1:
             parameters = []
