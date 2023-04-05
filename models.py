@@ -1934,7 +1934,9 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self, epoch):
         print('Current stage:',self.spstage)
-        if self.spstage == 1:
+        if self.spstage == 0:
+            return [p for n, p in self.named_parameters()]
+        elif self.spstage == 1:
             parameters = []
             # use this or not? Maybe yes as the input might change, so does this. The predictor might drift
             parameters += self.motion_hyperprior.y_predictor.parameters()
@@ -1950,7 +1952,8 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_decoder.parameters()
             return parameters
         else:
-            return [p for n, p in self.named_parameters()]
+            print('Unknown stage')
+            exit(0)
 
     def forward_inter(self, x_cur, x_ref):
         if self.motion_info_prior is None:
