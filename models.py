@@ -1932,10 +1932,23 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = None
         self.x_ref_ref = None
 
-    def optim_parameters(self, epoch):
-        print('Current stage:',self.spstage)
+    def optim_parameters(self, epoch, learning_rate):
+        lr = learning_rate
+        # if epoch < 1:
+        #     # train optimizer
+        #     self.spstage = 0
+        # elif epoch < 7:
+        #     # train flow noise predictor
+        #     self.spstage = 1
+        #     lr *= 10**(-(epoch - 1)//2)
+        # else:
+        #     self.spstage = 2
+        #     lr *= 10**(-(epoch - 7)//2)
+
         if self.spstage == 0:
-            return [p for n, p in self.named_parameters()]
+            parameters = []
+            parameters += self.res_hyperprior.y_predictor.parameters()
+            parameters += self.motion_hyperprior.y_predictor.parameters()
         elif self.spstage == 1:
             parameters = []
             # use this or not? Maybe yes as the input might change, so does this. The predictor might drift
@@ -1944,16 +1957,15 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_encoder.parameters()
             parameters += self.res_decoder.parameters()
             parameters += self.res_hyperprior.parameters()
-            return parameters
         elif self.spstage == 2:
             parameters = []
             parameters += self.res_hyperprior.y_predictor.parameters()
-            # parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
-            return parameters
         else:
             print('Unknown stage')
             exit(0)
+        print('Current stage:',self.spstage, 'learning rate:', lr)
+        return parameters, lr
 
     def forward_inter(self, x_cur, x_ref):
         if self.motion_info_prior is None:

@@ -38,7 +38,7 @@ parser.add_argument('--codec', type=str, default='Base',
                     help='name of codec')
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
-parser.add_argument('--epoch', type=int, nargs='+', default=[0,20],
+parser.add_argument('--epoch', type=int, nargs='+', default=[0,13],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
@@ -110,6 +110,7 @@ if CODEC_NAME in ['SSF-Official']:
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    BEGIN_EPOCH = checkpoint['epoch'] + 1
     if isinstance(checkpoint['score'],float):
         best_codec_score = checkpoint['score']
     # load_state_dict_all(model, checkpoint['state_dict'])
@@ -157,9 +158,10 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     # create optimizer
     if 'ELFVC-ER-EC' not in model.name:
         parameters = [p for n, p in model.named_parameters()]
+        lr = LEARNING_RATE
     else:
-        parameters = model.optim_parameters(epoch)
-    optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        parameters,lr = model.optim_parameters(epoch,LEARNING_RATE)
+    optimizer = torch.optim.Adam([{'params': parameters}], lr=lr, weight_decay=WEIGHT_DECAY)
     # Adjust learning rate
     adjust_learning_rate(optimizer, epoch)
 
@@ -438,6 +440,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     import shutil
     epoch = state['epoch']
     torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
+    shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
+                    f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}.{epoch}.pth')
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
