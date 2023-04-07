@@ -1782,6 +1782,7 @@ class ELFVC(ScaleSpaceFlow):
         scale_field_shift: float = 1.0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
+        no_noise = '-NN' in name
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -1903,7 +1904,9 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if self.sp:
+                    if no_noise:
+                        y_hat = y
+                    elif self.sp:
                         y_hat = pred_y.detach() + means
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
@@ -1915,7 +1918,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 1
+        self.spstage = -1
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         self.motion_encoder = Encoder(2 * 3)
@@ -1951,7 +1954,6 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.motion_hyperprior.y_predictor.parameters()
         elif self.spstage == 1:
             parameters = []
-            # use this or not? Maybe yes as the input might change, so does this. The predictor might drift
             parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.motion_decoder.parameters()
             parameters += self.res_encoder.parameters()
@@ -1962,8 +1964,8 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
-            print('Unknown stage')
-            exit(0)
+            print('Default stage')
+            parameters = [self.parameters()]
         print('Current stage:',self.spstage, 'learning rate:', lr)
         return parameters, lr
 
