@@ -1905,7 +1905,11 @@ class ELFVC(ScaleSpaceFlow):
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
                     if no_noise:
-                        y_hat = y
+                        # quantization no impact on image
+                        if self.sp:
+                            y_hat = pred_y.detach() + means
+                        else:
+                            y_hat = y
                     elif self.sp:
                         y_hat = pred_y.detach() + means
                     
@@ -1918,7 +1922,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = -1
+        self.spstage = 1
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         self.motion_encoder = Encoder(2 * 3)
@@ -1954,14 +1958,14 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.motion_hyperprior.y_predictor.parameters()
         elif self.spstage == 1:
             parameters = []
-            parameters += self.motion_hyperprior.y_predictor.parameters()
+            # parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.motion_decoder.parameters()
             parameters += self.res_encoder.parameters()
             parameters += self.res_decoder.parameters()
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
-            parameters += self.res_hyperprior.y_predictor.parameters()
+            # parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
             print('Default stage')
