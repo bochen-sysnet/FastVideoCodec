@@ -1965,7 +1965,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_decoder.parameters()
         else:
             print('Default stage')
-            parameters = [self.parameters()]
+            parameters = [p for n, p in self.named_parameters()]
         print('Current stage:',self.spstage, 'learning rate:', lr)
         return parameters, lr
 
