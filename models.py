@@ -1908,10 +1908,11 @@ class ELFVC(ScaleSpaceFlow):
                     if self.no_noise:
                         # shrinked noise
                         if self.training:
-                            # shift distribution to new
-                            inject_mask = torch.empty_like(y).uniform_(0, float(1)) > 0.5
-                            epsilon = (inject_mask==1) * pred_err_y.detach() + (inject_mask==0) * Q_err_y.detach()
-                            y_hat = y + epsilon
+                            # # shift distribution to new
+                            # inject_mask = torch.empty_like(y).uniform_(0, float(1)) > 0.5
+                            # epsilon = (inject_mask==1) * pred_err_y.detach() + (inject_mask==0) * Q_err_y.detach()
+                            # y_hat = y + epsilon
+                            pass
                         else:
                             y_hat = pred_y.detach() + means
                     elif self.sp:
