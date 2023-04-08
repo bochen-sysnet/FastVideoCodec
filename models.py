@@ -1782,7 +1782,6 @@ class ELFVC(ScaleSpaceFlow):
         scale_field_shift: float = 1.0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
-        no_noise = '-NN' in name
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -1865,7 +1864,8 @@ class ELFVC(ScaleSpaceFlow):
                 x = self.qrelu3(self.deconv3(x))
                 return x
         class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False, sp: bool = False):
+            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, pred_nc: bool = False, 
+                        sp: bool = False, no_noise: bool = False):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
@@ -1886,6 +1886,7 @@ class ELFVC(ScaleSpaceFlow):
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
                 self.sp = sp
+                self.no_noise = no_noise
 
             def forward(self, y):
                 pred_loss_y = None
@@ -1904,7 +1905,7 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if no_noise:
+                    if self.no_noise:
                         # quantization no impact on image
                         if self.sp:
                             y_hat = pred_y.detach() + means
@@ -1922,15 +1923,17 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 2
+        self.spstage = -1
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
+        motion_nn = '-NN' in name
+        # res_nn = '-NN' in name # maybe comment this to make residual AE robust
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
-        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp)
+        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp, no_noise=res_nn)
+        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp, no_noise=motion_nn)
         self.name = name
         self.motion_info_prior = None
         self.x_ref_ref = None
