@@ -1958,14 +1958,14 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.motion_hyperprior.y_predictor.parameters()
         elif self.spstage == 1:
             parameters = []
-            # parameters += self.motion_hyperprior.y_predictor.parameters()
+            parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.motion_decoder.parameters()
             parameters += self.res_encoder.parameters()
             parameters += self.res_decoder.parameters()
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
-            # parameters += self.res_hyperprior.y_predictor.parameters()
+            parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
             print('Default stage')
