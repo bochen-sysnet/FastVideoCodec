@@ -1910,7 +1910,7 @@ class ELFVC(ScaleSpaceFlow):
                         if self.training:
                             # shift distribution to new
                             inject_mask = torch.empty_like(z).uniform_(0, float(1)) > 0.5
-                            epsilon = (inject_mask==1) * pred_err_y.detach() + (inject_mask==0) * Q_err_y.detach()
+                            epsilon = (inject_mask) * pred_err_y.detach() + (1-inject_mask) * Q_err_y.detach()
                             y_hat = y + epsilon
                         else:
                             y_hat = pred_y.detach() + means
