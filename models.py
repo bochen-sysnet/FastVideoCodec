@@ -203,8 +203,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += [pred_err.abs().mean()]
                         pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
-                    aux_loss_list += [sum(pred_err_mean)]
-                    aux2_loss_list += [pred_norm]
+                    aux_loss_list += [pred_err_mean[0]]
+                    aux2_loss_list += [pred_err_mean[1]]
                     loss += args.alpha * pred_norm
                     model.stage = 0
                 all_loss_list += [loss]
@@ -213,8 +213,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 for Q_err in likelihoods["Q_err"]:
                     Q_err_mean += [Q_err.abs().mean()]
                     Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                aux3_loss_list += [sum(Q_err_mean)]
-                aux4_loss_list += [Q_norm]
+                aux3_loss_list += [Q_err_mean[0]]
+                aux4_loss_list += [Q_err_mean[1]]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1907,8 +1907,8 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err_y = pred_y - (y - means).detach()
                     if self.sp:
                         y_hat = pred_y.detach() + means.detach()
-                    # else:
-                    #     y_hat = y + pred_err_y.detach()
+                    else:
+                        y_hat = y + pred_err_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
