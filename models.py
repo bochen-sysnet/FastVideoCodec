@@ -1923,7 +1923,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 1
+        self.spstage = 2
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         motion_nn = '-NN' in name
