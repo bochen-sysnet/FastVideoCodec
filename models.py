@@ -1927,12 +1927,11 @@ class ELFVC(ScaleSpaceFlow):
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         motion_nn = '-NN' in name
-        # res_nn = '-NN' in name # maybe comment this to make residual AE robust
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp, no_noise=res_nn)
+        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
         self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp, no_noise=motion_nn)
         self.name = name
         self.motion_info_prior = None
