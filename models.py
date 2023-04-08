@@ -1908,7 +1908,7 @@ class ELFVC(ScaleSpaceFlow):
                     if self.sp:
                         y_hat = pred_y.detach() + means.detach()
                     else:
-                        y_hat = pred_y.detach() + means.detach()
+                        y_hat = y + pred_err_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
