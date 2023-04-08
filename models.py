@@ -1897,7 +1897,7 @@ class ELFVC(ScaleSpaceFlow):
                 means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 y_hat = quantize_ste(y - means) + means
-                Q_err_y = y - (torch.round(y - means) + means)
+                Q_err_y = (torch.round(y - means) + means) - y
                 pred_err_y = None
                 if self.pred_nc and self.side_channel_nc:
                     round_y = torch.round(y - means)
@@ -1906,11 +1906,11 @@ class ELFVC(ScaleSpaceFlow):
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
                     if self.no_noise:
-                        # quantization no impact on image
+                        # attenuated noise
                         if self.sp:
                             y_hat = pred_y.detach() + means
                         else:
-                            y_hat = y
+                            y_hat = y# + Q_err_y.detach()
                     elif self.sp:
                         y_hat = pred_y.detach() + means
                     
@@ -1923,7 +1923,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 0
+        self.spstage = -1
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         motion_nn = '-NN' in name
