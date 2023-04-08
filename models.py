@@ -198,23 +198,23 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 if 'ELFVC' not in model_name: continue
                 loss = model.r*mseloss + bpp
                 if model.pred_nc or model.side_channel_nc:
-                    pred_err_mean = 0
+                    pred_err_mean = []
                     pred_norm = 0
                     for pred_err in likelihoods["pred_err"]:
-                        pred_err_mean += pred_err.abs().mean()
+                        pred_err_mean += [pred_err.abs().mean()]
                         pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
-                    aux_loss_list += [pred_err_mean]
-                    aux2_loss_list += [pred_norm]
+                    aux_loss_list += [pred_err_mean[0]]
+                    aux2_loss_list += [pred_err_mean[1]]
                     loss += args.alpha * pred_norm
                     model.stage = 0
                 all_loss_list += [loss]
-                Q_err_mean = 0
+                Q_err_mean = [0]
                 Q_norm = 0
                 for Q_err in likelihoods["Q_err"]:
-                    Q_err_mean += Q_err.abs().mean()
+                    Q_err_mean += [Q_err.abs().mean()]
                     Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                aux3_loss_list += [Q_err_mean]
-                aux4_loss_list += [Q_norm]
+                aux3_loss_list += [Q_err_mean[0]]
+                aux4_loss_list += [Q_err_mean[1]]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1923,8 +1923,8 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 2
-        motion_sp = False#self.spstage > 0
+        self.spstage = 0
+        motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         motion_nn = '-NN' in name
         self.motion_encoder = Encoder(2 * 3)
