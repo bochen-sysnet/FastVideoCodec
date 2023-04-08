@@ -1906,11 +1906,14 @@ class ELFVC(ScaleSpaceFlow):
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
                     if self.no_noise:
-                        # attenuated noise
-                        if self.sp:
-                            y_hat = pred_y.detach() + means
+                        # shrinked noise
+                        if self.training:
+                            # shift distribution to new
+                            inject_mask = torch.empty_like(z).uniform_(0, float(1)) > 0.5
+                            epsilon = (inject_mask==1) * pred_err_y.detach() + (inject_mask==0) Q_err_y.detach()
+                            y_hat = y + epsilon
                         else:
-                            y_hat = y# + Q_err_y.detach()
+                            y_hat = pred_y.detach() + means
                     elif self.sp:
                         y_hat = pred_y.detach() + means
                     
