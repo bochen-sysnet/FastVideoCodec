@@ -1905,17 +1905,10 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if self.no_noise:
-                        # shrinked noise
-                        if self.training:
-                            # shift distribution to new
-                            inject_mask = torch.empty_like(y).uniform_(0, float(1)) > 0.5
-                            epsilon = (inject_mask==1) * pred_err_y.detach() + (inject_mask==0) * Q_err_y.detach()
-                            y_hat = y + epsilon
-                        else:
-                            y_hat = pred_y.detach() + means
-                    elif self.sp:
-                        y_hat = pred_y.detach() + means
+                    if self.sp:
+                        y_hat = pred_y.detach() + means.detach()
+                    else:
+                        y_hat = pred_y.detach() + means.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
@@ -1929,13 +1922,12 @@ class ELFVC(ScaleSpaceFlow):
         self.spstage = -1
         motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
-        motion_nn = '-NN' in name
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
         self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
-        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp, no_noise=motion_nn)
+        self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp)
         self.name = name
         self.motion_info_prior = None
         self.x_ref_ref = None
