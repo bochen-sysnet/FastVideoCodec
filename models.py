@@ -209,7 +209,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                             pred_norm += [F.cosine_similarity(pred_y, y)]
                     aux_loss_list += [pred_norm[0]]
                     aux2_loss_list += [pred_norm[1]]
-                    loss += args.alpha * pred_norm
+                    loss += args.alpha * sum(pred_norm)
                     model.stage = 0
                 all_loss_list += [loss]
                 Q_err_mean = []
