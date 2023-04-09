@@ -1927,7 +1927,7 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         self.spstage = 2
-        motion_sp = False #self.spstage > 0
+        motion_sp = self.spstage > 0
         res_sp = self.spstage > 1
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
@@ -1959,7 +1959,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
-            parameters += self.motion_hyperprior.y_predictor.parameters()
+            # parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
