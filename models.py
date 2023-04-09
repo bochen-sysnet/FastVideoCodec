@@ -205,7 +205,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     #     if args.norm < 3:
                     #         pred_norm += torch.norm(pred_err,args.norm) #1,2
                     if args.norm == 3:
-                        for pred_y, y in zip(likelihoods["pred_var"], likelihoods["y_var"]):
+                        for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
                             pred_norm += [F.cosine_similarity(pred_y, y)]
                     aux_loss_list += [pred_norm[0]]
                     aux2_loss_list += [pred_norm[1]]
@@ -1958,6 +1958,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
+            parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
