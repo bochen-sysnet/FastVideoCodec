@@ -207,8 +207,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     if args.norm == 3:
                         for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
                             pred_norm += [F.cosine_similarity(pred_y, y)]
-                    aux_loss_list += [pred_norm[0]]
-                    aux2_loss_list += [pred_norm[1]]
+                    aux_loss_list += [pred_norm[0].sum()]
+                    aux2_loss_list += [pred_norm[1].sum()]
                     loss += args.alpha * sum(pred_norm)
                     model.stage = 0
                 all_loss_list += [loss]
@@ -220,8 +220,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 if args.norm == 3:
                     for Q_y, y in zip(likelihoods["Q_var"], likelihoods["y_var"]):
                         Q_norm += [F.cosine_similarity(Q_y, y)]
-                aux3_loss_list += [Q_norm[0]]
-                aux4_loss_list += [Q_norm[1]]
+                aux3_loss_list += [Q_norm[0].sum()]
+                aux4_loss_list += [Q_norm[1].sum()]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
