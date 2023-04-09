@@ -207,7 +207,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     # aux2_loss_list += [pred_norm]
                     if args.norm == 3:
                         for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
-                            pred_norm += [F.cosine_similarity(pred_y, y).abs().sum()]
+                            pred_norm += [F.cosine_similarity(pred_y, y).abs().mean()]
                         aux_loss_list += [pred_norm[0]]
                         aux2_loss_list += [pred_norm[1]]
                     loss -= args.alpha * sum(pred_norm)
@@ -217,7 +217,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 Q_norm = []
                 if args.norm == 3:
                     for Q_y, y in zip(likelihoods["Q_var"], likelihoods["y_var"]):
-                        Q_norm += [F.cosine_similarity(Q_y, y).abs().sum()]
+                        Q_norm += [F.cosine_similarity(Q_y, y).abs().mean()]
                 aux3_loss_list += [Q_norm[0]]
                 aux4_loss_list += [Q_norm[1]]
                 # Q_norm = 0
@@ -1932,7 +1932,7 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         self.spstage = 2
-        motion_sp = self.spstage > 0
+        motion_sp = False#self.spstage > 0
         res_sp = self.spstage > 1
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
@@ -1964,7 +1964,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
-            # parameters += self.motion_hyperprior.y_predictor.parameters()
+            parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
