@@ -199,22 +199,33 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 loss = model.r*mseloss + bpp
                 if model.pred_nc or model.side_channel_nc:
                     pred_err_mean = []
-                    pred_norm = 0
-                    for pred_err in likelihoods["pred_err"]:
-                        pred_err_mean += [pred_err.abs().mean()]
-                        pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
-                    aux_loss_list += [pred_err_mean[0]+pred_err_mean[1]]
-                    aux2_loss_list += [pred_norm]
-                    loss += args.alpha * pred_norm
+                    pred_norm = []
+                    # for pred_err in likelihoods["pred_err"]:
+                    #     pred_err_mean += [pred_err.abs().mean()]
+                    #     pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
+                    # aux_loss_list += [pred_err_mean[0]+pred_err_mean[1]]
+                    # aux2_loss_list += [pred_norm]
+                    if args.norm == 3:
+                        for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
+                            pred_norm += [F.cosine_similarity(pred_y, y).sum()]
+                        aux_loss_list += [pred_norm[0]]
+                        aux2_loss_list += [pred_norm[1]]
+                    loss += args.alpha * sum(pred_norm)
                     model.stage = 0
                 all_loss_list += [loss]
                 Q_err_mean = []
-                Q_norm = 0
-                for Q_err in likelihoods["Q_err"]:
-                    Q_err_mean += [Q_err.abs().mean()]
-                    Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                aux3_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
-                aux4_loss_list += [Q_norm]
+                Q_norm = []
+                if args.norm == 3:
+                    for Q_y, y in zip(likelihoods["Q_var"], likelihoods["y_var"]):
+                        Q_norm += [F.cosine_similarity(Q_y, y).sum()]
+                aux3_loss_list += [Q_norm[0]]
+                aux4_loss_list += [Q_norm[1]]
+                # Q_norm = 0
+                # for Q_err in likelihoods["Q_err"]:
+                #     Q_err_mean += [Q_err.abs().mean()]
+                #     Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
+                # aux3_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
+                # aux4_loss_list += [Q_norm]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1897,20 +1908,21 @@ class ELFVC(ScaleSpaceFlow):
                 means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 y_hat = quantize_ste(y - means) + means
-                Q_err_y = (torch.round(y - means) + means) - y
+                Q_y = torch.round(y - means) + means
+                Q_err_y = Q_y - y
                 pred_err_y = None
+                pred_y = None
                 if self.pred_nc and self.side_channel_nc:
                     round_y = torch.round(y - means)
                     side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if self.no_noise:
-                        y_hat = y
-                    elif self.sp:
+                    if self.sp:
                         y_hat = pred_y.detach() + means.detach()
                     
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
+                                "P_y": pred_y, "R_y": y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -1920,7 +1932,7 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         self.spstage = 2
-        motion_sp = self.spstage > 0
+        motion_sp = False#self.spstage > 0
         res_sp = self.spstage > 1
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
@@ -1952,6 +1964,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
+            parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
@@ -1994,14 +2007,21 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = x_ref.detach()
         self.motion_info_prior = motion_info.detach()
 
-        pred_err = []
+        pred_err = []; y_var = []; P_var = []
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 if likelihoods['pred_err_y'] is not None:
                     pred_err += [likelihoods['pred_err_y']]
-        Q_err = []
+                if likelihoods['P_y'] is not None:
+                    P_var += [likelihoods['P_y']]
+        Q_err = []; Q_var = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             if likelihoods['Q_err_y'] is not None:
                 Q_err += [likelihoods['Q_err_y']]
+            if likelihoods['A_y'] is not None:
+                y_var += [likelihoods['A_y']]
+            if likelihoods['Q_y'] is not None:
+                Q_var += [likelihoods['Q_y']]
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err, 
+                        "P_var": P_var, "y_var": y_var, "Q_var": Q_var}
