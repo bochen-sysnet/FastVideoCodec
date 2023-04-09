@@ -2018,8 +2018,8 @@ class ELFVC(ScaleSpaceFlow):
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             if likelihoods['Q_err_y'] is not None:
                 Q_err += [likelihoods['Q_err_y']]
-            if likelihoods['A_y'] is not None:
-                y_var += [likelihoods['A_y']]
+            if likelihoods['R_y'] is not None:
+                y_var += [likelihoods['R_y']]
             if likelihoods['Q_y'] is not None:
                 Q_var += [likelihoods['Q_y']]
 
