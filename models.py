@@ -203,8 +203,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     for pred_err in likelihoods["pred_err"]:
                         pred_err_mean += [pred_err.abs().mean()]
                         pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
-                    aux_loss_list += [pred_err_mean[0]]
-                    aux2_loss_list += [pred_err_mean[1]]
+                    aux_loss_list += [pred_err_mean[0]+pred_err_mean[1]]
+                    aux2_loss_list += [pred_norm]
                     loss += args.alpha * pred_norm
                     model.stage = 0
                 all_loss_list += [loss]
@@ -213,8 +213,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 for Q_err in likelihoods["Q_err"]:
                     Q_err_mean += [Q_err.abs().mean()]
                     Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                aux3_loss_list += [Q_err_mean[0]]
-                aux4_loss_list += [Q_err_mean[1]]
+                aux3_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
+                aux4_loss_list += [Q_norm]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1905,10 +1905,10 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
-                    if self.sp:
+                    if self.no_noise:
+                        y_hat = y
+                    elif self.sp:
                         y_hat = pred_y.detach() + means.detach()
-                    else:
-                        y_hat = y + pred_err_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
@@ -1926,7 +1926,7 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
+        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp, no_noise=True)
         self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp)
         self.name = name
         self.motion_info_prior = None
@@ -1938,16 +1938,6 @@ class ELFVC(ScaleSpaceFlow):
 
     def optim_parameters(self, epoch, learning_rate):
         lr = learning_rate
-        # if epoch < 1:
-        #     # train optimizer
-        #     self.spstage = 0
-        # elif epoch < 7:
-        #     # train flow noise predictor
-        #     self.spstage = 1
-        #     lr *= 10**(-(epoch - 1)//2)
-        # else:
-        #     self.spstage = 2
-        #     lr *= 10**(-(epoch - 7)//2)
 
         if self.spstage == 0:
             parameters = []
