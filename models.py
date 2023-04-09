@@ -1919,7 +1919,7 @@ class ELFVC(ScaleSpaceFlow):
                     pred_y = self.y_predictor(all_info) + round_y
                     pred_err_y = pred_y - (y - means).detach()
                     if self.sp:
-                        y_hat = y#pred_y.detach() + means
+                        y_hat = -y#pred_y.detach() + means
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
                                 "P_y": pred_y, "R_y": y, "Q_y": Q_y}
