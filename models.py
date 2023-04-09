@@ -1926,7 +1926,7 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
         self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp, no_noise=True)
+        self.res_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=res_sp)
         self.motion_hyperprior = Hyperprior(side_channel_nc=self.side_channel_nc, pred_nc=self.pred_nc, sp=motion_sp)
         self.name = name
         self.motion_info_prior = None
