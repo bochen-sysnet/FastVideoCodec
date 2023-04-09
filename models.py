@@ -1904,7 +1904,8 @@ class ELFVC(ScaleSpaceFlow):
                 means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 y_hat = quantize_ste(y - means) + means
-                Q_err_y = torch.round(y - means) + means - y
+                Q_y = torch.round(y - means) + means
+                Q_err_y = Q_y - y
                 pred_err_y = None
                 pred_y = None
                 if self.pred_nc and self.side_channel_nc:
@@ -1916,7 +1917,7 @@ class ELFVC(ScaleSpaceFlow):
                     if self.sp:
                         y_hat = pred_y.detach() + means
                     
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y, "P_y": pred_y, "y": y}
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y, "P_y": pred_y, "y": y, "Q_y": Q_y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -2008,11 +2009,14 @@ class ELFVC(ScaleSpaceFlow):
                     pred_err += [likelihoods['pred_err_y']]
                 if likelihoods['P_y'] is not None:
                     P_var += [likelihoods['P_y']]
-        Q_err = []
+        Q_err = []; Q_var = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             if likelihoods['Q_err_y'] is not None:
                 Q_err += [likelihoods['Q_err_y']]
             if likelihoods['y'] is not None:
                 y_var += [likelihoods['y']]
+            if likelihoods['Q_y'] is not None:
+                Q_var += [likelihoods['Q_y']]
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err, "P_var": P_var, "y_var": y_var}
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, 
+                    "Q_err": Q_err, "P_var": P_var, "y_var": y_var, "Q_var": Q_var}
