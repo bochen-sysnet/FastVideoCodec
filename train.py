@@ -440,8 +440,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     import shutil
     epoch = state['epoch']
     torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
-    shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
-                    f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}.{epoch}.pth')
+    # shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
+    #                 f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}.{epoch}.pth')
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
