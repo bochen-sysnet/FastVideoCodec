@@ -207,7 +207,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     # aux2_loss_list += [pred_norm]
                     if args.norm == 3:
                         for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
-                            pred_norm += [F.cosine_similarity(pred_y, y).abs().mean()]
+                            pred_norm += [F.cosine_similarity(pred_y, y).mean()]
                         aux_loss_list += [pred_norm[0]]
                         aux3_loss_list += [pred_norm[1]]
                     loss -= args.alpha * sum(pred_norm)
@@ -1913,14 +1913,20 @@ class ELFVC(ScaleSpaceFlow):
                 pred_err_y = None
                 pred_y = None
                 if self.pred_nc and self.side_channel_nc:
-                    round_y = torch.round(y - means)
-                    side_info = self.upsampler(torch.round(z))
+                    # round_y = torch.round(y - means)
+                    # side_info = self.upsampler(torch.round(z))
+                    # all_info = torch.cat((round_y, side_info), dim=1)
+                    # pred_y = self.y_predictor(all_info) + round_y + means
+                    # pred_err_y = pred_y - y.detach()
+                    # if self.sp:
+                    #     y_hat = pred_y.detach()
+
+                    round_y = quantize_ste(y - means)
+                    side_info = self.upsampler(quantize_ste(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y + means
                     pred_err_y = pred_y - y.detach()
-                    if self.sp:
-                        y_hat = pred_y.detach()
-                    # y_hat = y + pred_err_y.detach()
+                    y_hat = y + pred_err_y
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
                                 "P_y": pred_y, "R_y": y.detach(), "Q_y": Q_y}
@@ -1932,7 +1938,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 2
+        self.spstage = -1
         motion_sp = self.spstage >= 1
         res_sp = self.spstage >= 2
         self.motion_encoder = Encoder(2 * 3)
