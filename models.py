@@ -209,7 +209,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                         for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
                             pred_norm += [F.cosine_similarity(pred_y, y).abs().mean()]
                         aux_loss_list += [pred_norm[0]]
-                        aux2_loss_list += [pred_norm[1]]
+                        aux3_loss_list += [pred_norm[1]]
                     loss -= args.alpha * sum(pred_norm)
                     model.stage = 0
                 all_loss_list += [loss]
@@ -218,7 +218,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 if args.norm == 3:
                     for Q_y, y in zip(likelihoods["Q_var"], likelihoods["y_var"]):
                         Q_norm += [F.cosine_similarity(Q_y, y).abs().mean()]
-                aux3_loss_list += [Q_norm[0]]
+                aux2_loss_list += [Q_norm[0]]
                 aux4_loss_list += [Q_norm[1]]
                 # Q_norm = 0
                 # for Q_err in likelihoods["Q_err"]:
@@ -1918,9 +1918,9 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y + means
                     pred_err_y = pred_y - y.detach()
-                    # if self.sp:
-                    #     y_hat = pred_y.detach()
-                    y_hat = y + pred_err_y.detach()
+                    if self.sp:
+                        y_hat = pred_y.detach()
+                    # y_hat = y + pred_err_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
                                 "P_y": pred_y, "R_y": y.detach(), "Q_y": Q_y}
@@ -1932,7 +1932,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = -1
+        self.spstage = 1
         motion_sp = self.spstage == 1
         res_sp = self.spstage == 2
         self.motion_encoder = Encoder(2 * 3)

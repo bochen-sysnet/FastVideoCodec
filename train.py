@@ -211,19 +211,18 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             
         # show result
         train_iter.set_description(
-            f"{batch_idx:6}. "
+            f"{epoch} {batch_idx:6}. "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{be_loss_module.val:.4f} ({be_loss_module.avg:.4f}). "
             # f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"FS:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"FQ:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"RS:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"FQ:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
         if batch_idx % 5000 == 0 and batch_idx>0:
             if True:
-                print('Testing at batch_idx %d' % (batch_idx))
                 score, stats = test(epoch, model, test_dataset)
                 
                 is_best = score <= best_codec_score
@@ -317,15 +316,15 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
                 
         # show result
         test_iter.set_description(
-            f"{data_idx:6}. "
+            f"{epoch} {data_idx:6}. "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-            f"PE:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"PN:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-            f"QE:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"QN:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+            f"FS:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+            f"FQ:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+            f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+            f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
         # clear input
         data = []
@@ -458,10 +457,8 @@ if args.evaluate:
     exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-    print('training at epoch %d' % (epoch))
     best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
     
-    print('testing at epoch %d' % (epoch))
     score, stats = test(epoch, model, test_dataset)
     
     is_best = score <= best_codec_score
