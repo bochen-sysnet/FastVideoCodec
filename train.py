@@ -231,7 +231,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                     print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
                     best_codec_score = score
                 else:
-                    print(stats, score)
+                    print('')
                 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
                 save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
                 model.train()
