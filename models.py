@@ -1918,9 +1918,9 @@ class ELFVC(ScaleSpaceFlow):
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y + means
                     pred_err_y = pred_y - y.detach()
-                    # if self.sp:
-                    #     y_hat = pred_y.detach()
-                    y_hat = y + pred_err_y.detach()
+                    if self.sp:
+                        y_hat = pred_y.detach()
+                    # y_hat = y + pred_err_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
                                 "P_y": pred_y, "R_y": y.detach(), "Q_y": Q_y}
@@ -1932,9 +1932,9 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = -1
-        motion_sp = self.spstage == 1
-        res_sp = self.spstage == 2
+        self.spstage = 2
+        motion_sp = self.spstage >= 1
+        res_sp = self.spstage >= 2
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
