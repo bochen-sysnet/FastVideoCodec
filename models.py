@@ -205,6 +205,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                             pred_norm += [F.cosine_similarity(pred_y, y).mean()]
                         aux_loss_list += [pred_norm[0]]
                         aux3_loss_list += [pred_norm[1]]
+                        loss -= args.alpha * pred_norm
                     else:
                         pred_norm = 0
                         for pred_err in likelihoods["pred_err"]:
@@ -212,7 +213,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                             pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
                         aux_loss_list += [pred_err_mean[0]+pred_err_mean[1]]
                         aux3_loss_list += [pred_norm]
-                    loss -= args.alpha * sum(pred_norm)
+                        loss -= args.alpha * sum(pred_norm)
                     model.stage = 0
                 all_loss_list += [loss]
                 if args.norm == 3:
@@ -227,7 +228,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                     for Q_err in likelihoods["Q_err"]:
                         Q_err_mean += [Q_err.abs().mean()]
                         Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                    aux3_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
+                    aux2_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
                     aux4_loss_list += [Q_norm]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
