@@ -218,8 +218,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 if args.norm == 3:
                     for Q_y, y in zip(likelihoods["Q_var"], likelihoods["y_var"]):
                         Q_norm += [F.cosine_similarity(Q_y, y).abs().mean()]
-                aux2_loss_list += [Q_norm[0]]
-                aux4_loss_list += [Q_norm[1]]
+                    aux2_loss_list += [Q_norm[0]]
+                    aux4_loss_list += [Q_norm[1]]
                 # Q_norm = 0
                 # for Q_err in likelihoods["Q_err"]:
                 #     Q_err_mean += [Q_err.abs().mean()]
