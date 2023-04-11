@@ -221,7 +221,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
-        if batch_idx % 5000 == 0 and batch_idx>0:
+        if batch_idx % 1000 == 0 and batch_idx>0:
             if True:
                 print('')
                 score, stats = test(epoch, model, test_dataset)
