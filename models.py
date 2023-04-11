@@ -1932,15 +1932,15 @@ class ELFVC(ScaleSpaceFlow):
                     # pred_err_y = pred_y - y.detach()
                     # y_hat = y + pred_err_y.detach()
 
-                    round_y = torch.round(y - means)
+                    round_y = torch.round(y)
                     side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info)
-                    if self.sp:
-                        y_hat = pred_y.detach() + means
+                    # if self.sp:
+                    #     y_hat = pred_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
-                                "P_y": pred_y, "R_y": (y-means).detach(), "Q_y": torch.round(y - means)}
+                                "P_y": pred_y, "R_y": y.detach(), "Q_y": torch.round(y)}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -1949,7 +1949,7 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 0
+        self.spstage = -1
         motion_sp = self.spstage == 1
         res_sp = self.spstage == 2
         self.motion_encoder = Encoder(2 * 3)
