@@ -1922,7 +1922,7 @@ class ELFVC(ScaleSpaceFlow):
                     #     y_hat = pred_y.detach()
 
                     round_y = quantize_ste(y - means)
-                    side_info = self.upsampler(quantize_ste(z))
+                    side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y + means
                     y_hat = pred_y
