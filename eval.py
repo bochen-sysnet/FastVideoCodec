@@ -237,7 +237,12 @@ def static_simulation_model(args, test_dataset):
         data = []
         all_psnr_list = []
         test_iter = tqdm(range(ds_size))
+        eof = False
         for data_idx,_ in enumerate(test_iter):
+            if args.evolve and (data_idx == 0 or eof):
+                state_list = evolve(model, test_dataset, data_idx, ds_size)
+                with open(f'{args.task}.evo.log','a') as f:
+                    f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
             data.append(transforms.ToTensor()(frame))
             if len(data) < GoP and not eof:
@@ -283,10 +288,101 @@ def static_simulation_model(args, test_dataset):
                 compt_module.reset()
                 decompt_module.reset()
                 video_bpp_module.reset()
+                if args.evolve:
+                    model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
             
         test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
             
+
+def evolve(model, test_dataset, start, end):
+    # should check if evolved version is available
+    # if not, training will keep the best version for this video
+    scaler = torch.cuda.amp.GradScaler(enabled=True)
+    model.train()
+    GoP = args.fP + args.bP +1
+    min_loss = 100
+    max_iter = 30
+    max_converge = 3
+    max_shrink = 2
+    state_list = []
+    for encoder_name in ['motion','res']:
+        parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
+        # this learning rate to avoid overfitting
+        optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
+        converge_count = shrink_count = 0
+        for it in range(max_iter):
+            for mode in ['Evo','Test']:
+                img_loss_module = AverageMeter()
+                ba_loss_module = AverageMeter()
+                psnr_module = AverageMeter()
+                all_loss_module = AverageMeter()
+                data = []
+                test_iter = tqdm(range(start, end))
+                for _,data_idx in enumerate(test_iter):
+                    frame,eof = test_dataset[data_idx]
+                    data.append(transforms.ToTensor()(frame))
+                    if len(data) < GoP and not eof:
+                        continue
+                        
+                    data = torch.stack(data, dim=0).cuda(device)
+                    l = data.size(0)
+                    
+                    # compress GoP
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True,level)
+                    ba_loss_module.update(be_loss, l)
+                    psnr_module.update(psnr,l)
+                    all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)
+                    img_loss_module.update(img_loss,l-1)
+
+                    # backward
+                    if mode == 'Evo' and loss:
+                        scaler.scale(loss).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
+                        optimizer.zero_grad()
+                            
+                    # show result
+                    test_iter.set_description(
+                        f"{encoder_name} {mode} {data_idx:6} {converge_count} {shrink_count}. "
+                        f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+                        f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+                        f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+                        f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+                        
+                    # clear input
+                    data = []
+
+                    if eof:
+                        test_dataset._frame_counter = -1
+                        break
+
+                if mode == 'Evo':
+                    if all_loss_module.avg < min_loss:
+                        min_loss = all_loss_module.avg
+                        best_state_dict = model.state_dict()
+                        converge_count = 0
+                    else:
+                        converge_count += 1
+                        if converge_count == max_converge:
+                            if shrink_count < max_shrink:
+                                shrink_learning_rate(optimizer)
+                                converge_count = 0
+                                shrink_count += 1
+                            else:
+                                break
+                else:
+                    state_list.append([encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+
+    model.load_state_dict(best_state_dict)
+    model.eval()
+    return state_list
+
+def shrink_learning_rate(optimizer):
+    LR_DECAY_RATE = 0.1
+    for param_group in optimizer.param_groups:
+        param_group['lr'] *= LR_DECAY_RATE
+
 # sudo ufw allow 53
 # sudo ufw status verbose
 
@@ -308,6 +404,8 @@ if __name__ == '__main__':
     parser.add_argument("--width", type=int, default=2048, help="Input width")
     parser.add_argument("--height", type=int, default=1024, help="Input height")
     parser.add_argument('--level_range', type=int, nargs='+', default=[0,8])
+    parser.add_argument('--evolve', action='store_true', help='evolve model')
+    parser.add_argument('--max_files', default=0, type=int, help="Maximum loaded files")
     args = parser.parse_args()
     
     # check gpu
@@ -315,7 +413,7 @@ if __name__ == '__main__':
         args.use_split = False
 
     # setup streaming parameters
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height))
+    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height), args.max_files)
     
     if 'x26' in args.task:
         static_simulation_x26x(args, test_dataset)
