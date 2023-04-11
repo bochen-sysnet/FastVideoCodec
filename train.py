@@ -346,7 +346,7 @@ def evolve(model, test_dataset, start, end):
     for encoder_name in ['motion_encoder','res_encoder']:
         parameters = [p for n, p in model.named_parameters() if encoder_name in n]
         # this learning rate to avoid overfitting
-        optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-5, weight_decay=WEIGHT_DECAY)
+        optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         converge_count = shrink_count = 0
         for _ in range(30):
             img_loss_module = AverageMeter()
