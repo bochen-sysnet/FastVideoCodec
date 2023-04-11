@@ -1941,7 +1941,7 @@ class ELFVC(ScaleSpaceFlow):
                         y_hat = pred_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
-                                "P_y": pred_y, "R_y": (y-means).detach(), "Q_y": Q_y}
+                                "P_y": pred_y, "R_y": y.detach(), "Q_y": Q_y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
