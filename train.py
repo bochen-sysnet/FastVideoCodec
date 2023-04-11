@@ -449,7 +449,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
 test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
 if args.evolve:
-    assert args.evaluate and (args.max_files == 0)
+    print('Evolution files:', args.max_files)
+    args.evaluate = True
 if args.evaluate:
     for level in range(8):
         score, stats = test(0, model, test_dataset, level, args.evolve)
