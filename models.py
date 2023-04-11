@@ -1913,19 +1913,19 @@ class ELFVC(ScaleSpaceFlow):
                 pred_err_y = None
                 pred_y = None
                 if self.pred_nc and self.side_channel_nc:
-                    # round_y = torch.round(y - means)
-                    # side_info = self.upsampler(torch.round(z))
-                    # all_info = torch.cat((round_y, side_info), dim=1)
-                    # pred_y = self.y_predictor(all_info) + round_y + means
-                    # pred_err_y = pred_y - y.detach()
-                    # if self.sp:
-                    #     y_hat = pred_y.detach()
-
-                    round_y = quantize_ste(y - means)
+                    round_y = torch.round(y - means)
                     side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y + means
-                    y_hat = pred_y
+                    pred_err_y = pred_y - y.detach()
+                    if self.sp:
+                        y_hat = pred_y.detach()
+
+                    # round_y = quantize_ste(y - means)
+                    # side_info = self.upsampler(torch.round(z))
+                    # all_info = torch.cat((round_y, side_info), dim=1)
+                    # pred_y = self.y_predictor(all_info) + round_y + means
+                    # y_hat = pred_y
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
                                 "P_y": pred_y, "R_y": y.detach(), "Q_y": Q_y}
@@ -1937,9 +1937,9 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = -1
-        motion_sp = self.spstage >= 1
-        res_sp = self.spstage >= 2
+        self.spstage = 2
+        motion_sp = self.spstage == 1
+        res_sp = self.spstage == 2
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
