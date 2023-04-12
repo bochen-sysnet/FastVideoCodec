@@ -1877,10 +1877,7 @@ class ELFVC(ScaleSpaceFlow):
                 elif not pred_nc and side_channel_nc:
                     self.y_predictor = HyperDecoder(planes, mid_planes, planes)
                 elif pred_nc and side_channel_nc:
-                    if '-G' not in name:
-                        self.y_predictor = SPnet(input_channels=planes * 2, output_channels=planes)
-                    else:
-                        self.y_predictor = SPnet(input_channels=planes * 6, output_channels=planes)
+                    self.y_predictor = SPnet(input_channels=planes * 2, output_channels=planes)
                 else:
                     self.y_predictor = None
                 self.side_channel_nc = side_channel_nc
@@ -1902,50 +1899,17 @@ class ELFVC(ScaleSpaceFlow):
                 pred_err_y = None
                 pred_y = None
                 if self.pred_nc and self.side_channel_nc:
-                    if '-G' not in name:
-                        if self.Q_y_prior is None:
-                            self.Q_y_prior = torch.zeros(y.size()).to(y.device)
-                        round_y = torch.round(y - means)
-                        all_info = torch.cat((round_y, self.Q_y_prior), dim=1)
-                        pred_y = self.y_predictor(all_info) + round_y + means
-                        pred_err_y = pred_y - y.detach()
-                        if self.sp:
-                            y_hat = pred_y.detach()
-                        self.Q_y_prior = round_y
-                    else:
-                        round_y = torch.round(y - means)
-                        pred_y = self.y_predictor(self.gaussian_volume(round_y)) + round_y + means
-                        pred_err_y = pred_y - y.detach()
-                        if self.sp:
-                            y_hat = pred_y.detach()
+                    if self.Q_y_prior is None:
+                        self.Q_y_prior = torch.zeros(y.size()).to(y.device)
+                    round_y = torch.round(y - means)
+                    all_info = torch.cat((round_y, self.Q_y_prior), dim=1)
+                    pred_y = self.y_predictor(all_info) + round_y + means
+                    pred_err_y = pred_y - y.detach()
+                    if self.sp:
+                        y_hat = pred_y.detach()
+                    self.Q_y_prior = round_y
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
-
-            @staticmethod
-            def gaussian_volume(x, sigma: float = 1.5, num_levels: int = 5):
-                """Efficient gaussian volume construction.
-
-                From: "Generative Video Compression as Hierarchical Variational Inference",
-                by Yang et al.
-                """
-                k = 2 * int(math.ceil(3 * sigma)) + 1
-                device = x.device
-                dtype = x.dtype if torch.is_floating_point(x) else torch.float32
-
-                kernel = gaussian_kernel2d(k, sigma, device=device, dtype=dtype)
-                volume = [x]
-                x = gaussian_blur(x, kernel=kernel)
-                volume += [x]
-                for i in range(1, num_levels):
-                    x = F.avg_pool2d(x, kernel_size=(2, 2), stride=(2, 2))
-                    x = gaussian_blur(x, kernel=kernel)
-                    interp = x
-                    for _ in range(0, i):
-                        interp = F.interpolate(
-                            interp, scale_factor=2, mode="bilinear", align_corners=False
-                        )
-                    volume.append(interp)
-                return torch.cat(volume, dim=1)
 
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
@@ -1955,9 +1919,9 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 2
-        motion_sp = self.spstage >= 1
-        res_sp = self.spstage >= 2
+        self.spstage = 1
+        motion_sp = self.spstage == 1
+        res_sp = self.spstage == 2
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
