@@ -1925,22 +1925,22 @@ class ELFVC(ScaleSpaceFlow):
                     # if self.sp:
                     #     y_hat = pred_y.detach()
 
-                    # round_y = quantize_ste(y - means)
-                    # side_info = self.upsampler(quantize_ste(z))
-                    # all_info = torch.cat((round_y, side_info), dim=1)
-                    # pred_y = self.y_predictor(all_info) + round_y + means
-                    # pred_err_y = pred_y - y.detach()
-                    # y_hat = y + pred_err_y.detach()
-
-                    round_y = torch.round(y)
+                    round_y = torch.round(y - means)
                     side_info = self.upsampler(torch.round(z))
                     all_info = torch.cat((round_y, side_info), dim=1)
                     pred_y = self.y_predictor(all_info)
                     if self.sp:
-                        y_hat = pred_y.detach()
+                        y_hat = pred_y.detach() + means
+
+                    # round_y = torch.round(y)
+                    # side_info = self.upsampler(torch.round(z))
+                    # all_info = torch.cat((round_y, side_info), dim=1)
+                    # pred_y = self.y_predictor(all_info)
+                    # if self.sp:
+                    #     y_hat = pred_y.detach()
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
-                                "P_y": pred_y, "R_y": y.detach(), "Q_y": torch.round(y)}
+                                "P_y": pred_y, "R_y": (y-means).detach(), "Q_y": torch.round(y-means)}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
