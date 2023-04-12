@@ -1931,8 +1931,8 @@ class ELFVC(ScaleSpaceFlow):
                     pred_y = self.y_predictor(all_info)
                     if self.sp:
                         # y_hat = pred_y.detach() + means
-                        # y_hat = y*2
-                        y_hat = (y - means)*2 + means
+                        y_hat = y*2
+                        # y_hat = (y - means)*2 + means
 
                     # round_y = torch.round(y)
                     # side_info = self.upsampler(torch.round(z))
