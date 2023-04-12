@@ -199,37 +199,22 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 loss = model.r*mseloss + bpp
                 if model.pred_nc or model.side_channel_nc:
                     pred_err_mean = []
-                    if args.norm == 3:
-                        pred_norm = []
-                        for pred_y, y in zip(likelihoods["P_var"], likelihoods["y_var"]):
-                            pred_norm += [F.cosine_similarity(pred_y, y).mean()]
-                        aux_loss_list += [pred_norm[0]]
-                        aux3_loss_list += [pred_norm[1]]
-                        loss -= args.alpha * sum(pred_norm)
-                    else:
-                        pred_norm = 0
-                        for pred_err in likelihoods["pred_err"]:
-                            pred_err_mean += [pred_err.abs().mean()]
-                            pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
-                        aux_loss_list += [pred_err_mean[0]+pred_err_mean[1]]
-                        aux3_loss_list += [pred_norm]
-                        loss += args.alpha * pred_norm
+                    pred_norm = 0
+                    for pred_err in likelihoods["pred_err"]:
+                        pred_err_mean += [pred_err.abs().mean()]
+                        pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
+                    aux_loss_list += [pred_err_mean[0]+pred_err_mean[1]]
+                    aux3_loss_list += [pred_norm]
+                    loss += args.alpha * pred_norm
                     model.stage = 0
                 all_loss_list += [loss]
-                if args.norm == 3:
-                    Q_norm = []
-                    for Q_y, y in zip(likelihoods["Q_var"], likelihoods["y_var"]):
-                        Q_norm += [F.cosine_similarity(Q_y, y).abs().mean()]
-                    aux2_loss_list += [Q_norm[0]]
-                    aux4_loss_list += [Q_norm[1]]
-                else:
-                    Q_err_mean = []
-                    Q_norm = 0
-                    for Q_err in likelihoods["Q_err"]:
-                        Q_err_mean += [Q_err.abs().mean()]
-                        Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                    aux2_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
-                    aux4_loss_list += [Q_norm]
+                Q_err_mean = []
+                Q_norm = 0
+                for Q_err in likelihoods["Q_err"]:
+                    Q_err_mean += [Q_err.abs().mean()]
+                    Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
+                aux2_loss_list += [Q_err_mean[0]+Q_err_mean[1]]
+                aux4_loss_list += [Q_norm]
             x_hat = torch.cat(x_hat_list,dim=0)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
@@ -1892,16 +1877,14 @@ class ELFVC(ScaleSpaceFlow):
                 elif not pred_nc and side_channel_nc:
                     self.y_predictor = HyperDecoder(planes, mid_planes, planes)
                 elif pred_nc and side_channel_nc:
-                    # new
-                    self.y_predictor = SPnet(input_channels=planes + 3, output_channels=planes)
-                    r = 8
-                    self.upsampler = nn.PixelShuffle(r)
+                    self.y_predictor = SPnet(input_channels=planes * 2, output_channels=planes)
                 else:
                     self.y_predictor = None
                 self.side_channel_nc = side_channel_nc
                 self.pred_nc = pred_nc
                 self.sp = sp
                 self.no_noise = no_noise
+                self.Q_y_prior = None
 
             def forward(self, y):
                 pred_loss_y = None
@@ -1917,23 +1900,17 @@ class ELFVC(ScaleSpaceFlow):
                 pred_err_y = None
                 pred_y = None
                 if self.pred_nc and self.side_channel_nc:
+                    if self.Q_y_prior is None:
+                        self.Q_y_prior = torch.zeros(y.size()).to(y.device)
                     round_y = torch.round(y - means)
-                    side_info = self.upsampler(torch.round(z))
-                    all_info = torch.cat((round_y, side_info), dim=1)
+                    all_info = torch.cat((round_y, self.Q_y_prior), dim=1)
                     pred_y = self.y_predictor(all_info) + round_y + means
                     pred_err_y = pred_y - y.detach()
                     if self.sp:
                         y_hat = pred_y.detach()
-
-                    # round_y = torch.round(y)
-                    # side_info = self.upsampler(torch.round(z))
-                    # all_info = torch.cat((round_y, side_info), dim=1)
-                    # pred_y = self.y_predictor(all_info)
-                    # if self.sp:
-                    #     y_hat = pred_y.detach()
+                    self.Q_y_prior = round_y
                     
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y,
-                                "P_y": pred_y, "R_y": (y).detach(), "Q_y": torch.round(y)}
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
         self.flow_predictor = FlowPredictor(9)
         self.side_channel_nc = True if '-EC' in name else False # sigmoid + concat ===current best===0.061,28.8
         # cat input seems better
@@ -1958,6 +1935,8 @@ class ELFVC(ScaleSpaceFlow):
     def reset(self):
         self.motion_info_prior = None
         self.x_ref_ref = None
+        self.res_hyperprior.Q_y_prior = None
+        self.motion_hyperprior.Q_y_prior = None
 
     def optim_parameters(self, epoch, learning_rate):
         lr = learning_rate
@@ -2018,21 +1997,14 @@ class ELFVC(ScaleSpaceFlow):
         self.x_ref_ref = x_ref.detach()
         self.motion_info_prior = motion_info.detach()
 
-        pred_err = []; y_var = []; P_var = []
+        pred_err = []
         if self.pred_nc or self.side_channel_nc:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 if likelihoods['pred_err_y'] is not None:
                     pred_err += [likelihoods['pred_err_y']]
-                if likelihoods['P_y'] is not None:
-                    P_var += [likelihoods['P_y']]
-        Q_err = []; Q_var = []
+        Q_err = []
         for likelihoods in [motion_likelihoods, res_likelihoods]:
             if likelihoods['Q_err_y'] is not None:
                 Q_err += [likelihoods['Q_err_y']]
-            if likelihoods['R_y'] is not None:
-                y_var += [likelihoods['R_y']]
-            if likelihoods['Q_y'] is not None:
-                Q_var += [likelihoods['Q_y']]
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err, 
-                        "P_var": P_var, "y_var": y_var, "Q_var": Q_var}
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
