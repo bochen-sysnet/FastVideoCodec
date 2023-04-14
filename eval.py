@@ -281,7 +281,7 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                with open(f'{args.task}.log','a') as f:
+                with open(f'{args.task}.{int(args.evolve)}.log','a') as f:
                     f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f}\n')
                     f.write(str(all_psnr_list)+'\n')
                 all_psnr_list = []
@@ -372,6 +372,7 @@ def evolve(model, test_dataset, start, end):
                             else:
                                 break
                 else:
+                    # record evolution history
                     state_list.append([encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
     model.load_state_dict(best_state_dict)
@@ -417,5 +418,5 @@ if __name__ == '__main__':
     
     if 'x26' in args.task:
         static_simulation_x26x(args, test_dataset)
-    elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base','ELFVC','ELFVC-ER-EC']:
+    elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base','ELFVC','ELFVC-SP']:
         static_simulation_model(args, test_dataset)
