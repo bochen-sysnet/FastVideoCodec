@@ -2011,7 +2011,7 @@ class ELFVC(ScaleSpaceFlow):
         self.motion_info_prior = motion_info.detach()
 
         pred_err = []
-        if self.super_prec or self.side_channel_nc:
+        if self.super_prec:
             for likelihoods in [motion_likelihoods, res_likelihoods]:
                 if likelihoods['pred_err_y'] is not None:
                     pred_err += [likelihoods['pred_err_y']]
