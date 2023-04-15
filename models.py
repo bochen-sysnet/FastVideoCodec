@@ -1911,8 +1911,8 @@ class ELFVC(ScaleSpaceFlow):
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        self.spstage = 2
-        self.alpha = 1
+        self.spstage = 1
+        self.alpha = 100
         motion_sp = self.spstage >= 1
         res_sp = self.spstage >= 2
         self.motion_encoder = Encoder(2 * 3)
@@ -1935,19 +1935,19 @@ class ELFVC(ScaleSpaceFlow):
         # warmup predictor fast
         # train normaly the flow ae
         # train normaly the res ae
-        # if epoch >= 1 and epoch <= 8:
+        # if epoch <= 7:
         #     self.spstage == 1
         #     lr = 1e-5 if epoch<=3 else 1e-6
-        #     if epoch <= 4:
+        #     if epoch <= 3:
         #         model.alpha = 100
-        #     elif epoch <= 6:
+        #     elif epoch <= 5:
         #         model.alpha = 10
         #     else:
         #         model.alpha = 1
-        # elif epoch >= 9:
+        # elif epoch >= 8:
         #     self.spstage == 2
         #     model.alpha = 1
-        #     lr = 1e-5 if epoch <= 10 else 1e-6
+        #     lr = 1e-5 if epoch < 10 else 1e-6
 
         lr = learning_rate
 

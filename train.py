@@ -110,7 +110,7 @@ if CODEC_NAME in ['SSF-Official']:
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    BEGIN_EPOCH = checkpoint['epoch'] + 1
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
     if isinstance(checkpoint['score'],float):
         best_codec_score = checkpoint['score']
     # load_state_dict_all(model, checkpoint['state_dict'])
@@ -440,8 +440,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     import shutil
     epoch = state['epoch']
     torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
-    shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
-                    f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}.{epoch}.pth')
+    # shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
+    #                 f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}.{epoch}.pth')
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
