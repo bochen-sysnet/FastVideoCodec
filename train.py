@@ -56,7 +56,7 @@ parser.add_argument('--resume', type=str, default='',
                     help='Resume path')
 parser.add_argument('--norm', default=2, type=int,
                     help="Norm type")
-parser.add_argument('--alpha', type=float, default=0.001,
+parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
 
 args = parser.parse_args()

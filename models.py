@@ -1912,7 +1912,7 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         self.spstage = 1
-        self.alpha = 100
+        self.alpha = 1
         motion_sp = self.spstage >= 1
         res_sp = self.spstage >= 2
         self.motion_encoder = Encoder(2 * 3)
