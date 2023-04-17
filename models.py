@@ -1935,6 +1935,11 @@ class ELFVC(ScaleSpaceFlow):
         # warmup predictor fast
         # train normaly the flow ae
         # train normaly the res ae
+        # lr=1e-5; alpha=100; stage=1; 
+        # lr=1e-6
+        # alpha=1
+        # lr=1e-5;stage=2
+        # lr=1e-6
         # if epoch <= 7:
         #     self.spstage == 1
         #     lr = 1e-5 if epoch<=3 else 1e-6
@@ -1964,7 +1969,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters += self.res_hyperprior.parameters()
         elif self.spstage == 2:
             parameters = []
-            parameters += self.motion_hyperprior.y_predictor.parameters()
+            # parameters += self.motion_hyperprior.y_predictor.parameters()
             parameters += self.res_hyperprior.y_predictor.parameters()
             parameters += self.res_decoder.parameters()
         else:
