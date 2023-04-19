@@ -34,7 +34,7 @@ from dataset import VideoDataset
 
 import subprocess
 
-def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
+def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, ev_stage=1):
     loss_type = 'P'
     best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
     ckpt_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
@@ -46,6 +46,16 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
 
     if model.name in ['DVC-pretrained','SSF-Official']:
         return model
+
+    if model.name == 'ELFVC-SP':
+        best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.{ev_stage}.pth'
+        if os.path.isfile(best_path):
+            checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
+            load_state_dict_all(model, checkpoint['state_dict'])
+            print(f"Loaded model best codec stage:{ev_stage}, score:{checkpoint['score']}, stats:{checkpoint['stats']}")
+            del checkpoint
+        else:
+            exit(1)
 
     ####### Load codec model 
     if os.path.isfile(best_path):
@@ -69,90 +79,6 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
         print("Cannot load model codec", CODEC_NAME)
         exit(1)
     return model
-    
-# class VideoDataset(Dataset):
-#     def __init__(self, root_dir, frame_size=None):
-#         self._dataset_dir = os.path.join(root_dir)
-#         self._frame_size = frame_size
-#         self._total_frames = 0 # Storing file names in object 
-        
-#         self.get_file_names()
-#         self._num_files = len(self.__file_names)
-        
-#         self.reset()
-        
-#     def reset(self):
-#         self._curr_counter = 0
-#         self._frame_counter = -1 # Count the number of frames used per file
-#         self._file_counter = -1 # Count the number of files used
-#         self._dataset_nums = [] # Number of frames to be considered from each file (records+files)
-#         self._clip = [] # hold video frames
-#         self._cur_file_names = list(self.__file_names)
-        
-#     @property
-#     def data(self):
-#         self._curr_counter+=1
-#         return self.__getitem__(self._curr_counter)
-        
-#     def __getitem__(self, idx):
-#         # Get the next dataset if frame number is more than table count
-#         if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
-#             self.current_file = self._cur_file_names.pop() # get one filename
-#             cap = cv2.VideoCapture(self.current_file)
-#             # Check if camera opened successfully
-#             if (cap.isOpened()== False):
-#                 print("Error opening video stream or file")
-#             # Read until video is completed
-#             self._clip = []
-#             while(cap.isOpened()):
-#                 # Capture frame-by-frame
-#                 ret, img = cap.read()
-#                 if ret != True:break
-#                 # skip black frames
-#                 if np.sum(img) == 0:continue
-#                 img = Image.fromarray(img)
-#                 if self._frame_size is not None:
-#                     img = img.resize(self._frame_size) 
-#                 self._clip.append(img)
-#             self._file_counter +=1
-#             self._dataset_nums.append(len(self._clip))
-#             self._frame_counter = 0
-#         else:
-#             self._frame_counter+=1
-#         return self._clip[self._frame_counter],self._frame_counter==self._dataset_nums[self._file_counter]-1
-        
-#     def get_file_names(self):
-#         print("[log] Looking for files in", self._dataset_dir)  
-#         self.__file_names = []
-#         for fn in os.listdir(self._dataset_dir):
-#             fn = fn.strip("'")
-#             if fn.split('.')[-1] == 'mp4':
-#                 self.__file_names.append(self._dataset_dir + '/' + fn)
-#         print("[log] Number of files found {}".format(len(self.__file_names)))  
-        
-#     def __len__(self):
-#         if not self._total_frames:
-#             self.count_frames()
-#         return self._total_frames
-        
-#     def count_frames(self):
-#         # Count total frames 
-#         self._total_frames = 0
-#         for file_name in self.__file_names:
-#             cap = cv2.VideoCapture(file_name)
-#             # Check if camera opened successfully
-#             if (cap.isOpened()== False):
-#                 print("Error opening video stream or file")
-#             # Read until video is completed
-#             while(cap.isOpened()):
-#                 # Capture frame-by-frame
-#                 ret, img = cap.read()
-#                 if ret != True:break
-#                 if np.sum(img) == 0:continue
-#                 self._total_frames+=1
-#             # When everything done, release the video capture object
-#             cap.release()
-#         print("[log] Total frames: ", self._total_frames)
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -223,7 +149,7 @@ def static_simulation_x26x(args,test_dataset):
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
+        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,ev_stage=args.ev_stage)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
@@ -410,6 +336,7 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve model')
     parser.add_argument('--max_files', default=0, type=int, help="Maximum loaded files")
     parser.add_argument('--print_only', default=0, type=int, help="Whether only print scores")
+    parser.add_argument('--ev_stage', default=2, type=int, help="Evolution stage.")
     args = parser.parse_args()
     
     # check gpu
