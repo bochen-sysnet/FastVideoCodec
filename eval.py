@@ -417,7 +417,7 @@ if __name__ == '__main__':
         args.use_split = False
 
     # setup streaming parameters
-    test_dataset = VideoDataset('../dataset/'+args.dataset, frame_size=(args.width,args.height), max_files=args.max_files)
+    test_dataset = VideoDataset('../dataset/'+args.dataset, (args.width,args.height), max_files=args.max_files)
     
     if 'x26' in args.task:
         static_simulation_x26x(args, test_dataset)
