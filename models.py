@@ -1977,7 +1977,7 @@ class ELFVC(ScaleSpaceFlow):
             parameters = [p for n, p in self.named_parameters()]
 
         optimizer = torch.optim.Adam([{'params': parameters}], lr=lr, weight_decay=weight_decay)
-        print("Epoch:",epoch,'stage:',self.spstage, 'learning rate:', lr)
+        print("Epoch:",epoch,'stage:',self.spstage, 'learning rate:', lr, model.alpha)
         
         return optimizer
 

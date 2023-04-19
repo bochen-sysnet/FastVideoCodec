@@ -52,7 +52,10 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, ev_stage=1):
         if os.path.isfile(best_path):
             checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
             load_state_dict_all(model, checkpoint['state_dict'])
-            print(f"Loaded model best codec stage:{ev_stage}, score:{checkpoint['score']}, stats:{checkpoint['stats']}")
+            if 'stats' in checkpoint:
+                print(f"Loaded model best codec stage:{ev_stage}, score:{checkpoint['score']}, stats:{checkpoint['stats']}")
+            else:
+                print(f"Loaded model best codec stage:{ev_stage}, score:{checkpoint['score']}")
             del checkpoint
         else:
             exit(1)
