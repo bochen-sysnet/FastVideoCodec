@@ -50,12 +50,12 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False):
     if os.path.isfile(best_path):
         checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
         load_state_dict_all(model, checkpoint['state_dict'])
-        # print("Loaded model codec score: ", checkpoint['score'])
+        print("Loaded model best codec score: ", checkpoint['score'], checkpoint['stats'])
         del checkpoint
     elif os.path.isfile(ckpt_path):
         checkpoint = torch.load(ckpt_path,map_location=torch.device('cuda:0'))
         load_state_dict_all(model, checkpoint['state_dict'])
-        # print("Loaded model codec score: ", checkpoint['score'])
+        print("Loaded model ckpt codec score: ", checkpoint['score'], checkpoint['stats'])
         del checkpoint
     elif 'Base' == CODEC_NAME:
         psnr_list = [256,512,1024,2048]
@@ -223,6 +223,7 @@ def static_simulation_x26x(args,test_dataset):
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
         model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
+        if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
         ba_loss_module = AverageMeter()
@@ -407,6 +408,7 @@ if __name__ == '__main__':
     parser.add_argument('--level_range', type=int, nargs='+', default=[0,8])
     parser.add_argument('--evolve', action='store_true', help='evolve model')
     parser.add_argument('--max_files', default=0, type=int, help="Maximum loaded files")
+    parser.add_argument('--print_only', default=0, type=int, help="Whether only print scores")
     args = parser.parse_args()
     
     # check gpu
