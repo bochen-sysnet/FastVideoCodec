@@ -1912,7 +1912,7 @@ class ELFVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         self.spstage = 1
-        self.alpha = 100
+        self.alpha = 1
         motion_sp = self.spstage >= 1
         res_sp = self.spstage >= 2
         self.motion_encoder = Encoder(2 * 3)
@@ -1936,8 +1936,8 @@ class ELFVC(ScaleSpaceFlow):
         # train normaly the flow ae
         # train normaly the res ae
         # lr=1e-5; alpha=100; stage=1; 
-        # lr=1e-6
         # alpha=1
+        # lr=1e-6
         # lr=1e-5;stage=2
         # lr=1e-6
         # if epoch <= 7:

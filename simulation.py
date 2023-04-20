@@ -132,7 +132,7 @@ def task_to_video_trace(task):
     frame_psnr_dict = {}
     frame_bpp_dict = {}
     frame_dect_dict = {}
-    with open(f'../{task}.log','r') as f:
+    with open(f'../NSDI_logs/{task}.log','r') as f:
         line_count = 0
         for l in f.readlines():
             if line_count%2 == 0:
