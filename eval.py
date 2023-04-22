@@ -188,7 +188,7 @@ def static_simulation_model(args, test_dataset):
                 
             with torch.no_grad():
                 data = torch.stack(data, dim=0)
-                data = data.cuda(device)
+                data = data.cuda(args.device)
                 l = data.size(0)
                 
                 # compress GoP
