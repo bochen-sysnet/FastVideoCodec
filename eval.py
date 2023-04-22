@@ -34,7 +34,7 @@ from dataset import VideoDataset
 
 import subprocess
 
-def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, spstage=1):
+def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, spstage=1,device=0):
     loss_type = 'P'
     best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
     ckpt_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
@@ -52,36 +52,38 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, spstage=1):
         # stage 2 for flow and residual sp noise reduction
         best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.{spstage}.pth'
         if os.path.isfile(best_path):
-            checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
+            checkpoint = torch.load(best_path,map_location=torch.device('cuda:'+str(device)))
             load_state_dict_all(model, checkpoint['state_dict'])
             print(f"Loaded model best codec stage:{spstage}, score:{checkpoint['score']}, stats:{checkpoint['stats']}")
             del checkpoint
             model.spstage = spstage
+            model = model.cuda(device)
             return model
         else:
             exit(1)
 
     ####### Load codec model 
     if os.path.isfile(best_path):
-        checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
+        checkpoint = torch.load(best_path,map_location=torch.device('cuda:'+str(device)))
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model best codec score: ", checkpoint['score'], checkpoint['stats'] if 'stats' in checkpoint else None)
         del checkpoint
     elif os.path.isfile(ckpt_path):
-        checkpoint = torch.load(ckpt_path,map_location=torch.device('cuda:0'))
+        checkpoint = torch.load(ckpt_path,map_location=torch.device('cuda:'+str(device)))
         load_state_dict_all(model, checkpoint['state_dict'])
         print("Loaded model ckpt codec score: ", checkpoint['score'], checkpoint['stats'])
         del checkpoint
     elif 'Base' == CODEC_NAME:
         psnr_list = [256,512,1024,2048]
         DVC_ckpt_name = f'DVC/snapshot/{psnr_list[compression_level]}.model'
-        checkpoint = torch.load(DVC_ckpt_name,map_location=torch.device('cuda:0'))
+        checkpoint = torch.load(DVC_ckpt_name,map_location=torch.device('cuda:'+str(device)))
         load_state_dict_all(model, checkpoint)
         # print(f"Loaded model codec from {DVC_ckpt_name}")
         del checkpoint
     else:
         print("Cannot load model codec", CODEC_NAME)
         exit(1)
+    model = model.cuda(device)
     return model
 
 class AverageMeter(object):
@@ -153,7 +155,7 @@ def static_simulation_x26x(args,test_dataset):
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage)
+        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
@@ -186,10 +188,7 @@ def static_simulation_model(args, test_dataset):
                 
             with torch.no_grad():
                 data = torch.stack(data, dim=0)
-                if args.use_cuda:
-                    data = data.cuda()
-                else:
-                    data = data.cpu()
+                data = data.cuda(device)
                 l = data.size(0)
                 
                 # compress GoP
@@ -242,7 +241,7 @@ def static_simulation_model(args, test_dataset):
                 aux3_loss_module.reset()
                 aux4_loss_module.reset()
                 if args.evolve:
-                    model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
+                    model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,device=args.device)
             
         test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
@@ -350,9 +349,6 @@ if __name__ == '__main__':
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
     parser.set_defaults(use_split=False)
-    parser.add_argument('--use_cuda', dest='use_cuda', action='store_true')
-    parser.add_argument('--no-use_cuda', dest='use_cuda', action='store_false')
-    parser.set_defaults(use_cuda=True)
     parser.add_argument("--fP", type=int, default=15, help="The number of forward P frames")
     parser.add_argument("--bP", type=int, default=0, help="The number of backward P frames")
     parser.add_argument("--width", type=int, default=2048, help="Input width")
@@ -362,6 +358,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_files', default=0, type=int, help="Maximum loaded files")
     parser.add_argument('--print_only', default=0, type=int, help="Whether only print scores")
     parser.add_argument('--spstage', default=1, type=int, help="SP stage.")
+    parser.add_argument('--device', default=0, type=int, help="GPU ID")
     args = parser.parse_args()
     
     # check gpu
