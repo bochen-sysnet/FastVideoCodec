@@ -42,7 +42,7 @@ width,height = 2048,1024
 pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,
-    tasks = ['LSVC-A','LSVC-L-128','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
+    tasks = ['ELFVC-SP','ELFVC','SSF-Official','Base','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
     # read network traces
     import csv
     single_trace_len = 500
@@ -139,7 +139,7 @@ def task_to_video_trace(task):
                 l = l.split(',')
                 lvl,bpp,enct,dect = int(l[0]),float(l[1]),float(l[2]),float(l[3])
                 # estimate the encoding and decoding and put it here
-                if 'VC' in task:
+                if 'VC' in task or 'ELFVC' in task or 'SSF' in task:
                     # encdec1080=[[0.0324,0.0188];[0.0402,0.0285];[0.0632,0.0475]]
                     # encdec2080=[[0.0195,0.0093];[0.028,0.017];[0.0526,0.0408]]
                     if args.hardware == '2080':
@@ -157,9 +157,7 @@ def task_to_video_trace(task):
                         dect = dect_list[1]
                     elif task == 'RLVC2':
                         dect = dect_list[2]
-                    else:
-                        print('Unknown trace:',task)
-                        exti(0)
+                    dect = 0.01
             else:
                 if lvl not in frame_psnr_dict:
                     frame_psnr_dict[lvl] = []
@@ -346,7 +344,7 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
-    parser.add_argument('--hardware', type=str, default='1080', help='3090,2080,1080')
+    parser.add_argument('--hardware', type=str, default='3090', help='3090,2080,1080')
     parser.add_argument("--trace_id", type=int, default=0, help="0:curr_videostream,1:curr_httpgetmt")
     parser.add_argument("--Q_max", type=int, default=60, help="Max buffer")
     parser.add_argument("--Q_low", type=int, default=10, help="Low buffer")

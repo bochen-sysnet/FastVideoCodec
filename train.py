@@ -169,7 +169,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     be_loss_module = AverageMeter()
     be_res_loss_module = AverageMeter()
     psnr_module = AverageMeter()
-    I_module = AverageMeter()
     all_loss_module = AverageMeter()
     aux_loss_module = AverageMeter()
     aux2_loss_module = AverageMeter()
@@ -187,7 +186,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         data = data.cuda(device)
         
         # run model
-        _,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True, batch_idx=batch_idx)
+        _,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True, batch_idx=batch_idx)
 
         # record loss
         all_loss_module.update(img_loss + be_loss)
@@ -196,7 +195,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         be_res_loss_module.update(be_res_loss)
         if not math.isinf(psnr):
             psnr_module.update(psnr)
-            I_module.update(I_psnr)
         aux_loss_module.update(aux_loss)
         aux2_loss_module.update(aux_loss2)
         aux3_loss_module.update(aux_loss3)
@@ -248,8 +246,9 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             be_res_loss_module.reset()
             all_loss_module.reset()
             psnr_module.reset()
-            aux2_loss_module.reset() 
-            I_module.reset()    
+            aux2_loss_module.reset()
+            aux3_loss_module.reset()
+            aux4_loss_module.reset()
     return best_codec_score
     
 def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
@@ -284,7 +283,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
             
             # compress GoP
             if l>fP+1:
-                com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
+                com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
                 ba_loss_module.update(be_loss, fP+1)
                 psnr_module.update(psnr,fP+1)
                 all_loss_module.update(float(loss1),fP+1)
@@ -305,7 +304,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
                 aux4_loss_module.update(aux_loss4,l-fP-1)
                 loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
             else:
-                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,torch.flip(data,[0]),True,level)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
                 all_loss_module.update(float(loss),l)
@@ -366,7 +365,7 @@ def evolve(model, test_dataset, start, end):
                 
                 # compress GoP
                 if l>fP+1:
-                    com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
+                    com_imgs,loss1,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data[:fP+1],[0]),True,level)
                     ba_loss_module.update(be_loss, fP+1)
                     psnr_module.update(psnr,fP+1)
                     all_loss_module.update(loss1.cpu().data.item() if loss1 else loss1,fP)
@@ -379,7 +378,7 @@ def evolve(model, test_dataset, start, end):
                     img_loss_module.update(img_loss,l-fP-1)
                     loss = (loss1 * fP + loss2 * (l - fP - 1))/(l - 1)
                 else:
-                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,torch.flip(data,[0]),True,level)
                     ba_loss_module.update(be_loss, l)
                     psnr_module.update(psnr,l)
                     all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)

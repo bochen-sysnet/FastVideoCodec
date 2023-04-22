@@ -314,9 +314,8 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
     aux2_loss = torch.stack(aux2_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux2_loss_list else 0
     aux3_loss = torch.stack(aux3_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux3_loss_list else 0
     aux4_loss = torch.stack(aux4_loss_list,dim=0).mean(dim=0).cpu().data.item() if aux4_loss_list else 0
-    I_psnr = float(psnr_list[0]) if compressI else 0
 
-    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux2_loss,aux3_loss,aux4_loss
+    return x_hat,loss,img_loss,be_loss,be_res_loss,psnr,psnr_list.tolist(),aux_loss,aux2_loss,aux3_loss,aux4_loss
         
 def I_compression(Y1_raw, I_level, model_name=''):
     # we can compress with bpg,deepcod ...

@@ -34,7 +34,7 @@ from dataset import VideoDataset
 
 import subprocess
 
-def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, ev_stage=1):
+def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, spstage=1):
     loss_type = 'P'
     best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth'
     ckpt_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
@@ -50,12 +50,13 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, ev_stage=1):
     if model.name == 'ELFVC-SP':
         # stage 1 for best sp performance
         # stage 2 for flow and residual sp noise reduction
-        best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.{ev_stage}.pth'
+        best_path = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_best.{spstage}.pth'
         if os.path.isfile(best_path):
             checkpoint = torch.load(best_path,map_location=torch.device('cuda:0'))
             load_state_dict_all(model, checkpoint['state_dict'])
-            print(f"Loaded model best codec stage:{ev_stage}, score:{checkpoint['score']}, stats:{checkpoint['stats']}")
+            print(f"Loaded model best codec stage:{spstage}, score:{checkpoint['score']}, stats:{checkpoint['stats']}")
             del checkpoint
+            model.spstage = spstage
             return model
         else:
             exit(1)
@@ -152,13 +153,17 @@ def static_simulation_x26x(args,test_dataset):
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,ev_stage=args.ev_stage)
+        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
         ba_loss_module = AverageMeter()
         psnr_module = AverageMeter()
         all_loss_module = AverageMeter()
+        aux_loss_module = AverageMeter()
+        aux2_loss_module = AverageMeter()
+        aux3_loss_module = AverageMeter()
+        aux4_loss_module = AverageMeter()
         compt_module = AverageMeter()
         decompt_module = AverageMeter()
         decompt_list = []
@@ -188,14 +193,20 @@ def static_simulation_model(args, test_dataset):
                 l = data.size(0)
                 
                 # compress GoP
-                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True,lvl)
+                com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,psnr_list,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True,lvl)
                 ba_loss_module.update(be_loss, l)
                 psnr_module.update(psnr,l)
                 encoding_time = decoding_time = 0
+                all_psnr_list += psnr_list
 
                 compt_module.update(encoding_time,l)
                 decompt_module.update(decoding_time,l)
                 video_bpp_module.update(be_loss,l)
+
+                aux_loss_module.update(aux_loss)
+                aux2_loss_module.update(aux_loss2)
+                aux3_loss_module.update(aux_loss3)
+                aux4_loss_module.update(aux_loss4)
 
                 decompt_list += [decoding_time]
                 decompt_mean = np.array(decompt_list).mean()
@@ -206,19 +217,30 @@ def static_simulation_model(args, test_dataset):
                 f"{data_idx:6}. "
                 f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-                f"E: {compt_module.avg:.3f} D: {decompt_mean:.5f} ({decompt_std:.5f}). ")
+                # f"E: {compt_module.avg:.3f}. D: {decompt_mean:.5f} ({decompt_std:.5f}). "
+                f"FS:{aux_loss_module.avg:.4f}. "
+                f"FQ:{aux2_loss_module.avg:.4f}. "
+                f"RS:{aux3_loss_module.avg:.4f}. "
+                f"RQ:{aux4_loss_module.avg:.4f}. ")
                 
             # clear input
             data = []
 
             if eof:
                 with open(f'{args.task}.{int(args.evolve)}.log','a') as f:
-                    f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f}\n')
+                    # per video
+                    f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
+                            f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
+                    # per frame
                     f.write(str(all_psnr_list)+'\n')
                 all_psnr_list = []
                 compt_module.reset()
                 decompt_module.reset()
                 video_bpp_module.reset()
+                aux_loss_module.reset()
+                aux2_loss_module.reset()
+                aux3_loss_module.reset()
+                aux4_loss_module.reset()
                 if args.evolve:
                     model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split)
             
@@ -260,7 +282,7 @@ def evolve(model, test_dataset, start, end):
                     l = data.size(0)
                     
                     # compress GoP
-                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,I_psnr,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True,level)
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True,level)
                     ba_loss_module.update(be_loss, l)
                     psnr_module.update(psnr,l)
                     all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)
@@ -304,7 +326,7 @@ def evolve(model, test_dataset, start, end):
                                 break
                 else:
                     # record evolution history
-                    state_list.append([encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+                    state_list.append([start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
     model.load_state_dict(best_state_dict)
     model.eval()
@@ -339,7 +361,7 @@ if __name__ == '__main__':
     parser.add_argument('--evolve', action='store_true', help='evolve model')
     parser.add_argument('--max_files', default=0, type=int, help="Maximum loaded files")
     parser.add_argument('--print_only', default=0, type=int, help="Whether only print scores")
-    parser.add_argument('--ev_stage', default=2, type=int, help="Evolution stage.")
+    parser.add_argument('--spstage', default=1, type=int, help="SP stage.")
     args = parser.parse_args()
     
     # check gpu
