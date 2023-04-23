@@ -45,6 +45,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, spstage=1,device
     # print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
     if model.name in ['DVC-pretrained','SSF-Official']:
+        model = model.cuda(device)
         return model
 
     if model.name == 'ELFVC-SP':
@@ -370,5 +371,5 @@ if __name__ == '__main__':
     
     if 'x26' in args.task:
         static_simulation_x26x(args, test_dataset)
-    elif args.task in ['RLVC2','DVC-pretrained','SSF-Official','Base','ELFVC','ELFVC-SP']:
+    elif args.task in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP']:
         static_simulation_model(args, test_dataset)
