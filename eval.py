@@ -282,7 +282,7 @@ def evolve(args,model, test_dataset, start, end):
                     l = data.size(0)
                     
                     # compress GoP
-                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True,level)
+                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True)
                     ba_loss_module.update(be_loss, l)
                     psnr_module.update(psnr,l)
                     all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)
