@@ -1934,10 +1934,10 @@ class ELFVC(ScaleSpaceFlow):
         # warmup predictor fast
         # train normaly the flow ae
         # train normaly the res ae
-        if epoch < 5 and learning_rate == 1e-5 and self.spstage == 1: 
-            self.alpha = 100
-        else:
-            self.alpha = 1
+        # if epoch < 5 and learning_rate == 1e-5 and self.spstage == 1: 
+        #     self.alpha = 100
+        # else:
+        #     self.alpha = 1
         # lr=1e-5; alpha=100; stage=1; 5 epochs
         # alpha=1 5
         # lr=1e-6
