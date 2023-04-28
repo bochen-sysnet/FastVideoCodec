@@ -274,7 +274,9 @@ def evolve(args,model, test_dataset, start, end):
                 test_iter = tqdm(range(start, end))
                 for _,data_idx in enumerate(test_iter):
                     frame,eof = test_dataset[data_idx]
-                    data.append(transforms.ToTensor()(frame))
+                    frame = transforms.ToTensor()(frame)
+                    frame = transforms.Resize((256,256))(frame)
+                    data.append(frame)
                     if len(data) < GoP and not eof:
                         continue
                         
