@@ -179,7 +179,7 @@ def static_simulation_model(args, test_dataset):
         eof = False
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
-                state_list = evolve(model, test_dataset, data_idx, ds_size)
+                state_list = evolve(args,model, test_dataset, data_idx, ds_size)
                 with open(f'{args.task}.evo.log','a') as f:
                     f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
@@ -248,7 +248,7 @@ def static_simulation_model(args, test_dataset):
     return [ba_loss_module.avg,psnr_module.avg]
             
 
-def evolve(model, test_dataset, start, end):
+def evolve(args,model, test_dataset, start, end):
     # should check if evolved version is available
     # if not, training will keep the best version for this video
     scaler = torch.cuda.amp.GradScaler(enabled=True)
@@ -265,7 +265,7 @@ def evolve(model, test_dataset, start, end):
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
         converge_count = shrink_count = 0
         for it in range(max_iter):
-            for mode in ['Evo','Test']:
+            for mode in ['evo','test']:
                 img_loss_module = AverageMeter()
                 ba_loss_module = AverageMeter()
                 psnr_module = AverageMeter()
@@ -278,7 +278,7 @@ def evolve(model, test_dataset, start, end):
                     if len(data) < GoP and not eof:
                         continue
                         
-                    data = torch.stack(data, dim=0).cuda(device)
+                    data = torch.stack(data, dim=0).cuda(args.device)
                     l = data.size(0)
                     
                     # compress GoP
@@ -289,7 +289,7 @@ def evolve(model, test_dataset, start, end):
                     img_loss_module.update(img_loss,l-1)
 
                     # backward
-                    if mode == 'Evo' and loss:
+                    if mode == 'evo' and loss:
                         scaler.scale(loss).backward()
                         scaler.step(optimizer)
                         scaler.update()
@@ -310,7 +310,7 @@ def evolve(model, test_dataset, start, end):
                         test_dataset._frame_counter = -1
                         break
 
-                if mode == 'Evo':
+                if mode == 'evo':
                     if all_loss_module.avg < min_loss:
                         min_loss = all_loss_module.avg
                         best_state_dict = model.state_dict()
