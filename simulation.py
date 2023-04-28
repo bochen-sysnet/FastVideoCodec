@@ -11,38 +11,13 @@ plt.rcParams['xtick.labelsize'] = 16
 plt.rcParams['ytick.labelsize'] = 16
 plt.rcParams["font.family"] = "Times New Roman"
 colors = ['#DB1F48','#1C4670','#FF9636','#9D5FFB','#21B6A8','#D65780']
-# colors = ['#ED4974','#16B9E1','#58DE7B','#F0D864','#FF8057','#8958D3']
-# colors =['#FD0707','#0D0DDF','#129114','#DDDB03','#FF8A12','#8402AD']
-markers = ['o','^','s','>','P','D']
-hatches = ['/' ,'\\','--','x', '+', 'O','-',]
-# linestyles = ['solid','dashed','dotted','dashdot',(0, (3, 5, 1, 5)),(0, (3, 1, 1, 1))]
-from collections import OrderedDict
-linestyle_dict = OrderedDict(
-    [('solid',               (0, ())),
-     ('dotted',              (0, (1, 5))),
-     ('densely dotted',      (0, (1, 1))),
-
-     ('loosely dashed',      (0, (5, 10))),
-     ('dashed',              (0, (5, 5))),
-     ('densely dashed',      (0, (5, 1))),
-
-     ('dashdotted',          (0, (3, 5, 1, 5))),
-     ('densely dashdotted',  (0, (3, 1, 1, 1))),
-
-     ('dashdotdotted',         (0, (3, 5, 1, 5, 1, 5))),
-     ('densely dashdotdotted', (0, (3, 1, 1, 1, 1, 1)))])
-linestyles = []
-for i, (name, linestyle) in enumerate(linestyle_dict.items()):
-    if i >= 9:break
-    linestyles += [linestyle]
-    
 
 GOP = 16
 width,height = 2048,1024
 pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,
-    tasks = ['ELFVC-SP','ELFVC','SSF-Official','Base','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
+    tasks = ['Vesper','ELFVC-SP','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
     # read network traces
     import csv
     single_trace_len = 500
@@ -87,6 +62,7 @@ def BOLA_simulation(total_traces = 100,
     quality_matrix = []
     rebuffer_matrix = []
     stall_matrix = []
+    bw_matrix = []
     all_mean_psnr,all_mean_bpp = [],[]
     all_dect_mean = [];all_dect_std = []
     for task in tasks:
@@ -95,37 +71,42 @@ def BOLA_simulation(total_traces = 100,
         all_mean_bpp += [mean_bpp]
         all_dect_mean += [all_dect.mean()/GOP]
         all_dect_std += [all_dect.std()/GOP]
-        QoE_list = [];quality_list = [];rebuffer_list = [];stall_list = []
+        QoE_list = [];quality_list = [];rebuffer_list = [];stall_list = [];bw_list = []
         sim_iter = tqdm(range(total_traces))
         for _,i in enumerate(sim_iter):
             trace_start = i * single_trace_len
             trace_end = trace_start + single_trace_len
-            QoE,quality,rebuffer,stall_freq = simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt[trace_start:trace_end],latency[trace_start:trace_end],i)
-            QoE_list += [QoE];quality_list += [quality];rebuffer_list += [rebuffer];stall_list += [stall_freq]
+            QoE,quality,rebuffer,stall_freq,bw = simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt[trace_start:trace_end],latency[trace_start:trace_end],i)
+            QoE_list += [QoE];quality_list += [quality];rebuffer_list += [rebuffer];stall_list += [stall_freq];bw_list += [bw]
             sim_iter.set_description(
                 f"{i:3}. "
                 f"Task:{task}. "
                 f"QoE:{QoE:.1f}."
                 f"quality:{quality:.1f}. "
                 f"rebuffer:{rebuffer:.4f}. "
-                f"stall:{stall_freq:.3f}. ")
-        QoE_matrix += [QoE_list];quality_matrix += [quality_list];rebuffer_matrix += [rebuffer_list];stall_matrix += [stall_list]
+                f"stall:{stall_freq:.3f}. "
+                f"bw:{bw:.3f}. ")
+        QoE_matrix += [QoE_list];quality_matrix += [quality_list];rebuffer_matrix += [rebuffer_list];stall_matrix += [stall_list];bw_matrix += [bw_list]
         sim_iter.reset()
-    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/data/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(QoE_matrix))
-    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/quality_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/data/quality_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(quality_matrix))
-    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/rebuffer_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/data/rebuffer_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(rebuffer_matrix))
-    with open(f'/home/bo/Dropbox/Research/SIGCOMM23-VC/data/stall_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/data/stall_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(stall_matrix))
-    QoE_matrix = np.array(QoE_matrix);quality_matrix = np.array(quality_matrix);rebuffer_matrix = np.array(rebuffer_matrix);stall_matrix = np.array(stall_matrix)
+    with open(f'/home/bo/Dropbox/Research/NSDI24/data/bw_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+        f.write(str(bw_matrix))
+    QoE_matrix = np.array(QoE_matrix);quality_matrix = np.array(quality_matrix);rebuffer_matrix = np.array(rebuffer_matrix)
+    stall_matrix = np.array(stall_matrix);bw_matrix = np.array(bw_matrix)
     print('QOE:',QoE_matrix.mean(axis=1).tolist(),QoE_matrix.std(axis=1).tolist())
     print('Quality:',quality_matrix.mean(axis=1).tolist(),quality_matrix.std(axis=1).tolist())
     print('Rebuffer:',rebuffer_matrix.mean(axis=1).tolist(),rebuffer_matrix.std(axis=1).tolist())
     print('Stall:',stall_matrix.mean(axis=1).tolist(),stall_matrix.std(axis=1).tolist())
-    # print(all_mean_psnr)
-    # print(all_mean_bpp)
+    print('BW:',bw_matrix.mean(axis=1).tolist(),bw_matrix.std(axis=1).tolist())
+    print(all_mean_psnr)
+    print(all_mean_bpp)
     # print(all_dect_mean,all_dect_std)
 
 def task_to_video_trace(task):
@@ -157,7 +138,7 @@ def task_to_video_trace(task):
                         dect = dect_list[1]
                     elif task == 'RLVC2':
                         dect = dect_list[2]
-                    dect = 0.01
+                dect = 0.01
             else:
                 if lvl not in frame_psnr_dict:
                     frame_psnr_dict[lvl] = []
@@ -340,7 +321,7 @@ def simulate_over_traces(all_psnr,all_bitrate,all_dect,downthrpt,latency,sim_idx
     # print('Selection_counter:',[len(level) for level in selection_psnr])
     # print('Mean PSNR in each selection',[sum(level)/len(level) if level else 0 for level in selection_psnr])
     # print('Mean bitrate in each selection',[sum(level)/len(level) if level else 0 for level in selection_bitrate])
-    return QoE,mean_quality,rebuffer_ratio,rebuffer_freq
+    return QoE,mean_quality,rebuffer_ratio,rebuffer_freq,mean_bw
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
@@ -361,5 +342,5 @@ if __name__ == '__main__':
     if args.large_scale:
         BOLA_simulation(total_traces=args.num_traces)
     else:    
-        BOLA_simulation(total_traces=args.num_traces,
-            tasks=['LSVC-L-128','RLVC2','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
+        BOLA_simulation(total_traces=10,
+            tasks=['SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
