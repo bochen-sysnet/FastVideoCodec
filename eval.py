@@ -362,6 +362,7 @@ if __name__ == '__main__':
     parser.add_argument('--print_only', default=0, type=int, help="Whether only print scores")
     parser.add_argument('--spstage', default=1, type=int, help="SP stage.")
     parser.add_argument('--device', default=0, type=int, help="GPU ID")
+    parser.add_argument('--norm', default=2, type=int, help="Norm type")
     args = parser.parse_args()
     
     # check gpu
