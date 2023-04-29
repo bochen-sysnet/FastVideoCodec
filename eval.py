@@ -227,7 +227,7 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
+                with open(f'{args.task}.{int(args.evolve)}.log','a') as f:
                     # per video
                     f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
                             f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
@@ -259,7 +259,7 @@ def evolve(args,model, test_dataset, start, end, level):
     max_shrink = 2
     state_list = []
     first_test = True
-    for encoder_name in ['motion','res']:
+    for encoder_name in ['motion']:
         parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
         # this learning rate to avoid overfitting
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
@@ -335,7 +335,7 @@ def evolve(args,model, test_dataset, start, end, level):
                         break
 
                 if first_test:
-                    with open(f'{args.task}.{args.dataset}.0.log','a') as f:
+                    with open(f'{args.task}.0.log','a') as f:
                         # per video
                         f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
                                 f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
@@ -345,8 +345,7 @@ def evolve(args,model, test_dataset, start, end, level):
 
                 if mode == 'test':
                     # record evolution history
-                    vid = start if args.dataset == 'UVG' else start + 10000
-                    state_list.append([level,vid,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+                    state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
             if img_loss_module.avg + ba_loss_module.avg < min_loss:
                 min_loss = img_loss_module.avg + ba_loss_module.avg
@@ -361,6 +360,7 @@ def evolve(args,model, test_dataset, start, end, level):
                         shrink_count += 1
                     else:
                         break
+
 
     model.load_state_dict(best_state_dict)
     model.eval()

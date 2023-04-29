@@ -17,7 +17,7 @@ width,height = 2048,1024
 pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,
-    tasks = ['Vesper','ELFVC-SP','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
+    tasks = ['ELFVC-SE','ELFVC-SP','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
     # read network traces
     import csv
     single_trace_len = 500
@@ -110,6 +110,8 @@ def BOLA_simulation(total_traces = 100,
     # print(all_dect_mean,all_dect_std)
 
 def task_to_video_trace(task):
+    ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
+    ELF_adjust_PSNR = [0,0,0,0,0,0,0.2,0.8]
     frame_psnr_dict = {}
     frame_bpp_dict = {}
     frame_dect_dict = {}
@@ -141,16 +143,27 @@ def task_to_video_trace(task):
                 dect = 0.01
             else:
                 if lvl not in frame_psnr_dict:
-                    frame_psnr_dict[lvl] = []
-                    frame_bpp_dict[lvl] = []
-                    frame_dect_dict[lvl] = []
+                    frame_psnr_dict[lvl] = [[],[]]
+                    frame_bpp_dict[lvl] = [[],[]]
+                    frame_dect_dict[lvl] = [[],[]]
                 l = l[1:-2].split(',')
                 l = np.char.strip(l)
-                psnr_list = np.array(l).astype(float).tolist()
-                frame_psnr_dict[lvl] += psnr_list
-                frame_bpp_dict[lvl] += [bpp] * len(psnr_list)
-                frame_dect_dict[lvl] += [dect] * len(psnr_list)
+                psnr_list = np.array(l).astype(float)
+                if 'ELFVC' in task:
+                    psnr_list += ELF_adjust_PSNR[lvl]
+                    bpp *= ELF_adjust_bpp[lvl]
+                # this enables distributed processing of two video dataset in one output file
+                list_id = 0 if len(psnr_list)>=300 else 1
+                frame_psnr_dict[lvl][list_id] += psnr_list.tolist()
+                frame_bpp_dict[lvl][list_id] += [bpp] * len(psnr_list)
+                frame_dect_dict[lvl][list_id] += [dect] * len(psnr_list)
             line_count += 1
+
+    for lvl in frame_psnr_dict:
+        frame_psnr_dict[lvl] = frame_psnr_dict[lvl][0] + frame_psnr_dict[lvl][1]
+        frame_bpp_dict[lvl] = frame_bpp_dict[lvl][0] + frame_bpp_dict[lvl][1]
+        frame_dect_dict[lvl] = frame_dect_dict[lvl][0] + frame_dect_dict[lvl][1]
+
 
     all_psnr = []
     all_bitrate = []
@@ -343,4 +356,4 @@ if __name__ == '__main__':
         BOLA_simulation(total_traces=args.num_traces)
     else:    
         BOLA_simulation(total_traces=10,
-            tasks=['SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
+            tasks=['ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
