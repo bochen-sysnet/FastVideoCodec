@@ -254,7 +254,7 @@ def evolve(args,model, test_dataset, start, end):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 30
+    max_iter = 1#30
     max_converge = 3
     max_shrink = 2
     state_list = []
