@@ -254,7 +254,7 @@ def evolve(args,model, test_dataset, start, end):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 1#30
+    max_iter = 30
     max_converge = 3
     max_shrink = 2
     state_list = []
@@ -264,7 +264,8 @@ def evolve(args,model, test_dataset, start, end):
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
         converge_count = shrink_count = 0
         for it in range(max_iter):
-            for mode in ['test','evo']:
+            mode_list = ['test','evo','test'] if (encoder_name=='motion' and it==0) else ['evo','test']
+            for mode in mode_list:
                 if mode == 'evo':
                     model.train()
                 else:
@@ -317,9 +318,10 @@ def evolve(args,model, test_dataset, start, end):
                         test_dataset._frame_counter = -1
                         break
 
-                if mode == 'evo':
+                if mode == 'test':
                     if img_loss_module.avg + ba_loss_module.avg < min_loss:
                         min_loss = img_loss_module.avg + ba_loss_module.avg
+                        print(min_loss,img_loss_module.avg, ba_loss_module.avg)
                         best_state_dict = model.state_dict()
                         converge_count = 0
                     else:
@@ -331,7 +333,6 @@ def evolve(args,model, test_dataset, start, end):
                                 shrink_count += 1
                             else:
                                 break
-                else:
                     # record evolution history
                     state_list.append([start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
