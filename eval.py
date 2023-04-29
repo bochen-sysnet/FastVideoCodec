@@ -264,7 +264,7 @@ def evolve(args,model, test_dataset, start, end):
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
         converge_count = shrink_count = 0
         for it in range(max_iter):
-            for mode in ['evo','test']:
+            for mode in ['test','evo']:
                 if mode == 'evo':
                     model.train()
                 else:
