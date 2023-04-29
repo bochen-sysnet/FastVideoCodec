@@ -319,7 +319,7 @@ def evolve(args,model, test_dataset, start, end):
 
                 if mode == 'evo':
                     if all_loss_module.avg < min_loss:
-                        min_loss = all_loss_module.avg
+                        min_loss = img_loss_module.avg + ba_loss_module.avg
                         best_state_dict = model.state_dict()
                         converge_count = 0
                     else:
