@@ -351,7 +351,7 @@ def evolve(args,model, test_dataset, start, end, level):
                     state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
                     if (encoder_name=='motion' and it==0):
-                        with open(f'ELFVC-SP.log','a') as f:
+                        with open(f'{args.task}.0.log','a') as f:
                             # per video
                             f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
                                     f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
