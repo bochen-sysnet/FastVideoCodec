@@ -283,12 +283,13 @@ def evolve(args,model, test_dataset, start, end):
                     data = torch.stack(data, dim=0).cuda(args.device)
                     l = data.size(0)
                     
-                    # compress GoP
-                    com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True)
-                    ba_loss_module.update(be_loss, l)
-                    psnr_module.update(psnr,l)
-                    all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)
-                    img_loss_module.update(img_loss,l-1)
+                    with torch.set_grad_enabled(mode == 'evo'):
+                        # compress GoP
+                        com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True)
+                        ba_loss_module.update(be_loss, l)
+                        psnr_module.update(psnr,l)
+                        all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)
+                        img_loss_module.update(img_loss,l-1)
 
                     # backward
                     if mode == 'evo' and loss:
