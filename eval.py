@@ -252,7 +252,6 @@ def evolve(args,model, test_dataset, start, end):
     # should check if evolved version is available
     # if not, training will keep the best version for this video
     scaler = torch.cuda.amp.GradScaler(enabled=True)
-    model.train()
     GoP = args.fP + args.bP +1
     min_loss = 100
     max_iter = 30
@@ -266,6 +265,10 @@ def evolve(args,model, test_dataset, start, end):
         converge_count = shrink_count = 0
         for it in range(max_iter):
             for mode in ['evo','test']:
+                if mode == 'evo':
+                    model.train()
+                else:
+                    model.eval()
                 img_loss_module = AverageMeter()
                 ba_loss_module = AverageMeter()
                 psnr_module = AverageMeter()
@@ -275,7 +278,8 @@ def evolve(args,model, test_dataset, start, end):
                 for _,data_idx in enumerate(test_iter):
                     frame,eof = test_dataset[data_idx]
                     frame = transforms.ToTensor()(frame)
-                    frame = transforms.Resize((256,256))(frame)
+                    if mode == 'evo':
+                        frame = transforms.Resize((256,256))(frame)
                     data.append(frame)
                     if len(data) < GoP and not eof:
                         continue
