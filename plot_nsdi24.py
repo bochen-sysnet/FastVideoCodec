@@ -457,6 +457,34 @@ H is the hatch used for identification of the different dataframe"""
     plt.close()
     return axe
 
+# band plot
+# quantization error vs. lambda
+
+# PSNR/bpp vs. SE epoch
+
+# Generate some random data
+x = np.linspace(0, 10, 100)
+y = x
+average = y
+std_dev = y*0.1
+
+# Plot the curve
+plt.plot(x, y, label='Sin(x)')
+
+# Fill the area between the curves
+plt.fill_between(x, average - std_dev, average + std_dev, color='blue', alpha=0.3)
+
+# Set labels and title
+plt.xlabel('X-axis')
+plt.ylabel('Y-axis')
+plt.title('Band-like Plot')
+
+# Add a legend
+plt.legend()
+
+# Display the plot
+plt.savefig(f'/home/bo/Dropbox/Research/NSDI24/test.eps', bbox_inches='tight')
+exit(0)
 
 ##############################Overall#############################
 # 16543747 bps=15.8Mbps

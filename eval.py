@@ -258,6 +258,7 @@ def evolve(args,model, test_dataset, start, end, level):
     max_converge = 3
     max_shrink = 2
     state_list = []
+    first_test = True
     for encoder_name in ['motion','res']:
         parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
         # this learning rate to avoid overfitting
@@ -333,31 +334,33 @@ def evolve(args,model, test_dataset, start, end, level):
                         test_dataset._frame_counter = -1
                         break
 
+                if first_test:
+                    with open(f'{args.task}.0.log','a') as f:
+                        # per video
+                        f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
+                                f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
+                        # per frame
+                        f.write(str(all_psnr_list)+'\n')
+                    first_test = False
+
                 if mode == 'test':
-                    if img_loss_module.avg + ba_loss_module.avg < min_loss:
-                        min_loss = img_loss_module.avg + ba_loss_module.avg
-                        best_state_dict = model.state_dict()
-                        converge_count = 0
-                    else:
-                        converge_count += 1
-                        if converge_count == max_converge:
-                            if shrink_count < max_shrink:
-                                shrink_learning_rate(optimizer)
-                                converge_count = 0
-                                shrink_count += 1
-                            else:
-                                break
                     # record evolution history
-                    state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+                    vid = start if args.dataset == 'UVG' else start + 10000
+                    state_list.append([level,vid,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
-                    if (encoder_name=='motion' and it==0):
-                        with open(f'{args.task}.0.log','a') as f:
-                            # per video
-                            f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
-                                    f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
-                            # per frame
-                            f.write(str(all_psnr_list)+'\n')
-
+            if img_loss_module.avg + ba_loss_module.avg < min_loss:
+                min_loss = img_loss_module.avg + ba_loss_module.avg
+                best_state_dict = model.state_dict()
+                converge_count = 0
+            else:
+                converge_count += 1
+                if converge_count == max_converge:
+                    if shrink_count < max_shrink:
+                        shrink_learning_rate(optimizer)
+                        converge_count = 0
+                        shrink_count += 1
+                    else:
+                        break
 
     model.load_state_dict(best_state_dict)
     model.eval()
