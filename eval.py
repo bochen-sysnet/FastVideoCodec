@@ -180,7 +180,7 @@ def static_simulation_model(args, test_dataset):
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
                 state_list = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
-                with open(f'{args.task}.evo.log','a') as f:
+                with open(f'{args.task}.{args.dataset}.log','a') as f:
                     f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
             data.append(transforms.ToTensor()(frame))
@@ -274,7 +274,12 @@ def evolve(args,model, test_dataset, start, end, level):
                 ba_loss_module = AverageMeter()
                 psnr_module = AverageMeter()
                 all_loss_module = AverageMeter()
+                aux_loss_module = AverageMeter()
+                aux2_loss_module = AverageMeter()
+                aux3_loss_module = AverageMeter()
+                aux4_loss_module = AverageMeter()
                 data = []
+                all_psnr_list = []
                 test_iter = tqdm(range(start, end))
                 for _,data_idx in enumerate(test_iter):
                     frame,eof = test_dataset[data_idx]
@@ -290,11 +295,17 @@ def evolve(args,model, test_dataset, start, end, level):
                     
                     with torch.set_grad_enabled(mode == 'evo'):
                         # compress GoP
-                        com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,_,_ = parallel_compression(args,model,data,True)
+                        com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,psnr_list,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True)
                         ba_loss_module.update(be_loss, l)
                         psnr_module.update(psnr,l)
                         all_loss_module.update(loss.cpu().data.item() if loss else loss,l-1)
                         img_loss_module.update(img_loss,l-1)
+
+                        aux_loss_module.update(aux_loss)
+                        aux2_loss_module.update(aux_loss2)
+                        aux3_loss_module.update(aux_loss3)
+                        aux4_loss_module.update(aux_loss4)
+                        all_psnr_list += psnr_list
 
                     # backward
                     if mode == 'evo' and loss:
@@ -309,7 +320,11 @@ def evolve(args,model, test_dataset, start, end, level):
                         f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                         f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
                         f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-                        f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+                        f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
+                        f"FS:{aux_loss_module.avg:.4f}. "
+                        f"FQ:{aux2_loss_module.avg:.4f}. "
+                        f"RS:{aux3_loss_module.avg:.4f}. "
+                        f"RQ:{aux4_loss_module.avg:.4f}. ")
                         
                     # clear input
                     data = []
@@ -321,7 +336,6 @@ def evolve(args,model, test_dataset, start, end, level):
                 if mode == 'test':
                     if img_loss_module.avg + ba_loss_module.avg < min_loss:
                         min_loss = img_loss_module.avg + ba_loss_module.avg
-                        print(min_loss,img_loss_module.avg, ba_loss_module.avg)
                         best_state_dict = model.state_dict()
                         converge_count = 0
                     else:
@@ -335,6 +349,15 @@ def evolve(args,model, test_dataset, start, end, level):
                                 break
                     # record evolution history
                     state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+
+                    if (encoder_name=='motion' and it==0):
+                        with open(f'ELFVC-SP.log','a') as f:
+                            # per video
+                            f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
+                                    f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
+                            # per frame
+                            f.write(str(all_psnr_list)+'\n')
+
 
     model.load_state_dict(best_state_dict)
     model.eval()
