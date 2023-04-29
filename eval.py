@@ -179,7 +179,7 @@ def static_simulation_model(args, test_dataset):
         eof = False
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
-                state_list = evolve(args,model, test_dataset, data_idx, ds_size)
+                state_list = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
                 with open(f'{args.task}.evo.log','a') as f:
                     f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
@@ -248,7 +248,7 @@ def static_simulation_model(args, test_dataset):
     return [ba_loss_module.avg,psnr_module.avg]
             
 
-def evolve(args,model, test_dataset, start, end):
+def evolve(args,model, test_dataset, start, end, level):
     # should check if evolved version is available
     # if not, training will keep the best version for this video
     scaler = torch.cuda.amp.GradScaler(enabled=True)
@@ -334,7 +334,7 @@ def evolve(args,model, test_dataset, start, end):
                             else:
                                 break
                     # record evolution history
-                    state_list.append([start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+                    state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
     model.load_state_dict(best_state_dict)
     model.eval()
