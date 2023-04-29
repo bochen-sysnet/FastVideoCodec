@@ -457,6 +457,7 @@ H is the hatch used for identification of the different dataframe"""
     plt.close()
     return axe
 
+
 # band plot
 # quantization error vs. lambda
 
@@ -567,3 +568,4 @@ sc_labels = ['x265','DVC','RLVC','SSF','ELFVC','Vesper']
 line_plot(Sbpps,SPSNRs,sc_labels,colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_256.eps',
 		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)
+

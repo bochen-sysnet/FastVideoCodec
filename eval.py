@@ -227,7 +227,7 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                with open(f'{args.task}.{int(args.evolve)}.log','a') as f:
+                with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
                     # per video
                     f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
                             f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
@@ -335,7 +335,7 @@ def evolve(args,model, test_dataset, start, end, level):
                         break
 
                 if first_test:
-                    with open(f'{args.task}.0.log','a') as f:
+                    with open(f'{args.task}.{args.dataset}.0.log','a') as f:
                         # per video
                         f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
                                 f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
