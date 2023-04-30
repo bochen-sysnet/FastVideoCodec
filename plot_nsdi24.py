@@ -550,31 +550,33 @@ def plot_sp_vs_level():
 
 	
 
-def plot_qerr():
-	data = crate_array_of_empty_list((4, 8))
-	with open(f'../NSDI_logs/ELFVC-SP.log','r') as f:
+def plot_sp_err():
+	data = crate_array_of_empty_list((2, 8))
+	with open(f'../NSDI_logs/SPtest.log','r') as f:
 		line_count = 0
 		for l in f.readlines():
 			if line_count%2 == 0:
 				l = l.split(',')
 				lvl,flow_sp	,flow_q,res_sp,res_q = int(l[0]),float(l[4]),float(l[5]),float(l[6]),float(l[7])
-				data[0,lvl].append(flow_sp)
-				data[1,lvl].append(flow_q)
-				data[2,lvl].append(res_sp)
-				data[3,lvl].append(res_q)
+				data[0,lvl].append((flow_q-flow_sp)/flow_q*100)
+				data[1,lvl].append((res_q-res_sp)/res_q*100)
+				# data[2,lvl].append(res_sp)
+				# data[3,lvl].append(res_q)
 			line_count += 1
 	# Calculate the mean of each list, handling empty lists as zero
 	average = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
 	std_dev = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
 
-	labels = ['Flow w/ SP','Flow w/o SP','Residual w/ SP','Residual w/o SP']
+	labels = ['Flow','Residual']
 	colors_tmp = ['#4169E1', '#228B22', '#DC143C', '#9932CC']
 	band_colors = ['#ADD8E6', '#98FB98', '#F08080', '#E6E6FA']
+	colors = ["royalblue", "forestgreen"]
 
 
-	groupedbar(average.T,std_dev.T,f'Quantization Jitter', 
-		f'/home/bo/Dropbox/Research/NSDI24/images/qjitter_bar.eps',methods=labels,colors=colors_tmp,
-		envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.2,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
+
+	groupedbar(average.T,std_dev.T,f'Jitter Reduction (%)', 
+		f'/home/bo/Dropbox/Research/NSDI24/images/qjitter_bar.eps',methods=labels,colors=colors,
+		envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.4,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
 
 	# line_plot([range(1,9) for _ in range(4)],average,labels,colors_tmp,
 	# 	'/home/bo/Dropbox/Research/NSDI24/images/qjitter_band.eps',
@@ -782,9 +784,9 @@ def plot_QoE_ablation():
 			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
 
 
-plot_se_per_video()
-exit(0)
+
 plot_sp_vs_level()
+exit(0)
 
 plot_sp_cdf()
 
@@ -792,11 +794,14 @@ plot_se_cdf()
 
 plot_se_vs_level()
 
-plot_qerr()
-exit(0)
-
 # Overall RD tradeoff
 plot_RD_tradeoff()
 
 ##############################Overall QoE and breakdown#############################
 plot_QoE_cdf_breakdown()
+
+
+
+plot_sp_err()
+
+plot_se_per_video()
