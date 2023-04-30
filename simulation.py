@@ -17,7 +17,7 @@ width,height = 2048,1024
 pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,
-    tasks = ['ELFVC-SE','ELFVC-SP','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
+    tasks = ['ELFVC-SE','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
     path = 'data' if len(tasks) > 3 else 'ablation'
     # read network traces
     import csv
@@ -355,7 +355,7 @@ if __name__ == '__main__':
     
     if args.large_scale:
         BOLA_simulation(total_traces=args.num_traces)
-        # BOLA_simulation(total_traces=args.num_traces, tasks=['ELFVC','ELFVC-SP','ELFVC-SE'])
+        # BOLA_simulation(total_traces=args.num_traces, tasks=['ELFVC-SE','ELFVC-SP','ELFVC'])
     else:    
         BOLA_simulation(total_traces=10,
             tasks=['ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])

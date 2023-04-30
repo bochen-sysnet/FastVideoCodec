@@ -525,7 +525,7 @@ def plot_cdf(methods = ['ELFVC','ELFVC-SP'],
 	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_psnr_cdf.eps',labels,linestyles=linestyles,
 		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'PSNR (dB)')
 
-def plot_vs_level(methods = ['ELFVC','ELFVC-SP'], 
+def plot_bpp_psnr_vs_level(methods = ['ELFVC','ELFVC-SP'], 
 					labels = ['w/o SP','w/ SP'],
 					technique = 'sp'):
 	
@@ -651,26 +651,28 @@ def plot_RD_tradeoff():
 			'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff.eps',
 			'Bit Per Pixel','PSNR (dB)',yticks=range(32,44),lbsize=24,lfsize=14,linewidth=1,markersize=4)
 
-def plot_QoE_cdf_breakdown():
+def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s'],
+							folder = 'data'):
 	# 16543747 bps=15.8Mbps
 	# 4074145 mbps=3.9Mbps
-	labels_tmp = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s']
-	colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+	# colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+	colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"]
 	metric_list = []
 	hw = 3090
 	for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
 		names = ['QoE','Quality','Rebuffer Rate','BW Consumption']
 		meanQoE_all = [];stdQoE_all = []
 		for trace in range(2):
-			datafile = f'/home/bo/Dropbox/Research/NSDI24/data/{metric}_{trace}_{hw}_1000.data'
+			datafile = f'/home/bo/Dropbox/Research/NSDI24/{folder}/{metric}_{trace}_{hw}_1000.data'
 			with open(datafile,'r') as f:
 				line = f.readlines()[0]
 			QoE_matrix = eval(line)
 			QoE_matrix = np.array(QoE_matrix)
 			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
 			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
-			measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/data/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
-				colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
+			if k == 0:
+				measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/{folder}/{metric}cdf_{trace}_{hw}.eps',methods,linestyles=linestyles,
+					colors=colors,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
 			meanQoE = QoE_matrix.mean(axis=1)
 			stdQoE = QoE_matrix.std(axis=1)
 			meanQoE_all += [meanQoE]
@@ -684,9 +686,10 @@ def plot_QoE_cdf_breakdown():
 		else:
 			labelsize=24
 			ncol = 0
+		width = 0.1 if len(methods)==9 else 0.3
 		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
-			f'/home/bo/Dropbox/Research/NSDI24/data/{metric}mean.eps',methods=labels_tmp,colors=colors_tmp,
-			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
+			f'/home/bo/Dropbox/Research/NSDI24/{folder}/{metric}mean.eps',methods=methods,colors=colors,
+			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=width,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
 	# 	if metric == 'QoE':
 	# 		for line in meanQoE_all.tolist():
 	# 			ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
@@ -699,61 +702,27 @@ def plot_QoE_cdf_breakdown():
 	# print(metric_list[3:].mean(axis=0))
 
 
-def plot_QoE_ablation():
-	# 16543747 bps=15.8Mbps
-	# 4074145 mbps=3.9Mbps
-	labels_tmp = ['Base','Base+SP','Base+SP+SE']
-	colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-	hw = 3090
-	for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
-		names = ['QoE','Quality','Rebuffer Rate','BW Consumption']
-		meanQoE_all = [];stdQoE_all = []
-		for trace in range(2):
-			datafile = f'/home/bo/Dropbox/Research/NSDI24/ablation/{metric}_{trace}_{hw}_1000.data'
-			with open(datafile,'r') as f:
-				line = f.readlines()[0]
-			QoE_matrix = eval(line)
-			QoE_matrix = np.array(QoE_matrix)
-			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
-			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
-			measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/ablation/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
-				colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
-			meanQoE = QoE_matrix.mean(axis=1)
-			stdQoE = QoE_matrix.std(axis=1)
-			meanQoE_all += [meanQoE]
-			stdQoE_all += [stdQoE]
-		meanQoE_all = np.stack(meanQoE_all).reshape(2,-1)
-		stdQoE_all = np.stack(stdQoE_all).reshape(2,-1)
-		if k == 0:
-			ncol = 1
-			labelsize=18
-		else:
-			labelsize=24
-			ncol = 0
-		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
-			f'/home/bo/Dropbox/Research/NSDI24/ablation/{metric}mean.eps',methods=labels_tmp,colors=colors_tmp,
-			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
-
-
-
-exit(0)
 plot_cdf()
-plot_vs_level()
+plot_bpp_psnr_vs_level()
 
 
 plot_cdf(methods = ['ELFVC-SP','ELFVC-SE'],
 				technique = 'se',
 				labels = ['w/o SE','w/ SE'])
 
-plot_vs_level(methods = ['ELFVC-SP','ELFVC-SE'], 
+plot_bpp_psnr_vs_level(methods = ['ELFVC-SP','ELFVC-SE'], 
 					labels = ['w/o SE','w/ SE'],
 					technique = 'se')
 
-# Overall RD tradeoff
-plot_RD_tradeoff()
-
 ##############################Overall QoE and breakdown#############################
 plot_QoE_cdf_breakdown()
+
+plot_QoE_cdf_breakdown(methods = ['Vesper','w/o SE','w/o SE+SP'],folder = 'ablation')
+
+exit(0)
+
+# Overall RD tradeoff
+plot_RD_tradeoff()
 
 
 plot_sp_err()
