@@ -195,6 +195,7 @@ def static_simulation_model(args, test_dataset):
                 # compress GoP
                 com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,psnr_list,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True,lvl)
                 ba_loss_module.update(be_loss, l)
+                img_loss_module.update(img_loss,l-1)
                 psnr_module.update(psnr,l)
                 encoding_time = decoding_time = 0
                 all_psnr_list += psnr_list
@@ -227,8 +228,8 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                print(min_loss,ba_loss_module.avg + psnr_module.avg)
-                if ba_loss_module.avg + psnr_module.avg < min_loss:
+                print(min_loss,ba_loss_module.avg + img_loss_module.avg)
+                if ba_loss_module.avg + img_loss_module.avg < min_loss:
                     print('0')
                     with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
                         # per video
