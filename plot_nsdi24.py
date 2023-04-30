@@ -480,6 +480,63 @@ def crate_array_of_empty_list(size):
 			data[i, j] = data[i, j].copy()
 	return data
 
+def plot_sp_cdf():
+	bpp_records = [[],[]]
+	psnr_records = [[],[]]
+	methods = ['ELFVC','ELFVC-SP']
+	for i in range(2):
+		with open(f'../NSDI_logs/{methods[i]}.log','r') as f:
+			line_count = 0
+			for l in f.readlines():
+				if line_count%2 == 0:
+					l = l.split(',')
+					lvl,bpp = int(l[0]),float(l[1])
+				else:
+					l = l[1:-2].split(',')
+					l = np.char.strip(l)
+					psnr_list = np.array(l).astype(float)
+					psnr_records[i] += psnr_list.tolist()
+					bpp_records[i] += [bpp] * len(psnr_list)
+				line_count += 1
+
+	cdf_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
+	cdf_labels = ['w/o SP','w/ SP (Ours)']
+	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_bpp_cdf.eps',cdf_labels,linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.7,0.4),lfsize=16,ncol=1,lbsize=24,xlabel=f'BPP')
+	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_psnr_cdf.eps',cdf_labels,linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'PSNR (dB)')
+
+def plot_sp_vs_level():
+	methods = ['ELFVC','ELFVC-SP']
+	bpp_data = crate_array_of_empty_list((8, 2))
+	psnr_data = crate_array_of_empty_list((8, 2))
+	for i in range(2):
+		with open(f'../NSDI_logs/{methods[i]}.log','r') as f:
+			line_count = 0
+			for l in f.readlines():
+				if line_count%2 == 0:
+					l = l.split(',')
+					level,bpp = int(l[0]),float(l[1])
+				else:
+					l = l[1:-2].split(',')
+					l = np.char.strip(l)
+					psnr_list = np.array(l).astype(float)
+					bpp_data[level,i] += [bpp]
+					psnr_data[level,i] += [psnr_list.mean()]
+				line_count += 1
+
+	bar_colors = ['#1f77b4', '#ff7f0e']
+	labels = ['w/o SP','w/ SP (Ours)']
+	for data,ylabel,fname in zip([bpp_data,psnr_data],['BPP','PSNR (dB)'],['bpp','psnr']):
+		# Calculate the mean of each list, handling empty lists as zero
+		average = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
+		std_dev = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
+		groupedbar(average,std_dev,ylabel, 
+			f'/home/bo/Dropbox/Research/NSDI24/images/sp_{fname}_vs_level.eps',methods=labels,colors=bar_colors,ylim=((30,50) if fname=='psnr' else None),
+			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
+
+	
+
 def plot_qerr():
 	data = crate_array_of_empty_list((4, 8))
 	with open(f'../NSDI_logs/ELFVC-SP.log','r') as f:
@@ -488,9 +545,6 @@ def plot_qerr():
 			if line_count%2 == 0:
 				l = l.split(',')
 				lvl,flow_sp	,flow_q,res_sp,res_q = int(l[0]),float(l[4]),float(l[5]),float(l[6]),float(l[7])
-			else:
-				l = l[1:-2].split(',')
-				l = np.char.strip(l)
 				data[0,lvl].append(flow_sp)
 				data[1,lvl].append(flow_q)
 				data[2,lvl].append(res_sp)
@@ -556,12 +610,80 @@ def plot_evolution():
 		bandlike=True,linestyles=line_styles,xticks=range(0,35,5),yticks=[.05,.1,.15,.2,.25],bbox_to_anchor=(.14,1.02))
 	line_plot(epoch_by_video,psnr_history_by_video,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/psnr_evolution_by_video.eps',
-		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=14,linewidth=2,markersize=4,ncol=2,yerr=psnrstd_history_by_video,band_colors=band_colors,
-		bandlike=True,linestyles=line_styles,xticks=range(0,35,5),yticks=[30,35,40],bbox_to_anchor=(.14,0.75))
+		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=14,linewidth=2,markersize=4,ncol=0,yerr=psnrstd_history_by_video,band_colors=band_colors,
+		bandlike=True,linestyles=line_styles,xticks=range(0,35,5),bbox_to_anchor=(.14,0.75))
+
+def plot_evolution2():
+	datasets = ['UVG','MCL-JCV']
+	bpp_data = crate_array_of_empty_list((8, 2))
+	psnr_data = crate_array_of_empty_list((8, 2))
+	for dataset in datasets:
+		with open(f'../NSDI_logs/ELFVC-SE.{dataset}.log','r') as f:
+			for l in f.readlines():
+				bpp_list = []; psnr_list = []
+				for level,start,stage_name,_,bpp,psnr in eval(l):
+					if stage_name != 'motion': break
+					bpp_list += [bpp]; psnr_list += [psnr]
+				bpp_data[level,0].append(1-bpp_list[1]/bpp_list[0])
+				bpp_data[level,1].append(1-bpp_list[-1]/bpp_list[0])
+				psnr_data[level,0].append(psnr_list[1] - psnr_list[0])
+				psnr_data[level,1].append(psnr_list[-1] - psnr_list[0])
+
+	bar_colors = ['#1f77b4', '#ff7f0e']
+	labels = ['One Iter (Ours)','Converged']
+	for data,ylabel,fname in zip([bpp_data,psnr_data],['BPP Reduction (%)','Improved PSNR (dB)'],['bpp','psnr']):
+		# Calculate the mean of each list, handling empty lists as zero
+		average = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
+		std_dev = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
+		groupedbar(average,std_dev,ylabel, 
+			f'/home/bo/Dropbox/Research/NSDI24/images/se_{fname}_improvement_vs_level.eps',methods=labels,colors=bar_colors,
+			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
+
+def plot_evolution3():
+	datasets = ['UVG','MCL-JCV']
+	bpp_records = [[],[],[]]
+	psnr_records = [[],[],[]]
+	iteration_records = [[],[]]
+	for dataset in datasets:
+		with open(f'../NSDI_logs/ELFVC-SE.{dataset}.log','r') as f:
+			for l in f.readlines():
+				bpp_list = []; psnr_list = []
+				for level,start,stage_name,_,bpp,psnr in eval(l):
+					if stage_name != 'motion': break
+					bpp_list += [bpp]; psnr_list += [psnr]
+				bpp_records[0].append(bpp_list[0])
+				bpp_records[1].append(bpp_list[1])
+				bpp_records[2].append(bpp_list[-1])
+				psnr_records[0].append(psnr_list[0])
+				psnr_records[1].append(psnr_list[1])
+				psnr_records[2].append(psnr_list[-1])
+				iteration_records[0].append(1)
+				iteration_records[1].append(len(bpp_list)-1)
+
+	cdf_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
+	cdf_labels = ['w/o SE','One Iter (Ours)','Converged']
+	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/se_bpp_cdf.eps',cdf_labels,linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.7,0.4),lfsize=16,ncol=1,lbsize=24,xlabel=f'BPP')
+	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/se_psnr_cdf.eps',cdf_labels,linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'PSNR (dB)')
+	measurements_to_cdf(iteration_records,f'/home/bo/Dropbox/Research/NSDI24/images/se_iter_cdf.eps',['Ours','For Convergence'],linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.4,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'# of Iterations',xticks=[0,1,10,20,30])
 
 
+plot_sp_vs_level()
+exit(0)
 
+plot_sp_cdf()
+exit(0)
 # evolution history
+# bpp/psnr of every video in uvg reacts to iterations.
+
+plot_evolution3()
+exit(0)
+
+plot_evolution2()
+exit(0)
+
 plot_evolution()
 exit(0)
 

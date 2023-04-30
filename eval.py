@@ -256,7 +256,7 @@ def evolve(args,model, test_dataset, start, end, level):
     min_loss = 100
     max_iter = 30
     max_converge = 3
-    max_shrink = 2
+    max_shrink = 1
     state_list = []
     first_test = True
     for encoder_name in ['motion']:
@@ -335,6 +335,8 @@ def evolve(args,model, test_dataset, start, end, level):
                         break
 
                 if first_test:
+                    min_loss = img_loss_module.avg + ba_loss_module.avg
+                    best_state_dict = model.state_dict()
                     with open(f'{args.task}.0.log','a') as f:
                         # per video
                         f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
