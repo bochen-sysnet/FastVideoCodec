@@ -228,9 +228,7 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                print(min_loss,ba_loss_module.avg + img_loss_module.avg)
                 if ba_loss_module.avg + img_loss_module.avg < min_loss:
-                    print('0')
                     with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
                         # per video
                         f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
@@ -238,7 +236,6 @@ def static_simulation_model(args, test_dataset):
                         # per frame
                         f.write(str(all_psnr_list)+'\n')
                 else:
-                    print('1')
                     with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
                         f.write(print_str)
                 all_psnr_list = []
