@@ -156,8 +156,7 @@ def static_simulation_x26x(args,test_dataset):
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        if not args.evolve:
-            model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
+        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
@@ -180,7 +179,6 @@ def static_simulation_model(args, test_dataset):
         eof = False
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
-                model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,device=args.device)
                 state_list,min_loss,print_str = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
                 # with open(f'{args.task}.{args.dataset}.log','a') as f:
                 #     f.write(str(state_list)+'\n')
@@ -247,6 +245,8 @@ def static_simulation_model(args, test_dataset):
                 aux2_loss_module.reset()
                 aux3_loss_module.reset()
                 aux4_loss_module.reset()
+                if args.evolve:
+                    model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,device=args.device)
             
         test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
