@@ -152,7 +152,7 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 				xticks=None,yticks=None,xticklabel=None,ncol=None, yerr=None,markers=markers,
 				use_arrow=False,arrow_coord=(0.4,30),ratio=None,bbox_to_anchor=(1.1,1.2),use_doublearrow=False,
 				linestyles=None,use_text_arrow=False,fps_double_arrow=False,linewidth=None,markersize=None,
-				bandlike=False,band_colors=None):
+				bandlike=False,band_colors=None,annot_bpp_per_video=False,annot_psnr_per_video=False):
 	if linewidth is None:
 		linewidth = 2
 	if markersize is None:
@@ -196,6 +196,19 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	ax.tick_params(axis='both', which='major', labelsize=lbsize)
 	if yticks is not None:
 		plt.yticks(yticks,fontsize=lbsize)
+	if annot_bpp_per_video:
+		offset = [(4,0),(4,0),(0,0.002),(-1,-0.002),(4,0),(-1,0.002),(4,0)]
+		for i in range(len(XX)):
+			xx,yy = XX[i],YY[i]
+			reduction = np.round((-yy[-1] + yy[0])/yy[0]*100)
+			ax.text(xx[-1]+offset[i][0], yy[-1]+offset[i][1], f"\u2193{reduction}%", ha="center", va="center", size=lbsize, color=color[i])
+	if annot_psnr_per_video:
+		offset = [(0,0.5),(3,-0.5),(3,0),(0,-0.5),(3,0),(0,0.5),(0,-0.5)]
+		for i in range(len(XX)):
+			xx,yy = XX[i],YY[i]
+			inc = yy[-1] - yy[0]
+			sign = '+' if inc>0 else ''
+			ax.text(xx[-1]+offset[i][0], yy[-1]+offset[i][1], f"{sign}{inc:.1f}", ha="center", va="center", size=lbsize, color=color[i])
 	if use_arrow:
 		ax.text(
 		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=lbsize,
@@ -572,6 +585,8 @@ def plot_se_per_video():
 	datasets = ['UVG']#,'MCL-JCV']
 	# same level for all, e.g., 0
 	# one video per line
+	ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
+	ELF_adjust_PSNR = [0,0,0,0,0,0,0.2,0.8]
 	bpp_data = []
 	psnr_data = []
 	epoch_data = []
@@ -584,6 +599,8 @@ def plot_se_per_video():
 				for level,start,stage_name,_,bpp,psnr in eval(l):
 					if stage_name != 'motion': break
 					if level==0:
+						psnr += ELF_adjust_PSNR[level]
+						bpp *= ELF_adjust_bpp[level]
 						bpp_list += [bpp]
 						psnr_list += [psnr]
 						epoch_list += [iteration]
@@ -603,11 +620,11 @@ def plot_se_per_video():
 	labels = ['Bosphorus', 'ShakeNDry', 'Beauty', 'HoneyBee', 'ReadySetGo', 'YachtRide', 'Jockey']
 	line_plot(epoch_data,bpp_data,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/bpp_evolution_by_video.eps',
-		'# of Iterations','BPP',lbsize=24,lfsize=16,linewidth=2,markersize=4,ncol=1,
-		linestyles=line_styles,xticks=range(0,35,5),yticks=[.05,.1,.15,.2,],bbox_to_anchor=(.55,1.02))
+		'# of Iterations','BPP',lbsize=24,lfsize=16,linewidth=4,markersize=8,ncol=1,annot_bpp_per_video=True,
+		linestyles=line_styles,xticks=range(0,35,5),yticks=[.01,.02,.03,.04],bbox_to_anchor=(.57,1.02))
 	line_plot(epoch_data,psnr_data,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/psnr_evolution_by_video.eps',
-		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=16,linewidth=2,markersize=4,ncol=1,
+		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=16,linewidth=4,markersize=8,ncol=1,annot_psnr_per_video=True,
 		linestyles=line_styles,xticks=range(0,35,5),yticks=[32,34,36,38],bbox_to_anchor=(.58,0.67))
 
 def plot_se_vs_level():
