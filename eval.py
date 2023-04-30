@@ -156,7 +156,8 @@ def static_simulation_x26x(args,test_dataset):
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
+        if not args.evolve:
+            model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
@@ -179,9 +180,10 @@ def static_simulation_model(args, test_dataset):
         eof = False
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
-                state_list = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
-                with open(f'{args.task}.{args.dataset}.log','a') as f:
-                    f.write(str(state_list)+'\n')
+                model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,device=args.device)
+                state_list,min_loss,print_str = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
+                # with open(f'{args.task}.{args.dataset}.log','a') as f:
+                #     f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
             data.append(transforms.ToTensor()(frame))
             if len(data) < GoP and not eof:
@@ -227,12 +229,16 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
-                    # per video
-                    f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
-                            f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
-                    # per frame
-                    f.write(str(all_psnr_list)+'\n')
+                if ba_loss_module.avg + psnr_module.avg < min_loss:
+                    with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
+                        # per video
+                        f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
+                                f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
+                        # per frame
+                        f.write(str(all_psnr_list)+'\n')
+                else:
+                    with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
+                        f.write(print_str)
                 all_psnr_list = []
                 compt_module.reset()
                 decompt_module.reset()
@@ -241,8 +247,6 @@ def static_simulation_model(args, test_dataset):
                 aux2_loss_module.reset()
                 aux3_loss_module.reset()
                 aux4_loss_module.reset()
-                if args.evolve:
-                    model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,device=args.device)
             
         test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
@@ -254,9 +258,9 @@ def evolve(args,model, test_dataset, start, end, level):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 30
+    max_iter = 1#30
     max_converge = 3
-    max_shrink = 1
+    max_shrink = 2
     state_list = []
     first_test = True
     for encoder_name in ['motion']:
@@ -265,7 +269,7 @@ def evolve(args,model, test_dataset, start, end, level):
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
         converge_count = shrink_count = 0
         for it in range(max_iter):
-            mode_list = ['test','evo','test'] if (encoder_name=='motion' and it==0) else ['evo','test']
+            mode_list = ['test','evo','test']# if (encoder_name=='motion' and it==0) else ['evo','test']
             for mode in mode_list:
                 if mode == 'evo':
                     model.train()
@@ -335,38 +339,38 @@ def evolve(args,model, test_dataset, start, end, level):
                         break
 
                 if first_test:
+                    # super-precision result
                     min_loss = img_loss_module.avg + ba_loss_module.avg
-                    best_state_dict = model.state_dict()
+                    print_str = f'{level},{ba_loss_module.avg:.4f},0,0,'
+                                f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n'
+                                f'{str(all_psnr_list)}\n'
                     with open(f'{args.task}.{args.dataset}.0.log','a') as f:
                         # per video
-                        f.write(f'{level},{ba_loss_module.avg:.4f},0,0,'
-                                f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
-                        # per frame
-                        f.write(str(all_psnr_list)+'\n')
+                        f.write(print_str)
                     first_test = False
 
                 if mode == 'test':
                     # record evolution history
                     state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
-            if img_loss_module.avg + ba_loss_module.avg < min_loss:
-                min_loss = img_loss_module.avg + ba_loss_module.avg
-                best_state_dict = model.state_dict()
-                converge_count = 0
-            else:
-                converge_count += 1
-                if converge_count == max_converge:
-                    if shrink_count < max_shrink:
-                        shrink_learning_rate(optimizer)
-                        converge_count = 0
-                        shrink_count += 1
-                    else:
-                        break
+    #         if img_loss_module.avg + ba_loss_module.avg < min_loss:
+    #             min_loss = img_loss_module.avg + ba_loss_module.avg
+    #             best_state_dict = model.state_dict()
+    #             converge_count = 0
+    #         else:
+    #             converge_count += 1
+    #             if converge_count == max_converge:
+    #                 if shrink_count < max_shrink:
+    #                     shrink_learning_rate(optimizer)
+    #                     converge_count = 0
+    #                     shrink_count += 1
+    #                 else:
+    #                     break
 
 
-    model.load_state_dict(best_state_dict)
+    # model.load_state_dict(best_state_dict)
     model.eval()
-    return state_list
+    return state_list,min_loss,print_str
 
 def shrink_learning_rate(optimizer):
     LR_DECAY_RATE = 0.1

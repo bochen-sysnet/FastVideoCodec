@@ -563,39 +563,36 @@ def plot_qerr():
 		f'/home/bo/Dropbox/Research/NSDI24/images/qjitter_bar.eps',methods=labels,colors=colors_tmp,
 		envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.2,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
 
-	line_plot([range(1,9) for _ in range(4)],average,labels,colors_tmp,
-		'/home/bo/Dropbox/Research/NSDI24/images/qjitter_band.eps',
-		'Compression Level','Quantization Jitter',lbsize=24,lfsize=18,linewidth=2,markersize=4,
-		yerr=std_dev,band_colors=band_colors,bandlike=True,linestyles=linestyles,xticks=range(1,9))
+	# line_plot([range(1,9) for _ in range(4)],average,labels,colors_tmp,
+	# 	'/home/bo/Dropbox/Research/NSDI24/images/qjitter_band.eps',
+	# 	'Compression Level','Quantization Jitter',lbsize=24,lfsize=18,linewidth=2,markersize=4,
+	# 	yerr=std_dev,band_colors=band_colors,bandlike=True,linestyles=linestyles,xticks=range(1,9))
 
-def plot_evolution():
+def plot_se_per_video():
 	datasets = ['UVG']#,'MCL-JCV']
 	# same level for all, e.g., 0
 	# one video per line
-	bpp_data = crate_array_of_empty_list((7, 31))
-	psnr_data = crate_array_of_empty_list((7, 31))
-	epoch_by_video = [range(31) for _ in range(7)]
+	bpp_data = []
+	psnr_data = []
+	epoch_data = []
 	for dataset in datasets:
-		with open(f'../NSDI_logs/ELFVC-SE.{dataset}.log','r') as f:
+		with open(f'../NSDI_logs/ELFVC-SP.{dataset}.log','r') as f:
 			line_count = 0
 			for l in f.readlines():
-				vid = line_count%7
 				iteration = 0
+				bpp_list = []; psnr_list = []; epoch_list = []
 				for level,start,stage_name,_,bpp,psnr in eval(l):
 					if stage_name != 'motion': break
-					bpp_data[vid,iteration].append(bpp)
-					psnr_data[vid,iteration].append(psnr)
-					iteration += 1
-				for i in range(iteration,31):
-					bpp_data[vid,i].append(bpp_data[vid,iteration-1][-1])
-					psnr_data[vid,i].append(psnr_data[vid,iteration-1][-1])
+					if level==0:
+						bpp_list += [bpp]
+						psnr_list += [psnr]
+						epoch_list += [iteration]
+						iteration += 1
+				if level == 0:
+					bpp_data += [bpp_list]
+					psnr_data += [psnr_list]
+					epoch_data += [epoch_list]
 				line_count += 1
-
-	bpp_history_by_video = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in bpp_data.flatten()]).reshape(bpp_data.shape)
-	bppstd_history_by_video = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in bpp_data.flatten()]).reshape(bpp_data.shape)
-
-	psnr_history_by_video = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in psnr_data.flatten()]).reshape(psnr_data.shape)
-	psnrstd_history_by_video = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in psnr_data.flatten()]).reshape(psnr_data.shape)
 
 	line_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
 
@@ -604,21 +601,21 @@ def plot_evolution():
 	line_styles = ['-', '--', '-.', ':', (0, (5, 1)), (0, (3, 5, 1, 5)), (0, (1, 1))]
 
 	labels = ['Bosphorus', 'ShakeNDry', 'Beauty', 'HoneyBee', 'ReadySetGo', 'YachtRide', 'Jockey']
-	line_plot(epoch_by_video,bpp_history_by_video,labels,line_colors,
+	line_plot(epoch_data,bpp_data,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/bpp_evolution_by_video.eps',
-		'# of Iterations','BPP',lbsize=24,lfsize=14,linewidth=2,markersize=4,ncol=2,yerr=bppstd_history_by_video,band_colors=band_colors,
-		bandlike=True,linestyles=line_styles,xticks=range(0,35,5),yticks=[.05,.1,.15,.2,.25],bbox_to_anchor=(.14,1.02))
-	line_plot(epoch_by_video,psnr_history_by_video,labels,line_colors,
+		'# of Iterations','BPP',lbsize=24,lfsize=16,linewidth=2,markersize=4,ncol=1,
+		linestyles=line_styles,xticks=range(0,35,5),yticks=[.05,.1,.15,.2,],bbox_to_anchor=(.55,1.02))
+	line_plot(epoch_data,psnr_data,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/psnr_evolution_by_video.eps',
-		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=14,linewidth=2,markersize=4,ncol=0,yerr=psnrstd_history_by_video,band_colors=band_colors,
-		bandlike=True,linestyles=line_styles,xticks=range(0,35,5),bbox_to_anchor=(.14,0.75))
+		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=16,linewidth=2,markersize=4,ncol=1,
+		linestyles=line_styles,xticks=range(0,35,5),yticks=[32,34,36,38],bbox_to_anchor=(.58,0.67))
 
-def plot_evolution2():
+def plot_se_vs_level():
 	datasets = ['UVG','MCL-JCV']
 	bpp_data = crate_array_of_empty_list((8, 2))
 	psnr_data = crate_array_of_empty_list((8, 2))
 	for dataset in datasets:
-		with open(f'../NSDI_logs/ELFVC-SE.{dataset}.log','r') as f:
+		with open(f'../NSDI_logs/ELFVC-SP.{dataset}.log','r') as f:
 			for l in f.readlines():
 				bpp_list = []; psnr_list = []
 				for level,start,stage_name,_,bpp,psnr in eval(l):
@@ -639,13 +636,13 @@ def plot_evolution2():
 			f'/home/bo/Dropbox/Research/NSDI24/images/se_{fname}_improvement_vs_level.eps',methods=labels,colors=bar_colors,
 			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
 
-def plot_evolution3():
+def plot_se_cdf():
 	datasets = ['UVG','MCL-JCV']
 	bpp_records = [[],[],[]]
 	psnr_records = [[],[],[]]
 	iteration_records = [[],[]]
 	for dataset in datasets:
-		with open(f'../NSDI_logs/ELFVC-SE.{dataset}.log','r') as f:
+		with open(f'../NSDI_logs/ELFVC-SP.{dataset}.log','r') as f:
 			for l in f.readlines():
 				bpp_list = []; psnr_list = []
 				for level,start,stage_name,_,bpp,psnr in eval(l):
@@ -670,141 +667,119 @@ def plot_evolution3():
 		colors=cdf_colors,bbox_to_anchor=(.4,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'# of Iterations',xticks=[0,1,10,20,30])
 
 
-plot_sp_vs_level()
+def plot_RD_tradeoff():
+	SPSNRs = [[32.20030428647995, 34.520895831346515, 35.93721253871918, 37.8684334590435, 39.51266849374771, 40.823672102928164, 42.145868400096894, 43.44012289690971], [33.167340933322905, 34.58496722102165, 36.156650943040844, 37.54983545994759, 38.80151827955246, 40.20092285299301, 41.51993577432633, 42.80891443252563], [31.911170615196227, 33.59662669181824, 35.073301779270174, 36.3265318365097, 37.370484233379365, 38.193767918348314, 38.84856410169601, 39.35588079452515], [33.23122785019875, 34.62406644463539, 35.83494013476372, 36.84865824365616, 37.70339743518829, 38.445705357074736, 39.0738078956604, 39.51968069934845], [32.95162628340721, 34.39114833903313, 35.67984473323822, 36.77041100358963, 37.67305509305, 38.44268340206146, 39.0731332988739, 39.53226850509643], [33.075983564376834, 34.45408898758888, 35.66986226463318, 36.71133078813553, 37.59897288942337, 38.343172566890715, 38.947341213226316, 39.40737556648254], [32.94724491167069, 34.29442249751091, 35.48730764818192, 36.516958021640775, 37.373835401058194, 38.09869503426552, 38.70549611997605, 39.18615546035767], [33.06004134774208, 34.43566031122208, 35.63771190547943, 36.680811815023425, 37.53766157031059, 38.263620466709135, 38.868735751628876, 39.33174180984497]]
+	Sbpps = [[0.025, 0.06799999999999999, 0.1, 0.18000000000000005, 0.28, 0.38, 0.5399999999999999, 0.7499999999999998], [0.05218125, 0.081607375, 0.12142825, 0.1812308125, 0.2590743125, 0.36626200000000003, 0.5203261874999999, 0.7336966875], [0.02382375, 0.03850100000000001, 0.06485250000000001, 0.11969093749999998, 0.23905893749999996, 0.47534131250000006, 0.8754845, 1.4809526874999999], [0.026881250000000002, 0.042514937499999995, 0.06942899999999999, 0.120578, 0.2225614375, 0.43596099999999993, 0.8270014375000001, 1.4458957499999998], [0.025379250000000003, 0.039885, 0.0653433125, 0.11526875000000002, 0.215117875, 0.42379268750000004, 0.8072253125000001, 1.4425223125], [0.020962124999999998, 0.035693562500000005, 0.06224675000000002, 0.115982, 0.22779037500000007, 0.453151875, 0.8685715, 1.5292138125], [0.016587437500000003, 0.027825500000000003, 0.04661843749999999, 0.08143237499999999, 0.149085375, 0.2852063125, 0.5427845, 0.98032825], [0.0165040625, 0.028121999999999994, 0.04716850000000001, 0.0833735, 0.15286724999999998, 0.300959875, 0.5819153125, 1.0572071250000001]]
+
+	SPSNRs = np.array(SPSNRs)
+	Sbpps = np.array(Sbpps)
+
+	sc_labels = ['Vesper','ELFVC','SSF','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow',]
+
+	colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+	line_plot(Sbpps,SPSNRs,sc_labels,colors_tmp,
+			'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff.eps',
+			'Bit Per Pixel','PSNR (dB)',yticks=range(32,44),lbsize=24,lfsize=14,linewidth=1,markersize=4)
+
+def plot_QoE_cdf_breakdown():
+	# 16543747 bps=15.8Mbps
+	# 4074145 mbps=3.9Mbps
+	labels_tmp = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s']
+	colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+	metric_list = []
+	hw = 3090
+	for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
+		names = ['QoE','Quality','Rebuffer Rate','BW Consumption']
+		meanQoE_all = [];stdQoE_all = []
+		for trace in range(2):
+			datafile = f'/home/bo/Dropbox/Research/NSDI24/data/{metric}_{trace}_{hw}_1000.data'
+			with open(datafile,'r') as f:
+				line = f.readlines()[0]
+			QoE_matrix = eval(line)
+			QoE_matrix = np.array(QoE_matrix)
+			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
+			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
+			measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/data/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
+				colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
+			meanQoE = QoE_matrix.mean(axis=1)
+			stdQoE = QoE_matrix.std(axis=1)
+			meanQoE_all += [meanQoE]
+			stdQoE_all += [stdQoE]
+		meanQoE_all = np.stack(meanQoE_all).reshape(2,-1)
+		# print(meanQoE_all.tolist())
+		stdQoE_all = np.stack(stdQoE_all).reshape(2,-1)
+		if k == 0:
+			ncol = 1
+			labelsize=18
+		else:
+			labelsize=24
+			ncol = 0
+		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
+			f'/home/bo/Dropbox/Research/NSDI24/data/{metric}mean.eps',methods=labels_tmp,colors=colors_tmp,
+			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
+		if metric == 'QoE':
+			for line in meanQoE_all.tolist():
+				ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
+				m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
+				metric_list += [[m1,m2]]
+	metric_list = np.array(metric_list)
+	print(metric_list)
+	print(metric_list.mean(axis=0))
+	print(metric_list[:3].mean(axis=0))
+	print(metric_list[3:].mean(axis=0))
+
+
+def plot_QoE_ablation():
+	# 16543747 bps=15.8Mbps
+	# 4074145 mbps=3.9Mbps
+	labels_tmp = ['Base','Base+SP','Base+SP+SE']
+	colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
+	hw = 3090
+	for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
+		names = ['QoE','Quality','Rebuffer Rate','BW Consumption']
+		meanQoE_all = [];stdQoE_all = []
+		for trace in range(2):
+			datafile = f'/home/bo/Dropbox/Research/NSDI24/ablation/{metric}_{trace}_{hw}_1000.data'
+			with open(datafile,'r') as f:
+				line = f.readlines()[0]
+			QoE_matrix = eval(line)
+			QoE_matrix = np.array(QoE_matrix)
+			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
+			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
+			measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/ablation/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
+				colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
+			meanQoE = QoE_matrix.mean(axis=1)
+			stdQoE = QoE_matrix.std(axis=1)
+			meanQoE_all += [meanQoE]
+			stdQoE_all += [stdQoE]
+		meanQoE_all = np.stack(meanQoE_all).reshape(2,-1)
+		stdQoE_all = np.stack(stdQoE_all).reshape(2,-1)
+		if k == 0:
+			ncol = 1
+			labelsize=18
+		else:
+			labelsize=24
+			ncol = 0
+		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
+			f'/home/bo/Dropbox/Research/NSDI24/ablation/{metric}mean.eps',methods=labels_tmp,colors=colors_tmp,
+			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
+
+
+plot_se_per_video()
 exit(0)
+plot_sp_vs_level()
 
 plot_sp_cdf()
-exit(0)
-# evolution history
-# bpp/psnr of every video in uvg reacts to iterations.
 
-plot_evolution3()
-exit(0)
+plot_se_cdf()
 
-plot_evolution2()
-exit(0)
+plot_se_vs_level()
 
-plot_evolution()
-exit(0)
-
-# quantization error
 plot_qerr()
-
+exit(0)
 
 # Overall RD tradeoff
-
-SPSNRs = [[32.20030428647995, 34.520895831346515, 35.93721253871918, 37.8684334590435, 39.51266849374771, 40.823672102928164, 42.145868400096894, 43.44012289690971], [33.167340933322905, 34.58496722102165, 36.156650943040844, 37.54983545994759, 38.80151827955246, 40.20092285299301, 41.51993577432633, 42.80891443252563], [31.911170615196227, 33.59662669181824, 35.073301779270174, 36.3265318365097, 37.370484233379365, 38.193767918348314, 38.84856410169601, 39.35588079452515], [33.23122785019875, 34.62406644463539, 35.83494013476372, 36.84865824365616, 37.70339743518829, 38.445705357074736, 39.0738078956604, 39.51968069934845], [32.95162628340721, 34.39114833903313, 35.67984473323822, 36.77041100358963, 37.67305509305, 38.44268340206146, 39.0731332988739, 39.53226850509643], [33.075983564376834, 34.45408898758888, 35.66986226463318, 36.71133078813553, 37.59897288942337, 38.343172566890715, 38.947341213226316, 39.40737556648254], [32.94724491167069, 34.29442249751091, 35.48730764818192, 36.516958021640775, 37.373835401058194, 38.09869503426552, 38.70549611997605, 39.18615546035767], [33.06004134774208, 34.43566031122208, 35.63771190547943, 36.680811815023425, 37.53766157031059, 38.263620466709135, 38.868735751628876, 39.33174180984497]]
-Sbpps = [[0.025, 0.06799999999999999, 0.1, 0.18000000000000005, 0.28, 0.38, 0.5399999999999999, 0.7499999999999998], [0.05218125, 0.081607375, 0.12142825, 0.1812308125, 0.2590743125, 0.36626200000000003, 0.5203261874999999, 0.7336966875], [0.02382375, 0.03850100000000001, 0.06485250000000001, 0.11969093749999998, 0.23905893749999996, 0.47534131250000006, 0.8754845, 1.4809526874999999], [0.026881250000000002, 0.042514937499999995, 0.06942899999999999, 0.120578, 0.2225614375, 0.43596099999999993, 0.8270014375000001, 1.4458957499999998], [0.025379250000000003, 0.039885, 0.0653433125, 0.11526875000000002, 0.215117875, 0.42379268750000004, 0.8072253125000001, 1.4425223125], [0.020962124999999998, 0.035693562500000005, 0.06224675000000002, 0.115982, 0.22779037500000007, 0.453151875, 0.8685715, 1.5292138125], [0.016587437500000003, 0.027825500000000003, 0.04661843749999999, 0.08143237499999999, 0.149085375, 0.2852063125, 0.5427845, 0.98032825], [0.0165040625, 0.028121999999999994, 0.04716850000000001, 0.0833735, 0.15286724999999998, 0.300959875, 0.5819153125, 1.0572071250000001]]
-
-SPSNRs = np.array(SPSNRs)
-Sbpps = np.array(Sbpps)
-
-sc_labels = ['ELFVC','SSF','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow',]
-
-colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-line_plot(Sbpps,SPSNRs,sc_labels,colors_tmp,
-		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff.eps',
-		'Bit Per Pixel','PSNR (dB)',yticks=range(32,44),lbsize=24,lfsize=14,linewidth=1,markersize=4)
-
+plot_RD_tradeoff()
 
 ##############################Overall QoE and breakdown#############################
-# 16543747 bps=15.8Mbps
-# 4074145 mbps=3.9Mbps
-labels_tmp = ['ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s']
-colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
-metric_list = []
-hw = 3090
-for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
-	names = ['QoE','Quality','Rebuffer Rate','BW Consumption']
-	meanQoE_all = [];stdQoE_all = []
-	for trace in range(2):
-		datafile = f'/home/bo/Dropbox/Research/NSDI24/data/{metric}_{trace}_{hw}_1000.data'
-		with open(datafile,'r') as f:
-			line = f.readlines()[0]
-		QoE_matrix = eval(line)
-		QoE_matrix = np.array(QoE_matrix)
-		QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
-		QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
-		measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/data/{metric}cdf_{trace}_{hw}.eps',labels_tmp,linestyles=linestyles,
-			colors=colors_tmp,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
-		meanQoE = QoE_matrix.mean(axis=1)
-		stdQoE = QoE_matrix.std(axis=1)
-		meanQoE_all += [meanQoE]
-		stdQoE_all += [stdQoE]
-	meanQoE_all = np.stack(meanQoE_all).reshape(2,-1)
-	# print(meanQoE_all.tolist())
-	stdQoE_all = np.stack(stdQoE_all).reshape(2,-1)
-	if k == 0:
-		ncol = 1
-		labelsize=18
-	else:
-		labelsize=24
-		ncol = 0
-	groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
-		f'/home/bo/Dropbox/Research/NSDI24/data/{metric}mean.eps',methods=labels_tmp,colors=colors_tmp,
-		envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
-# 	if metric == 'QoE':
-# 		for line in meanQoE_all.tolist():
-# 			ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
-# 			m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
-# 			metric_list += [[m1,m2]]
-# metric_list = np.array(metric_list)
-# print(metric_list)
-# print(metric_list.mean(axis=0))
-# print(metric_list[:3].mean(axis=0))
-# print(metric_list[3:].mean(axis=0))
-exit(0)
-
-
-SPSNRs = [
-[29.91,31.6,33.17,34.45,35.43,36.13,36.58],
-[29.22,31.01,32.33,33.16,33.81,34.48,34.95,35.17],
-[29.13,31,32.34,33.23,33.93,34.23,34.89,35.59],
-[28.69,30.19,31.46,32.60,33.71,35.00,36.17],
-[28.696,30.125,31.50,32.65,34.04,35.59,37.10,37.52],
-[28.74]
-]
-# 5,3,2; 5,5,5
-Sbpps = [
-[0.0667,0.1099,0.1784,0.2847,0.4486,0.706,1.1164],
-[0.0792,0.1280,0.1926,0.2776,0.3364,0.4715,0.6509,0.8680],
-[0.0634,0.1098,0.1684,0.2439,0.3399,0.4767,0.6794,0.9825],
-[0.0730,0.1238,0.1965,0.2991,0.4348,0.6325,0.8969],
-[0.070,0.1130,0.1964,0.31,0.49,0.74,1.16,1.51],
-[0.071]
-]
-sc_labels = ['x265','DVC','RLVC','SSF','ELFVC','Vesper']
-line_plot(Sbpps,SPSNRs,sc_labels,colors,
-		'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff_256.eps',
-		'Bit Per Pixel','PSNR (dB)',lbsize=24,lfsize=18)
-
-
-
-# band plot
-# quantization error vs. lambda
-
-# PSNR/bpp vs. SE epoch
-
-# Generate some random data
-x = np.linspace(0, 10, 100)
-y = x
-average = y
-std_dev = y*0.1
-
-# Plot the curve
-plt.plot(x, y, label='Sin(x)')
-
-# Fill the area between the curves
-plt.fill_between(x, average - std_dev, average + std_dev, color='blue', alpha=0.3)
-
-# Set labels and title
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.title('Band-like Plot')
-
-# Add a legend
-plt.legend()
-
-# Display the plot
-plt.savefig(f'/home/bo/Dropbox/Research/NSDI24/test.eps', bbox_inches='tight')
-exit(0)
+plot_QoE_cdf_breakdown()

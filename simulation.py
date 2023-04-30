@@ -18,6 +18,7 @@ pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,
     tasks = ['ELFVC-SE','ELFVC-SP','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
+    path = 'data' if len(tasks) > 3 else 'ablation'
     # read network traces
     import csv
     single_trace_len = 500
@@ -88,15 +89,15 @@ def BOLA_simulation(total_traces = 100,
                 f"bw:{bw:.3f}. ")
         QoE_matrix += [QoE_list];quality_matrix += [quality_list];rebuffer_matrix += [rebuffer_list];stall_matrix += [stall_list];bw_matrix += [bw_list]
         sim_iter.reset()
-    with open(f'/home/bo/Dropbox/Research/NSDI24/data/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/{path}/QoE_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(QoE_matrix))
-    with open(f'/home/bo/Dropbox/Research/NSDI24/data/quality_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/{path}/quality_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(quality_matrix))
-    with open(f'/home/bo/Dropbox/Research/NSDI24/data/rebuffer_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/{path}/rebuffer_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(rebuffer_matrix))
-    with open(f'/home/bo/Dropbox/Research/NSDI24/data/stall_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/{path}/stall_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(stall_matrix))
-    with open(f'/home/bo/Dropbox/Research/NSDI24/data/bw_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
+    with open(f'/home/bo/Dropbox/Research/NSDI24/{path}/bw_{args.trace_id}_{args.hardware}_{args.num_traces}.data','w') as f:
         f.write(str(bw_matrix))
     QoE_matrix = np.array(QoE_matrix);quality_matrix = np.array(quality_matrix);rebuffer_matrix = np.array(rebuffer_matrix)
     stall_matrix = np.array(stall_matrix);bw_matrix = np.array(bw_matrix)
@@ -105,9 +106,9 @@ def BOLA_simulation(total_traces = 100,
     print('Rebuffer:',rebuffer_matrix.mean(axis=1).tolist(),rebuffer_matrix.std(axis=1).tolist())
     print('Stall:',stall_matrix.mean(axis=1).tolist(),stall_matrix.std(axis=1).tolist())
     print('BW:',bw_matrix.mean(axis=1).tolist(),bw_matrix.std(axis=1).tolist())
+    print('================RD Tradeoff===============')
     print(all_mean_psnr)
     print(all_mean_bpp)
-    # print(all_dect_mean,all_dect_std)
 
 def task_to_video_trace(task):
     ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
@@ -354,6 +355,7 @@ if __name__ == '__main__':
     
     if args.large_scale:
         BOLA_simulation(total_traces=args.num_traces)
+        # BOLA_simulation(total_traces=args.num_traces, tasks=['ELFVC','ELFVC-SP','ELFVC-SE'])
     else:    
         BOLA_simulation(total_traces=10,
             tasks=['ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
