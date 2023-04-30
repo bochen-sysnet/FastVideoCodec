@@ -341,9 +341,7 @@ def evolve(args,model, test_dataset, start, end, level):
                 if first_test:
                     # super-precision result
                     min_loss = img_loss_module.avg + ba_loss_module.avg
-                    print_str = f'{level},{ba_loss_module.avg:.4f},0,0,'
-                                f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n'
-                                f'{str(all_psnr_list)}\n'
+                    print_str = f'{level},{ba_loss_module.avg:.4f},0,0,' + f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n' + str(all_psnr_list) + '\n'
                     with open(f'{args.task}.{args.dataset}.0.log','a') as f:
                         # per video
                         f.write(print_str)
