@@ -228,8 +228,8 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                if ba_loss_module.avg + img_loss_module.avg < min_loss:
-                    with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
+                if not args.evolve or (args.evolve and ba_loss_module.avg + img_loss_module.avg < min_loss):
+                    with open(f'{args.task}.{args.dataset}.{args.evolve}.{args.spstage}.log','a') as f:
                         # per video
                         f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
                                 f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
