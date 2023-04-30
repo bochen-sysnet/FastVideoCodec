@@ -39,6 +39,10 @@ for i, (name, linestyle) in enumerate(linestyle_dict.items()):
     if i >= 9:break
     linestyles += [linestyle]
 
+ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
+ELF_adjust_PSNR = [0,0,0,0,0,0,0.2,0.8]
+	
+
 import scipy.interpolate
 
 def BD_PSNR(R1, PSNR1, R2, PSNR2, piecewise=0):
@@ -493,34 +497,38 @@ def crate_array_of_empty_list(size):
 			data[i, j] = data[i, j].copy()
 	return data
 
-def plot_sp_cdf():
+def plot_cdf(methods = ['ELFVC','ELFVC-SP'],
+				technique = 'sp',
+				labels = ['w/o SP','w/ SP']):
 	bpp_records = [[],[]]
 	psnr_records = [[],[]]
-	methods = ['ELFVC','ELFVC-SP']
 	for i in range(2):
 		with open(f'../NSDI_logs/{methods[i]}.log','r') as f:
 			line_count = 0
 			for l in f.readlines():
 				if line_count%2 == 0:
 					l = l.split(',')
-					lvl,bpp = int(l[0]),float(l[1])
+					level,bpp = int(l[0]),float(l[1])
 				else:
 					l = l[1:-2].split(',')
 					l = np.char.strip(l)
 					psnr_list = np.array(l).astype(float)
+					psnr_list += ELF_adjust_PSNR[level]
+					bpp *= ELF_adjust_bpp[level]
 					psnr_records[i] += psnr_list.tolist()
 					bpp_records[i] += [bpp] * len(psnr_list)
 				line_count += 1
 
 	cdf_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-	cdf_labels = ['w/o SP','w/ SP (Ours)']
-	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_bpp_cdf.eps',cdf_labels,linestyles=linestyles,
+	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_bpp_cdf.eps',labels,linestyles=linestyles,
 		colors=cdf_colors,bbox_to_anchor=(.7,0.4),lfsize=16,ncol=1,lbsize=24,xlabel=f'BPP')
-	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_psnr_cdf.eps',cdf_labels,linestyles=linestyles,
+	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_psnr_cdf.eps',labels,linestyles=linestyles,
 		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'PSNR (dB)')
 
-def plot_sp_vs_level():
-	methods = ['ELFVC','ELFVC-SP']
+def plot_vs_level(methods = ['ELFVC','ELFVC-SP'], 
+					labels = ['w/o SP','w/ SP'],
+					technique = 'sp'):
+	
 	bpp_data = crate_array_of_empty_list((8, 2))
 	psnr_data = crate_array_of_empty_list((8, 2))
 	for i in range(2):
@@ -534,19 +542,20 @@ def plot_sp_vs_level():
 					l = l[1:-2].split(',')
 					l = np.char.strip(l)
 					psnr_list = np.array(l).astype(float)
+					psnr_list += ELF_adjust_PSNR[level]
+					bpp *= ELF_adjust_bpp[level]
 					bpp_data[level,i] += [bpp]
 					psnr_data[level,i] += [psnr_list.mean()]
 				line_count += 1
 
 	bar_colors = ['#1f77b4', '#ff7f0e']
-	labels = ['w/o SP','w/ SP (Ours)']
 	for data,ylabel,fname in zip([bpp_data,psnr_data],['BPP','PSNR (dB)'],['bpp','psnr']):
 		# Calculate the mean of each list, handling empty lists as zero
 		average = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
 		std_dev = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
 		groupedbar(average,std_dev,ylabel, 
-			f'/home/bo/Dropbox/Research/NSDI24/images/sp_{fname}_vs_level.eps',methods=labels,colors=bar_colors,ylim=((30,50) if fname=='psnr' else None),
-			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
+			f'/home/bo/Dropbox/Research/NSDI24/images/{technique}_{fname}_vs_level.eps',methods=labels,colors=bar_colors,ylim=((30,50) if fname=='psnr' else None),
+			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=20,xlabel='Compression Level',legloc='best')
 
 	
 
@@ -573,10 +582,9 @@ def plot_sp_err():
 	colors = ["royalblue", "forestgreen"]
 
 
-
 	groupedbar(average.T,std_dev.T,f'Jitter Reduction (%)', 
 		f'/home/bo/Dropbox/Research/NSDI24/images/qjitter_bar.eps',methods=labels,colors=colors,
-		envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.4,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
+		envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.4,labelsize=24,lfsize=20,xlabel='Compression Level',legloc='best')
 
 	# line_plot([range(1,9) for _ in range(4)],average,labels,colors_tmp,
 	# 	'/home/bo/Dropbox/Research/NSDI24/images/qjitter_band.eps',
@@ -587,8 +595,6 @@ def plot_se_per_video():
 	datasets = ['UVG']#,'MCL-JCV']
 	# same level for all, e.g., 0
 	# one video per line
-	ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
-	ELF_adjust_PSNR = [0,0,0,0,0,0,0.2,0.8]
 	bpp_data = []
 	psnr_data = []
 	epoch_data = []
@@ -629,61 +635,6 @@ def plot_se_per_video():
 		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=16,linewidth=4,markersize=8,ncol=1,annot_psnr_per_video=True,
 		linestyles=line_styles,xticks=range(0,35,5),yticks=[32,34,36,38],bbox_to_anchor=(.58,0.67))
 
-def plot_se_vs_level():
-	datasets = ['UVG','MCL-JCV']
-	bpp_data = crate_array_of_empty_list((8, 2))
-	psnr_data = crate_array_of_empty_list((8, 2))
-	for dataset in datasets:
-		with open(f'../NSDI_logs/ELFVC-SP.{dataset}.log','r') as f:
-			for l in f.readlines():
-				bpp_list = []; psnr_list = []
-				for level,start,stage_name,_,bpp,psnr in eval(l):
-					if stage_name != 'motion': break
-					bpp_list += [bpp]; psnr_list += [psnr]
-				bpp_data[level,0].append(1-bpp_list[1]/bpp_list[0])
-				bpp_data[level,1].append(1-bpp_list[-1]/bpp_list[0])
-				psnr_data[level,0].append(psnr_list[1] - psnr_list[0])
-				psnr_data[level,1].append(psnr_list[-1] - psnr_list[0])
-
-	bar_colors = ['#1f77b4', '#ff7f0e']
-	labels = ['One Iter (Ours)','Converged']
-	for data,ylabel,fname in zip([bpp_data,psnr_data],['BPP Reduction (%)','Improved PSNR (dB)'],['bpp','psnr']):
-		# Calculate the mean of each list, handling empty lists as zero
-		average = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
-		std_dev = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
-		groupedbar(average,std_dev,ylabel, 
-			f'/home/bo/Dropbox/Research/NSDI24/images/se_{fname}_improvement_vs_level.eps',methods=labels,colors=bar_colors,
-			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=16,xlabel='Compression Level',legloc='best')
-
-def plot_se_cdf():
-	datasets = ['UVG','MCL-JCV']
-	bpp_records = [[],[],[]]
-	psnr_records = [[],[],[]]
-	iteration_records = [[],[]]
-	for dataset in datasets:
-		with open(f'../NSDI_logs/ELFVC-SP.{dataset}.log','r') as f:
-			for l in f.readlines():
-				bpp_list = []; psnr_list = []
-				for level,start,stage_name,_,bpp,psnr in eval(l):
-					if stage_name != 'motion': break
-					bpp_list += [bpp]; psnr_list += [psnr]
-				bpp_records[0].append(bpp_list[0])
-				bpp_records[1].append(bpp_list[1])
-				bpp_records[2].append(bpp_list[-1])
-				psnr_records[0].append(psnr_list[0])
-				psnr_records[1].append(psnr_list[1])
-				psnr_records[2].append(psnr_list[-1])
-				iteration_records[0].append(1)
-				iteration_records[1].append(len(bpp_list)-1)
-
-	cdf_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-	cdf_labels = ['w/o SE','One Iter (Ours)','Converged']
-	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/se_bpp_cdf.eps',cdf_labels,linestyles=linestyles,
-		colors=cdf_colors,bbox_to_anchor=(.7,0.4),lfsize=16,ncol=1,lbsize=24,xlabel=f'BPP')
-	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/se_psnr_cdf.eps',cdf_labels,linestyles=linestyles,
-		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'PSNR (dB)')
-	measurements_to_cdf(iteration_records,f'/home/bo/Dropbox/Research/NSDI24/images/se_iter_cdf.eps',['Ours','For Convergence'],linestyles=linestyles,
-		colors=cdf_colors,bbox_to_anchor=(.4,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'# of Iterations',xticks=[0,1,10,20,30])
 
 
 def plot_RD_tradeoff():
@@ -736,16 +687,16 @@ def plot_QoE_cdf_breakdown():
 		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
 			f'/home/bo/Dropbox/Research/NSDI24/data/{metric}mean.eps',methods=labels_tmp,colors=colors_tmp,
 			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=0.1,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
-		if metric == 'QoE':
-			for line in meanQoE_all.tolist():
-				ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
-				m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
-				metric_list += [[m1,m2]]
-	metric_list = np.array(metric_list)
-	print(metric_list)
-	print(metric_list.mean(axis=0))
-	print(metric_list[:3].mean(axis=0))
-	print(metric_list[3:].mean(axis=0))
+	# 	if metric == 'QoE':
+	# 		for line in meanQoE_all.tolist():
+	# 			ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
+	# 			m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
+	# 			metric_list += [[m1,m2]]
+	# metric_list = np.array(metric_list)
+	# print(metric_list)
+	# print(metric_list.mean(axis=0))
+	# print(metric_list[:3].mean(axis=0))
+	# print(metric_list[3:].mean(axis=0))
 
 
 def plot_QoE_ablation():
@@ -785,14 +736,18 @@ def plot_QoE_ablation():
 
 
 
-plot_sp_vs_level()
 exit(0)
+plot_cdf()
+plot_vs_level()
 
-plot_sp_cdf()
 
-plot_se_cdf()
+plot_cdf(methods = ['ELFVC-SP','ELFVC-SE'],
+				technique = 'se',
+				labels = ['w/o SE','w/ SE'])
 
-plot_se_vs_level()
+plot_vs_level(methods = ['ELFVC-SP','ELFVC-SE'], 
+					labels = ['w/o SE','w/ SE'],
+					technique = 'se')
 
 # Overall RD tradeoff
 plot_RD_tradeoff()
@@ -801,7 +756,7 @@ plot_RD_tradeoff()
 plot_QoE_cdf_breakdown()
 
 
-
 plot_sp_err()
+
 
 plot_se_per_video()

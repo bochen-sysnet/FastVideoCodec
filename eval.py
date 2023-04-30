@@ -171,6 +171,7 @@ def static_simulation_model(args, test_dataset):
         decompt_module = AverageMeter()
         decompt_list = []
         video_bpp_module = AverageMeter()
+        video_imgloss_module = AverageMeter()
         ds_size = len(test_dataset)
         GoP = args.fP + args.bP +1
         data = []
@@ -203,6 +204,7 @@ def static_simulation_model(args, test_dataset):
                 compt_module.update(encoding_time,l)
                 decompt_module.update(decoding_time,l)
                 video_bpp_module.update(be_loss,l)
+                video_imgloss_module.update(img_loss,l-1)
 
                 aux_loss_module.update(aux_loss)
                 aux2_loss_module.update(aux_loss2)
@@ -228,7 +230,8 @@ def static_simulation_model(args, test_dataset):
             data = []
 
             if eof:
-                if not args.evolve or (args.evolve and ba_loss_module.avg + img_loss_module.avg < min_loss):
+                if not args.evolve or (args.evolve and video_bpp_module.avg + video_imgloss_module.avg < min_loss):
+                    print(video_bpp_module.avg + video_imgloss_module.avg, min_loss)
                     with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.{args.spstage}.log','a') as f:
                         # per video
                         f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
@@ -242,6 +245,7 @@ def static_simulation_model(args, test_dataset):
                 compt_module.reset()
                 decompt_module.reset()
                 video_bpp_module.reset()
+                video_imgloss_module.reset()
                 aux_loss_module.reset()
                 aux2_loss_module.reset()
                 aux3_loss_module.reset()
