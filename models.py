@@ -1909,7 +1909,8 @@ class ELFVC(ScaleSpaceFlow):
                     self.Q_y_prior = round_y
 
                 # teset
-                y_hat = y
+                if self.training:
+                    y_hat = y
                 # test
                     
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods, "pred_err_y": pred_err_y, "Q_err_y": Q_err_y}
