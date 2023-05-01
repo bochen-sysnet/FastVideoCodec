@@ -176,9 +176,13 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
             x_hat_list = []
             if 'ELFVC' in model_name:
                 model.reset()
+            t_avg = 0
             for i in range(1,GOP_size):
                 x_cur = data[i:i+1] if no_batch else data[:,i]
+                t_0 = time.perf_counter()
                 x_prev, likelihoods = model.forward_inter(x_cur,x_prev)
+                t_diff = time.perf_counter() - t_0
+                t_avg += t_diff/(GOP_size-1)
                 mot_like,res_like = likelihoods["motion"],likelihoods["residual"]
                 mot_bits = torch.sum(torch.clamp(-1.0 * torch.log(mot_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(mot_like["z"] + 1e-5) / math.log(2.0), 0, 50))
@@ -216,6 +220,7 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
                 aux2_loss_list += [torch.norm(likelihoods["Q_err"][0],2)]#[Q_err_mean[0]]
                 aux4_loss_list += [torch.norm(likelihoods["Q_err"][1],2)]#[Q_err_mean[1]]
             x_hat = torch.cat(x_hat_list,dim=0)
+            print('Average time per frame:',t_avg,'fps:',1/t_avg)
         elif 'Base' == model_name[:4]:
             B,_,H,W = data.size()
             x_prev = data[0:1]

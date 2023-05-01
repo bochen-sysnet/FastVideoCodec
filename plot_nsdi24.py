@@ -657,6 +657,9 @@ def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x2
 	# 4074145 mbps=3.9Mbps
 	# colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
 	colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"]
+	selected_rows = [0] + [2+i for i in range(8)]
+	if len(methods) == 3:
+		selected_rows = [0,1,2]
 	metric_list = []
 	hw = 3090
 	for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
@@ -667,7 +670,7 @@ def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x2
 			with open(datafile,'r') as f:
 				line = f.readlines()[0]
 			QoE_matrix = eval(line)
-			QoE_matrix = np.array(QoE_matrix)
+			QoE_matrix = np.array(QoE_matrix)[selected_rows]
 			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
 			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
 			if k == 0:
@@ -701,21 +704,23 @@ def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x2
 	# print(metric_list[:3].mean(axis=0))
 	# print(metric_list[3:].mean(axis=0))
 
+def plot_encoding_speed():
+	labels = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s']
+	y = [0.012, 0.0102, 0.01,0.004889435564435564, 0.005005499857285572, 0.005083814399885828, 0.0074054160125588695, 0.0058336038961038965, 0.006322325888397318] 
+	y = 1/np.array(y).reshape(-1,1)
+
+	groupedbar(y,None,'Frame Rate (fps)', 
+		'/home/bo/Dropbox/Research/NSDI24/images/encoding_speed.eps',methods=['QoE'],colors=['#4f646f'],labelsize=24,ylim=(0,230),
+		envs=labels,ncol=0,rotation=45,use_realtime_line=True,bar_label_dxdy=(-0.4,5),yticks=range(0,250,30))
 
 plot_cdf()
 plot_bpp_psnr_vs_level()
-
-
-plot_cdf(methods = ['ELFVC-SP','ELFVC-SE'],
-				technique = 'se',
-				labels = ['w/o SE','w/ SE'])
-
-plot_bpp_psnr_vs_level(methods = ['ELFVC-SP','ELFVC-SE'], 
-					labels = ['w/o SE','w/ SE'],
-					technique = 'se')
-
-##############################Overall QoE and breakdown#############################
 plot_QoE_cdf_breakdown()
+
+
+plot_cdf(methods = ['ELFVC-SP','ELFVC-SE'], technique = 'se', labels = ['w/o SE','w/ SE'])
+
+plot_bpp_psnr_vs_level(methods = ['ELFVC-SP','ELFVC-SE'], labels = ['w/o SE','w/ SE'], technique = 'se')
 
 plot_QoE_cdf_breakdown(methods = ['Vesper','w/o SE','w/o SE+SP'],folder = 'ablation')
 
@@ -729,3 +734,5 @@ plot_sp_err()
 
 
 plot_se_per_video()
+
+plot_encoding_speed()
