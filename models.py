@@ -1897,7 +1897,7 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err_y = Q_y - y
                 pred_err_y = None
                 pred_y = None
-                if self.super_prec:
+                if self.super_prec and self.sp:
                     if self.Q_y_prior is None:
                         self.Q_y_prior = torch.zeros(y.size()).to(y.device)
                     round_y = torch.round(y - means)
