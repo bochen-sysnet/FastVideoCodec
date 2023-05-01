@@ -149,7 +149,7 @@ class SPnet(nn.Module):
         r = x.clone()
 
         # x = self.mid_block1(x)
-        x = self.mid_attn(x)
+        # x = self.mid_attn(x)
         # x = self.mid_block2(x)
 
         x = torch.cat((x, r), dim = 1)
