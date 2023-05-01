@@ -181,8 +181,8 @@ def static_simulation_model(args, test_dataset):
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
                 state_list,min_loss,print_str = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
-                with open(f'{args.task}.{args.dataset}.log','a') as f:
-                    f.write(str(state_list)+'\n')
+                # with open(f'{args.task}.{args.dataset}.log','a') as f:
+                #     f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
             data.append(transforms.ToTensor()(frame))
             if len(data) < GoP and not eof:
@@ -263,12 +263,14 @@ def evolve(args,model, test_dataset, start, end, level):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 1000
+    max_iter = 1000 #test
     max_converge = 3
     max_shrink = 2
     state_list = []
     first_test = True
+    print_str = ''
     for encoder_name in ['motion']:
+        # test
         # parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
         parameters = [p for n, p in model.named_parameters()]
         # this learning rate to avoid overfitting
@@ -346,6 +348,7 @@ def evolve(args,model, test_dataset, start, end, level):
 
                 if first_test:
                     # super-precision result
+                    # test
                     # min_loss = img_loss_module.avg + ba_loss_module.avg
                     print_str = f'{level},{ba_loss_module.avg:.4f},0,0,' + f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n' + str(all_psnr_list) + '\n'
                     with open(f'{args.task}.{args.dataset}.0.log','a') as f:
@@ -355,7 +358,9 @@ def evolve(args,model, test_dataset, start, end, level):
 
                 # record evolution history
                 # state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
-                state_list.append([mode,level,ba_loss_module.avg,psnr_module.avg])
+                # test
+                with open(f'{args.task}.content.log','a') as f:
+                    f.write(f'{mode},{ba_loss_module.avg},{psnr_module.avg}\n')
 
             if img_loss_module.avg + ba_loss_module.avg < min_loss:
                 min_loss = img_loss_module.avg + ba_loss_module.avg
@@ -371,7 +376,9 @@ def evolve(args,model, test_dataset, start, end, level):
                     else:
                         break
 
-
+    # test
+    exit(0)
+    # test
     model.load_state_dict(best_state_dict)
     model.eval()
     return state_list,min_loss,print_str
