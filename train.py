@@ -224,7 +224,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
                 print('')
                 train_loss = img_loss_module.avg + be_loss_module.avg
                 val_loss, stats = test(epoch, model, test_dataset)
-                with open(f'{args.codec}.quant.log','a') as f:
+                with open(f'{args.codec}.quantization.log','a') as f:
                     f.write(f'{train_loss},{val_loss},{be_loss_module.avg},{img_loss_module.avg},{stats[0]},{stats[1]}\n')
                 model.train()
             # test
