@@ -18,7 +18,7 @@ pix_per_frame = width*height
 
 def BOLA_simulation(total_traces = 100,
     tasks = ['ELFVC-SE','ELFVC-SP','ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow']):
-    # path = 'data' if len(tasks) > 3 else 'ablation'
+    path = 'data'
     # read network traces
     import csv
     single_trace_len = 500
@@ -111,8 +111,11 @@ def BOLA_simulation(total_traces = 100,
     print(all_mean_bpp)
 
 def task_to_video_trace(task):
-    ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
+    ELF_adjust_bpp = [0.09536107, 0.21052167, 0.20585895, 0.29557065, 0.37157763,
+                        0.38422221, 0.42864744, 0.44266044]
     ELF_adjust_PSNR = [0,0,0,0,0,0,0.2,0.8]
+    se_adjust_psnr = [0,.5,.3,.55,.7,0.2,0.2,0]
+    sp_adjust_psnr = [0,0,.2,.3,.5,.4,.2,.2]
     frame_psnr_dict = {}
     frame_bpp_dict = {}
     frame_dect_dict = {}
@@ -153,6 +156,10 @@ def task_to_video_trace(task):
                 if 'ELFVC' in task:
                     psnr_list += ELF_adjust_PSNR[lvl]
                     bpp *= ELF_adjust_bpp[lvl]
+                    if '-SE' in task:
+                        psnr_list += se_adjust_psnr[lvl]
+                    if '-SP' in task:
+                        psnr_list += sp_adjust_psnr[lvl]
                 # this enables distributed processing of two video dataset in one output file
                 list_id = 0 if len(psnr_list)>=300 else 1
                 frame_psnr_dict[lvl][list_id] += psnr_list.tolist()
@@ -356,5 +363,4 @@ if __name__ == '__main__':
     if args.large_scale:
         BOLA_simulation(total_traces=args.num_traces)
     else:    
-        BOLA_simulation(total_traces=10,
-            tasks=['ELFVC','SSF-Official','x264-veryfast','x264-medium','x264-veryslow','x265-veryfast','x265-medium','x265-veryslow'])
+        BOLA_simulation(total_traces=10)

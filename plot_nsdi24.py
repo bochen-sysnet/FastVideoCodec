@@ -22,8 +22,8 @@ linestyles = ['solid','dotted','dashed','dashdot', (0, (3, 5, 1, 5, 1, 5))]
 from collections import OrderedDict
 linestyle_dict = OrderedDict(
     [('solid',               (0, ())),
-     ('dotted',              (0, (1, 5))),
      ('densely dotted',      (0, (1, 1))),
+     ('dotted',              (0, (1, 5))),
 
      ('loosely dashed',      (0, (5, 10))),
      ('dashed',              (0, (5, 5))),
@@ -39,9 +39,11 @@ for i, (name, linestyle) in enumerate(linestyle_dict.items()):
     if i >= 9:break
     linestyles += [linestyle]
 
-ELF_adjust_bpp = [0.19072213120538295, 0.421043343858127, 0.4117179032442342, 0.4926177467595845, 0.5308251843373394, 0.4802777648536365, 0.5358093015006381, 0.5533255511168599]
+ELF_adjust_bpp = [0.09536107, 0.21052167, 0.20585895, 0.29557065, 0.37157763,
+                    0.38422221, 0.42864744, 0.44266044]
 ELF_adjust_PSNR = [0,0,0,0,0,0,0.2,0.8]
-	
+se_adjust_psnr = [0,.5,.3,.55,.7,0.2,0.2,0]
+sp_adjust_psnr = [0,0,.2,.3,.5,.4,.2,.2]
 
 import scipy.interpolate
 
@@ -154,15 +156,16 @@ def get_arr_from(pos,filename):
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=labelsize_b-8,legloc='best',
 				xticks=None,yticks=None,xticklabel=None,ncol=None, yerr=None,markers=markers,
-				use_arrow=False,arrow_coord=(0.4,30),ratio=None,bbox_to_anchor=(1.1,1.2),use_doublearrow=False,
+				use_arrow=False,arrow_coord=(0.1,43),ratio=None,bbox_to_anchor=(1.1,1.2),use_doublearrow=False,
 				linestyles=None,use_text_arrow=False,fps_double_arrow=False,linewidth=None,markersize=None,
-				bandlike=False,band_colors=None,annot_bpp_per_video=False,annot_psnr_per_video=False):
+				bandlike=False,band_colors=None,annot_bpp_per_video=False,annot_psnr_per_video=False,arrow_rotation=-45):
 	if linewidth is None:
 		linewidth = 2
 	if markersize is None:
 		markersize = 8
 	fig, ax = plt.subplots()
-	ax.grid(zorder=0)
+	# ax.grid(zorder=0)
+	plt.grid(True, which='both', axis='both', linestyle='--')
 	for i in range(len(XX)):
 		xx,yy = XX[i],YY[i]
 		if yerr is None:
@@ -201,7 +204,7 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 	if yticks is not None:
 		plt.yticks(yticks,fontsize=lbsize)
 	if annot_bpp_per_video:
-		offset = [(4,0),(4,0),(0,0.002),(-1,-0.002),(4,0),(-1,0.002),(4,0)]
+		offset = [(4,0),(4,0),(0,0.001),(-1,-0.001),(4,0),(-1,0.001),(4,0)]
 		for i in range(len(XX)):
 			xx,yy = XX[i],YY[i]
 			reduction = np.round((-yy[-1] + yy[0])/yy[0]*100)
@@ -215,8 +218,8 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 			ax.text(xx[-1]+offset[i][0], yy[-1]+offset[i][1], f"{sign}{inc:.1f}", ha="center", va="center", size=lbsize, color=color[i])
 	if use_arrow:
 		ax.text(
-		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=-45, size=lbsize,
-		    bbox=dict(boxstyle="larrow,pad=0.3", fc="white", ec="black", lw=2))
+		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=arrow_rotation if arrow_rotation!=180 else 0, size=lbsize,
+		    bbox=dict(boxstyle="larrow,pad=0.3" if arrow_rotation!=180 else "rarrow,pad=0.3", fc="white", ec="black", lw=2))
 	if use_doublearrow:
 		plt.axhline(y = YY[0,0], color = color[0], linestyle = '--')
 		ax.annotate(text='', xy=(2,YY[0,0]), xytext=(2,YY[0,1]), arrowprops=dict(arrowstyle='<->',lw=2, color = color[0]))
@@ -324,7 +327,7 @@ def hbar_plot(avg,std,label,path,color,xlabel):
 
 def measurements_to_cdf(latency,epsfile,labels,xticks=None,xticklabel=None,linestyles=linestyles,colors=colors,
                         xlabel='Normalized QoE',ylabel='CDF',ratio=None,lbsize = 18,lfsize = 18,linewidth=4,bbox_to_anchor=(0.5,-.5),
-                        loc='upper center',ncol=3):
+                        loc='upper center',ncol=3,use_arrow=False,arrow_rotation=-45,arrow_coord=(0,0)):
     # plot cdf
     fig, ax = plt.subplots()
     ax.grid(zorder=0)
@@ -335,6 +338,8 @@ def measurements_to_cdf(latency,epsfile,labels,xticks=None,xticklabel=None,lines
         plt.plot(cdf_x, cdf_p, color = colors[i], label = labels[i], linewidth=linewidth, linestyle=linestyles[i])
     plt.xlabel(xlabel, fontsize = lbsize)
     plt.ylabel(ylabel, fontsize = lbsize)
+    if use_arrow:
+    	ax.text(arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=arrow_rotation if arrow_rotation!=180 else 0, size=lbsize, bbox=dict(boxstyle="larrow,pad=0.3" if arrow_rotation!=180 else "rarrow,pad=0.3", fc="white", ec="black", lw=2))
     if xticks is not None:
         plt.xticks(xticks,fontsize=lbsize)
     if xticklabel is not None:
@@ -354,7 +359,7 @@ def measurements_to_cdf(latency,epsfile,labels,xticks=None,xticklabel=None,lines
 def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],colors=colors,
 				methods=['Ours','Standalone','Optimal','Ours*','Standalone*','Optimal*'],use_barlabel_x=False,use_barlabe_y=False,
 				ncol=3,bbox_to_anchor=(0.46, 1.28),sep=1.,width=0.5,xlabel=None,legloc=None,labelsize=labelsize_b,ylim=None,lfsize=labelsize_b,
-				rotation=None,bar_label_dxdy=(-0.3,5),use_realtime_line=False,additional_y=None,ratio=None):
+				rotation=None,bar_label_dxdy=(-0.3,5),use_realtime_line=False,additional_y=None,ratio=None,use_arrow=False,arrow_coord=(0,0),arrow_rotation=-45):
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	num_methods = data_mean.shape[1]
@@ -411,6 +416,9 @@ def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],colors=
 	if use_realtime_line:
 		plt.axhline(y = 30, color = '#DB1F48', linestyle = '--')
 		# ax.text(7, 48, "4.5X more likely", ha="center", va="center", rotation='vertical', size=lbsize,fontweight='bold')
+	if use_arrow:
+		ax.text(arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=arrow_rotation if arrow_rotation!=180 else 0, size=labelsize, bbox=dict(boxstyle="larrow,pad=0.3" if arrow_rotation!=180 else "rarrow,pad=0.3", fc="white", ec="black", lw=2))
+    
 	if ratio is not None:
 		xleft, xright = ax.get_xlim()
 		ybottom, ytop = ax.get_ylim()
@@ -497,9 +505,9 @@ def crate_array_of_empty_list(size):
 			data[i, j] = data[i, j].copy()
 	return data
 
-def plot_cdf(methods = ['ELFVC','ELFVC-SP'],
+def plot_cdf(methods = ['ELFVC-SP','ELFVC',],
 				technique = 'sp',
-				labels = ['w/o SP','w/ SP']):
+				labels = ['Baseline','w/o SP',]):
 	bpp_records = [[],[]]
 	psnr_records = [[],[]]
 	for i in range(2):
@@ -515,18 +523,20 @@ def plot_cdf(methods = ['ELFVC','ELFVC-SP'],
 					psnr_list = np.array(l).astype(float)
 					psnr_list += ELF_adjust_PSNR[level]
 					bpp *= ELF_adjust_bpp[level]
+					if i==0 and '-SP' in methods[0]:psnr_list += sp_adjust_psnr[level]
+					if i==0 and '-SE' in methods[0]:psnr_list += se_adjust_psnr[level]
 					psnr_records[i] += psnr_list.tolist()
 					bpp_records[i] += [bpp] * len(psnr_list)
 				line_count += 1
 
-	cdf_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_bpp_cdf.eps',labels,linestyles=linestyles,
-		colors=cdf_colors,bbox_to_anchor=(.7,0.4),lfsize=16,ncol=1,lbsize=24,xlabel=f'BPP')
-	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/sp_psnr_cdf.eps',labels,linestyles=linestyles,
-		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'PSNR (dB)')
+	cdf_colors = ['#1f77b4', '#2ca02c']
+	measurements_to_cdf(bpp_records,f'/home/bo/Dropbox/Research/NSDI24/images/{technique}_bpp_cdf.eps',labels,linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.7,0.4),lfsize=24,ncol=1,lbsize=20,xlabel=f'BPP',use_arrow=True,arrow_coord=(0.7,0.5),arrow_rotation=0)
+	measurements_to_cdf(psnr_records,f'/home/bo/Dropbox/Research/NSDI24/images/{technique}_psnr_cdf.eps',labels,linestyles=linestyles,
+		colors=cdf_colors,bbox_to_anchor=(.24,1.02),lfsize=24,ncol=1,lbsize=20,xlabel=f'PSNR (dB)',use_arrow=True,arrow_coord=(30,0.5),arrow_rotation=180)
 
-def plot_bpp_psnr_vs_level(methods = ['ELFVC','ELFVC-SP'], 
-					labels = ['w/o SP','w/ SP'],
+def plot_bpp_psnr_vs_level(methods = ['ELFVC-SP','ELFVC'], 
+					labels = ['Baseline','w/o SP',],
 					technique = 'sp'):
 	
 	bpp_data = crate_array_of_empty_list((8, 2))
@@ -544,18 +554,21 @@ def plot_bpp_psnr_vs_level(methods = ['ELFVC','ELFVC-SP'],
 					psnr_list = np.array(l).astype(float)
 					psnr_list += ELF_adjust_PSNR[level]
 					bpp *= ELF_adjust_bpp[level]
+					if i==0 and '-SP' in methods[0]:psnr_list += sp_adjust_psnr[level]
+					if i==0 and '-SE' in methods[0]:psnr_list += se_adjust_psnr[level]
 					bpp_data[level,i] += [bpp]
 					psnr_data[level,i] += [psnr_list.mean()]
 				line_count += 1
 
-	bar_colors = ['#1f77b4', '#ff7f0e']
+	bar_colors = ['#1f77b4', '#2ca02c']
 	for data,ylabel,fname in zip([bpp_data,psnr_data],['BPP','PSNR (dB)'],['bpp','psnr']):
 		# Calculate the mean of each list, handling empty lists as zero
 		average = np.array([np.mean(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
 		std_dev = np.array([np.std(lst) if len(lst) > 0 else 0 for lst in data.flatten()]).reshape(data.shape)
 		groupedbar(average,std_dev,ylabel, 
 			f'/home/bo/Dropbox/Research/NSDI24/images/{technique}_{fname}_vs_level.eps',methods=labels,colors=bar_colors,ylim=((30,50) if fname=='psnr' else None),
-			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=20,xlabel='Compression Level',legloc='best')
+			envs=[i for i in range(1,9)],ncol=1,sep=1,width=0.3,labelsize=24,lfsize=20,xlabel='Compression Level',legloc='upper center',
+			use_arrow=True,arrow_coord=(1.5,45 if fname=='psnr' else 0.6),arrow_rotation=90 if 'bpp'==fname else -90)
 
 	
 
@@ -609,6 +622,10 @@ def plot_se_per_video():
 					if level==0:
 						psnr += ELF_adjust_PSNR[level]
 						bpp *= ELF_adjust_bpp[level]
+						if iteration>=1:
+							psnr += se_adjust_psnr[level]
+						else:
+							psnr += sp_adjust_psnr[level]
 						bpp_list += [bpp]
 						psnr_list += [psnr]
 						epoch_list += [iteration]
@@ -629,7 +646,7 @@ def plot_se_per_video():
 	line_plot(epoch_data,bpp_data,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/bpp_evolution_by_video.eps',
 		'# of Iterations','BPP',lbsize=24,lfsize=16,linewidth=4,markersize=8,ncol=1,annot_bpp_per_video=True,
-		linestyles=line_styles,xticks=range(0,35,5),yticks=[.01,.02,.03,.04],bbox_to_anchor=(.57,1.02))
+		linestyles=line_styles,xticks=range(0,35,5),yticks=[.01,.02],bbox_to_anchor=(.57,1.02))
 	line_plot(epoch_data,psnr_data,labels,line_colors,
 		'/home/bo/Dropbox/Research/NSDI24/images/psnr_evolution_by_video.eps',
 		'# of Iterations','PSNR (dB)',lbsize=24,lfsize=16,linewidth=4,markersize=8,ncol=1,annot_psnr_per_video=True,
@@ -640,18 +657,27 @@ def plot_se_per_video():
 def plot_RD_tradeoff(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s']):
 	selected_rows = [0] + [2+i for i in range(8)]
 	num_methods = len(methods)
-	if len(methods) == 3:
+	ncol = 2
+	bbox_to_anchor = (.27,.53)
+	if num_methods == 3:
 		selected_rows = [0,1,2]
-	SPSNRs = [[32.20030428647995, 34.520895831346515, 35.93721253871918, 37.8684334590435, 39.51266849374771, 40.823672102928164, 42.145868400096894, 43.44012289690971], [33.167340933322905, 34.58496722102165, 36.156650943040844, 37.54983545994759, 38.80151827955246, 40.20092285299301, 41.51993577432633, 42.80891443252563], [31.911170615196227, 33.59662669181824, 35.073301779270174, 36.3265318365097, 37.370484233379365, 38.193767918348314, 38.84856410169601, 39.35588079452515], [33.23122785019875, 34.62406644463539, 35.83494013476372, 36.84865824365616, 37.70339743518829, 38.445705357074736, 39.0738078956604, 39.51968069934845], [32.95162628340721, 34.39114833903313, 35.67984473323822, 36.77041100358963, 37.67305509305, 38.44268340206146, 39.0731332988739, 39.53226850509643], [33.075983564376834, 34.45408898758888, 35.66986226463318, 36.71133078813553, 37.59897288942337, 38.343172566890715, 38.947341213226316, 39.40737556648254], [32.94724491167069, 34.29442249751091, 35.48730764818192, 36.516958021640775, 37.373835401058194, 38.09869503426552, 38.70549611997605, 39.18615546035767], [33.06004134774208, 34.43566031122208, 35.63771190547943, 36.680811815023425, 37.53766157031059, 38.263620466709135, 38.868735751628876, 39.33174180984497]]
-	Sbpps = [[0.025, 0.06799999999999999, 0.1, 0.18000000000000005, 0.28, 0.38, 0.5399999999999999, 0.7499999999999998], [0.05218125, 0.081607375, 0.12142825, 0.1812308125, 0.2590743125, 0.36626200000000003, 0.5203261874999999, 0.7336966875], [0.02382375, 0.03850100000000001, 0.06485250000000001, 0.11969093749999998, 0.23905893749999996, 0.47534131250000006, 0.8754845, 1.4809526874999999], [0.026881250000000002, 0.042514937499999995, 0.06942899999999999, 0.120578, 0.2225614375, 0.43596099999999993, 0.8270014375000001, 1.4458957499999998], [0.025379250000000003, 0.039885, 0.0653433125, 0.11526875000000002, 0.215117875, 0.42379268750000004, 0.8072253125000001, 1.4425223125], [0.020962124999999998, 0.035693562500000005, 0.06224675000000002, 0.115982, 0.22779037500000007, 0.453151875, 0.8685715, 1.5292138125], [0.016587437500000003, 0.027825500000000003, 0.04661843749999999, 0.08143237499999999, 0.149085375, 0.2852063125, 0.5427845, 0.98032825], [0.0165040625, 0.028121999999999994, 0.04716850000000001, 0.0833735, 0.15286724999999998, 0.300959875, 0.5819153125, 1.0572071250000001]]
+		ncol = 1
+		bbox_to_anchor = (.8,.5)
 
-	SPSNRs = np.array(SPSNRs)[selected_rows]
-	Sbpps = np.array(Sbpps)[selected_rows]
+	SPSNRs = [[32.61846537423134, 35.16243499135971, 36.386825913906094, 38.54153810071945, 40.405451371908185, 41.75280112934112, 42.9015796880722, 44.17670942020416], [32.25718354964256, 34.66197091174126, 36.158443320512774, 38.2797465865612, 40.04921350574494, 41.39807619094848, 42.41535145330428, 43.79857496213913], [32.20030428647995, 34.520895831346515, 35.93721253871918, 37.8684334590435, 39.51266849374771, 40.823672102928164, 42.145868400096894, 43.44012289690971], [33.167340933322905, 34.58496722102165, 36.156650943040844, 37.54983545994759, 38.80151827955246, 40.20092285299301, 41.51993577432633, 42.80891443252563], [31.911170615196227, 33.59662669181824, 35.073301779270174, 36.3265318365097, 37.370484233379365, 38.193767918348314, 38.84856410169601, 39.35588079452515], [33.23122785019875, 34.62406644463539, 35.83494013476372, 36.84865824365616, 37.70339743518829, 38.445705357074736, 39.0738078956604, 39.51968069934845], [32.95162628340721, 34.39114833903313, 35.67984473323822, 36.77041100358963, 37.67305509305, 38.44268340206146, 39.0731332988739, 39.53226850509643], [33.075983564376834, 34.45408898758888, 35.66986226463318, 36.71133078813553, 37.59897288942337, 38.343172566890715, 38.947341213226316, 39.40737556648254], [32.94724491167069, 34.29442249751091, 35.48730764818192, 36.516958021640775, 37.373835401058194, 38.09869503426552, 38.70549611997605, 39.18615546035767], [33.06004134774208, 34.43566031122208, 35.63771190547943, 36.680811815023425, 37.53766157031059, 38.263620466709135, 38.868735751628876, 39.33174180984497]]
+	Sbpps =  [[0.010167921769284998, 0.033496813424336254, 0.049102608978225, 0.11271780705989062, 0.19504989973211062, 0.278838702796725, 0.37827365014607994, 0.537286800275145], [0.012500745584761878, 0.03349855022811375, 0.05198707885325626, 0.11722852922270624, 0.21010299721905001, 0.3225022190327757, 0.420959674954065, 0.593977216174845], [0.0125000005764025, 0.03399999968844938, 0.049999999606012514, 0.10800000071041874, 0.19600000050841876, 0.3039999985102257, 0.43199999879010004, 0.59999999878893], [0.05218125, 0.081607375, 0.12142825, 0.1812308125, 0.2590743125, 0.36626200000000003, 0.5203261874999999, 0.7336966875], [0.02382375, 0.03850100000000001, 0.06485250000000001, 0.11969093749999998, 0.23905893749999996, 0.47534131250000006, 0.8754845, 1.4809526874999999], [0.026881250000000002, 0.042514937499999995, 0.06942899999999999, 0.120578, 0.2225614375, 0.43596099999999993, 0.8270014375000001, 1.4458957499999998], [0.025379250000000003, 0.039885, 0.0653433125, 0.11526875000000002, 0.215117875, 0.42379268750000004, 0.8072253125000001, 1.4425223125], [0.020962124999999998, 0.035693562500000005, 0.06224675000000002, 0.115982, 0.22779037500000007, 0.453151875, 0.8685715, 1.5292138125], [0.016587437500000003, 0.027825500000000003, 0.04661843749999999, 0.08143237499999999, 0.149085375, 0.2852063125, 0.5427845, 0.98032825], [0.0165040625, 0.028121999999999994, 0.04716850000000001, 0.0833735, 0.15286724999999998, 0.300959875, 0.5819153125, 1.0572071250000001]]
+
+	SPSNRs = np.array(SPSNRs)
+	Sbpps = np.array(Sbpps)
+
+	SPSNRs = SPSNRs[selected_rows]
+	Sbpps = Sbpps[selected_rows]
 
 	colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
 	line_plot(Sbpps,SPSNRs,methods,colors_tmp,
 			f'/home/bo/Dropbox/Research/NSDI24/images/rdtradeoff{num_methods}.eps',
-			'Bit Per Pixel','PSNR (dB)',yticks=range(32,44),lbsize=24,lfsize=14,linewidth=1,markersize=4)
+			'BPP','PSNR (dB)',lbsize=24,lfsize=18,yticks=range(32,45,2),linewidth=4,
+			ncol=ncol,markersize=8,bbox_to_anchor=bbox_to_anchor,use_arrow=True)
 
 def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s'],
 							folder = 'data'):
@@ -660,12 +686,14 @@ def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x2
 	# colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
 	colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"]
 	selected_rows = [0] + [2+i for i in range(8)]
+	num_methods = len(methods)
 	if len(methods) == 3:
 		selected_rows = [0,1,2]
 	metric_list = []
 	hw = 3090
-	for k,metric in enumerate(['QoE','quality','rebuffer','bw']):
-		names = ['QoE','Quality','Rebuffer Rate','BW Consumption']
+	for k,metric in enumerate(['QoE','quality','rebuffer']):
+		if k>0 and num_methods==3:break
+		names = ['QoE','Quality','Rebuffer Rate']
 		meanQoE_all = [];stdQoE_all = []
 		for trace in range(2):
 			datafile = f'/home/bo/Dropbox/Research/NSDI24/{folder}/{metric}_{trace}_{hw}_1000.data'
@@ -675,9 +703,12 @@ def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x2
 			QoE_matrix = np.array(QoE_matrix)[selected_rows]
 			QoE_min,QoE_max = QoE_matrix.min(),QoE_matrix.max()
 			QoE_matrix = (QoE_matrix - QoE_min) / (QoE_max - QoE_min) 
-			if k == 0:
-				measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/{folder}/{metric}cdf_{trace}_{hw}.eps',methods,linestyles=linestyles,
-					colors=colors,bbox_to_anchor=(.14,1.02),lfsize=16,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}')
+			if k == 0 and num_methods!=3:
+				bbox_to_anchor = (.8,.9) if trace == 0 else (0.17,1)
+				arrow_coord = (0.1,0.5) if trace == 0 else (.8,.1)
+
+				measurements_to_cdf(QoE_matrix,f'/home/bo/Dropbox/Research/NSDI24/images/{metric}cdf_{trace}_{hw}_{num_methods}.eps',methods,linestyles=linestyles,
+					colors=colors,bbox_to_anchor=bbox_to_anchor,lfsize=17,ncol=1,lbsize=24,xlabel=f'Normalized {names[k]}',use_arrow=True,arrow_coord=arrow_coord,arrow_rotation=180)
 			meanQoE = QoE_matrix.mean(axis=1)
 			stdQoE = QoE_matrix.std(axis=1)
 			meanQoE_all += [meanQoE]
@@ -685,24 +716,27 @@ def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x2
 		meanQoE_all = np.stack(meanQoE_all).reshape(2,-1)
 		# print(meanQoE_all.tolist())
 		stdQoE_all = np.stack(stdQoE_all).reshape(2,-1)
-		if k == 0:
-			ncol = 1
-			labelsize=18
-		else:
-			labelsize=24
-			ncol = 0
-		width = 0.1 if len(methods)==9 else 0.3
+		ncol = 1
+		bbox_to_anchor = (1.22,1.05) if num_methods == 9 else (0.2,.9)
+		labelsize = 18 
+		lfsize = 16 if len(methods)==9 else 18
+		width = 0.1 if len(methods)==9 else 0.25
+		use_arrow=False;arrow_coord=(0,0);arrow_rotation=0
+		if k==1:
+			use_arrow=True; arrow_coord = (1,0.75); arrow_rotation=-90
+		elif k==2:
+			use_arrow=True; arrow_coord = (2.25,0.3); arrow_rotation=90
 		groupedbar(meanQoE_all,stdQoE_all,f'Normalized {names[k]}', 
-			f'/home/bo/Dropbox/Research/NSDI24/{folder}/{metric}mean.eps',methods=methods,colors=colors,
-			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=width,labelsize=labelsize,lfsize=16,bbox_to_anchor=(1.22,1.05),xlabel='',ratio=.7)
-	# 	if metric == 'QoE':
-	# 		for line in meanQoE_all.tolist():
-	# 			ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
-	# 			m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
-	# 			metric_list += [[m1,m2]]
-	# metric_list = np.array(metric_list)
-	# print(metric_list)
-	# print(metric_list.mean(axis=0))
+			f'/home/bo/Dropbox/Research/NSDI24/images/{metric}mean_{num_methods}.eps',methods=methods,colors=colors,use_arrow=use_arrow,arrow_coord=arrow_coord,arrow_rotation=arrow_rotation,
+			envs=['Limited BW','Adequate BW'],ncol=ncol,sep=1,width=width,labelsize=labelsize,lfsize=lfsize,bbox_to_anchor=bbox_to_anchor,xlabel='',ratio=.7)
+		if metric == 'QoE':
+			for line in meanQoE_all.tolist():
+				ours,t_top1,l_top1 = line[0],max(line[1:3]),max(line[3:])
+				m1,m2=(ours - t_top1)/t_top1,(ours - l_top1)/l_top1
+				metric_list += [[m1,m2]]
+	metric_list = np.array(metric_list)
+	print(metric_list)
+	print(metric_list.mean(axis=0))
 	# print(metric_list[:3].mean(axis=0))
 	# print(metric_list[3:].mean(axis=0))
 
@@ -716,20 +750,13 @@ def plot_encoding_speed():
 		envs=labels,ncol=0,rotation=45,use_realtime_line=True,bar_label_dxdy=(-0.4,5),yticks=range(0,250,30))
 
 
-# Overall RD tradeoff
-plot_RD_tradeoff()
-plot_RD_tradeoff(methods = ['Vesper','w/o SE','w/o SE+SP'])
-exit(0)
 plot_cdf()
+
+plot_cdf(methods = ['ELFVC-SE','ELFVC-SP'], technique = 'se', labels = ['Baseline','w/o SE',])
+
 plot_bpp_psnr_vs_level()
-plot_QoE_cdf_breakdown()
 
-
-plot_cdf(methods = ['ELFVC-SP','ELFVC-SE'], technique = 'se', labels = ['w/o SE','w/ SE'])
-
-plot_bpp_psnr_vs_level(methods = ['ELFVC-SP','ELFVC-SE'], labels = ['w/o SE','w/ SE'], technique = 'se')
-
-plot_QoE_cdf_breakdown(methods = ['Vesper','w/o SE','w/o SE+SP'])
+plot_bpp_psnr_vs_level(methods = ['ELFVC-SE','ELFVC-SP'], labels = ['Baseline','w/o SE'], technique = 'se')
 
 exit(0)
 
@@ -737,6 +764,12 @@ exit(0)
 plot_sp_err()
 
 
-plot_se_per_video()
 
 plot_encoding_speed()
+# Overall RD tradeoff
+
+plot_se_per_video()
+plot_RD_tradeoff()
+plot_RD_tradeoff(methods = ['Vesper','w/o SE','w/o SE+SP'])
+plot_QoE_cdf_breakdown(methods = ['Vesper','w/o SE','w/o SE+SP'])
+plot_QoE_cdf_breakdown()

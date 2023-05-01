@@ -181,8 +181,8 @@ def static_simulation_model(args, test_dataset):
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
                 state_list,min_loss,print_str = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
-                # with open(f'{args.task}.{args.dataset}.log','a') as f:
-                #     f.write(str(state_list)+'\n')
+                with open(f'{args.task}.{args.dataset}.log','a') as f:
+                    f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
             data.append(transforms.ToTensor()(frame))
             if len(data) < GoP and not eof:
@@ -263,13 +263,14 @@ def evolve(args,model, test_dataset, start, end, level):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 1#30
+    max_iter = 100
     max_converge = 3
     max_shrink = 2
     state_list = []
     first_test = True
     for encoder_name in ['motion']:
-        parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
+        # parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
+        parameters = [p for n, p in model.named_parameters()]
         # this learning rate to avoid overfitting
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
         converge_count = shrink_count = 0
@@ -352,26 +353,26 @@ def evolve(args,model, test_dataset, start, end, level):
                         f.write(print_str)
                     first_test = False
 
-                if mode == 'test':
-                    # record evolution history
-                    state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+                # record evolution history
+                # state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
+                state_list.append([mode,level,ba_loss_module.avg,psnr_module.avg])
 
-    #         if img_loss_module.avg + ba_loss_module.avg < min_loss:
-    #             min_loss = img_loss_module.avg + ba_loss_module.avg
-    #             best_state_dict = model.state_dict()
-    #             converge_count = 0
-    #         else:
-    #             converge_count += 1
-    #             if converge_count == max_converge:
-    #                 if shrink_count < max_shrink:
-    #                     shrink_learning_rate(optimizer)
-    #                     converge_count = 0
-    #                     shrink_count += 1
-    #                 else:
-    #                     break
+            if img_loss_module.avg + ba_loss_module.avg < min_loss:
+                min_loss = img_loss_module.avg + ba_loss_module.avg
+                best_state_dict = model.state_dict()
+                converge_count = 0
+            else:
+                converge_count += 1
+                if converge_count == max_converge:
+                    if shrink_count < max_shrink:
+                        shrink_learning_rate(optimizer)
+                        converge_count = 0
+                        shrink_count += 1
+                    else:
+                        break
 
 
-    # model.load_state_dict(best_state_dict)
+    model.load_state_dict(best_state_dict)
     model.eval()
     return state_list,min_loss,print_str
 
