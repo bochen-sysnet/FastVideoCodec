@@ -201,24 +201,24 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
 
                 if 'ELFVC' not in model_name: continue
                 loss = model.r*mseloss + bpp
-                if model.super_prec:
-                    pred_err_mean = []
-                    pred_norm = 0
-                    for pred_err in likelihoods["pred_err"]:
-                        pred_err_mean += [pred_err.abs().mean()]
-                        pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
-                    aux_loss_list += [torch.norm(likelihoods["pred_err"][0],2)]#[pred_err_mean[0]]
-                    aux3_loss_list += [torch.norm(likelihoods["pred_err"][1],2)]#[pred_err_mean[1]]
-                    loss += model.alpha * pred_norm
-                    model.stage = 0
+                # if model.super_prec:
+                #     pred_err_mean = []
+                #     pred_norm = 0
+                #     for pred_err in likelihoods["pred_err"]:
+                #         pred_err_mean += [pred_err.abs().mean()]
+                #         pred_norm += torch.norm(pred_err,args.norm) if args.norm > 0 else F.smooth_l1_loss(pred_err, torch.zeros_like(pred_err), reduction='sum')
+                #     aux_loss_list += [torch.norm(likelihoods["pred_err"][0],2)]#[pred_err_mean[0]]
+                #     aux3_loss_list += [torch.norm(likelihoods["pred_err"][1],2)]#[pred_err_mean[1]]
+                #     loss += model.alpha * pred_norm
+                #     model.stage = 0
+                # Q_err_mean = []
+                # Q_norm = 0
+                # for Q_err in likelihoods["Q_err"]:
+                #     Q_err_mean += [Q_err.abs().mean()]
+                #     Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
+                # aux2_loss_list += [torch.norm(likelihoods["Q_err"][0],2)]#[Q_err_mean[0]]
+                # aux4_loss_list += [torch.norm(likelihoods["Q_err"][1],2)]#[Q_err_mean[1]]
                 all_loss_list += [loss]
-                Q_err_mean = []
-                Q_norm = 0
-                for Q_err in likelihoods["Q_err"]:
-                    Q_err_mean += [Q_err.abs().mean()]
-                    Q_norm += torch.norm(Q_err, args.norm) if args.norm > 0 else F.smooth_l1_loss(Q_err, torch.zeros_like(Q_err), reduction='sum')
-                aux2_loss_list += [torch.norm(likelihoods["Q_err"][0],2)]#[Q_err_mean[0]]
-                aux4_loss_list += [torch.norm(likelihoods["Q_err"][1],2)]#[Q_err_mean[1]]
             x_hat = torch.cat(x_hat_list,dim=0)
             print('Average time per frame:',t_avg,'fps:',1/t_avg)
         elif 'Base' == model_name[:4]:
