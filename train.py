@@ -259,6 +259,8 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux2_loss_module.reset()
             aux3_loss_module.reset()
             aux4_loss_module.reset()
+    # test no save file
+    exit(0)
     return best_codec_score
     
 def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
