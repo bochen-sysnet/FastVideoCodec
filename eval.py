@@ -263,7 +263,7 @@ def evolve(args,model, test_dataset, start, end, level):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 1#00
+    max_iter = 1000
     max_converge = 3
     max_shrink = 2
     state_list = []
@@ -346,7 +346,7 @@ def evolve(args,model, test_dataset, start, end, level):
 
                 if first_test:
                     # super-precision result
-                    min_loss = img_loss_module.avg + ba_loss_module.avg
+                    # min_loss = img_loss_module.avg + ba_loss_module.avg
                     print_str = f'{level},{ba_loss_module.avg:.4f},0,0,' + f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n' + str(all_psnr_list) + '\n'
                     with open(f'{args.task}.{args.dataset}.0.log','a') as f:
                         # per video
