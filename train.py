@@ -219,37 +219,27 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
             f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
-        # test
-        if batch_idx % 100 == 0:
+        if batch_idx % 5000 == 0 and batch_idx>0:
+            if True:
                 print('')
-                train_loss = img_loss_module.avg + be_loss_module.avg
-                val_loss, stats = test(epoch, model, test_dataset)
-                with open(f'{args.codec}.quantization.log','a') as f:
-                    f.write(f'{train_loss},{val_loss},{be_loss_module.avg},{img_loss_module.avg},{stats[0]},{stats[1]}\n')
-                model.train()
-            # test
-
-        # if batch_idx % 5000 == 0 and batch_idx>0:
-        #     if True:
-        #         print('')
-        #         score, stats = test(epoch, model, test_dataset)
+                score, stats = test(epoch, model, test_dataset)
                 
-        #         is_best = score <= best_codec_score
-        #         if is_best:
-        #             print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
-        #             best_codec_score = score
-        #         else:
-        #             print('')
-        #         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-        #         save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
-        #         model.train()
-        #     else:
-        #         print('')
-        #         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-        #         save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+                is_best = score <= best_codec_score
+                if is_best:
+                    print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
+                    best_codec_score = score
+                else:
+                    print('')
+                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+                save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+                model.train()
+            else:
+                print('')
+                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
+                save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
 
         # clear result every 1000 batches
-        if batch_idx % 100 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
+        if batch_idx % 5000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
             img_loss_module.reset()
             aux_loss_module.reset()
             be_loss_module.reset()
@@ -259,8 +249,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux2_loss_module.reset()
             aux3_loss_module.reset()
             aux4_loss_module.reset()
-    # test no save file
-    exit(0)
     return best_codec_score
     
 def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):

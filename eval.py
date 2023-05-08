@@ -263,16 +263,13 @@ def evolve(args,model, test_dataset, start, end, level):
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     GoP = args.fP + args.bP +1
     min_loss = 100
-    max_iter = 1000 #test
+    max_iter = 1#30
     max_converge = 3
     max_shrink = 2
     state_list = []
     first_test = True
-    print_str = ''
     for encoder_name in ['motion']:
-        # test
-        # parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
-        parameters = [p for n, p in model.named_parameters()]
+        parameters = [p for n, p in model.named_parameters() if (encoder_name+"_encoder") in n]
         # this learning rate to avoid overfitting
         optimizer = torch.optim.Adam([{'params': parameters}], lr=1e-4, weight_decay=5e-4)
         converge_count = shrink_count = 0
@@ -348,38 +345,33 @@ def evolve(args,model, test_dataset, start, end, level):
 
                 if first_test:
                     # super-precision result
-                    # test
-                    # min_loss = img_loss_module.avg + ba_loss_module.avg
+                    min_loss = img_loss_module.avg + ba_loss_module.avg
                     print_str = f'{level},{ba_loss_module.avg:.4f},0,0,' + f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n' + str(all_psnr_list) + '\n'
                     with open(f'{args.task}.{args.dataset}.0.log','a') as f:
                         # per video
                         f.write(print_str)
                     first_test = False
 
-                # record evolution history
-                # state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
-                # test
-                with open(f'{args.task}.content.log','a') as f:
-                    f.write(f'{mode},{ba_loss_module.avg},{psnr_module.avg}\n')
+                if mode == 'test':
+                    # record evolution history
+                    state_list.append([level,start,encoder_name,it,ba_loss_module.avg,psnr_module.avg])
 
-            if img_loss_module.avg + ba_loss_module.avg < min_loss:
-                min_loss = img_loss_module.avg + ba_loss_module.avg
-                best_state_dict = model.state_dict()
-                converge_count = 0
-            else:
-                converge_count += 1
-                if converge_count == max_converge:
-                    if shrink_count < max_shrink:
-                        shrink_learning_rate(optimizer)
-                        converge_count = 0
-                        shrink_count += 1
-                    else:
-                        break
+    #         if img_loss_module.avg + ba_loss_module.avg < min_loss:
+    #             min_loss = img_loss_module.avg + ba_loss_module.avg
+    #             best_state_dict = model.state_dict()
+    #             converge_count = 0
+    #         else:
+    #             converge_count += 1
+    #             if converge_count == max_converge:
+    #                 if shrink_count < max_shrink:
+    #                     shrink_learning_rate(optimizer)
+    #                     converge_count = 0
+    #                     shrink_count += 1
+    #                 else:
+    #                     break
 
-    # test
-    exit(0)
-    # test
-    model.load_state_dict(best_state_dict)
+
+    # model.load_state_dict(best_state_dict)
     model.eval()
     return state_list,min_loss,print_str
 
