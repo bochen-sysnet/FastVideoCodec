@@ -166,13 +166,17 @@ class FrameDataset(Dataset):
         data = torch.stack(data, dim=0)
         return data
 
+categories = ['lobby','retail','office','industry_safety','cafe_shop']
+num_views = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, category_id=0):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
         self._dirs += [os.path.join(root_dir,'train','images','64am')]
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
+        self.category = categories[category_id]
+        self.num_view = num_views[category_id]
         
         self.get_file_names()
         
@@ -183,9 +187,10 @@ class MultiViewVideoDataset(Dataset):
         self.__file_names = []
         for directory in self._dirs:
             for fn in os.listdir(directory):
-                fn = fn.strip("'")
-                self.__file_names += [os.path.join(directory,fn)]
-                print(self.__file_names[-1],len(os.listdir(os.path.join(directory,fn))))
+                if self.category in fn:
+                    fn = fn.strip("'")
+                    self.__file_names += [os.path.join(directory,fn)]
+                    print(self.__file_names[-1],len(os.listdir(os.path.join(directory,fn))))
         print(self.__file_names)
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         exit(0)
