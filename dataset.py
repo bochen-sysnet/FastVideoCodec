@@ -173,7 +173,6 @@ class MultiViewVideoDataset(Dataset):
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
         self._dirs += [os.path.join(root_dir,'train','images','64am')]
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
-        self._frame_size = resolution
 
         self._total_frames = 0 # Storing file names in object 
         
