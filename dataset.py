@@ -167,7 +167,7 @@ class FrameDataset(Dataset):
         return data
 
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir, resolution, max_files=0):
+    def __init__(self, root_dir):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
