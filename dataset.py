@@ -184,7 +184,7 @@ class MultiViewVideoDataset(Dataset):
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 fn = fn.strip("'")
-                print(fn)
+                self.__file_names += [fn]
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         exit(0)
         
