@@ -92,7 +92,7 @@ class ResnetBlock(nn.Module):
         return h + self.res_conv(x)
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 4, dim_head = 32):
+    def __init__(self, dim, heads = 4, dim_head = 32, spatial=True):
         super().__init__()
         self.scale = dim_head ** -0.5
         self.heads = heads
@@ -100,11 +100,15 @@ class Attention(nn.Module):
 
         self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias = False)
         self.to_out = nn.Conv2d(hidden_dim, dim, 1)
+        self.spatial = spatial
 
     def forward(self, x):
         b, c, h, w = x.shape
         qkv = self.to_qkv(x).chunk(3, dim = 1)
-        q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
+        if self.spatial:
+            q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
+        else:
+            q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> (x y) h c b', h = self.heads), qkv)
 
         q = q * self.scale
 
@@ -112,7 +116,10 @@ class Attention(nn.Module):
         attn = sim.softmax(dim = -1)
         out = einsum('b h i j, b h d j -> b h i d', attn, v)
 
-        out = rearrange(out, 'b h (x y) d -> b (h d) x y', x = h, y = w)
+        if self.spatial:
+            out = rearrange(out, 'b h (x y) d -> b (h d) x y', x = h, y = w)
+        else:
+            out = rearrange(out, '(x y) h b d -> b (h d) x y', x = h, y = w)
         return self.to_out(out)
 
 # model

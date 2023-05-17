@@ -45,6 +45,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         init_training_params(model_codec)
     elif 'ELFVC' in name:
         model_codec = ELFVC(name, loss_type='P', compression_level=compression_level)
+    elif 'MCVC' in name:
+        model_codec = MCVC(name, loss_type='P', compression_level=compression_level)
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -170,11 +172,11 @@ def parallel_compression(args,model, data, compressI=False, level=0, batch_idx=0
     
     # P compression, not including I frame
     if (no_batch and data.size(0) > 1) or (not no_batch): 
-        if model_name in ['SSF-Official'] or 'ELFVC' in model_name:
+        if model_name in ['SSF-Official'] or 'ELFVC' in model_name or 'MCVC' in model_name:
             GOP_size = data.size(0) if no_batch else data.size(1)
             x_prev = data[0:1] if no_batch else data[:,0]
             x_hat_list = []
-            if 'ELFVC' in model_name:
+            if 'ELFVC' in model_name or 'MCVC' in model_name:
                 model.reset()
             t_avg = 0
             for i in range(1,GOP_size):
@@ -1764,15 +1766,6 @@ from compressai.models import CompressionModel
 from compressai.entropy_models import EntropyBottleneck, GaussianConditional
 from compressai.ops import quantize_ste
 
-class ChannelNorm(nn.Module):
-    def __init__(self, channel):
-        super(ChannelNorm, self).__init__()
-        self.layer_norm = torch.nn.LayerNorm(channel)
-    def forward(self, x):
-        x = x.permute(0,2,3,1)
-        x = self.layer_norm(x)
-        x = x.permute(0,3,1,2)
-        return x
 from compressai.models.utils import gaussian_kernel2d, gaussian_blur
 from super_precision import SPnet
 class ELFVC(ScaleSpaceFlow):
@@ -2034,3 +2027,163 @@ class ELFVC(ScaleSpaceFlow):
                 Q_err += [likelihoods['Q_err_y']]
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
+
+from super_precision import Attention, Residual, PreNorm
+# insert in mid of decoder
+# attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
+# todo: add attention in hypercoder
+class MCVC(ScaleSpaceFlow):
+    def __init__(
+        self,
+        name: str,
+        loss_type: str='P',
+        compression_level: int = 0,
+        num_levels: int = 5,
+        sigma0: float = 1.5,
+        scale_field_shift: float = 1.0,
+    ):
+        super().__init__(num_levels,sigma0,scale_field_shift)
+        cross_correlation = True if '-A' in name else False
+        class Encoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
+            ):
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(mid_planes, Attention(mid_planes))),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(out_planes, Attention(out_planes))),
+                )
+        class Decoder(nn.Sequential):
+            def __init__(
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
+            ):
+                super().__init__(
+                    deconv(in_planes if cross_correlation else in_planes * 2, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(mid_planes, Attention(mid_planes))),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(out_planes, Attention(out_planes)))
+                )
+        class HyperEncoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+            ):
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(mid_planes, Attention(mid_planes))),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(out_planes, Attention(out_planes))),
+                )
+        class HyperDecoder(nn.Sequential):
+            def __init__(
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+            ):
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(mid_planes, Attention(mid_planes))),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(out_planes, Attention(out_planes))),
+                )
+        from compressai.layers import QReLU
+        def qrelu(input, bit_depth=8, beta=100):
+            return QReLU.apply(input, bit_depth, beta)
+        class HyperDecoderWithQReLU(nn.Sequential):
+            def __init__(
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+            ):
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    qrelu,
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    qrelu,
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(mid_planes, Attention(mid_planes))),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    qrelu,
+                    nn.Sequential() if not cross_correlation else Residual(PreNorm(out_planes, Attention(out_planes))),
+                    )
+        # can condition on prior latents of all other frames
+        class Hyperprior(CompressionModel):
+            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False):
+                super().__init__()
+                self.entropy_bottleneck = EntropyBottleneck(planes)
+                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
+                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(decoder_dim, mid_planes, planes)
+                self.gaussian_conditional = GaussianConditional(None)
+
+            def forward(self, y):
+                z = self.hyper_encoder(y)
+                z_hat, z_likelihoods = self.entropy_bottleneck(z)
+
+                scales = self.hyper_decoder_scale(z_hat)
+                means = self.hyper_decoder_mean(z_hat)
+                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
+                y_hat = quantize_ste(y - means) + means
+                return y_hat, {"y": y_likelihoods, "z": z_likelihoods}
+
+        self.compression_level = compression_level
+        self.loss_type = loss_type
+        init_training_params(self)
+        self.motion_encoder = Encoder(2 * 3)
+        self.motion_decoder = Decoder(2 + 1, in_planes=192)
+        self.res_encoder = Encoder(3)
+        self.res_decoder = Decoder(3, in_planes=384)
+        self.res_hyperprior = Hyperprior()
+        self.motion_hyperprior = Hyperprior()
+        self.name = name
+        self.cross_correlation = cross_correlation
+
+    def reset(self):
+        self.prior_y_motion = self.prior_y_res = None
+        # reset need to happen at I
+
+    def forward_inter(self, x_cur, x_ref):
+        # the input should be multi-view frames at a single time 
+        # decoder has cross-correlation while encoder does not
+        # encode the motion information
+        y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
+        y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
+
+        # decode the space-scale flow information
+        # side-view motion can be integrated here
+        if self.cross_correlation and self.prior_y_motion is not None:
+            motion_info = self.motion_decoder(torch.cat((y_motion_hat, self.prior_y_motion), dim=1))
+        else:
+            motion_info = self.motion_decoder(y_motion_hat)
+        x_pred = self.forward_prediction(x_ref, motion_info)
+
+        # residual
+        x_res = x_cur - x_pred
+        y_res = self.res_encoder(x_res)
+        y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
+
+        # y_combine
+        # side-view residual can be integrated here
+        if self.cross_correlation and self.prior_y_motion is not None and self.prior_y_res is not None:
+            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat, self.prior_y_res, self.prior_y_motion), dim=1))
+        else:
+            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+
+        # final reconstruction: prediction + residual
+        x_rec = x_pred + x_res_hat
+
+        self.prior_y_motion = y_motion_hat.detach()
+        self.prior_y_res = y_res_hat.detach()
+
+        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
