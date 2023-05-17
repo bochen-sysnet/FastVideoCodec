@@ -173,14 +173,12 @@ class MultiViewVideoDataset(Dataset):
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
         self._dirs += [os.path.join(root_dir,'train','images','64am')]
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
-
-        self._total_frames = 0 # Storing file names in object 
         
-        self.get_file_names(max_files)
+        self.get_file_names()
         
         self.reset()
         
-    def get_file_names(self, max_files):
+    def get_file_names(self):
         print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
         for directory in self._dirs:
