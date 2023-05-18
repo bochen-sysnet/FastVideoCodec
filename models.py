@@ -2120,7 +2120,7 @@ class MCVC(ScaleSpaceFlow):
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(PreNorm(out_planes, Attention(out_planes)))
+                        # Residual(PreNorm(out_planes, Attention(out_planes)))
                     )
         class HyperEncoder(nn.Sequential):
             def __init__(
