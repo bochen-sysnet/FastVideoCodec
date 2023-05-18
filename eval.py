@@ -153,6 +153,48 @@ def static_simulation_x26x(args,test_dataset):
             data = []
             
         test_dataset.reset()
+
+def static_simulation_x26x_multicam(args,test_dataset):
+    ds_size = len(test_dataset)
+    quality_levels = [7,11,15,19,23,27,31,35]
+    
+    Q_list = quality_levels[args.level_range[0]:args.level_range[1]]
+    for lvl,Q in enumerate(Q_list):
+        data = []
+        ba_loss_module = AverageMeter()
+        psnr_module = AverageMeter()
+        msssim_module = AverageMeter()
+        test_iter = tqdm(range(ds_size))
+        for data_idx,_ in enumerate(test_iter):
+            data = test_dataset[data_idx]
+
+            l = len(data)
+                
+            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
+            
+            # aggregate loss
+            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            
+            # record loss
+            ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+
+            # show result
+            test_iter.set_description(
+                f"Q:{Q}"
+                f"{data_idx:6}. "
+                f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+
+            # write result
+            psnr_list = torch.stack(psnr_list,dim=0).tolist()
+            with open(f'{args.task}.log','a') as f:
+                f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
+                f.write(str(psnr_list)+'\n')
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
@@ -417,6 +459,7 @@ if __name__ == '__main__':
         test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test')
     
     if 'x26' in args.task:
-        static_simulation_x26x(args, test_dataset)
+        # static_simulation_x26x(args, test_dataset)
+        static_simulation_x26x_multicam(args, test_dataset)
     elif args.task in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP']:
         static_simulation_model(args, test_dataset)

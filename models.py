@@ -98,8 +98,13 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
     t_0 = time.perf_counter()
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-    for img in raw_clip:
-        process.stdin.write(np.array(img).tobytes())
+    if isinstance(raw_clip,list):
+        for img in raw_clip:
+            process.stdin.write(np.array(img).tobytes())
+    else:
+        for v in range(raw_clip.size(1)):
+            for g in range(raw_clip.size(0)):
+                process.stdin.write(np.array(raw_clip[g][v]).tobytes())
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
@@ -127,7 +132,10 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     cap.release()
     # decompression time
     decompt = time.perf_counter() - t_0
-    assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
+    if isinstance(raw_clip,list):
+        assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
+    else:
+        assert len(clip) == raw_clip.size(0)*raw_clip.size(1)
     # create cache
     psnr_list = [];msssim_list = [];bpp_act_list = []
     bpp = video_size*1.0/len(clip)/(height*width)
