@@ -47,6 +47,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
         model_codec = ELFVC(name, loss_type='P', compression_level=compression_level)
     elif 'MCVC' in name:
         model_codec = MCVC(name, loss_type='P', compression_level=compression_level)
+        ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse', pretrained=True, progress=True)
+        model_codec.load_state_dict(ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -2119,7 +2121,7 @@ class MCVC(ScaleSpaceFlow):
                     )
         # can condition on prior latents of all other frames
         class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False):
+            def __init__(self, planes: int = 192, mid_planes: int = 192):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)

@@ -32,7 +32,7 @@ parser.add_argument('--batch_size', default=8, type=int,
                     help="batch size")
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--codec', type=str, default='SSF-Official',
+parser.add_argument('--codec', type=str, default='MCVC',
                     help='name of codec')
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
@@ -103,7 +103,7 @@ best_codec_score = 100
 ####### Load yowo model
 # ---------------------------------------------------------------
 # try to load codec model 
-if CODEC_NAME in ['SSF-Official']:
+if CODEC_NAME in ['SSF-Official','MCVC']:
     print('Official model loaded.')
 elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
@@ -299,7 +299,7 @@ def test(epoch, model, test_dataset):
             
         with torch.no_grad():
             l = data.size(0)
-            out_dec = model(data)
+            # out_dec = model(data)
             mse, bpp, psnr = calc_metrics(out_dec, data)
             
             ba_loss_module.update(bpp, l)
