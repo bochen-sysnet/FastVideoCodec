@@ -75,7 +75,6 @@ def init_training_params(model):
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
-    print(raw_clip.size(),width,height,GOP)
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
