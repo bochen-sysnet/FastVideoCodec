@@ -44,7 +44,7 @@ def LoadModel(CODEC_NAME,compression_level = 2,use_split=False, spstage=1,device
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
-    if model.name in ['DVC-pretrained','SSF-Official']:
+    if model.name in ['DVC-pretrained','SSF-Official','MCVC']:
         model = model.cuda(device)
         return model
 
