@@ -2076,7 +2076,7 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
             ):
-                if cross_correlation:
+                if not cross_correlation:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
