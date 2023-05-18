@@ -196,6 +196,28 @@ def static_simulation_x26x_multicam(args,test_dataset):
                 f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
 
+def calc_metrics(out_dec,raw_frames):
+    frame_idx = 0
+    total_bpp = 0
+    total_psnr = 0
+    total_mse = 0
+    pixels = 0
+    for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
+        x = raw_frames[frame_idx]
+        for likelihood_name in ['keyframe', 'motion', 'residual']:
+            if likelihood_name in likelihoods:
+                var_like = likelihoods[likelihood_name]
+                bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                        torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+        mseloss = torch.mean((x_hat - x).pow(2))
+        psnr = 10.0*torch.log(1/torch.mean((x_hat - x).pow(2),dim=[1,2,3])).mean()/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
+        pixels = x.size(0) * x.size(2) * x.size(3)
+        bpp = bits / pixels
+        total_bpp += bpp
+        total_psnr += psnr
+        total_mse += mseloss
+        frame_idx += 1
+    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
 
 def static_simulation_model_multicam(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
