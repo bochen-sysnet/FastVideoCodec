@@ -459,7 +459,9 @@ if __name__ == '__main__':
         test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test')
     
     if 'x26' in args.task:
-        # static_simulation_x26x(args, test_dataset)
-        static_simulation_x26x_multicam(args, test_dataset)
+        if args.dataset != 'MMPT':
+            static_simulation_x26x(args, test_dataset)
+        else:
+            static_simulation_x26x_multicam(args, test_dataset)
     elif args.task in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP']:
         static_simulation_model(args, test_dataset)

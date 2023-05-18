@@ -101,6 +101,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
     if isinstance(raw_clip,list):
         for img in raw_clip:
+            print(img.size())
+            exit(0)
             process.stdin.write(np.array(img).tobytes())
     else:
         for v in range(raw_clip.size(1)):
