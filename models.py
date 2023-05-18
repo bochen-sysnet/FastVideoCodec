@@ -2186,7 +2186,8 @@ class MCVC(ScaleSpaceFlow):
                     self.attn = Residual(PreNorm(out_planes, Attention(out_planes)))
 
             def forward(self, x):
-                x = self.attn(x)
+                if cross_correlation:
+                    x = self.attn(x)
                 x = self.qrelu1(self.deconv1(x))
                 x = self.qrelu2(self.deconv2(x))
                 x = self.qrelu3(self.deconv3(x))
