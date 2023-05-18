@@ -118,7 +118,6 @@ def static_simulation_x26x(args,test_dataset):
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             data = test_dataset[data_idx]
-            data.append(frame)
             l = len(data)
                 
             psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
