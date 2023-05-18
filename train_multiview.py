@@ -299,7 +299,7 @@ def test(epoch, model, test_dataset):
             
         with torch.no_grad():
             l = data.size(0)
-            # out_dec = model(data)
+            out_dec = model(data)
             mse, bpp, psnr = calc_metrics(out_dec, data)
             
             ba_loss_module.update(bpp, l)
