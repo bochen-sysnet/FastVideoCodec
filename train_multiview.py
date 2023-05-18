@@ -269,7 +269,7 @@ def calc_metrics(out_dec,raw_frames):
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
         mseloss = torch.mean((x_hat - x).pow(2))
-        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)
+        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
         total_bpp += bpp
