@@ -151,6 +151,29 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+def calc_metrics(out_dec,raw_frames):
+    frame_idx = 0
+    total_bpp = 0
+    total_psnr = 0
+    total_mse = 0
+    pixels = 0
+    for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
+        x = raw_frames[frame_idx]
+        for likelihood_name in ['keyframe', 'motion', 'residual']:
+            if likelihood_name in likelihoods:
+                var_like = likelihoods[likelihood_name]
+                bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                        torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+        mseloss = torch.mean((x_hat - x).pow(2))
+        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
+        pixels = x.size(0) * x.size(2) * x.size(3)
+        bpp = bits / pixels
+        total_bpp += bpp
+        total_psnr += psnr
+        total_mse += mseloss
+        frame_idx += 1
+    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
         
 def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     # create optimizer
@@ -161,48 +184,31 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     adjust_learning_rate(optimizer, epoch)
 
     img_loss_module = AverageMeter()
-    be_loss_module = AverageMeter()
-    be_res_loss_module = AverageMeter()
+    ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     all_loss_module = AverageMeter()
-    aux_loss_module = AverageMeter()
-    aux2_loss_module = AverageMeter()
-    aux3_loss_module = AverageMeter()
-    be_loss_module = AverageMeter()
-    be_res_loss_module = AverageMeter()
-    psnr_module = AverageMeter()
-    all_loss_module = AverageMeter()
-    aux_loss_module = AverageMeter()
-    aux2_loss_module = AverageMeter()
-    aux3_loss_module = AverageMeter()
-    aux4_loss_module = AverageMeter()
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     ds_size = len(train_dataset)
     
     model.train()
     # multi-view dataset must be single batch in loader 
     # single view dataset set batch size to view numbers in loader in test
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        data = data.cuda(device)
+        data = data[0].cuda(device)
         
         # run model
-        _,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True, batch_idx=batch_idx)
-
-        # record loss
-        all_loss_module.update(img_loss + be_loss)
-        img_loss_module.update(img_loss)
-        be_loss_module.update(be_loss)
-        be_res_loss_module.update(be_res_loss)
-        if not math.isinf(psnr):
-            psnr_module.update(psnr)
-        aux_loss_module.update(aux_loss)
-        aux2_loss_module.update(aux_loss2)
-        aux3_loss_module.update(aux_loss3)
-        aux4_loss_module.update(aux_loss4)
+        out_dec = model(data)
+        mse, bpp, psnr = calc_metrics(out_dec, data)
+        loss = model.r*mse + bpp
+        
+        ba_loss_module.update(bpp.cpu().data.item())
+        psnr_module.update(psnr.cpu().data.item())
+        img_loss_module.update(mse.cpu().data.item())
+        all_loss_module.update(loss.cpu().data.item())
         
         # backward
         scaler.scale(loss).backward()
@@ -210,18 +216,13 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         scaler.update()
         optimizer.zero_grad()
 
-            
         # show result
         train_iter.set_description(
             f"{epoch} {batch_idx:6}. "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-            f"B:{be_loss_module.val:.4f} ({be_loss_module.avg:.4f}). "
-            # f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            f"FS:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"FQ:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-            f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+            f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
             
         if batch_idx % 5000 == 0 and batch_idx>0:
             if True:
@@ -254,29 +255,6 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux3_loss_module.reset()
             aux4_loss_module.reset()
     return best_codec_score
-
-def calc_metrics(out_dec,raw_frames):
-    frame_idx = 0
-    total_bpp = 0
-    total_psnr = 0
-    total_mse = 0
-    pixels = 0
-    for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
-        x = raw_frames[frame_idx]
-        for likelihood_name in ['keyframe', 'motion', 'residual']:
-            if likelihood_name in likelihoods:
-                var_like = likelihoods[likelihood_name]
-                bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
-                        torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        mseloss = torch.mean((x_hat - x).pow(2))
-        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
-        pixels = x.size(0) * x.size(2) * x.size(3)
-        bpp = bits / pixels
-        total_bpp += bpp
-        total_psnr += psnr
-        total_mse += mseloss
-        frame_idx += 1
-    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
     
 def test(epoch, model, test_dataset):
     model.eval()
