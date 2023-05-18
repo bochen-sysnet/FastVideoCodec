@@ -27,6 +27,7 @@ import pytorch_msssim
 from PIL import Image
 import torchac
 import compressai
+from torchvision.transforms import ToPILImage
 
 def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True):
     if name in ['RLVC','DVC','RLVC2']:
@@ -99,14 +100,15 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
     t_0 = time.perf_counter()
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
+    to_pil = ToPILImage()
     if isinstance(raw_clip,list):
         for img in raw_clip:
-            print(img.size)
             process.stdin.write(np.array(img).tobytes())
     else:
         for v in range(raw_clip.size(1)):
             for g in range(raw_clip.size(0)):
-                process.stdin.write(np.array(raw_clip[g][v]).tobytes())
+                img = to_pil(raw_clip[g][v])
+                process.stdin.write(np.array(img).tobytes())
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
