@@ -49,7 +49,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'MCVC' in name:
         model_codec = MCVC(name, loss_type='P', compression_level=compression_level)
         ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse', pretrained=True, progress=True)
-        model_codec.load_state_dict(ckpt.state_dict())
+        model_codec.load_state_dict_whatever(ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
