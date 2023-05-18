@@ -109,11 +109,10 @@ if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
         best_codec_score = checkpoint['score']
     # load_state_dict_all(model, checkpoint['state_dict'])
     load_state_dict_whatever(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'])
+    print("Loaded model codec score: ", checkpoint['score'], checkpoint['stats'])
     if 'stats' in checkpoint:
         print(checkpoint['stats'])
     del checkpoint
-    print("Cannot load model codec", RESUME_CODEC_PATH)
 print("===================================================================")
 
 def calc_metrics(out_dec,raw_frames):
