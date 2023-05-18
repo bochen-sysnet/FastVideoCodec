@@ -75,6 +75,7 @@ def init_training_params(model):
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
+    print(width,height,GOP)
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
@@ -135,7 +136,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     if isinstance(raw_clip,list):
         assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
     else:
-        assert len(clip) == raw_clip.size(0)*raw_clip.size(1)
+        assert len(clip) == raw_clip.size(0)*raw_clip.size(1),f'Clip size mismatch {len(clip)} {str(raw_clip.size())}'
     # create cache
     psnr_list = [];msssim_list = [];bpp_act_list = []
     bpp = video_size*1.0/len(clip)/(height*width)
