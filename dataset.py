@@ -198,8 +198,7 @@ class MultiViewVideoDataset(Dataset):
                     self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_views//self.gop_size]
         self.__num_gops = sum(self.__video_gops)
         print(self.__file_names)
-        print("[log] Number of files found {}".format(len(self.__file_names)))  
-        exit(0)
+        print("[log] Number of files found {}".format(len(self.__file_names)))
 
     def __len__(self):
         return len(self.__num_gops)
