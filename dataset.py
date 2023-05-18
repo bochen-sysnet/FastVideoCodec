@@ -188,8 +188,8 @@ class MultiViewVideoDataset(Dataset):
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 if self.category in fn:
-                    if '_0' in fn and self.split == 'train':continue
                     fn = fn.strip("'")
+                    if '_0' in fn and self.split == 'train':continue
                     self.__file_names += [os.path.join(directory,fn)]
                     self.__file_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_view]
                     print(self.__file_names[-1],self.__file_frames)
