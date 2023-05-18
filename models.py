@@ -138,17 +138,29 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     decompt = time.perf_counter() - t_0
     if isinstance(raw_clip,list):
         assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
+        # create cache
+        psnr_list = [];msssim_list = [];bpp_act_list = []
+        bpp = video_size*1.0/len(clip)/(height*width)
+        for i in range(len(clip)):
+            Y1_raw = transforms.ToTensor()(raw_clip[i]).unsqueeze(0)
+            Y1_com = clip[i].unsqueeze(0)
+            psnr_list += [PSNR(Y1_raw, Y1_com)]
+            msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+            bpp_act_list += torch.FloatTensor([bpp])
     else:
         assert len(clip) == raw_clip.size(0)*raw_clip.size(1),f'Clip size mismatch {len(clip)} {str(raw_clip.size())}'
-    # create cache
-    psnr_list = [];msssim_list = [];bpp_act_list = []
-    bpp = video_size*1.0/len(clip)/(height*width)
-    for i in range(len(clip)):
-        Y1_raw = transforms.ToTensor()(raw_clip[i]).unsqueeze(0)
-        Y1_com = clip[i].unsqueeze(0)
-        psnr_list += [PSNR(Y1_raw, Y1_com)]
-        msssim_list += [MSSSIM(Y1_raw, Y1_com)]
-        bpp_act_list += torch.FloatTensor([bpp])
+        # create cache
+        psnr_list = [];msssim_list = [];bpp_act_list = []
+        bpp = video_size*1.0/len(clip)/(height*width)
+        i = 0
+        for v in range(raw_clip.size(1)):
+            for g in range(raw_clip.size(0)):
+                Y1_raw = to_pil(raw_clip[g][v])
+                Y1_com = clip[i].unsqueeze(0)
+                psnr_list += [PSNR(Y1_raw, Y1_com)]
+                msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+                bpp_act_list += torch.FloatTensor([bpp])
+                i += 1
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
