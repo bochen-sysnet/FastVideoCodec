@@ -76,7 +76,6 @@ def init_training_params(model):
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
-    print(width,height,GOP)
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
@@ -155,7 +154,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
         i = 0
         for v in range(raw_clip.size(1)):
             for g in range(raw_clip.size(0)):
-                Y1_raw = to_pil(raw_clip[g][v])
+                Y1_raw = raw_clip[g][v]
                 Y1_com = clip[i].unsqueeze(0)
                 psnr_list += [PSNR(Y1_raw, Y1_com)]
                 msssim_list += [MSSSIM(Y1_raw, Y1_com)]
