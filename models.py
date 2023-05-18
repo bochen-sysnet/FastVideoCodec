@@ -2102,13 +2102,13 @@ class MCVC(ScaleSpaceFlow):
                     deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                     nn.Sequential() if not cross_correlation else Residual(PreNorm(out_planes, Attention(out_planes))),
                 )
-        from compressai.layers import QReLU
-        def qrelu(input, bit_depth=8, beta=100):
-            return QReLU.apply(input, bit_depth, beta)
         class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
+                from compressai.layers import QReLU
+                def qrelu(input, bit_depth=8, beta=100):
+                    return QReLU.apply(input, bit_depth, beta)
                 super().__init__(
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                     qrelu,
