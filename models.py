@@ -2220,6 +2220,12 @@ class MCVC(ScaleSpaceFlow):
             "likelihoods": frames_likelihoods,
         }
 
+    def forward_keyframe(self, x):
+        y = self.img_encoder(x)
+        print(y.size())
+        y_hat, likelihoods = self.img_hyperprior(y)
+        x_hat = self.img_decoder(y_hat)
+        return x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref):
         # the input should be multi-view frames at a single time 
