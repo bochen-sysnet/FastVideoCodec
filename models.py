@@ -154,9 +154,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
         i = 0
         for v in range(raw_clip.size(1)):
             for g in range(raw_clip.size(0)):
-                Y1_raw = raw_clip[g][v]
-                Y1_com = clip[i]
-                print(Y1_raw.size(),Y1_com.size())
+                Y1_raw = raw_clip[g][v].unsqueeze(0)
+                Y1_com = clip[i].unsqueeze(0)
                 psnr_list += [PSNR(Y1_raw, Y1_com)]
                 msssim_list += [MSSSIM(Y1_raw, Y1_com)]
                 bpp_act_list += torch.FloatTensor([bpp])
