@@ -194,8 +194,8 @@ class MultiViewVideoDataset(Dataset):
                     if '_0' in fn and self.split == 'train':continue
                     if '_0' not in fn and self.split == 'test':continue
                     self.__file_names += [os.path.join(directory,fn)]
-                    self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_view]
-                    self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_view//self.gop_size]
+                    self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_views]
+                    self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_views//self.gop_size]
         self.__num_gops = sum(self.__video_gops)
         print(self.__file_names)
         print("[log] Number of files found {}".format(len(self.__file_names)))  
