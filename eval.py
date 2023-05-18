@@ -118,6 +118,8 @@ def static_simulation_x26x(args,test_dataset):
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             frame,eof = test_dataset[data_idx]
+            print(frame.size())
+            exit(0)
             data.append(frame)
             if not eof:
                 continue
