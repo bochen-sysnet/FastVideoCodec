@@ -201,7 +201,7 @@ class MultiViewVideoDataset(Dataset):
         print("[log] Number of files found {}".format(len(self.__file_names)))
 
     def __len__(self):
-        return len(self.__num_gops)
+        return self.__num_gops
         
     def __getitem__(self, idx):
         file_idx = 0
