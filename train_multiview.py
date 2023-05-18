@@ -72,7 +72,6 @@ LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
 BEGIN_EPOCH = args.epoch[0]
 END_EPOCH = args.epoch[1]
-WARMUP_EPOCH = 5
 device = args.device
 STEPS = []
 
@@ -117,20 +116,6 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     if 'stats' in checkpoint:
         print(checkpoint['stats'])
     del checkpoint
-elif 'Base' in CODEC_NAME:
-    # load what exists
-    pretrained_model_path = f'DVC/snapshot/256.model'
-    checkpoint = torch.load(pretrained_model_path,map_location=torch.device('cuda:'+str(device)))
-    if 'state_dict' in checkpoint.keys():
-        load_state_dict_whatever(model, checkpoint['state_dict'])
-        if isinstance(checkpoint['score'],float):
-            best_codec_score = checkpoint['score']
-    else:
-        # model.load_state_dict(checkpoint)
-        load_state_dict_whatever(model, checkpoint)
-    del checkpoint
-    print("Load baseline",pretrained_model_path)
-else:
     print("Cannot load model codec", RESUME_CODEC_PATH)
 print("===================================================================")
 
@@ -223,37 +208,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
-            
-        if batch_idx % 5000 == 0 and batch_idx>0:
-            if True:
-                print('')
-                score, stats = test(epoch, model, test_dataset)
-                
-                is_best = score <= best_codec_score
-                if is_best:
-                    print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
-                    best_codec_score = score
-                else:
-                    print('')
-                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-                save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
-                model.train()
-            else:
-                print('')
-                state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': best_codec_score}
-                save_checkpoint(state, False, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
 
-        # clear result every 1000 batches
-        if batch_idx % 5000 == 0 and batch_idx>0: # From time to time, reset averagemeters to see improvements
-            img_loss_module.reset()
-            aux_loss_module.reset()
-            be_loss_module.reset()
-            be_res_loss_module.reset()
-            all_loss_module.reset()
-            psnr_module.reset()
-            aux2_loss_module.reset()
-            aux3_loss_module.reset()
-            aux4_loss_module.reset()
     return best_codec_score
     
 def test(epoch, model, test_dataset):
@@ -271,13 +226,12 @@ def test(epoch, model, test_dataset):
         data = test_dataset[data_idx].cuda(device)
             
         with torch.no_grad():
-            l = data.size(0)
             out_dec = model(data)
             mse, bpp, psnr = calc_metrics(out_dec, data)
             
-            ba_loss_module.update(bpp, l)
-            psnr_module.update(psnr,l)
-            img_loss_module.update(mse,l)
+            ba_loss_module.update(bpp)
+            psnr_module.update(psnr)
+            img_loss_module.update(mse)
                 
         # show result
         test_iter.set_description(
@@ -286,7 +240,7 @@ def test(epoch, model, test_dataset):
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
             
-    return ba_loss_module.avg+img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
+    return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
