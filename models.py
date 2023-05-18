@@ -2094,7 +2094,7 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(PreNorm(out_planes, Attention(out_planes))),
+                        # Residual(PreNorm(out_planes, Attention(out_planes))),
                     )
         class Decoder(nn.Sequential):
             def __init__(
@@ -2142,7 +2142,7 @@ class MCVC(ScaleSpaceFlow):
                         nn.ReLU(inplace=True),
                         # Residual(PreNorm(mid_planes, Attention(mid_planes))),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(PreNorm(out_planes, Attention(out_planes))),
+                        # Residual(PreNorm(out_planes, Attention(out_planes))),
                     )
         class HyperDecoder(nn.Sequential):
             def __init__(
@@ -2164,7 +2164,7 @@ class MCVC(ScaleSpaceFlow):
                         nn.ReLU(inplace=True),
                         # Residual(PreNorm(mid_planes, Attention(mid_planes))),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(PreNorm(out_planes, Attention(out_planes))),
+                        # Residual(PreNorm(out_planes, Attention(out_planes))),
                     )
         class HyperDecoderWithQReLU(nn.Module):
             def __init__(
@@ -2182,14 +2182,14 @@ class MCVC(ScaleSpaceFlow):
                 self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
                 self.qrelu3 = qrelu
 
-                if cross_correlation:
-                    self.attn = Residual(PreNorm(out_planes, Attention(out_planes)))
+                # if cross_correlation:
+                #     self.attn = Residual(PreNorm(out_planes, Attention(out_planes)))
 
             def forward(self, x):
                 x = self.qrelu1(self.deconv1(x))
                 x = self.qrelu2(self.deconv2(x))
                 x = self.qrelu3(self.deconv3(x))
-                x = self.attn(x)
+                # x = self.attn(x)
 
                 return x
         # can condition on prior latents of all other frames

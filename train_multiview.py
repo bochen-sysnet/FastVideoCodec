@@ -208,9 +208,9 @@ def test(epoch, model, test_dataset):
             out_dec = model(data)
             mse, bpp, psnr = calc_metrics(out_dec, data)
             
-            ba_loss_module.update(bpp)
-            psnr_module.update(psnr)
-            img_loss_module.update(mse)
+            ba_loss_module.update(bpp.cpu().data.item())
+            psnr_module.update(psnr.cpu().data.item())
+            img_loss_module.update(mse.cpu().data.item())
                 
         # show result
         test_iter.set_description(
