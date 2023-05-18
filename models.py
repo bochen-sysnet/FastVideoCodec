@@ -75,6 +75,7 @@ def init_training_params(model):
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
         
 def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
+    print(raw_clip.size(),width,height,GOP)
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
@@ -98,13 +99,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     #process = sp.Popen(shlex.split(f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec {libname} -pix_fmt yuv420p -crf 24 {output_filename}'), stdin=sp.PIPE)
     t_0 = time.perf_counter()
     process = sp.Popen(shlex.split(cmd), stdin=sp.PIPE, stdout=sp.DEVNULL, stderr=sp.STDOUT)
-    if len(raw_clip.size())==4:
-        for img in raw_clip:
-            process.stdin.write(np.array(img).tobytes())
-    else:
-        for view_id in range(raw_clip.size(0)):
-            for img in raw_clip[view_id]:
-                process.stdin.write(np.array(img).tobytes())
+    for img in raw_clip:
+        process.stdin.write(np.array(img).tobytes())
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
