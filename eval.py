@@ -244,7 +244,7 @@ def static_simulation_model_multicam(args, test_dataset):
                     
             # show result
             test_iter.set_description(
-                f"{epoch} {data_idx:6}. "
+                f"{data_idx:6}. "
                 f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
                 f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
                 f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
