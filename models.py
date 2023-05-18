@@ -2031,6 +2031,7 @@ class ELFVC(ScaleSpaceFlow):
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
 
 from super_precision import Attention, Residual, PreNorm
+from compressai.layers import QReLU
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2219,13 +2220,6 @@ class MCVC(ScaleSpaceFlow):
             "x_hat": reconstructions,
             "likelihoods": frames_likelihoods,
         }
-
-    def forward_keyframe(self, x):
-        y = self.img_encoder(x)
-        print(y.size())
-        y_hat, likelihoods = self.img_hyperprior(y)
-        x_hat = self.img_decoder(y_hat)
-        return x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref):
         # the input should be multi-view frames at a single time 
