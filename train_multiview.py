@@ -20,7 +20,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-from models import get_codec_model,parallel_compression
+from models import get_codec_model,parallel_compression, AverageMeter
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 from dataset import VideoDataset, FrameDataset, MultiViewVideoDataset
@@ -99,13 +99,10 @@ print('Total number of trainable codec parameters: {}'.format(pytorch_total_para
 # initialize best score
 best_codec_score = 100
 
-####### Load yowo model
 # ---------------------------------------------------------------
 # try to load codec model 
-if CODEC_NAME in ['SSF-Official','MCVC']:
-    print('Official model loaded.')
-elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading all for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
     # BEGIN_EPOCH = checkpoint['epoch'] + 1
     if isinstance(checkpoint['score'],float):
@@ -118,24 +115,6 @@ elif RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     del checkpoint
     print("Cannot load model codec", RESUME_CODEC_PATH)
 print("===================================================================")
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
- 
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
 
 def calc_metrics(out_dec,raw_frames):
     frame_idx = 0
@@ -254,8 +233,6 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     import shutil
     epoch = state['epoch']
     torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
-    # shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
-    #                 f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}.{epoch}.pth')
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')

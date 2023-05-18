@@ -2182,10 +2182,16 @@ class MCVC(ScaleSpaceFlow):
                 self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
                 self.qrelu3 = qrelu
 
+                if cross_correlation:
+                    self.attn1 = Residual(PreNorm(mid_planes, Attention(mid_planes)))
+                    self.attn2 = Residual(PreNorm(out_planes, Attention(out_planes)))
+
             def forward(self, x):
                 x = self.qrelu1(self.deconv1(x))
                 x = self.qrelu2(self.deconv2(x))
+                x = self.attn1(x)
                 x = self.qrelu3(self.deconv3(x))
+                x = self.attn2(x)
 
                 return x
         # can condition on prior latents of all other frames
@@ -2220,11 +2226,8 @@ class MCVC(ScaleSpaceFlow):
         self.name = name
         self.cross_correlation = cross_correlation
 
-    def reset(self):
-        self.prior_y_motion = self.prior_y_res = None
-        # reset need to happen at I
-
     def forward(self, frames):
+        self.prior_y_motion = self.prior_y_res = None
         reconstructions = []
         frames_likelihoods = []
 
