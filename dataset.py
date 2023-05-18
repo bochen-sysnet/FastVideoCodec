@@ -179,6 +179,7 @@ class MultiViewVideoDataset(Dataset):
         self.num_views = num_views[category_id]
         self.split = split
         self.gop_size = gop_size
+        self._frame_size = (256,256)
         
         self.get_file_names()
         

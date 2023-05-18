@@ -30,7 +30,7 @@ from datetime import datetime
 from models import get_codec_model,parallel_compression,compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 from models import PSNR,MSSSIM
-from dataset import VideoDataset
+from dataset import VideoDataset,MultiViewVideoDataset
 
 import subprocess
 
@@ -388,7 +388,7 @@ def shrink_learning_rate(optimizer):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='standalone', help='server or client or standalone')
-    parser.add_argument('--dataset', type=str, default='UVG', help='UVG or MCL-JCV')
+    parser.add_argument('--dataset', type=str, default='MMPT', help='UVG or MCL-JCV or MMPT')
     parser.add_argument('--task', type=str, default='x264-veryfast', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
@@ -411,7 +411,10 @@ if __name__ == '__main__':
         args.use_split = False
 
     # setup streaming parameters
-    test_dataset = VideoDataset('../dataset/'+args.dataset, (args.width,args.height), max_files=args.max_files)
+    if args.dataset != 'MMPT':
+        test_dataset = VideoDataset('../dataset/'+args.dataset, (args.width,args.height), max_files=args.max_files)
+    else:
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test')
     
     if 'x26' in args.task:
         static_simulation_x26x(args, test_dataset)
