@@ -120,6 +120,7 @@ def static_simulation_x26x(args,test_dataset):
             data = test_dataset[data_idx]
             l = len(data)
                 
+            data = data[:,0]
             psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
             
             # aggregate loss

@@ -132,7 +132,6 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     cap.release()
     # decompression time
     decompt = time.perf_counter() - t_0
-    print(raw_clip.size(),len(clip))
     assert len(clip) == len(raw_clip), f'Clip size mismatch {len(clip)} {len(raw_clip)}'
     # create cache
     psnr_list = [];msssim_list = [];bpp_act_list = []
