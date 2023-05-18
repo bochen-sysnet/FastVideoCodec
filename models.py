@@ -2126,7 +2126,7 @@ class MCVC(ScaleSpaceFlow):
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(decoder_dim, mid_planes, planes)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
 
             def forward(self, y):
@@ -2154,6 +2154,27 @@ class MCVC(ScaleSpaceFlow):
     def reset(self):
         self.prior_y_motion = self.prior_y_res = None
         # reset need to happen at I
+
+    def forward(self, frames):
+        reconstructions = []
+        frames_likelihoods = []
+
+        x_hat, likelihoods = self.forward_keyframe(frames[0])
+        reconstructions.append(x_hat)
+        frames_likelihoods.append(likelihoods)
+        x_ref = x_hat.detach()  # stop gradient flow (cf: google2020 paper)
+
+        for i in range(1, len(frames)):
+            x = frames[i]
+            x_ref, likelihoods = self.forward_inter(x, x_ref)
+            reconstructions.append(x_ref)
+            frames_likelihoods.append(likelihoods)
+
+        return {
+            "x_hat": reconstructions,
+            "likelihoods": frames_likelihoods,
+        }
+
 
     def forward_inter(self, x_cur, x_ref):
         # the input should be multi-view frames at a single time 
