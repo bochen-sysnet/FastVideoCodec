@@ -254,6 +254,29 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux3_loss_module.reset()
             aux4_loss_module.reset()
     return best_codec_score
+
+def calc_metrics(out_dec,raw_frames):
+    frame_idx = 0
+    total_bpp = 0
+    total_psnr = 0
+    total_mse = 0
+    pixels = 0
+    for x_hat,likelihoods in zip(out_dec['reconstructions'],out_dec['frames_likelihoods']):
+        x = raw_frames[frame_idx]
+        for likelihood_name in ['keyframe', 'motion', 'residual']:
+            if likelihood_name in likelihoods:
+                var_like = likelihoods[likelihood_name]
+                bits += torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
+                        torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
+        mseloss = torch.mean((x_hat - x).pow(2))
+        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(data.device)
+        pixels = x.size(0) * x.size(2) * x.size(3)
+        bpp = bits / pixels
+        total_bpp += bpp
+        total_psnr += psnr
+        total_mse += mseloss
+        frame_idx += 1
+    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
     
 def test(epoch, model, test_dataset):
     model.eval()
@@ -274,31 +297,21 @@ def test(epoch, model, test_dataset):
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx]
             
-        # with torch.no_grad():
-        #     l = data.size(0)
+        with torch.no_grad():
+            l = data.size(0)
+            out_dec = model(data)
+            mse, bpp, psnr = calc_metrics(out_dec, data)
             
-        #     # compress GoP
-        #     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True,level)
-        #     ba_loss_module.update(be_loss, l)
-        #     psnr_module.update(psnr,l)
-        #     all_loss_module.update(float(loss),l)
-        #     img_loss_module.update(img_loss,l)
-        #     aux_loss_module.update(aux_loss,l)
-        #     aux2_loss_module.update(aux_loss2,l)
-        #     aux3_loss_module.update(aux_loss3,l)
-        #     aux4_loss_module.update(aux_loss4,l)
+            ba_loss_module.update(bpp, l)
+            psnr_module.update(psnr,l)
+            img_loss_module.update(mse,l)
                 
-        # # show result
-        # test_iter.set_description(
-        #     f"{epoch} {data_idx:6}. "
-        #     f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-        #     f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-        #     f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-        #     f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-        #     f"FS:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-        #     f"FQ:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-        #     f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-        #     f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+        # show result
+        test_iter.set_description(
+            f"{epoch} {data_idx:6}. "
+            f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+            f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
             
     return ba_loss_module.avg+img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
