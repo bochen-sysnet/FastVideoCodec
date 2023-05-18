@@ -117,10 +117,12 @@ def static_simulation_x26x(args,test_dataset):
         msssim_module = AverageMeter()
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
-            data = test_dataset[data_idx]
+            frame,eof = test_dataset[data_idx]
+            data.append(frame)
+            if not eof:
+                continue
             l = len(data)
                 
-            data = data[:,0]
             psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
             
             # aggregate loss
@@ -146,6 +148,9 @@ def static_simulation_x26x(args,test_dataset):
             with open(f'{args.task}.log','a') as f:
                 f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
+                
+            # clear input
+            data = []
             
         test_dataset.reset()
     
