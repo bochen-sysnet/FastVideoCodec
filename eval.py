@@ -195,6 +195,39 @@ def static_simulation_x26x_multicam(args,test_dataset):
             with open(f'{args.task}.log','a') as f:
                 f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
+
+
+def static_simulation_model_multicam(args, test_dataset):
+    for lvl in range(args.level_range[0],args.level_range[1]):
+        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
+        if args.print_only: continue
+        model.eval()
+        img_loss_module = AverageMeter()
+        ba_loss_module = AverageMeter()
+        psnr_module = AverageMeter()
+        ds_size = len(test_dataset)
+        GoP = args.fP + args.bP +1
+        test_iter = tqdm(range(ds_size))
+        for data_idx,_ in enumerate(test_iter):
+            data = test_dataset[data_idx].cuda(device)
+            
+            with torch.no_grad():
+                l = data.size(0)
+                out_dec = model(data)
+                mse, bpp, psnr = calc_metrics(out_dec, data)
+                
+                ba_loss_module.update(bpp, l)
+                psnr_module.update(psnr,l)
+                img_loss_module.update(mse,l)
+                    
+            # show result
+            test_iter.set_description(
+                f"{epoch} {data_idx:6}. "
+                f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+                f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+                f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+                
+    return [ba_loss_module.avg,psnr_module.avg]
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
@@ -431,7 +464,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='standalone', help='server or client or standalone')
     parser.add_argument('--dataset', type=str, default='MMPT', help='UVG or MCL-JCV or MMPT')
-    parser.add_argument('--task', type=str, default='x264-veryfast', help='RLVC,DVC,SPVC,AE3D,x265,x264')
+    parser.add_argument('--task', type=str, default='MCVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
     parser.set_defaults(use_split=False)
@@ -463,5 +496,8 @@ if __name__ == '__main__':
             static_simulation_x26x(args, test_dataset)
         else:
             static_simulation_x26x_multicam(args, test_dataset)
-    elif args.task in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP']:
-        static_simulation_model(args, test_dataset)
+    elif args.task in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP','MCVC']:
+        if args.dataset != 'MMPT':
+            static_simulation_model(args, test_dataset)
+        else:
+            static_simulation_model_multicam(args, test_dataset)

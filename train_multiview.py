@@ -283,11 +283,6 @@ def test(epoch, model, test_dataset):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
-    all_loss_module = AverageMeter()
-    aux_loss_module = AverageMeter()
-    aux2_loss_module = AverageMeter()
-    aux3_loss_module = AverageMeter()
-    aux4_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
     data = []
