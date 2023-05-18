@@ -218,8 +218,9 @@ class MultiViewVideoDataset(Dataset):
         for v in range(self.num_views):
             for g in range(self.gop_size):
                 frame_idx = gop_idx * self.gop_size + g
-                img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{:05d}_{v+1}.jpg')
+                img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
                 data.append(transforms.ToTensor()(img))
         data = torch.stack(data, dim=0)
+        data = data.view(self.num_views,self.gop_size,3,data.size(2),data.size(3))
         return data
