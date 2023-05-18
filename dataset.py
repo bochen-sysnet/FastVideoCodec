@@ -169,22 +169,24 @@ class FrameDataset(Dataset):
 categories = ['lobby','retail','office','industry_safety','cafe_shop']
 num_views = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir, category_id=0, split='test'):
+    def __init__(self, root_dir, category_id=0, split='test', gop_size=16):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
         self._dirs += [os.path.join(root_dir,'train','images','64am')]
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
         self.category = categories[category_id]
-        self.num_view = num_views[category_id]
+        self.num_views = num_views[category_id]
         self.split = split
+        self.gop_size = gop_size
         
         self.get_file_names()
         
     def get_file_names(self):
         print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
-        self.__file_frames = []
+        self.__video_frames = []
+        self.__video_gops = []
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 if self.category in fn:
@@ -192,11 +194,32 @@ class MultiViewVideoDataset(Dataset):
                     if '_0' in fn and self.split == 'train':continue
                     if '_0' not in fn and self.split == 'test':continue
                     self.__file_names += [os.path.join(directory,fn)]
-                    self.__file_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_view]
-                    print(self.__file_names[-1],self.__file_frames)
+                    self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_view]
+                    self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_view//self.gop_size]
+        self.__num_gops = sum(self.__video_gops)
         print(self.__file_names)
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         exit(0)
+
+    def __len__(self):
+        return len(self.__num_gops)
         
     def __getitem__(self, idx):
-        pass
+        file_idx = 0
+        total_gops = 0
+        for gops in self.__video_gops:
+            gop_idx = idx - total_gops
+            if gop_idx < gops:
+                break
+            total_gops += gops
+            file_idx += 1
+
+        data = []
+        for v in range(self.num_views):
+            for g in range(self.gop_size):
+                frame_idx = gop_idx * self.gop_size + g
+                img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{:05d}_{v+1}.jpg')
+                img = Image.open(img_dir).convert('RGB')
+                data.append(transforms.ToTensor()(img))
+        data = torch.stack(data, dim=0)
+        return data

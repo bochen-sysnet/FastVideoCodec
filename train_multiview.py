@@ -255,7 +255,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
             aux4_loss_module.reset()
     return best_codec_score
     
-def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
+def test(epoch, model, test_dataset):
     model.eval()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -267,52 +267,39 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
     aux4_loss_module = AverageMeter()
     ds_size = len(test_dataset)
     
-    fP,bP = 15,0
-    GoP = fP+bP+1
-    
     data = []
     # test must use a batch size equal to the number of views/cameras
     test_iter = tqdm(range(ds_size))
     eof = False
     for data_idx,_ in enumerate(test_iter):
-        frame,eof = test_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
-        if len(data) < GoP and not eof:
-            continue
+        data = test_dataset[data_idx]
             
-        with torch.no_grad():
-            data = torch.stack(data, dim=0).cuda(device)
-            l = data.size(0)
+        # with torch.no_grad():
+        #     l = data.size(0)
             
-            # compress GoP
-            com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True,level)
-            ba_loss_module.update(be_loss, l)
-            psnr_module.update(psnr,l)
-            all_loss_module.update(float(loss),l)
-            img_loss_module.update(img_loss,l)
-            aux_loss_module.update(aux_loss,l)
-            aux2_loss_module.update(aux_loss2,l)
-            aux3_loss_module.update(aux_loss3,l)
-            aux4_loss_module.update(aux_loss4,l)
+        #     # compress GoP
+        #     com_imgs,loss,img_loss,be_loss,be_res_loss,psnr,_,aux_loss,aux_loss2,aux_loss3,aux_loss4 = parallel_compression(args,model,data,True,level)
+        #     ba_loss_module.update(be_loss, l)
+        #     psnr_module.update(psnr,l)
+        #     all_loss_module.update(float(loss),l)
+        #     img_loss_module.update(img_loss,l)
+        #     aux_loss_module.update(aux_loss,l)
+        #     aux2_loss_module.update(aux_loss2,l)
+        #     aux3_loss_module.update(aux_loss3,l)
+        #     aux4_loss_module.update(aux_loss4,l)
                 
-        # show result
-        test_iter.set_description(
-            f"{epoch} {data_idx:6}. "
-            f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-            f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
-            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-            f"FS:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
-            f"FQ:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
-            f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
-            f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
+        # # show result
+        # test_iter.set_description(
+        #     f"{epoch} {data_idx:6}. "
+        #     f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+        #     f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
+        #     f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
+        #     f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
+        #     f"FS:{aux_loss_module.val:.4f} ({aux_loss_module.avg:.4f}). "
+        #     f"FQ:{aux2_loss_module.val:.4f} ({aux2_loss_module.avg:.4f}). "
+        #     f"RS:{aux3_loss_module.val:.4f} ({aux3_loss_module.avg:.4f}). "
+        #     f"RQ:{aux4_loss_module.val:.4f} ({aux4_loss_module.avg:.4f}). ")
             
-        # clear input
-        data = []
-        if doEvolve and eof:
-            checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-            load_state_dict_all(model, checkpoint['state_dict'])
-    test_dataset.reset()
     return ba_loss_module.avg+img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
 def adjust_learning_rate(optimizer, epoch):
@@ -334,14 +321,12 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
           
 # define multi-view dataset
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/')
-train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
+train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train')
+test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test')
+# train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
+# test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
 if args.evaluate:
-    for level in range(8):
-        score, stats = test(0, model, test_dataset, level, False)
-        print(score, stats)
-        if model.name not in ['ELFVC-L']:break
+    score, stats = test(0, model, test_dataset)
     exit(0)
 
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
