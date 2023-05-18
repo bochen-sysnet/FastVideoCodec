@@ -231,7 +231,7 @@ def static_simulation_model_multicam(args, test_dataset):
         GoP = args.fP + args.bP +1
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
-            data = test_dataset[data_idx].cuda(device)
+            data = test_dataset[data_idx].cuda(args.device)
             
             with torch.no_grad():
                 l = data.size(0)
