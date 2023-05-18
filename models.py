@@ -2256,7 +2256,9 @@ class MCVC(ScaleSpaceFlow):
 
         # decode the space-scale flow information
         # side-view motion can be integrated here
-        if self.cross_correlation and self.prior_y_motion is not None:
+        if self.cross_correlation:
+            if self.prior_y_motion is None:
+                self.prior_y_motion = torch.zeros(y_motion_hat.size()).to(x_cur.device)
             motion_info = self.motion_decoder(torch.cat((y_motion_hat, self.prior_y_motion), dim=1))
         else:
             motion_info = self.motion_decoder(y_motion_hat)
@@ -2269,7 +2271,9 @@ class MCVC(ScaleSpaceFlow):
 
         # y_combine
         # side-view residual can be integrated here
-        if self.cross_correlation and self.prior_y_motion is not None and self.prior_y_res is not None:
+        if self.cross_correlation:
+            if self.prior_y_res is None:
+                self.prior_y_res = torch.zeros(y_res_hat.size()).to(x_cur.device)
             x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat, self.prior_y_res, self.prior_y_motion), dim=1))
         else:
             x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
