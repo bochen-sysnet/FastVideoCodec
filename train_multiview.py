@@ -295,7 +295,7 @@ def test(epoch, model, test_dataset):
     test_iter = tqdm(range(ds_size))
     eof = False
     for data_idx,_ in enumerate(test_iter):
-        data = test_dataset[data_idx]
+        data = test_dataset[data_idx].cuda(device)
             
         with torch.no_grad():
             l = data.size(0)
