@@ -169,7 +169,7 @@ class FrameDataset(Dataset):
 categories = ['lobby','retail','office','industry_safety','cafe_shop']
 num_views = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir, category_id=0):
+    def __init__(self, root_dir, category_id=0, split='test'):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
@@ -177,60 +177,25 @@ class MultiViewVideoDataset(Dataset):
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
         self.category = categories[category_id]
         self.num_view = num_views[category_id]
+        self.split = split
         
         self.get_file_names()
-        
-        self.reset()
         
     def get_file_names(self):
         print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
+        self.__file_frames = []
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 if self.category in fn:
+                    if '_0' in fn and self.split == 'train':continue
                     fn = fn.strip("'")
                     self.__file_names += [os.path.join(directory,fn)]
-                    print(self.__file_names[-1],len(os.listdir(os.path.join(directory,fn))))
+                    self.__file_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_view]
+                    print(self.__file_names[-1],self.__file_frames)
         print(self.__file_names)
         print("[log] Number of files found {}".format(len(self.__file_names)))  
         exit(0)
         
-    def reset(self):
-        self._curr_counter = 0
-        self._frame_counter = -1 # Count the number of frames used per file
-        self._file_counter = -1 # Count the number of files used
-        self._dataset_nums = [] # Number of frames to be considered from each file (records+files)
-        self._clip = [] # hold video frames
-        self._cur_file_names = list(self.__file_names)
-        
-    @property
-    def data(self):
-        self._curr_counter+=1
-        return self.__getitem__(self._curr_counter)
-        
     def __getitem__(self, idx):
-        # Get the next dataset if frame number is more than table count
-        if not len(self._dataset_nums) or self._frame_counter >= self._dataset_nums[self._file_counter]-1: 
-            self.current_file = self._cur_file_names.pop() # get one filename
-            cap = cv2.VideoCapture(self.current_file)
-            # Check if camera opened successfully
-            if (cap.isOpened()== False):
-                print("Error opening video stream or file")
-            # Read until video is completed
-            self._clip = []
-            while(True):
-                # Capture frame-by-frame
-                ret, img = cap.read()
-                if ret != True:break
-                # skip black frames
-                if np.sum(img) == 0:continue
-                img = Image.fromarray(img)
-                if self._frame_size is not None:
-                    img = img.resize(self._frame_size)
-                self._clip.append(img)
-            self._file_counter +=1
-            self._dataset_nums.append(len(self._clip))
-            self._frame_counter = 0
-        else:
-            self._frame_counter+=1
-        return self._clip[self._frame_counter],self._frame_counter==self._dataset_nums[self._file_counter]-1
+        pass
