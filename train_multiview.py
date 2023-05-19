@@ -238,7 +238,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
           
 # define multi-view dataset
 train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-test_transforms = transforms.Compose([transforms.Resize(size=256),transforms.ToTensor()])
+test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms)
 test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms)
 # train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
