@@ -2112,7 +2112,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(PreNorm(out_planes, Attention(out_planes)))
+                        Residual(PreNorm(out_planes, Attention(out_planes))),
                         deconv(2 * in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
