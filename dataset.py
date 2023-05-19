@@ -169,7 +169,7 @@ class FrameDataset(Dataset):
 categories = ['lobby','retail','office','industry_safety','cafe_shop']
 num_views = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir, category_id=0, split='test', gop_size=16):
+    def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         self._dirs += [os.path.join(root_dir,'train','images','63am')]
@@ -180,7 +180,7 @@ class MultiViewVideoDataset(Dataset):
         self.split = split
         self.gop_size = gop_size
         self._frame_size = (256,256)
-        
+        assert transform is not None
         self.get_file_names()
         
     def get_file_names(self):
@@ -220,8 +220,8 @@ class MultiViewVideoDataset(Dataset):
                 frame_idx = gop_idx * self.gop_size + g
                 img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
-                img = img.resize((256,256))
-                data.append(transforms.ToTensor()(img))
+                img = self.transform(img)
+                data.append(img)
         data = torch.stack(data, dim=0)
         data = data.view(self.gop_size,self.num_views,3,data.size(2),data.size(3))
         return data
