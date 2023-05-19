@@ -666,19 +666,19 @@ def plot_se_per_video():
 
 
 
-def plot_RD_tradeoff(methods = ['x265f','SSF','Finetuned','Collaborated']):
+def plot_RD_tradeoff(methods = ['x265-veryfast','ScaleSpaceFlow','SSF-Finetuned','SSF-Collaborated']):
 	num_methods = len(methods)
 	ncol = 1
 	bbox_to_anchor = (.27,.53)
 
-	SPSNRs = [[35.98,37.03,37.92,38.50],
+	SPSNRs = [[28.61,30.91,32.98,34.70,35.98,37.03,37.92,38.50],
 				[26.36,27.66,29.22,31.27,32.93,34.91,36.15,38.96],
-				[],
-				[]]
-	Sbpps = [[0.3568,0.7094,1.3050,2.0656],
+				[33.31],
+				[33.82]]
+	Sbpps = [[0.0619,0.0938,0.1411,0.2142,0.3568,0.7094,1.3050,2.0656],
 				[0.0417,0.0482,0.0816,0.1212,0.1924,0.2563,0.3201,0.5386],
-				[],
-				[]]
+				[0.0162],
+				[0.014]]
 	# SPSNRs = np.array(SPSNRs)
 	# Sbpps = np.array(Sbpps)
 
