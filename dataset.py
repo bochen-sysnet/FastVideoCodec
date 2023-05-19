@@ -222,7 +222,7 @@ class MultiViewVideoDataset(Dataset):
                 img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
                 img = self.transform(img)
-                print(img.size())
+                print(img.size(),self.split)
                 data.append(img)
         data = torch.stack(data, dim=0)
         data = data.view(self.gop_size,self.num_views,3,data.size(2),data.size(3))
