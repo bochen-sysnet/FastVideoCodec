@@ -2140,9 +2140,9 @@ class MCVC(ScaleSpaceFlow):
                         nn.ReLU(inplace=True),
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
-                        # Residual(PreNorm(mid_planes, Attention(mid_planes))),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(PreNorm(out_planes, Attention(out_planes))),
+                        Residual(PreNorm(out_planes, Attention(out_planes, spatial=False))),
+                        Residual(PreNorm(out_planes, Attention(out_planes, spatial=True))),
                     )
         class HyperDecoder(nn.Sequential):
             def __init__(
@@ -2158,10 +2158,10 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(PreNorm(mid_planes, Attention(mid_planes))),
+                        Residual(PreNorm(in_planes, Attention(in_planes, spatial=False))),
+                        Residual(PreNorm(in_planes, Attention(in_planes, spatial=True))),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
-                        # Residual(PreNorm(out_planes, Attention(out_planes))),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
@@ -2183,15 +2183,14 @@ class MCVC(ScaleSpaceFlow):
                 self.qrelu3 = qrelu
 
                 if cross_correlation:
-                    self.attn1 = Residual(PreNorm(in_planes, Attention(in_planes)))
-                    # self.attn2 = Residual(PreNorm(mid_planes, Attention(mid_planes)))
+                    self.attn1 = Residual(PreNorm(in_planes, Attention(in_planes, spatial=False)))
+                    self.attn2 = Residual(PreNorm(in_planes, Attention(in_planes, spatial=True)))
 
             def forward(self, x):
                 if cross_correlation:
                     x = self.attn1(x)
+                    x = self.attn2(x)
                 x = self.qrelu1(self.deconv1(x))
-                # if cross_correlation:
-                #     x = self.attn2(x)
                 x = self.qrelu2(self.deconv2(x))
                 x = self.qrelu3(self.deconv3(x))
 
