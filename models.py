@@ -2093,7 +2093,7 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(PreNorm(out_planes, Attention(out_planes, spatial=False))),
+                        Residual(Attention(out_planes, spatial=False)),
                     )
         class Decoder(nn.Sequential):
             def __init__(
@@ -2111,7 +2111,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(PreNorm(in_planes, Attention(in_planes, spatial=False))),
+                        Residual(Attention(in_planes, spatial=False)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
