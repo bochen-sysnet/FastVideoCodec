@@ -108,7 +108,7 @@ class Attention(nn.Module):
         if self.spatial:
             q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
         else:
-            q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> (x y) h c b', h = self.heads), qkv)
+            q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> 1 h c (b x y)', h = self.heads), qkv)
 
         q = q * self.scale
 
@@ -119,7 +119,7 @@ class Attention(nn.Module):
         if self.spatial:
             out = rearrange(out, 'b h (x y) d -> b (h d) x y', x = h, y = w)
         else:
-            out = rearrange(out, '(x y) h b d -> b (h d) x y', x = h, y = w)
+            out = rearrange(out, '1 h (b x y) d -> b (h d) x y', x = h, y = w)
         return self.to_out(out)
 
 # model
