@@ -2185,7 +2185,7 @@ class MCVC(ScaleSpaceFlow):
                 if cross_correlation:
                     self.attn1 = Residual(Attention(mid_planes, spatial=False))
                     self.attn2 = Residual(Attention(mid_planes, spatial=False))
-                    self.attn3 = Residual(Attention(outp_lanes, spatial=False))
+                    self.attn3 = Residual(Attention(out_planes, spatial=False))
 
             def forward(self, x):
                 x = self.qrelu1(self.deconv1(x))
