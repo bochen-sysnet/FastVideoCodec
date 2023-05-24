@@ -2134,12 +2134,12 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
+                        Residual(Attention(in_planes, spatial=False)),
                         conv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, spatial=False)),
                         # Residual(PreNorm(out_planes, Attention(out_planes, spatial=False))),
                         # Residual(PreNorm(out_planes, Attention(out_planes, spatial=True))),
                     )
@@ -2157,7 +2157,6 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, spatial=False)),
                         # Residual(PreNorm(in_planes, Attention(in_planes, spatial=False))),
                         # Residual(PreNorm(in_planes, Attention(in_planes, spatial=True))),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
@@ -2165,6 +2164,7 @@ class MCVC(ScaleSpaceFlow):
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        Residual(Attention(out_planes, spatial=False)),
                     )
         class HyperDecoderWithQReLU(nn.Module):
             def __init__(
@@ -2183,16 +2183,16 @@ class MCVC(ScaleSpaceFlow):
                 self.qrelu3 = qrelu
 
                 if cross_correlation:
-                    self.attn = Residual(Attention(in_planes, spatial=False))
+                    self.attn = Residual(Attention(out_planes, spatial=False))
                     # self.attn = Residual(PreNorm(in_planes, Attention(in_planes, spatial=False)))
                     # self.attn = Residual(PreNorm(in_planes, Attention(in_planes, spatial=True)))
 
             def forward(self, x):
-                if cross_correlation:
-                    x = self.attn(x)
                 x = self.qrelu1(self.deconv1(x))
                 x = self.qrelu2(self.deconv2(x))
                 x = self.qrelu3(self.deconv3(x))
+                if cross_correlation:
+                    x = self.attn(x)
 
                 return x
         # can condition on prior latents of all other frames
