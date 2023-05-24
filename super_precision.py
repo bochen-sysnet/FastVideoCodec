@@ -120,6 +120,8 @@ class Attention(nn.Module):
             out = rearrange(out, 'b h (x y) d -> b (h d) x y', x = h, y = w)
         else:
             out = rearrange(out, '1 h (b x y) d -> b (h d) x y', x = h, y = w)
+            print(out.size())
+            exit(0)
         return self.to_out(out)
 
 # model
