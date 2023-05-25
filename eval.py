@@ -501,6 +501,7 @@ if __name__ == '__main__':
     parser.add_argument('--spstage', default=1, type=int, help="SP stage.")
     parser.add_argument('--device', default=0, type=int, help="GPU ID")
     parser.add_argument('--norm', default=2, type=int, help="Norm type")
+    parser.add_argument('--category', default=0, type=int, help="Category ID")
     args = parser.parse_args()
     
     # check gpu
@@ -511,7 +512,7 @@ if __name__ == '__main__':
     if args.dataset != 'MMPT':
         test_dataset = VideoDataset('../dataset/'+args.dataset, (args.width,args.height), max_files=args.max_files)
     else:
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test')
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test', category_id=args.category)
     
     if 'x26' in args.task:
         if args.dataset != 'MMPT':
