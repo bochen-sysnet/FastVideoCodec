@@ -2102,6 +2102,7 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
                     )
         class Decoder(nn.Sequential):
             def __init__(
@@ -2119,6 +2120,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2141,13 +2143,13 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
                         conv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
                     )
         class HyperDecoder(nn.Sequential):
@@ -2166,12 +2168,12 @@ class MCVC(ScaleSpaceFlow):
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
                     )
         class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
@@ -2190,13 +2192,13 @@ class MCVC(ScaleSpaceFlow):
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                         QReLULayer(),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0))
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2))
                     )
 
         # can condition on prior latents of all other frames
