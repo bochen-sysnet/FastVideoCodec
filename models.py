@@ -2170,9 +2170,12 @@ class MCVC(ScaleSpaceFlow):
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
                 if cross_correlation:
-                    self.context_prediction = MaskedConv2d(
+                    self.context_prediction = nn.Conv2d(
                         planes, planes, kernel_size=5, padding=2, stride=1
                     )
+                    # self.context_prediction = MaskedConv2d(
+                    #     planes, planes, kernel_size=5, padding=2, stride=1
+                    # )
                     self.context_vp = ContextVP(planes, planes)
                     self.entropy_parameters = nn.Sequential(
                         nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
