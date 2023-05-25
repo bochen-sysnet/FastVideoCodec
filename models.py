@@ -2055,8 +2055,15 @@ class ELFVC(ScaleSpaceFlow):
 
 from super_precision import Attention, Residual, PreNorm
 from compressai.layers import QReLU
-def qrelu(input, bit_depth=8, beta=100):
-    return QReLU.apply(input, bit_depth, beta)
+class QReLULayer(nn.Module):
+    def __init__(self, bit_depth=8, beta=100):
+        super().__init__()
+        self.bit_depth = bit_depth
+        self.beta = beta
+
+    def forward(self, x):
+        return QReLU.apply(x, self.bit_depth, self.beta)
+        
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
