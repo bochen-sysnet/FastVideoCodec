@@ -512,7 +512,8 @@ if __name__ == '__main__':
     if args.dataset != 'MMPT':
         test_dataset = VideoDataset('../dataset/'+args.dataset, (args.width,args.height), max_files=args.max_files)
     else:
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test', category_id=args.category)
+        test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test', transform=test_transforms, category_id=args.category)
     
     if 'x26' in args.task:
         if args.dataset != 'MMPT':
