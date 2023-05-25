@@ -2055,6 +2055,8 @@ class ELFVC(ScaleSpaceFlow):
 
 from super_precision import Attention, Residual, PreNorm
 from compressai.layers import QReLU
+def qrelu(input, bit_depth=8, beta=100):
+    return QReLU.apply(input, bit_depth, beta)
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2168,9 +2170,6 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                def qrelu(input, bit_depth=8, beta=100):
-                    return QReLU.apply(input, bit_depth, beta)
-
                 if not cross_correlation:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
@@ -2192,7 +2191,7 @@ class MCVC(ScaleSpaceFlow):
                         qrelu,
                         Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0))
                     )
-                    
+
         # can condition on prior latents of all other frames
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
