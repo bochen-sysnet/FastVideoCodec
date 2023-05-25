@@ -2054,7 +2054,7 @@ class ELFVC(ScaleSpaceFlow):
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
 
 from super_precision import Attention, Residual, PreNorm, ContextVP
-from compressai.layers import QReLU
+from compressai.layers import QReLU, MaskedConv2d
 class QReLULayer(nn.Module):
     def __init__(self, bit_depth=8, beta=100):
         super().__init__()
