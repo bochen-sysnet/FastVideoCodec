@@ -2170,9 +2170,12 @@ class MCVC(ScaleSpaceFlow):
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
                 if cross_correlation:
+                    self.context_prediction = MaskedConv2d(
+                        M, 2 * M, kernel_size=5, padding=2, stride=1
+                    )
                     self.context_vp = ContextVP(planes, planes)
                     self.entropy_parameters = nn.Sequential(
-                        nn.Conv2d(planes * 6 // 3, planes * 5 // 3, 1),
+                        nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
                         nn.LeakyReLU(inplace=True),
                         nn.Conv2d(planes * 5 // 3, planes * 4 // 3, 1),
                         nn.LeakyReLU(inplace=True),
@@ -2190,9 +2193,10 @@ class MCVC(ScaleSpaceFlow):
                     y, "noise" if self.training else "dequantize"
                 )
                 if cross_correlation:
-                    params = self.hyper_decoder(z_hat)
+                    ctx_params = self.context_prediction(y_hat)
                     vpct_params = self.context_vp(y_hat)
-                    gaussian_params = self.entropy_parameters(torch.cat((params, vpct_params), dim=1))
+                    params = self.hyper_decoder(z_hat)
+                    gaussian_params = self.entropy_parameters(torch.cat((params, ctx_params, vpct_params), dim=1))
                     scales, means = gaussian_params.chunk(2, 1)
                 else:
                     scales = self.hyper_decoder_scale(z_hat)
