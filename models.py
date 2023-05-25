@@ -2186,7 +2186,9 @@ class MCVC(ScaleSpaceFlow):
             def forward(self, y):
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
-
+                y_hat = self.gaussian_conditional.quantize(
+                    y, "noise" if self.training else "dequantize"
+                )
                 if cross_correlation:
                     params = self.hyper_decoder(z_hat)
                     vpct_params = self.context_vp(y_hat)
@@ -2196,7 +2198,7 @@ class MCVC(ScaleSpaceFlow):
                     scales = self.hyper_decoder_scale(z_hat)
                     means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                y_hat = quantize_ste(y - means) + means
+                # y_hat = quantize_ste(y - means) + means
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods}
 
         self.compression_level = compression_level
