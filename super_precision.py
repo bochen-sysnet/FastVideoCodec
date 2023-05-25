@@ -432,9 +432,10 @@ class ContextVP(nn.Module):
         self.model_config.block_size = num_view*width*height #len(vp_location)*(viewport_size[0]//16)*(viewport_size[1]//16)
         self.model_config.out_size = out_c
         self.attention = VPCT(self.model_config)
+        self.num_view = num_view
 
     def forward(self,idx):
-        idx = rearrange(idx,'(b v) c h w -> b v c h w', v = len(vp_location))
+        idx = rearrange(idx,'(b v) c h w -> b v c h w', v = self.num_view)
         batch_size, vp_size, channels, height, width  = idx.shape   # input_shape
         idx = rearrange(idx, 'b v c h w -> b (v h w) c')
         idx = self.attention(idx)
