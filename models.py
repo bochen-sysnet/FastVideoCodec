@@ -2164,39 +2164,35 @@ class MCVC(ScaleSpaceFlow):
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                         Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0)),
                     )
-        class HyperDecoderWithQReLU(nn.Module):
+        class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                super().__init__()
-
                 def qrelu(input, bit_depth=8, beta=100):
                     return QReLU.apply(input, bit_depth, beta)
 
-                self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu1 = qrelu
-                self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu2 = qrelu
-                self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
-                self.qrelu3 = qrelu
-
-                if cross_correlation:
-                    self.attn1 = Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0))
-                    self.attn2 = Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0))
-                    self.attn3 = Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0))
-
-            def forward(self, x):
-                x = self.qrelu1(self.deconv1(x))
-                if cross_correlation:
-                    x = self.attn1(x)
-                x = self.qrelu2(self.deconv2(x))
-                if cross_correlation:
-                    x = self.attn2(x)
-                x = self.qrelu3(self.deconv3(x))
-                if cross_correlation:
-                    x = self.attn3(x)
-
-                return x
+                if not cross_correlation:
+                    super().__init__(
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        qrelu,
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        qrelu,
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        qrelu
+                    )
+                else:
+                    super().__init__(
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        qrelu,
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        qrelu,
+                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        qrelu,
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0))
+                    )
+                    
         # can condition on prior latents of all other frames
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
