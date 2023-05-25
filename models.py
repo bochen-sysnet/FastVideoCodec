@@ -2053,7 +2053,7 @@ class ELFVC(ScaleSpaceFlow):
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods, "pred_err": pred_err, "Q_err": Q_err}
 
-from super_precision import Attention, Residual, PreNorm
+from super_precision import Attention, Residual, PreNorm, ContextVP
 from compressai.layers import QReLU
 class QReLULayer(nn.Module):
     def __init__(self, bit_depth=8, beta=100):
@@ -2102,7 +2102,6 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        # Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
                     )
         class Decoder(nn.Sequential):
             def __init__(
@@ -2120,7 +2119,6 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        # Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2133,73 +2131,36 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                if not cross_correlation:
-                    super().__init__(
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-                else:
-                    super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
+                super().__init__(
+                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
         class HyperDecoder(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                if not cross_correlation:
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-                else:
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
-                    )
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    nn.ReLU(inplace=True),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                )
         class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                if not cross_correlation:
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        QReLULayer()
-                    )
-                else:
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=2)),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2))
-                    )
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    QReLULayer(),
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    QReLULayer(),
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    QReLULayer()
+                )
 
         # can condition on prior latents of all other frames
         class Hyperprior(CompressionModel):
@@ -2207,16 +2168,33 @@ class MCVC(ScaleSpaceFlow):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
-                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
+                if cross_correlation:
+                    self.context_vp = ContextVP(planes, planes)
+                    self.entropy_parameters = nn.Sequential(
+                        nn.Conv2d(planes * 6 // 3, planes * 5 // 3, 1),
+                        nn.LeakyReLU(inplace=True),
+                        nn.Conv2d(planes * 5 // 3, planes * 4 // 3, 1),
+                        nn.LeakyReLU(inplace=True),
+                        nn.Conv2d(planes * 4 // 3, planes * 3 // 3, 1),
+                    )
+                    self.hyper_decoder = HyperDecoder(planes, mid_planes, planes)
+                else:
+                    self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                    self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
 
-                scales = self.hyper_decoder_scale(z_hat)
-                means = self.hyper_decoder_mean(z_hat)
+                if cross_correlation:
+                    params = self.hyper_decoder(z_hat)
+                    vpct_params = self.context_vp(y_hat)
+                    gaussian_params = self.entropy_parameters(torch.cat((params, vpct_params), dim=1))
+                    scales, means = gaussian_params.chunk(2, 1)
+                else:
+                    scales = self.hyper_decoder_scale(z_hat)
+                    means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
                 y_hat = quantize_ste(y - means) + means
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods}
