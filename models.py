@@ -2176,7 +2176,7 @@ class MCVC(ScaleSpaceFlow):
                         nn.LeakyReLU(inplace=True),
                         nn.Conv2d(planes * 5 // 3, planes * 4 // 3, 1),
                         nn.LeakyReLU(inplace=True),
-                        nn.Conv2d(planes * 4 // 3, planes * 3 // 3, 1),
+                        nn.Conv2d(planes * 4 // 3, planes * 6 // 3, 1),
                     )
                     self.hyper_decoder = HyperDecoder(planes, mid_planes, planes)
                 else:
