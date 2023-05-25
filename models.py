@@ -2063,7 +2063,7 @@ class QReLULayer(nn.Module):
 
     def forward(self, x):
         return QReLU.apply(x, self.bit_depth, self.beta)
-        
+
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2180,22 +2180,22 @@ class MCVC(ScaleSpaceFlow):
                 if not cross_correlation:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        qrelu,
+                        QReLULayer(),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        qrelu,
+                        QReLULayer(),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        qrelu
+                        QReLULayer()
                     )
                 else:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        qrelu,
+                        QReLULayer(),
                         Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        qrelu,
+                        QReLULayer(),
                         Residual(Attention(mid_planes, heads = 8, dim_head = 64, atype=0)),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        qrelu,
+                        QReLULayer(),
                         Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=0))
                     )
 
