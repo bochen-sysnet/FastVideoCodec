@@ -2161,8 +2161,6 @@ class MCVC(ScaleSpaceFlow):
                     deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                     QReLULayer()
                 )
-
-        # can condition on prior latents of all other frames
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
                 super().__init__()
@@ -2170,12 +2168,9 @@ class MCVC(ScaleSpaceFlow):
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
                 if cross_correlation:
-                    self.context_prediction = nn.Conv2d(
+                    self.context_prediction = MaskedConv2d(
                         planes, planes, kernel_size=5, padding=2, stride=1
                     )
-                    # self.context_prediction = MaskedConv2d(
-                    #     planes, planes, kernel_size=5, padding=2, stride=1
-                    # )
                     self.context_vp = ContextVP(planes, planes)
                     self.entropy_parameters = nn.Sequential(
                         nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),

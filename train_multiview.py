@@ -34,6 +34,8 @@ parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--codec', type=str, default='MCVC',
                     help='name of codec')
+parser.add_argument('--category', default=0, type=int,
+                    help="Category ID")
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
 parser.add_argument('--epoch', type=int, nargs='+', default=[0,100],
@@ -240,8 +242,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
 train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms)
-test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms)
+train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category)
+test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category)
 # train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
 # test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
 if args.evaluate:
