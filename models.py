@@ -79,7 +79,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
-    output_filename = f'tmp/videostreams/_{name}.mp4'
+    output_filename = f'tmp/videostreams/{name}.mp4'
     if name == 'x265-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
     elif name == 'x265-medium':
@@ -2171,7 +2171,7 @@ class MCVC(ScaleSpaceFlow):
                     self.context_prediction = MaskedConv2d(
                         planes, planes, kernel_size=5, padding=2, stride=1
                     )
-                    self.context_vp = ContextVP(planes, planes)
+                    self.context_vp = ContextVP(planes, planes, num_views=6)
                     self.entropy_parameters = nn.Sequential(
                         nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
                         nn.LeakyReLU(inplace=True),
@@ -2237,6 +2237,7 @@ class MCVC(ScaleSpaceFlow):
         }
 
     def forward_inter(self, x_cur, x_ref):
+        # can we encode difference?
         # the input should be multi-view frames at a single time 
         # decoder has cross-correlation while encoder does not
         # encode the motion information
