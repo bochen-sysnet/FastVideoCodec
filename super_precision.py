@@ -426,7 +426,7 @@ class ContextVP(nn.Module):
     def __init__(self,in_c,out_c,num_view=4,width=16,height=16) -> None:
         super().__init__()
         self.model_config = VPCT.get_default_config()
-        self.model_config.model_type = 'gpt-micro'#'gpt-mini'#'gopher-44m'#
+        self.model_config.model_type = 'gpt-nano'#'gpt-mini'#'gopher-44m'#
         self.model_config.vocab_size = in_c
         self.model_config.block_size = num_view*width*height #len(vp_location)*(viewport_size[0]//16)*(viewport_size[1]//16)
         self.model_config.out_size = out_c
