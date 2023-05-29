@@ -2171,7 +2171,7 @@ class MCVC(ScaleSpaceFlow):
                     self.context_prediction = MaskedConv2d(
                         planes, planes, kernel_size=5, padding=2, stride=1
                     )
-                    self.context_vp = ContextVP(planes, planes, num_views=6)
+                    self.context_vp = ContextVP(planes, planes, num_view=6)
                     self.entropy_parameters = nn.Sequential(
                         nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
                         nn.LeakyReLU(inplace=True),
