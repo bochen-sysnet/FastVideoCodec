@@ -92,7 +92,7 @@ class ResnetBlock(nn.Module):
         return h + self.res_conv(x)
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 4, dim_head = 32, atype=0):
+    def __init__(self, dim, heads = 4, dim_head = 32, atype=0, num_views=2):
         super().__init__()
         self.scale = dim_head ** -0.5
         self.heads = heads
@@ -107,10 +107,10 @@ class Attention(nn.Module):
         qkv = self.to_qkv(x).chunk(3, dim = 1)
         if self.type == 0:
             q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
-        elif self.type == 1:
-            q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> (x y) h c b', h = self.heads), qkv)
+        # elif self.type == 1:
+        #     q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> (x y) h c b', h = self.heads), qkv)
         else:
-            q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> 1 h c (b x y)', h = self.heads), qkv)
+            q, k, v = map(lambda t: rearrange(t, '(b v) (h c) x y -> b h c (v x y)', h = self.heads), qkv)
 
         q = q * self.scale
 
@@ -120,10 +120,10 @@ class Attention(nn.Module):
 
         if self.type == 0:
             out = rearrange(out, 'b h (x y) d -> b (h d) x y', x = h, y = w)
-        elif self.type == 1:
-            out = rearrange(out, '(x y) h b d -> b (h d) x y', x = h, y = w)
+        # elif self.type == 1:
+        #     out = rearrange(out, '(x y) h b d -> b (h d) x y', x = h, y = w)
         else:
-            out = rearrange(out, '1 h (b x y) d -> b (h d) x y', x = h, y = w)
+            out = rearrange(out, 'b h (v x y) d -> (b v) (h d) x y', x = h, y = w)
         return self.to_out(out)
 
 # model

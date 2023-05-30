@@ -2146,7 +2146,7 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=2)),
                     )
         class HyperDecoder(nn.Sequential):
             def __init__(
@@ -2162,7 +2162,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=2)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2184,7 +2184,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=2)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),

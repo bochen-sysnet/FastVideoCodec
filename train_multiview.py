@@ -163,7 +163,8 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        data = data[0].cuda(device)
+        b,v,c,h,w = data.size()
+        data = data.view(-1,c,h,w).cuda(device)
         
         # run model
         out_dec = model(data)
