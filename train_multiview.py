@@ -251,8 +251,8 @@ view_transforms = [transforms.ToTensor()]
 angle = 30  # Specify the angle of rotation in degrees
 
 # Translation
-translate_x = 10  # Specify the horizontal translation in pixels
-translate_y = 20  # Specify the vertical translation in pixels
+translate_x = 0.1  # Specify the horizontal translation in pixels
+translate_y = 0.2  # Specify the vertical translation in pixels
 
 # Define the transformations
 view_transforms += [transforms.Compose([
