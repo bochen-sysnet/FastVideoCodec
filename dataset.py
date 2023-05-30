@@ -177,6 +177,7 @@ class SynVideoDataset(Dataset):
         self._total_frames = 0 # Storing file names in object 
         self.gop_size = gop_size
         self.num_views = len(view_transforms)
+        self.view_transforms = view_transforms
         
         self.get_file_names(max_files)
         self._num_files = len(self.__file_names)
