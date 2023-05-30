@@ -158,11 +158,12 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     model.train()
     # multi-view dataset must be single batch in loader 
     # single view dataset set batch size to view numbers in loader in test
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, 
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
+        print(data.size())
         b,v,c,h,w = data.size()
         data = data.view(-1,c,h,w).cuda(device)
         
