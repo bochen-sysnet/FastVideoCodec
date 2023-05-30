@@ -2137,12 +2137,14 @@ class MCVC(ScaleSpaceFlow):
                     conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
                     conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
                 )
         class HyperDecoder(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
                 super().__init__(
+                    Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                     nn.ReLU(inplace=True),
                     deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2154,6 +2156,7 @@ class MCVC(ScaleSpaceFlow):
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
                 super().__init__(
+                    Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
                     deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                     QReLULayer(),
                     deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2167,40 +2170,40 @@ class MCVC(ScaleSpaceFlow):
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
-                if cross_correlation:
-                    self.context_prediction = MaskedConv2d(
-                        planes, planes, kernel_size=5, padding=2, stride=1
-                    )
-                    self.context_vp = ContextVP(planes, planes, num_view=6)
-                    self.entropy_parameters = nn.Sequential(
-                        nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
-                        nn.LeakyReLU(inplace=True),
-                        nn.Conv2d(planes * 5 // 3, planes * 4 // 3, 1),
-                        nn.LeakyReLU(inplace=True),
-                        nn.Conv2d(planes * 4 // 3, planes * 6 // 3, 1),
-                    )
-                    self.hyper_decoder = HyperDecoder(planes, mid_planes, planes)
-                else:
-                    self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                    self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
+                # if cross_correlation:
+                #     self.context_prediction = MaskedConv2d(
+                #         planes, planes, kernel_size=5, padding=2, stride=1
+                #     )
+                #     self.context_vp = ContextVP(planes, planes, num_view=6)
+                #     self.entropy_parameters = nn.Sequential(
+                #         nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
+                #         nn.LeakyReLU(inplace=True),
+                #         nn.Conv2d(planes * 5 // 3, planes * 4 // 3, 1),
+                #         nn.LeakyReLU(inplace=True),
+                #         nn.Conv2d(planes * 4 // 3, planes * 6 // 3, 1),
+                #     )
+                #     self.hyper_decoder = HyperDecoder(planes, mid_planes, planes)
+                # else:
+                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                y_hat = self.gaussian_conditional.quantize(
-                    y, "noise" if self.training else "dequantize"
-                )
-                if cross_correlation:
-                    ctx_params = self.context_prediction(y_hat)
-                    vpct_params = self.context_vp(y_hat)
-                    params = self.hyper_decoder(z_hat)
-                    gaussian_params = self.entropy_parameters(torch.cat((params, ctx_params, vpct_params), dim=1))
-                    scales, means = gaussian_params.chunk(2, 1)
-                else:
-                    scales = self.hyper_decoder_scale(z_hat)
-                    means = self.hyper_decoder_mean(z_hat)
+                # y_hat = self.gaussian_conditional.quantize(
+                #     y, "noise" if self.training else "dequantize"
+                # )
+                # if cross_correlation:
+                #     ctx_params = self.context_prediction(y_hat)
+                #     vpct_params = self.context_vp(y_hat)
+                #     params = self.hyper_decoder(z_hat)
+                #     gaussian_params = self.entropy_parameters(torch.cat((params, ctx_params, vpct_params), dim=1))
+                #     scales, means = gaussian_params.chunk(2, 1)
+                # else:
+                scales = self.hyper_decoder_scale(z_hat)
+                means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                # y_hat = quantize_ste(y - means) + means
+                y_hat = quantize_ste(y - means) + means
                 return y_hat, {"y": y_likelihoods, "z": z_likelihoods}
 
         self.compression_level = compression_level
