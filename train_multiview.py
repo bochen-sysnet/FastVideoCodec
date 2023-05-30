@@ -165,7 +165,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     for batch_idx,data in enumerate(train_iter):
         b,g,v,c,h,w = data.size()
         print( data.permute(1,0,2,3,4,5).size())
-        data = data.permute(1,0,2,3,4,5).view(g,-1,c,h,w).cuda(device)
+        data = data.permute(1,0,2,3,4,5).view(g,b*v,c,h,w).cuda(device)
         
         # run model
         out_dec = model(data)
