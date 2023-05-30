@@ -101,6 +101,7 @@ class Attention(nn.Module):
         self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias = False)
         self.to_out = nn.Conv2d(hidden_dim, dim, 1)
         self.type = atype
+        self.num_views = num_views
 
     def forward(self, x):
         b, c, h, w = x.shape
@@ -110,7 +111,7 @@ class Attention(nn.Module):
         # elif self.type == 1:
         #     q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> (x y) h c b', h = self.heads), qkv)
         else:
-            q, k, v = map(lambda t: rearrange(t, '(b v) (h c) x y -> b h c (v x y)', h = self.heads), qkv)
+            q, k, v = map(lambda t: rearrange(t, '(b v) (h c) x y -> b h c (v x y)', h = self.heads, v = self.num_views), qkv)
 
         q = q * self.scale
 
@@ -123,7 +124,7 @@ class Attention(nn.Module):
         # elif self.type == 1:
         #     out = rearrange(out, '(x y) h b d -> b (h d) x y', x = h, y = w)
         else:
-            out = rearrange(out, 'b h (v x y) d -> (b v) (h d) x y', x = h, y = w)
+            out = rearrange(out, 'b h (v x y) d -> (b v) (h d) x y', x = h, y = w, v = self.num_views)
         return self.to_out(out)
 
 # model
