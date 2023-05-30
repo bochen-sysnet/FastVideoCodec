@@ -257,7 +257,8 @@ translate_y = 0.2  # Specify the vertical translation in pixels
 # Define the transformations
 view_transforms += [transforms.Compose([
     transforms.RandomRotation(angle),
-    transforms.RandomAffine(0, translate=(translate_x, translate_y))
+    transforms.RandomAffine(0, translate=(translate_x, translate_y)),
+    transforms.ToTensor()
 ])]
 train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
 test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
