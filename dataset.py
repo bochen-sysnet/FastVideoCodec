@@ -226,7 +226,7 @@ class SynVideoDataset(Dataset):
 
         data = []
         gop_size = min(self.gop_size, len(self._clip) - self._frame_counter)
-        for g in range(self.gop_size):
+        for g in range(gop_size):
             for v in range(self.num_views):
                 data.append(self.view_transforms[v](self._clip[self._frame_counter]))
             self._frame_counter+=1
