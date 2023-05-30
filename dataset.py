@@ -255,11 +255,7 @@ class SynVideoDataset(Dataset):
         self._total_frames = 0
         for file_name in self.__file_names:
             video_frames = 0
-            # print(file_name)
-            if '.yuv' in file_name:
-                cap = VideoCaptureYUV(file_name)
-            else:
-                cap = cv2.VideoCapture(file_name)
+            cap = cv2.VideoCapture(file_name)
             # Check if camera opened successfully
             if (cap.isOpened()== False):
                 print("Error opening video stream or file")
@@ -270,10 +266,10 @@ class SynVideoDataset(Dataset):
                 if ret != True:break
                 if np.sum(img) == 0:continue
                 video_frames += 1
-            if self.video_frames%self.gop_size == 0:
-                self._total_frames += self.video_frames//self.gop_size
+            if video_frames%self.gop_size == 0:
+                self._total_frames += video_frames//self.gop_size
             else:
-                self._total_frames += self.video_frames//self.gop_size + 1
+                self._total_frames += video_frames//self.gop_size + 1
             cap.release()
         # print("[log] Total frames: ", self._total_frames)
 
