@@ -23,7 +23,7 @@ from PIL import Image
 from models import get_codec_model,parallel_compression, AverageMeter
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
-from dataset import VideoDataset, FrameDataset, MultiViewVideoDataset
+from dataset import SynVideoDataset, FrameDataset, MultiViewVideoDataset
 
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
 parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
@@ -240,12 +240,27 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
           
 # define multi-view dataset
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category)
-test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category)
-# train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-# test_dataset = VideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files)
+# train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+# test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+# train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category)
+# test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category)
+
+view_transforms = [transforms.ToTensor()]
+
+# Rotation
+angle = 30  # Specify the angle of rotation in degrees
+
+# Translation
+translate_x = 10  # Specify the horizontal translation in pixels
+translate_y = 20  # Specify the vertical translation in pixels
+
+# Define the transformations
+view_transforms += [transforms.Compose([
+    transforms.RandomRotation(angle),
+    transforms.RandomAffine(0, translate=(translate_x, translate_y))
+])]
+train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
+test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
 if args.evaluate:
     score, stats = test(0, model, test_dataset)
     exit(0)

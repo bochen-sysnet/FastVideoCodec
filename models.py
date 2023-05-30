@@ -2131,39 +2131,67 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                super().__init__(
-                    conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
-                )
+                if not cross_correlation:
+                    super().__init__(
+                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    )
+                else:
+                    super().__init__(
+                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2)),
+                    )
         class HyperDecoder(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                super().__init__(
-                    Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
-                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    nn.ReLU(inplace=True),
-                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                )
+                if not cross_correlation:
+                    super().__init__(
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    )
+                else:
+                    super().__init__(
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        nn.ReLU(inplace=True),
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    )
         class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                super().__init__(
-                    Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
-                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                    QReLULayer(),
-                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                    QReLULayer(),
-                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    QReLULayer()
-                )
+                if not cross_correlation:
+                    super().__init__(
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        QReLULayer(),
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        QReLULayer(),
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        QReLULayer()
+                    )
+                else:
+                    super().__init__(
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2)),
+                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                        QReLULayer(),
+                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                        QReLULayer(),
+                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                        QReLULayer()
+                    )
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192):
                 super().__init__()
@@ -2219,7 +2247,7 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
     def forward(self, frames):
-        self.prior_y_motion = self.prior_y_res = None
+        # self.prior_y_motion = self.prior_y_res = None
         reconstructions = []
         frames_likelihoods = []
 
@@ -2264,7 +2292,7 @@ class MCVC(ScaleSpaceFlow):
         # final reconstruction: prediction + residual
         x_rec = x_pred + x_res_hat
 
-        self.prior_y_motion = y_motion_hat.detach()
-        self.prior_y_res = y_res_hat.detach()
+        # self.prior_y_motion = y_motion_hat.detach()
+        # self.prior_y_res = y_res_hat.detach()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}

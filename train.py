@@ -273,7 +273,7 @@ def test(epoch, model, test_dataset, level=0, doEvolve=False, optimizer=None):
         if doEvolve and (data_idx == 0 or eof):
             evolve(model, test_dataset, data_idx, ds_size)
         frame,eof = test_dataset[data_idx]
-        data.append(transforms.ToTensor()(frame))
+        data.append((frame))
         if len(data) < GoP and not eof:
             continue
             
