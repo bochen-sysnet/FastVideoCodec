@@ -233,7 +233,7 @@ class SynVideoDataset(Dataset):
         data = torch.stack(data, dim=0)
         data = data.view(gop_size,self.num_views,3,data.size(2),data.size(3))
 
-        return data,self._frame_counter==self._dataset_nums[self._file_counter]-1
+        return data
         
     def get_file_names(self, max_files):
         print("[log] Looking for files in", self._dataset_dir)  
