@@ -158,7 +158,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
     model.train()
     # multi-view dataset must be single batch in loader 
     # single view dataset set batch size to view numbers in loader in test
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=16, shuffle=True, 
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
@@ -241,28 +241,30 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
           
 # define multi-view dataset
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-# train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-# test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-# train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category)
-# test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category)
+train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category)
+test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category)
 
-view_transforms = [transforms.ToTensor()]
+# view_transforms = [transforms.ToTensor()]
 
-# Rotation
-angle = 30  # Specify the angle of rotation in degrees
+# # Rotation
+# angle = 30  # Specify the angle of rotation in degrees
 
-# Translation
-translate_x = 0.1  # Specify the horizontal translation in pixels
-translate_y = 0.2  # Specify the vertical translation in pixels
+# # Translation
+# translate_x = 0.1  # Specify the horizontal translation in pixels
+# translate_y = 0.2  # Specify the vertical translation in pixels
 
-# Define the transformations
-view_transforms += [transforms.Compose([
-    transforms.RandomRotation(angle),
-    transforms.RandomAffine(0, translate=(translate_x, translate_y)),
-    transforms.ToTensor()
-])]
-train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
-test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
+# # Define the transformations
+# view_transforms += [transforms.Compose([
+#     transforms.RandomRotation(angle),
+#     transforms.RandomAffine(0, translate=(translate_x, translate_y)),
+#     transforms.ToTensor()
+# ])]
+# train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
+# test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
+
+
 if args.evaluate:
     score, stats = test(0, model, test_dataset)
     exit(0)
