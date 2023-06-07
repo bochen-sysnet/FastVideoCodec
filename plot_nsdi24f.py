@@ -673,19 +673,19 @@ def plot_RD_tradeoff(methods = ['x265-veryfast','ScaleSpaceFlow','SSF-Finetuned'
 
 	SPSNRs = [[28.61,30.91,32.98,34.70,35.98,37.03,37.92,38.50],
 				[26.36,27.66,29.22,31.27,32.93,34.91,36.15,38.96],
-				[33.31],
-				[33.82]]
+				[33.74],
+				[35.05]]
 	Sbpps = [[0.0619,0.0938,0.1411,0.2142,0.3568,0.7094,1.3050,2.0656],
 				[0.0417,0.0482,0.0816,0.1212,0.1924,0.2563,0.3201,0.5386],
-				[0.0162],
-				[0.014]]
+				[0.0213],
+				[0.0127]]
 	# SPSNRs = np.array(SPSNRs)
 	# Sbpps = np.array(Sbpps)
 
 	colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"]
 
 	line_plot(Sbpps,SPSNRs,methods,colors,
-			f'/home/bo/Dropbox/Research/NSDI24f/images/rdtradeoff{num_methods}.eps',
+			f'/home/bo/Dropbox/Research/NSDI24MCVC/images/rdtradeoff{num_methods}.eps',
 			'BPP','PSNR (dB)',lbsize=24,lfsize=18,linewidth=4,
 			ncol=ncol,markersize=8,bbox_to_anchor=bbox_to_anchor,use_arrow=False)
 

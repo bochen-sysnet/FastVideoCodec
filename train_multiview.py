@@ -30,6 +30,8 @@ parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JC
                     help='evaluating dataset (default: UVG)')
 parser.add_argument('--batch_size', default=8, type=int,
                     help="batch size")
+parser.add_argument('--num_views', default=0, type=int,
+                    help="number of views")
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--codec', type=str, default='MCVC',
@@ -38,7 +40,7 @@ parser.add_argument('--category', default=0, type=int,
                     help="Category ID")
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
-parser.add_argument('--epoch', type=int, nargs='+', default=[0,100],
+parser.add_argument('--epoch', type=int, nargs='+', default=[0,1000],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
@@ -80,7 +82,6 @@ STEPS = []
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
-####### Create model
 # seed = int(time.time())
 seed = int(0)
 torch.manual_seed(seed)
@@ -89,11 +90,39 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
+
+# define multi-view dataset
+# train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
+train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
+test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
+
+# view_transforms = [transforms.ToTensor()]
+
+# # Rotation
+# angle = 30  # Specify the angle of rotation in degrees
+
+# # Translation
+# translate_x = 0.1  # Specify the horizontal translation in pixels
+# translate_y = 0.2  # Specify the vertical translation in pixels
+
+# # Define the transformations
+# view_transforms += [transforms.Compose([
+#     transforms.RandomRotation(angle),
+#     transforms.RandomAffine(0, translate=(translate_x, translate_y)),
+#     transforms.ToTensor()
+# ])]
+# train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
+# test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
+
+
 # codec model .
 model = get_codec_model(CODEC_NAME, 
                         loss_type=loss_type, 
                         compression_level=compression_level,
-                        use_split=False)
+                        use_split=False
+                        num_views=test_dataset.num_views)
 model = model.cuda(device)
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
@@ -123,14 +152,17 @@ def calc_metrics(out_dec,raw_frames):
     total_psnr = 0
     total_mse = 0
     pixels = 0
-    for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
+    for x_hat,likelihoods,mask in zip(out_dec['x_hat'],out_dec['likelihoods'],out_dec['mask']):
         x = raw_frames[frame_idx]
         for likelihood_name in ['keyframe', 'motion', 'residual']:
             if likelihood_name in likelihoods:
                 var_like = likelihoods[likelihood_name]
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        mseloss = torch.mean((x_hat - x).pow(2))
+        if mask is not None:
+            mseloss = torch.mean((x_hat - x).pow(2))
+        else:
+            mseloss = torch.mean((x_hat[mask] - x[mask]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
@@ -238,37 +270,12 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
-          
-# define multi-view dataset
-# train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category)
-test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category)
-
-# view_transforms = [transforms.ToTensor()]
-
-# # Rotation
-# angle = 30  # Specify the angle of rotation in degrees
-
-# # Translation
-# translate_x = 0.1  # Specify the horizontal translation in pixels
-# translate_y = 0.2  # Specify the vertical translation in pixels
-
-# # Define the transformations
-# view_transforms += [transforms.Compose([
-#     transforms.RandomRotation(angle),
-#     transforms.RandomAffine(0, translate=(translate_x, translate_y)),
-#     transforms.ToTensor()
-# ])]
-# train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
-# test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
-
 
 if args.evaluate:
     score, stats = test(0, model, test_dataset)
     exit(0)
 
+cvg_cnt = 0
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
     
@@ -278,6 +285,10 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     if is_best:
         print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
         best_codec_score = score
+        cvg_cnt = 0
+    else:
+        cvg_cnt += 1
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
+    if cvg_cnt == 10:break

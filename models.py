@@ -29,7 +29,7 @@ import torchac
 import compressai
 from torchvision.transforms import ToPILImage
 
-def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True):
+def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True, num_views=0):
     if name in ['RLVC','DVC','RLVC2']:
         model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif name in ['DVC-pretrained']:
@@ -47,7 +47,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'ELFVC' in name:
         model_codec = ELFVC(name, loss_type='P', compression_level=compression_level)
     elif 'MCVC' in name:
-        model_codec = MCVC(name, loss_type='P', compression_level=compression_level)
+        model_codec = MCVC(name, loss_type='P', compression_level=compression_level, num_views=num_views)
         ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse', pretrained=True, progress=True)
         load_state_dict_whatever(model_codec,ckpt.state_dict())
     else:
@@ -2064,6 +2064,16 @@ class QReLULayer(nn.Module):
     def forward(self, x):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
+# Function to randomly set a specified number of batches to zero
+def mask_for_zero_batches(tensor, num_zero_batches=1):
+    # Get the batch size
+    batch_size = tensor.size(0)
+    
+    # Randomly select the indices of the batches to zero out
+    zero_indices = random.sample(range(batch_size), num_zero_batches)
+
+    return zero_indices
+
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2076,10 +2086,12 @@ class MCVC(ScaleSpaceFlow):
         num_levels: int = 5,
         sigma0: float = 1.5,
         scale_field_shift: float = 1.0,
+        num_views: int = 0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         cross_correlation = True if '-A' in name else False
         imbalanced_correlation = True if '-IA' in name else False
+        self.resilience = True if '-R' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -2103,7 +2115,7 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=4)),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                     )
         class Decoder(nn.Sequential):
             def __init__(
@@ -2121,7 +2133,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=4)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2149,7 +2161,7 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=4)),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                     )
         class HyperDecoder(nn.Sequential):
             def __init__(
@@ -2165,7 +2177,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=4)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2187,7 +2199,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=4)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2226,26 +2238,37 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
     def forward(self, frames):
+        mask = mask_for_zero_batches(frames[0], num_zero_batches=1) if self.resilience else None
+
         reconstructions = []
         frames_likelihoods = []
 
-        x_hat, likelihoods = self.forward_keyframe(frames[0])
+        x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
         reconstructions.append(x_hat)
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()  # stop gradient flow (cf: google2020 paper)
 
         for i in range(1, len(frames)):
             x = frames[i]
-            x_ref, likelihoods = self.forward_inter(x, x_ref)
+            x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             reconstructions.append(x_ref)
             frames_likelihoods.append(likelihoods)
 
         return {
             "x_hat": reconstructions,
             "likelihoods": frames_likelihoods,
+            "mask": mask
         }
 
-    def forward_inter(self, x_cur, x_ref):
+    def forward_keyframe(self, x, mask=None):
+        y = self.img_encoder(x)
+        y_hat, likelihoods = self.img_hyperprior(y)
+        if mask is not None:
+            y_hat[mask] = 0.0
+        x_hat = self.img_decoder(y_hat)
+        return x_hat, {"keyframe": likelihoods}
+
+    def forward_inter(self, x_cur, x_ref, mask=None):
         # can we encode difference?
         # the input should be multi-view frames at a single time 
         # decoder has cross-correlation while encoder does not
@@ -2263,11 +2286,29 @@ class MCVC(ScaleSpaceFlow):
         y_res = self.res_encoder(x_res)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
-        # y_combine
-        # side-view residual can be integrated here
-        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+        # inject empty into latent features, simulating lost data
+        if mask is None:
+            # y_combine
+            # side-view residual can be integrated here
+            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
-        # final reconstruction: prediction + residual
-        x_rec = x_pred + x_res_hat
+            # final reconstruction: prediction + residual
+            x_rec = x_pred + x_res_hat
 
-        return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+        else:
+            # Set the selected batches to zero
+            y_motion_hat[mask] = 0.0
+            y_res_hat[mask] = 0.0
+
+            # motion
+            masked_motion_info = self.motion_decoder(y_motion_hat)
+            masked_x_pred = self.forward_prediction(x_ref, masked_motion_info)
+
+            # residual
+            masked_x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+
+            # final reconstruction: prediction + residual
+            masked_x_rec = masked_x_pred + masked_x_res_hat
+
+            return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
