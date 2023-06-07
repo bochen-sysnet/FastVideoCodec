@@ -2079,6 +2079,7 @@ class MCVC(ScaleSpaceFlow):
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         cross_correlation = True if '-A' in name else False
+        imbalanced_correlation = True if '-IA' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
@@ -2108,7 +2109,7 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
             ):
-                if not cross_correlation:
+                if not cross_correlation and not imbalanced_correlation:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2154,7 +2155,7 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                if not cross_correlation:
+                if not cross_correlation and not imbalanced_correlation:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2175,7 +2176,7 @@ class MCVC(ScaleSpaceFlow):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                if not cross_correlation:
+                if not cross_correlation and not imbalanced_correlation:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
@@ -2200,36 +2201,12 @@ class MCVC(ScaleSpaceFlow):
                 self.entropy_bottleneck = EntropyBottleneck(planes)
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
-                # if cross_correlation:
-                #     self.context_prediction = MaskedConv2d(
-                #         planes, planes, kernel_size=5, padding=2, stride=1
-                #     )
-                #     self.context_vp = ContextVP(planes, planes, num_view=6)
-                #     self.entropy_parameters = nn.Sequential(
-                #         nn.Conv2d(planes * 9 // 3, planes * 5 // 3, 1),
-                #         nn.LeakyReLU(inplace=True),
-                #         nn.Conv2d(planes * 5 // 3, planes * 4 // 3, 1),
-                #         nn.LeakyReLU(inplace=True),
-                #         nn.Conv2d(planes * 4 // 3, planes * 6 // 3, 1),
-                #     )
-                #     self.hyper_decoder = HyperDecoder(planes, mid_planes, planes)
-                # else:
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
                 self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
                 z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                # y_hat = self.gaussian_conditional.quantize(
-                #     y, "noise" if self.training else "dequantize"
-                # )
-                # if cross_correlation:
-                #     ctx_params = self.context_prediction(y_hat)
-                #     vpct_params = self.context_vp(y_hat)
-                #     params = self.hyper_decoder(z_hat)
-                #     gaussian_params = self.entropy_parameters(torch.cat((params, ctx_params, vpct_params), dim=1))
-                #     scales, means = gaussian_params.chunk(2, 1)
-                # else:
                 scales = self.hyper_decoder_scale(z_hat)
                 means = self.hyper_decoder_mean(z_hat)
                 _, y_likelihoods = self.gaussian_conditional(y, scales, means)
@@ -2249,7 +2226,6 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
     def forward(self, frames):
-        # self.prior_y_motion = self.prior_y_res = None
         reconstructions = []
         frames_likelihoods = []
 
@@ -2293,8 +2269,5 @@ class MCVC(ScaleSpaceFlow):
 
         # final reconstruction: prediction + residual
         x_rec = x_pred + x_res_hat
-
-        # self.prior_y_motion = y_motion_hat.detach()
-        # self.prior_y_res = y_res_hat.detach()
 
         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
