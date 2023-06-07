@@ -274,7 +274,7 @@ class SynVideoDataset(Dataset):
         # print("[log] Total frames: ", self._total_frames)
 
 categories = ['lobby','retail','office','industry_safety','cafe_shop']
-num_views = [4,6,5,4,4]
+views_of_category = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
     def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0):
         self._dataset_dir = os.path.join(root_dir)
@@ -283,7 +283,7 @@ class MultiViewVideoDataset(Dataset):
         self._dirs += [os.path.join(root_dir,'train','images','64am')]
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
         self.category = categories[category_id]
-        self.num_views = num_views[category_id] if num_views == 0 or num_views > num_views[category_id] else num_views
+        self.num_views = views_of_category[category_id] if num_views == 0 or num_views > views_of_category[category_id] else num_views
         self.split = split
         self.gop_size = gop_size
         self._frame_size = (256,256)
