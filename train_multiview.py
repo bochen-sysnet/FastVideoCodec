@@ -152,7 +152,8 @@ def calc_metrics(out_dec,raw_frames):
     total_psnr = 0
     total_mse = 0
     pixels = 0
-    for x_hat,likelihoods,mask in zip(out_dec['x_hat'],out_dec['likelihoods'],out_dec['mask']):
+    mask = out_dec['mask'] if 'mask' in out_dec else None
+    for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
         x = raw_frames[frame_idx]
         for likelihood_name in ['keyframe', 'motion', 'residual']:
             if likelihood_name in likelihoods:
