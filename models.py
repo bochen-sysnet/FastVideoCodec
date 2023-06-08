@@ -2302,13 +2302,13 @@ class MCVC(ScaleSpaceFlow):
             y_res_hat[mask] = 0.0
 
             # motion
-            masked_motion_info = self.motion_decoder(y_motion_hat)
-            masked_x_pred = self.forward_prediction(x_ref, masked_motion_info)
+            motion_info = self.motion_decoder(y_motion_hat)
+            x_pred = self.forward_prediction(x_ref, motion_info)
 
             # residual
-            masked_x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
             # final reconstruction: prediction + residual
-            masked_x_rec = masked_x_pred + masked_x_res_hat
+            x_rec = x_pred + x_res_hat
 
-            return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
