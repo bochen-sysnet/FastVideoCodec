@@ -2269,6 +2269,7 @@ class MCVC(ScaleSpaceFlow):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
         if mask is not None:
+            print(y_hat.size(),mask)
             y_hat[mask] = 0.0
         x_hat = self.img_decoder(y_hat)
         return x_hat, {"keyframe": likelihoods}
