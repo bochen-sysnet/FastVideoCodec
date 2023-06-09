@@ -2307,8 +2307,8 @@ class MCVC(ScaleSpaceFlow):
         else:
             # should fix encoder for resilience
             # Set the selected batches to zero
-            y_motion_hat[mask] *= 0.0
-            y_res_hat[mask] *= 0.0
+            # y_motion_hat[mask] *= 0.0
+            # y_res_hat[mask] *= 0.0
 
             # motion
             masked_motion_info = self.motion_decoder(y_motion_hat)
