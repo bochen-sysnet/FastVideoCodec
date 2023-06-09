@@ -2073,11 +2073,9 @@ def mask_for_zero_batches(tensor, mask_prob=0.5):
     if torch.rand(1) < mask_prob:
         zero_indices = []
         non_zero_indices = range(batch_size)
-        print(1)
     else:
         zero_indices = [0]
         non_zero_indices = range(1,batch_size)
-        print(2)
 
     return zero_indices,non_zero_indices
 
@@ -2316,7 +2314,7 @@ class MCVC(ScaleSpaceFlow):
             # Set the selected batches to zero
             y_motion_hat = create_mask_with_zero(y_motion_hat,mask)
             y_res_hat = create_mask_with_zero(y_res_hat,mask)
-            print((y_motion_hat == 0).sum().item(),(y_res_hat == 0).sum().item())
+            print(mask,(y_motion_hat == 0).sum().item(),(y_res_hat == 0).sum().item())
 
             # motion
             masked_motion_info = self.motion_decoder(y_motion_hat)
