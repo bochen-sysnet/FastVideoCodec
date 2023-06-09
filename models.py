@@ -2079,6 +2079,11 @@ def mask_for_zero_batches(tensor, mask_prob=0.5):
 
     return zero_indices,non_zero_indices
 
+def create_mask_with_zero(tensor, index):
+    mask = torch.ones_like(tensor).to(tesnro.device)
+    mask[index] = 0
+    return tensor * mask
+
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2272,7 +2277,7 @@ class MCVC(ScaleSpaceFlow):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
         if mask is not None:
-            y_hat[mask] *= 0.0
+            y_hat = create_mask_with_zero(y_hat,mask)
         x_hat = self.img_decoder(y_hat)
         return x_hat, {"keyframe": likelihoods}
 
@@ -2307,8 +2312,8 @@ class MCVC(ScaleSpaceFlow):
         else:
             # should fix encoder for resilience
             # Set the selected batches to zero
-            y_motion_hat[mask] *= 0.0
-            y_res_hat[mask] *= 0.0
+            y_motion_hat = create_mask_with_zero(y_motion_hat,mask)
+            y_res_hat = create_mask_with_zero(y_res_hat,mask)
 
             # motion
             masked_motion_info = self.motion_decoder(y_motion_hat)
