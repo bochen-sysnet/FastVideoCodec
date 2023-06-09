@@ -2269,7 +2269,7 @@ class MCVC(ScaleSpaceFlow):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
         if mask is not None:
-            y_hat[mask] *= 0.0
+            y_hat[mask] = 0.0
         x_hat = self.img_decoder(y_hat)
         return x_hat, {"keyframe": likelihoods}
 
@@ -2304,8 +2304,8 @@ class MCVC(ScaleSpaceFlow):
         else:
             # should fix encoder for resilience
             # Set the selected batches to zero
-            y_motion_hat[mask] *= 0.0
-            y_res_hat[mask] *= 0.0
+            y_motion_hat[mask] = 0.0
+            y_res_hat[mask] = 0.0
 
             # motion
             masked_motion_info = self.motion_decoder(y_motion_hat)
