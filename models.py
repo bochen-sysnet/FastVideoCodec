@@ -2243,7 +2243,10 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
     def forward(self, frames):
-        mask, non_zero_indices = mask_for_zero_batches(frames[0]) if self.resilience else None,None
+        if self.resilience:
+            mask, non_zero_indices = mask_for_zero_batches(frames[0])
+        else:
+            mask, non_zero_indices =  None,None
 
         reconstructions = []
         frames_likelihoods = []
@@ -2269,7 +2272,6 @@ class MCVC(ScaleSpaceFlow):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
         if mask is not None:
-            print(y_hat.size(),mask)
             y_hat[mask] = 0.0
         x_hat = self.img_decoder(y_hat)
         return x_hat, {"keyframe": likelihoods}
