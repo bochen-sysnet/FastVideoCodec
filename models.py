@@ -2080,7 +2080,7 @@ def mask_for_zero_batches(tensor, mask_prob=0.5):
     return zero_indices,non_zero_indices
 
 def create_mask_with_zero(tensor, index):
-    mask = torch.ones_like(tensor).to(tesnro.device)
+    mask = torch.ones_like(tensor).to(tensor.device)
     mask[index] = 0
     return tensor * mask
 
