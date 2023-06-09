@@ -152,7 +152,7 @@ def calc_metrics(out_dec,raw_frames):
     total_psnr = 0
     total_mse = 0
     pixels = 0
-    mask = out_dec['mask'] if 'mask' in out_dec else None
+    none_zero_indices = out_dec['none_zero_indices'] if 'none_zero_indices' in out_dec else None
     for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
         x = raw_frames[frame_idx]
         for likelihood_name in ['keyframe', 'motion', 'residual']:
@@ -160,10 +160,10 @@ def calc_metrics(out_dec,raw_frames):
                 var_like = likelihoods[likelihood_name]
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        if mask is not None:
+        if none_zero_indices is not None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
-            mseloss = torch.mean((x_hat[mask] - x[mask]).pow(2))
+            mseloss = torch.mean((x_hat[none_zero_indices] - x[none_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels

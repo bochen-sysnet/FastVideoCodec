@@ -2065,14 +2065,19 @@ class QReLULayer(nn.Module):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
 # Function to randomly set a specified number of batches to zero
-def mask_for_zero_batches(tensor, num_zero_batches=1):
+def mask_for_zero_batches(tensor, mask_prob=0.5):
     # Get the batch size
     batch_size = tensor.size(0)
     
     # Randomly select the indices of the batches to zero out
-    zero_indices = random.sample(range(batch_size), num_zero_batches)
+    if torch.rand(1) < mask_prob:
+        zero_indices = []
+        non_zero_indices = range(batch_size)
+    else:
+        zero_indices = [0]
+        non_zero_indices = range(1,batch_size)
 
-    return zero_indices
+    return zero_indices,non_zero_indices
 
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
@@ -2238,7 +2243,7 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
     def forward(self, frames):
-        mask = mask_for_zero_batches(frames[0], num_zero_batches=1) if self.resilience else None
+        mask, non_zero_indices = mask_for_zero_batches(frames[0]) if self.resilience else None,None
 
         reconstructions = []
         frames_likelihoods = []
@@ -2257,14 +2262,14 @@ class MCVC(ScaleSpaceFlow):
         return {
             "x_hat": reconstructions,
             "likelihoods": frames_likelihoods,
-            "mask": mask
+            "non_zero_indices": non_zero_indices
         }
 
     def forward_keyframe(self, x, mask=None):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
         if mask is not None:
-            y_hat[mask] = 0.0
+            y_hat[mask] *= 0.0
         x_hat = self.img_decoder(y_hat)
         return x_hat, {"keyframe": likelihoods}
 
@@ -2297,18 +2302,19 @@ class MCVC(ScaleSpaceFlow):
 
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
+            # should fix encoder for resilience
             # Set the selected batches to zero
-            y_motion_hat[mask] = 0.0
-            y_res_hat[mask] = 0.0
+            y_motion_hat[mask] *= 0.0
+            y_res_hat[mask] *= 0.0
 
             # motion
-            motion_info = self.motion_decoder(y_motion_hat)
-            x_pred = self.forward_prediction(x_ref, motion_info)
+            masked_motion_info = self.motion_decoder(y_motion_hat)
+            masked_x_pred = self.forward_prediction(x_ref, masked_motion_info)
 
             # residual
-            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+            masked_x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
             # final reconstruction: prediction + residual
-            x_rec = x_pred + x_res_hat
+            masked_x_rec = masked_x_pred + masked_x_res_hat
 
-            return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
