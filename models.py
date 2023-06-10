@@ -2068,6 +2068,23 @@ class QReLULayer(nn.Module):
 def sample_mask_for_resilience(tensor, resilience, num_views, batchsize=2):
     # Create the original list
     original_list = list(range(num_views))
+
+    # decide resilience
+    num_combo = 2**num_views - 2
+    select = random.randint(1, num_combo)
+    if num_views == 4:
+        # 4,6,4
+        right = [0,4,10]
+    elif num_views == 5:
+        # 5,10,10,5
+        right = [0,5,15,25]
+    else:
+        print('Not prepared')
+        exit(0)
+
+    resilience = 0
+    for r in right:
+        if select > right: resilience += 1
     
     # Sample m elements from the original list
     mask = random.sample(original_list, num_views - resilience)
@@ -2102,7 +2119,7 @@ class MCVC(ScaleSpaceFlow):
         imbalanced_correlation = True if '-IA' in name else False
         class Encoder(nn.Sequential):
             def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, attn_views: int = num_views
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
             ):
                 if not cross_correlation:
                     super().__init__(
@@ -2123,11 +2140,11 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=attn_views)),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                     )
         class Decoder(nn.Sequential):
             def __init__(
-                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, attn_views: int = num_views
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
             ):
                 if not cross_correlation and not imbalanced_correlation:
                     super().__init__(
@@ -2141,7 +2158,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=attn_views)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2152,7 +2169,7 @@ class MCVC(ScaleSpaceFlow):
                     )
         class HyperEncoder(nn.Sequential):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, attn_views: int = num_views
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
                 if not cross_correlation:
                     super().__init__(
@@ -2169,11 +2186,11 @@ class MCVC(ScaleSpaceFlow):
                         conv(mid_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=attn_views)),
+                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                     )
         class HyperDecoder(nn.Sequential):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, attn_views: int = num_views
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
                 if not cross_correlation and not imbalanced_correlation:
                     super().__init__(
@@ -2185,7 +2202,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=attn_views)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2194,7 +2211,7 @@ class MCVC(ScaleSpaceFlow):
                     )
         class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, attn_views: int = num_views
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
                 if not cross_correlation and not imbalanced_correlation:
                     super().__init__(
@@ -2207,7 +2224,7 @@ class MCVC(ScaleSpaceFlow):
                     )
                 else:
                     super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=attn_views)),
+                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
                         deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
@@ -2216,13 +2233,13 @@ class MCVC(ScaleSpaceFlow):
                         QReLULayer()
                     )
         class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, attn_views: int = num_views):
+            def __init__(self, planes: int = 192, mid_planes: int = 192):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
-                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes, attn_views)
+                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
                 self.gaussian_conditional = GaussianConditional(None)
-                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes, attn_views)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes, attn_views)
+                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
@@ -2250,9 +2267,9 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
         if resilience > 0:
-            self.backup_img_decoder = Decoder(3, attn_views=num_views-resilience)
-            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, attn_views=num_views-resilience)
-            self.backup_res_decoder = Decoder(3, in_planes=384, attn_views=num_views-resilience)
+            self.backup_img_decoder = Decoder(3)
+            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192)
+            self.backup_res_decoder = Decoder(3, in_planes=384)
         self.resilience = resilience
         self.num_views = num_views
 
