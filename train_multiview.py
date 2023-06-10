@@ -28,13 +28,13 @@ from dataset import SynVideoDataset, FrameDataset, MultiViewVideoDataset
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
 parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
                     help='evaluating dataset (default: UVG)')
-parser.add_argument('--batch_size', default=8, type=int,
+parser.add_argument('--batch_size', default=2, type=int,
                     help="batch size")
 parser.add_argument('--num_views', default=0, type=int,
                     help="number of views")
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--codec', type=str, default='MCVC',
+parser.add_argument('--codec', type=str, default='MCVC-IA-R',
                     help='name of codec')
 parser.add_argument('--category', default=0, type=int,
                     help="Category ID")
@@ -56,7 +56,7 @@ parser.add_argument('--resume', type=str, default='',
                     help='Resume path')
 parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
-parser.add_argument('--resilience', default=0, type=int,
+parser.add_argument('--resilience', default=1, type=int,
                     help="Number of losing views to tolerate")
 
 args = parser.parse_args()

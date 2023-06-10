@@ -2080,11 +2080,6 @@ def sample_mask_for_resilience(tensor, resilience):
 
     return mask
 
-def create_mask_with_zero(tensor, index):
-    mask = torch.ones_like(tensor).to(tensor.device)
-    mask[index] = 0
-    return tensor * mask
-
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2098,6 +2093,7 @@ class MCVC(ScaleSpaceFlow):
         sigma0: float = 1.5,
         scale_field_shift: float = 1.0,
         num_views: int = 0,
+        resilience: int = 0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         cross_correlation = True if '-A' in name else False
@@ -2331,16 +2327,12 @@ class MCVC(ScaleSpaceFlow):
         if mask is None:
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
-            # should fix encoder for resilience
-            # y_motion_hat = create_mask_with_zero(y_motion_hat,mask)
-            # y_res_hat = create_mask_with_zero(y_res_hat,mask)
-
             # motion
-            masked_motion_info = self.motion_decoder(y_motion_hat[mask])
+            masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
             masked_x_pred = self.forward_prediction(x_ref[mask], masked_motion_info)
 
             # residual
-            masked_x_res_hat = self.res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
+            masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
 
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
