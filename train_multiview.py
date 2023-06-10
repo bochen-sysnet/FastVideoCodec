@@ -188,6 +188,7 @@ def calc_metrics(out_dec,raw_frames):
         if none_zero_indices is not None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
+            print(x.size())
             mseloss = torch.mean((x_hat - x[none_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
