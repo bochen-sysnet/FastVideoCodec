@@ -2065,9 +2065,10 @@ class QReLULayer(nn.Module):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, resilience, num_views, batchsize=2):
+def sample_mask_for_resilience(tensor, resilience, num_views):
     # Create the original list
     original_list = list(range(num_views))
+    batchsize = tensor.size(0)//num_views
 
     # decide resilience
     num_combo = 2**num_views - 2
