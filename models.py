@@ -2293,11 +2293,11 @@ class MCVC(ScaleSpaceFlow):
 
         for i in range(1, len(frames)):
             x = frames[i]
-            if self.resilience == 0:
+            if self.imbalanced_correlation:
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             else:
                 # separated decoder, decoder on edge use raw frames as input
-                x_ref, likelihoods = self.forward_inter(x, frames[i-1], mask)
+                x_ref, likelihoods = self.forward_inter(x, frames[i-1], mask, x_ref)
             reconstructions.append(x_ref)
             frames_likelihoods.append(likelihoods)
 
@@ -2317,7 +2317,7 @@ class MCVC(ScaleSpaceFlow):
             masked_x_hat = self.backup_img_decoder(y_hat[mask])
             return masked_x_hat, {"keyframe": likelihoods}
 
-    def forward_inter(self, x_cur, x_ref, mask=None):
+    def forward_inter(self, x_cur, x_ref, mask=None, x_ref_masked=None):
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
