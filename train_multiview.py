@@ -56,7 +56,7 @@ parser.add_argument('--resume', type=str, default='',
                     help='Resume path')
 parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
-parser.add_argument('--resilience', default=1, type=int,
+parser.add_argument('--resilience', default=0, type=int,
                     help="Number of losing views to tolerate")
 
 args = parser.parse_args()

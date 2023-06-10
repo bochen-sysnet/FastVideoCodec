@@ -2237,9 +2237,9 @@ class MCVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         # add later
-        # self.img_encoder = Encoder(3)
-        # self.img_decoder = Decoder(3)
-        # self.img_hyperprior = Hyperprior()
+        self.img_encoder = Encoder(3)
+        self.img_decoder = Decoder(3)
+        self.img_hyperprior = Hyperprior()
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)
         self.res_encoder = Encoder(3)
@@ -2267,14 +2267,12 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
 
         # separate fixed ref and dynamic recon
-        # if self.resilience == 0:
-        #     x_hat, likelihoods = self.forward_keyframe(frames[0])
-        #     reconstructions.append(x_hat)
-        # else:
-        #     x_hat, x_recon, likelihoods = self.forward_keyframe(frames[0], mask)
-        #     reconstructions.append(x_recon)
-        x_hat, likelihoods = self.forward_keyframe(frames[0])
-        reconstructions.append(x_hat)
+        if self.resilience == 0:
+            x_hat, likelihoods = self.forward_keyframe(frames[0])
+            reconstructions.append(x_hat)
+        else:
+            x_hat, x_recon, likelihoods = self.forward_keyframe(frames[0], mask)
+            reconstructions.append(x_recon)
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()  # stop gradient flow (cf: google2020 paper)
 
@@ -2294,15 +2292,15 @@ class MCVC(ScaleSpaceFlow):
             "non_zero_indices": mask
         }
 
-    # def forward_keyframe(self, x, mask=None):
-    #     y = self.img_encoder(x)
-    #     y_hat, likelihoods = self.img_hyperprior(y)
-    #     x_hat = self.img_decoder(y_hat)
-    #     if mask is None:
-    #         return x_hat, {"keyframe": likelihoods}
-    #     else:
-    #         masked_x_hat = self.backup_img_decoder(y_hat[mask])
-    #         return x_hat, masked_x_hat, {"keyframe": likelihoods}
+    def forward_keyframe(self, x, mask=None):
+        y = self.img_encoder(x)
+        y_hat, likelihoods = self.img_hyperprior(y)
+        x_hat = self.img_decoder(y_hat)
+        if mask is None:
+            return x_hat, {"keyframe": likelihoods}
+        else:
+            masked_x_hat = self.backup_img_decoder(y_hat[mask])
+            return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask=None):
         # can we encode difference?
