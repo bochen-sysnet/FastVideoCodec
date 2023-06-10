@@ -283,6 +283,8 @@ class MultiViewVideoDataset(Dataset):
         self._dirs += [os.path.join(root_dir,'train','images','64am')]
         self._dirs += [os.path.join(root_dir,'validation','images','64pm')]
         self.category = categories[category_id]
+        # number of views that will be returned
+        # could be used further to test scalability
         self.num_views = views_of_category[category_id] if num_views == 0 or num_views > views_of_category[category_id] else num_views
         self.split = split
         self.gop_size = gop_size

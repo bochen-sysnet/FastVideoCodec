@@ -52,14 +52,12 @@ parser.add_argument('--compression_level', default=0, type=int,
                     help="Compression level")
 parser.add_argument('--max_files', default=0, type=int,
                     help="Maximum loaded files")
-parser.add_argument('--evolve_rounds', default=1, type=int,
-                    help="Maximum evolving rounds")
 parser.add_argument('--resume', type=str, default='',
                     help='Resume path')
-parser.add_argument('--norm', default=2, type=int,
-                    help="Norm type")
 parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
+parser.add_argument('--resilience', default=0, type=int,
+                    help="Number of losing views to tolerate")
 
 args = parser.parse_args()
 
@@ -78,6 +76,7 @@ BEGIN_EPOCH = args.epoch[0]
 END_EPOCH = args.epoch[1]
 device = args.device
 STEPS = []
+views_of_category = [4,6,5,4,4]
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -90,14 +89,69 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
-
-# define multi-view dataset
+# load multi-view dataset
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
 train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
 test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
 
+# Enable CUDA memory tracking
+torch.cuda.reset_peak_memory_stats()
+torch.cuda.memory_allocated()
+# codec model
+model = get_codec_model(CODEC_NAME, 
+                        loss_type=loss_type, 
+                        compression_level=compression_level,
+                        use_split=False,
+                        num_views=test_dataset.num_views,
+                        resilience=args.resilience)
+start_time = time.time()
+model = model.cuda(device)
+end_time = time.time()
+
+time_taken = end_time - start_time
+print("Time taken to move the model to GPU:", time_taken, "seconds")
+
+pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+pytorch_decoder_params = sum(p.numel() for n,p in model.named_parameters() if p.requires_grad and ('Decoder' in n or 'decoder' in n or 'forward_prediction' in n))
+print('Total number of trainable codec parameters: {}, decoder parameters: {}'.format(pytorch_total_params, pytorch_decoder_params))
+
+# Measure memory consumed after moving to GPU
+memory_consumed = torch.cuda.memory_allocated()
+
+print("Memory consumed by moving the model to GPU:", memory_consumed, "bytes")
+
+
+# create optimizer
+if args.resilience == 0:
+    parameters = [p for n, p in model.named_parameters()]
+    parameter_names = [n for n, p in model.named_parameters()]
+else:
+    parameters = [p for n, p in model.named_parameters() if 'backup' in n]
+    parameter_names = [n for n, p in model.named_parameters() if 'backup' in n]
+optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+print('Optimizing:',parameter_names)
+# Adjust learning rate
+# adjust_learning_rate(optimizer, epoch)
+
+
+# initialize best score
+best_codec_score = 100
+
+# ---------------------------------------------------------------
+# try to load codec model 
+if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+    print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    # BEGIN_EPOCH = checkpoint['epoch'] + 1
+    if isinstance(checkpoint['score'],float):
+        best_codec_score = checkpoint['score']
+    # load_state_dict_all(model, checkpoint['state_dict'])
+    load_state_dict_whatever(model, checkpoint['state_dict'])
+    print("Loaded model codec score: ", checkpoint['score'], checkpoint['stats'])
+    del checkpoint
+print("===================================================================")
 # view_transforms = [transforms.ToTensor()]
 
 # # Rotation
@@ -116,48 +170,6 @@ test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split
 # train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
 # test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
 
-# Enable CUDA memory tracking
-torch.cuda.reset_peak_memory_stats()
-torch.cuda.memory_allocated()
-# codec model .
-model = get_codec_model(CODEC_NAME, 
-                        loss_type=loss_type, 
-                        compression_level=compression_level,
-                        use_split=False,
-                        num_views=test_dataset.num_views)
-start_time = time.time()
-model = model.cuda(device)
-end_time = time.time()
-
-time_taken = end_time - start_time
-print("Time taken to move the model to GPU:", time_taken, "seconds")
-
-pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-pytorch_decoder_params = sum(p.numel() for n,p in model.named_parameters() if p.requires_grad and ('Decoder' in n or 'decoder' in n or 'forward_prediction' in n))
-print('Total number of trainable codec parameters: {}, decoder parameters: {}'.format(pytorch_total_params, pytorch_decoder_params))
-
-# Measure memory consumed after moving to GPU
-memory_consumed = torch.cuda.memory_allocated()
-
-print("Memory consumed by moving the model to GPU:", memory_consumed, "bytes")
-# initialize best score
-best_codec_score = 100
-
-# ---------------------------------------------------------------
-# try to load codec model 
-if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    # BEGIN_EPOCH = checkpoint['epoch'] + 1
-    if isinstance(checkpoint['score'],float):
-        best_codec_score = checkpoint['score']
-    # load_state_dict_all(model, checkpoint['state_dict'])
-    load_state_dict_whatever(model, checkpoint['state_dict'])
-    print("Loaded model codec score: ", checkpoint['score'], checkpoint['stats'])
-    if 'stats' in checkpoint:
-        print(checkpoint['stats'])
-    del checkpoint
-print("===================================================================")
 
 def calc_metrics(out_dec,raw_frames):
     frame_idx = 0
@@ -176,7 +188,7 @@ def calc_metrics(out_dec,raw_frames):
         if none_zero_indices is not None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
-            mseloss = torch.mean((x_hat[none_zero_indices] - x[none_zero_indices]).pow(2))
+            mseloss = torch.mean((x_hat - x[none_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
@@ -187,13 +199,6 @@ def calc_metrics(out_dec,raw_frames):
     return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
         
 def train(epoch, model, train_dataset, best_codec_score, test_dataset):
-    # create optimizer
-    parameters = [p for n, p in model.named_parameters()]
-    lr = LEARNING_RATE
-    optimizer = torch.optim.Adam([{'params': parameters}], lr=lr, weight_decay=WEIGHT_DECAY)
-    # Adjust learning rate
-    adjust_learning_rate(optimizer, epoch)
-
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
