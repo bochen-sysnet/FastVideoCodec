@@ -2264,6 +2264,7 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
 
         # separate fixed ref and dynamic recon
+        print(frames[0].size(),frames[1].size())
         if self.resilience == 0:
             x_hat, likelihoods = self.forward_keyframe(frames[0])
             reconstructions.append(x_hat)
