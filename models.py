@@ -2088,7 +2088,7 @@ def sample_mask_for_resilience(tensor, resilience, num_views):
         if select > r: resilience += 1
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, num_views - 1)
+    mask = random.sample(original_list, num_views - resilience)
 
     # Sort both lists
     mask.sort()
@@ -2256,7 +2256,7 @@ class MCVC(ScaleSpaceFlow):
         init_training_params(self)
         # add later
         self.img_encoder = Encoder(3)
-        self.img_decoder = Decoder(3)
+        self.img_decoder = Decoder(3)# no attn
         self.img_hyperprior = Hyperprior()
         self.motion_encoder = Encoder(2 * 3)
         self.motion_decoder = Decoder(2 + 1, in_planes=192)

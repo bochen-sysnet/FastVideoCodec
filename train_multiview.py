@@ -120,10 +120,12 @@ print("Memory consumed by moving the model to GPU:", memory_consumed, "bytes")
 
 
 # create optimizer
-# parameters = [p for n, p in model.named_parameters()]
-# parameter_names = [n for n, p in model.named_parameters()]
-parameters = [p for n, p in model.named_parameters() if 'backup' in n]
-parameter_names = [n for n, p in model.named_parameters() if 'backup' in n]
+if args.resilience == 0:
+    parameters = [p for n, p in model.named_parameters()]
+    parameter_names = [n for n, p in model.named_parameters()]
+else:
+    parameters = [p for n, p in model.named_parameters() if 'backup' in n]
+    parameter_names = [n for n, p in model.named_parameters() if 'backup' in n]
 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
 pytorch_total_params = sum(p.numel() for p in parameters)
