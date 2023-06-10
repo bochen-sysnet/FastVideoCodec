@@ -2268,9 +2268,9 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
         if imbalanced_correlation:
-            self.backup_img_decoder = Decoder(3, use_attn = imbalanced_correlation)
-            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = imbalanced_correlation)
-            self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = imbalanced_correlation)
+            self.backup_img_decoder = Decoder(3, use_attn = True)
+            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = True)
+            self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = True)
         self.resilience = resilience
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
@@ -2293,7 +2293,7 @@ class MCVC(ScaleSpaceFlow):
 
         for i in range(1, len(frames)):
             x = frames[i]
-            if self.imbalanced_correlation is None:
+            if not self.imbalanced_correlation:
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             else:
                 # separated decoder, decoder on edge use raw frames as input
@@ -2310,7 +2310,7 @@ class MCVC(ScaleSpaceFlow):
     def forward_keyframe(self, x, mask=None):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
-        if self.imbalanced_correlation is None:
+        if not self.imbalanced_correlation:
             x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
@@ -2332,7 +2332,7 @@ class MCVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # inject empty into latent features, simulating lost data
-        if self.imbalanced_correlation is None:
+        if not self.imbalanced_correlation:
             # combine
             x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
