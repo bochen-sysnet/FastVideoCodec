@@ -2268,7 +2268,7 @@ class MCVC(ScaleSpaceFlow):
             x_hat, likelihoods = self.forward_keyframe(frames[0])
             reconstructions.append(x_hat)
         else:
-            x_hat, x_recon, likelihoods = self.forward_keyframe(frames[0])
+            x_hat, x_recon, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_recon)
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()  # stop gradient flow (cf: google2020 paper)
