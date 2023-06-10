@@ -184,7 +184,7 @@ def calc_metrics(out_dec,raw_frames):
                 var_like = likelihoods[likelihood_name]
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        if non_zero_indices is None or frame_idx == 0:
+        if non_zero_indices is None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
             mseloss = torch.mean((x_hat - x[non_zero_indices]).pow(2))
