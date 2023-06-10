@@ -2084,7 +2084,7 @@ def sample_mask_for_resilience(tensor, resilience, num_views, batchsize=2):
 
     resilience = 0
     for r in right:
-        if select > right: resilience += 1
+        if select > r: resilience += 1
     
     # Sample m elements from the original list
     mask = random.sample(original_list, num_views - resilience)
