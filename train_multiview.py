@@ -309,4 +309,4 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
     save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
-    if cvg_cnt == 10:break
+    # if cvg_cnt == 10:break
