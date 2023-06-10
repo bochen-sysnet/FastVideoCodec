@@ -2088,7 +2088,7 @@ def sample_mask_for_resilience(tensor, resilience, num_views):
         if select > r: resilience += 1
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, num_views - 1)
+    mask = random.sample(original_list, num_views - resilience)
 
     # Sort both lists
     mask.sort()
@@ -2285,24 +2285,19 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
 
         # separate fixed ref and dynamic recon
-        if self.resilience == 0:
-            x_hat, likelihoods = self.forward_keyframe(frames[0])
-            reconstructions.append(x_hat)
-        else:
-            x_hat, x_ref_masked, likelihoods = self.forward_keyframe(frames[0], mask)
-            reconstructions.append(x_ref_masked)
-            x_ref_masked = x_ref_masked.detach()
+        x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
+        reconstructions.append(x_hat)
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()
 
         for i in range(1, len(frames)):
             x = frames[i]
             if self.resilience == 0:
-                x_ref, likelihoods = self.forward_inter(x, x_ref)
-                reconstructions.append(x_ref)
+                x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             else:
-                x_ref, x_ref_masked, likelihoods = self.forward_inter(x, x_ref, mask, x_ref_masked)
-                reconstructions.append(x_ref_masked)
+                # separated decoder, decoder on edge use raw frames as input
+                x_ref, likelihoods = self.forward_inter(x, frames[i-1], mask)
+            reconstructions.append(x_ref)
             frames_likelihoods.append(likelihoods)
 
         return {
@@ -2314,23 +2309,19 @@ class MCVC(ScaleSpaceFlow):
     def forward_keyframe(self, x, mask=None):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
-        x_hat = self.img_decoder(y_hat)
         if mask is None:
+            x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
             masked_x_hat = self.backup_img_decoder(y_hat[mask])
-            return x_hat, masked_x_hat, {"keyframe": likelihoods}
+            return masked_x_hat, {"keyframe": likelihoods}
 
-    def forward_inter(self, x_cur, x_ref, mask=None, x_ref_masked=None):
-        # can we encode difference?
-        # the input should be multi-view frames at a single time 
-        # decoder has cross-correlation while encoder does not
+    def forward_inter(self, x_cur, x_ref, mask=None):
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
         # decode the space-scale flow information
-        # side-view motion can be integrated here
         motion_info = self.motion_decoder(y_motion_hat)
         x_pred = self.forward_prediction(x_ref, motion_info)
 
@@ -2339,16 +2330,16 @@ class MCVC(ScaleSpaceFlow):
         y_res = self.res_encoder(x_res)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
-        # combine
-        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
-
-        # final reconstruction: prediction + residual
-        x_rec = x_pred + x_res_hat
-
         # inject empty into latent features, simulating lost data
         if mask is None:
+            # combine
+            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+
+            # final reconstruction: prediction + residual
+            x_rec = x_pred + x_res_hat
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
+            # on decoder
             # motion
             masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
             masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
@@ -2359,4 +2350,4 @@ class MCVC(ScaleSpaceFlow):
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
 
-            return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
