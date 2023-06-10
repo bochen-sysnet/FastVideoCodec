@@ -2080,7 +2080,7 @@ def sample_mask_for_resilience(tensor, resilience, batchsize=2):
     for i in range(batchsize):
         for n in mask:
             batched_mask += [n + i*num_views]
-
+    print('--------------',batched_mask)
     return batched_mask
 
 # insert in mid of decoder
