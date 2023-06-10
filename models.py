@@ -2290,7 +2290,7 @@ class MCVC(ScaleSpaceFlow):
             reconstructions.append(x_hat)
         else:
             x_hat, x_ref_masked, likelihoods = self.forward_keyframe(frames[0], mask)
-            reconstructions.append(x_recon)
+            reconstructions.append(x_ref_masked)
             x_ref_masked = x_ref_masked.detach()
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()
