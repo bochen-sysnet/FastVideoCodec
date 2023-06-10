@@ -2064,35 +2064,38 @@ class QReLULayer(nn.Module):
     def forward(self, x):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
+def sample_failed_machines(num_machines, failure_probability, max_failed):
+    if max_failed == 0: return 0
+    probabilities = []
+    for num_failed in range(num_machines):
+        probability = calculate_probability(num_machines, failure_probability, num_failed)
+        probabilities.append(probability)
+
+    num_failed = random.choices(range(max_failed), probabilities[:max_failed])[0]
+    return num_failed
+
+def calculate_probability(num_machines, failure_probability, num_failed):
+    p = failure_probability
+    q = 1 - failure_probability
+    probability = (math.comb(num_machines, num_failed)) * (p ** num_failed) * (q ** (num_machines - num_failed))
+    return probability
+
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, max_resilience, num_views):
+def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.1):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
 
     # decide resilience
-    num_combo = 2**num_views - 2
-    select = random.randint(1, num_combo)
-    if num_views == 4:
-        # 1,4,6,4,1
-        right = [1,5,11]
-    elif num_views == 5:
-        # 1,5,10,10,5,1
-        right = [0,5,15,25]
-    else:
-        print('Not prepared')
-        exit(0)
-
-    resilience = 0
-    for r in right:
-        if select > r: resilience += 1
+    resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience))
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, num_views - min(resilience,max_resilience))
+    mask = random.sample(original_list, num_views - resilience)
 
     # Sort both lists
     mask.sort()
 
+    # replicate with batch
     batched_mask = []
     for i in range(batchsize):
         for n in mask:
@@ -2278,7 +2281,7 @@ class MCVC(ScaleSpaceFlow):
 
     def forward(self, frames):
         if self.imbalanced_correlation:
-            mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
+            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience)
         else:
             mask = None
 
