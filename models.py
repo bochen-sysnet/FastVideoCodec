@@ -2293,7 +2293,7 @@ class MCVC(ScaleSpaceFlow):
 
         for i in range(1, len(frames)):
             x = frames[i]
-            if self.imbalanced_correlation:
+            if self.imbalanced_correlation is None:
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             else:
                 # separated decoder, decoder on edge use raw frames as input
