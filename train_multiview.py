@@ -129,7 +129,7 @@ else:
 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
 pytorch_total_params = sum(p.numel() for p in parameters)
-print('Total number of trainable codec parameters: {}, decoder parameters: {}'.format(pytorch_total_params))
+print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 # print('Optimizing:',parameter_names)
 # Adjust learning rate
 # adjust_learning_rate(optimizer, epoch)
