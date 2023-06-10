@@ -104,7 +104,6 @@ class Attention(nn.Module):
         self.num_views = num_views
 
     def forward(self, x):
-        print(x.shape)
         b, c, h, w = x.shape
         qkv = self.to_qkv(x).chunk(3, dim = 1)
         if self.type == 0:

@@ -2264,7 +2264,6 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
 
         # separate fixed ref and dynamic recon
-        print(frames[0].size(),frames[1].size())
         if self.resilience == 0:
             x_hat, likelihoods = self.forward_keyframe(frames[0])
             reconstructions.append(x_hat)
@@ -2297,7 +2296,7 @@ class MCVC(ScaleSpaceFlow):
         if mask is None:
             return x_hat, {"keyframe": likelihoods}
         else:
-            masked_x_hat = self.backup_img_decoder(y_hat[mask])
+            masked_x_hat = self.backup_img_decoder(y_hat[:,mask])
             return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask=None):
@@ -2329,11 +2328,11 @@ class MCVC(ScaleSpaceFlow):
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
             # motion
-            masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
-            masked_x_pred = self.forward_prediction(x_ref[mask], masked_motion_info)
+            masked_motion_info = self.backup_motion_decoder(y_motion_hat[:,mask])
+            masked_x_pred = self.forward_prediction(x_ref[:,mask], masked_motion_info)
 
             # residual
-            masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
+            masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[:,mask], y_motion_hat[:,mask]), dim=1))
 
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
