@@ -2065,9 +2065,8 @@ class QReLULayer(nn.Module):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, resilience, batchsize=2):
+def sample_mask_for_resilience(tensor, resilience, num_views, batchsize=2):
     # Create the original list
-    num_views = tensor.size(0)
     original_list = list(range(num_views))
     
     # Sample m elements from the original list
@@ -2080,7 +2079,7 @@ def sample_mask_for_resilience(tensor, resilience, batchsize=2):
     for i in range(batchsize):
         for n in mask:
             batched_mask += [n + i*num_views]
-    print('--------------',batched_mask)
+    print(mask,'--------------',batched_mask)
     return batched_mask
 
 # insert in mid of decoder
@@ -2255,11 +2254,12 @@ class MCVC(ScaleSpaceFlow):
             self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, attn_views=num_views-resilience)
             self.backup_res_decoder = Decoder(3, in_planes=384, attn_views=num_views-resilience)
         self.resilience = resilience
+        self.num_views = num_views
 
 
     def forward(self, frames):
         if self.resilience>0:
-            mask = sample_mask_for_resilience(frames[0],self.resilience)
+            mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
         else:
             mask = None
 
