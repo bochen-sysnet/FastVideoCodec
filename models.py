@@ -2314,7 +2314,6 @@ class MCVC(ScaleSpaceFlow):
             # Set the selected batches to zero
             y_motion_hat = create_mask_with_zero(y_motion_hat,mask)
             y_res_hat = create_mask_with_zero(y_res_hat,mask)
-            # print(mask,(y_motion_hat == 0).sum().item(),(y_res_hat == 0).sum().item())
 
             # motion
             masked_motion_info = self.motion_decoder(y_motion_hat)

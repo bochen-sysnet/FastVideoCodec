@@ -133,7 +133,8 @@ time_taken = end_time - start_time
 print("Time taken to move the model to GPU:", time_taken, "seconds")
 
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
+pytorch_decoder_params = sum(p.numel() for n,p in model.named_parameters() if p.requires_grad and ('Decoder' in n or 'decoder' in n or 'forward_prediction' in n))
+print('Total number of trainable codec parameters: {}, decoder parameters: {}'.format(pytorch_total_params, pytorch_decoder_params))
 
 # Measure memory consumed after moving to GPU
 memory_consumed = torch.cuda.memory_allocated()
