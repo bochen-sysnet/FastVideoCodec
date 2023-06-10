@@ -2248,7 +2248,7 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
         if resilience > 0:
-            self.backup_img_decoder = Decoder(3)
+            self.backup_img_decoder = Decoder(3, attn_views=num_views-resilience)
             self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, attn_views=num_views-resilience)
             self.backup_res_decoder = Decoder(3, in_planes=384, attn_views=num_views-resilience)
         self.resilience = resilience
