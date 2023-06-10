@@ -2120,9 +2120,9 @@ class MCVC(ScaleSpaceFlow):
         imbalanced_correlation = True if '-IA' in name else False
         class Encoder(nn.Sequential):
             def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192
+                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, use_attn: bool = False
             ):
-                if not cross_correlation:
+                if not use_attn:
                     super().__init__(
                         conv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2145,9 +2145,9 @@ class MCVC(ScaleSpaceFlow):
                     )
         class Decoder(nn.Sequential):
             def __init__(
-                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, use_attn: bool = False
             ):
-                if not cross_correlation and not imbalanced_correlation:
+                if not use_attn:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2170,9 +2170,9 @@ class MCVC(ScaleSpaceFlow):
                     )
         class HyperEncoder(nn.Sequential):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
             ):
-                if not cross_correlation:
+                if not use_attn:
                     super().__init__(
                         conv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2191,9 +2191,9 @@ class MCVC(ScaleSpaceFlow):
                     )
         class HyperDecoder(nn.Sequential):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
             ):
-                if not cross_correlation and not imbalanced_correlation:
+                if not use_attn:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2212,9 +2212,9 @@ class MCVC(ScaleSpaceFlow):
                     )
         class HyperDecoderWithQReLU(nn.Sequential):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
             ):
-                if not cross_correlation and not imbalanced_correlation:
+                if not use_attn:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         QReLULayer(),
@@ -2234,13 +2234,13 @@ class MCVC(ScaleSpaceFlow):
                         QReLULayer()
                     )
         class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192):
+            def __init__(self, planes: int = 192, mid_planes: int = 192, use_attn: bool = False):
                 super().__init__()
                 self.entropy_bottleneck = EntropyBottleneck(planes)
-                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes)
+                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes, use_attn=use_attn)
                 self.gaussian_conditional = GaussianConditional(None)
-                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
+                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes, use_attn=use_attn)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes, use_attn=use_attn)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
@@ -2255,22 +2255,22 @@ class MCVC(ScaleSpaceFlow):
         self.loss_type = loss_type
         init_training_params(self)
         # add later
-        self.img_encoder = Encoder(3)
-        self.img_decoder = Decoder(3)# no attn
-        self.img_hyperprior = Hyperprior()
-        self.motion_encoder = Encoder(2 * 3)
-        self.motion_decoder = Decoder(2 + 1, in_planes=192)
-        self.res_encoder = Encoder(3)
-        self.res_decoder = Decoder(3, in_planes=384)
-        self.res_hyperprior = Hyperprior()
-        self.motion_hyperprior = Hyperprior()
+        self.img_encoder = Encoder(3, use_attn=cross_correlation)
+        self.img_decoder = Decoder(3, use_attn=cross_correlation)
+        self.img_hyperprior = Hyperprior(use_attn=cross_correlation)
+        self.motion_encoder = Encoder(2 * 3, use_attn=cross_correlation)
+        self.motion_decoder = Decoder(2 + 1, in_planes=192, use_attn=cross_correlation)
+        self.res_encoder = Encoder(3, use_attn=cross_correlation)
+        self.res_decoder = Decoder(3, in_planes=384, use_attn=cross_correlation)
+        self.res_hyperprior = Hyperprior(use_attn=cross_correlation)
+        self.motion_hyperprior = Hyperprior(use_attn=cross_correlation)
         self.name = name
         self.cross_correlation = cross_correlation
 
         if resilience > 0:
-            self.backup_img_decoder = Decoder(3)
-            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192)
-            self.backup_res_decoder = Decoder(3, in_planes=384)
+            self.backup_img_decoder = Decoder(3, use_attn = imbalanced_correlation)
+            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = imbalanced_correlation)
+            self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = imbalanced_correlation)
         self.resilience = resilience
         self.num_views = num_views
 
