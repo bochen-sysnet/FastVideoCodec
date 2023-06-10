@@ -2073,10 +2073,10 @@ def sample_mask_for_resilience(tensor, resilience, num_views, batchsize=2):
     num_combo = 2**num_views - 2
     select = random.randint(1, num_combo)
     if num_views == 4:
-        # 4,6,4
-        right = [0,4,10]
+        # 1,4,6,4,1
+        right = [1,5,11]
     elif num_views == 5:
-        # 5,10,10,5
+        # 1,5,10,10,5,1
         right = [0,5,15,25]
     else:
         print('Not prepared')
@@ -2276,10 +2276,7 @@ class MCVC(ScaleSpaceFlow):
 
     def forward(self, frames):
         if self.resilience>0:
-            for i in range(20):
-                mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
-                print(mask)
-            exit(0)
+            mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
         else:
             mask = None
 
