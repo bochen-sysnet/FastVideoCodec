@@ -2289,10 +2289,11 @@ class MCVC(ScaleSpaceFlow):
             x_hat, likelihoods = self.forward_keyframe(frames[0])
             reconstructions.append(x_hat)
         else:
-            x_hat, x_recon, likelihoods = self.forward_keyframe(frames[0], mask)
+            x_hat, x_ref_masked, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_recon)
+            x_ref_masked = x_ref_masked.detach()
         frames_likelihoods.append(likelihoods)
-        x_ref = x_hat.detach()  # stop gradient flow (cf: google2020 paper)
+        x_ref = x_hat.detach()
 
         for i in range(1, len(frames)):
             x = frames[i]
@@ -2300,8 +2301,8 @@ class MCVC(ScaleSpaceFlow):
                 x_ref, likelihoods = self.forward_inter(x, x_ref)
                 reconstructions.append(x_ref)
             else:
-                x_ref, x_recon, likelihoods = self.forward_inter(x, x_ref, mask)
-                reconstructions.append(x_recon)
+                x_ref, x_ref_masked, likelihoods = self.forward_inter(x, x_ref, mask, x_ref_masked)
+                reconstructions.append(x_ref_masked)
             frames_likelihoods.append(likelihoods)
 
         return {
@@ -2320,7 +2321,7 @@ class MCVC(ScaleSpaceFlow):
             masked_x_hat = self.backup_img_decoder(y_hat[mask])
             return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
-    def forward_inter(self, x_cur, x_ref, mask=None):
+    def forward_inter(self, x_cur, x_ref, mask=None, x_ref_masked=None):
         # can we encode difference?
         # the input should be multi-view frames at a single time 
         # decoder has cross-correlation while encoder does not
@@ -2350,7 +2351,7 @@ class MCVC(ScaleSpaceFlow):
         else:
             # motion
             masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
-            masked_x_pred = self.forward_prediction(x_ref[mask], masked_motion_info)
+            masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
 
             # residual
             masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
