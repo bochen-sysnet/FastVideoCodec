@@ -113,10 +113,6 @@ end_time = time.time()
 time_taken = end_time - start_time
 print("Time taken to move the model to GPU:", time_taken, "seconds")
 
-pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-pytorch_decoder_params = sum(p.numel() for n,p in model.named_parameters() if p.requires_grad and ('Decoder' in n or 'decoder' in n or 'forward_prediction' in n))
-print('Total number of trainable codec parameters: {}, decoder parameters: {}'.format(pytorch_total_params, pytorch_decoder_params))
-
 # Measure memory consumed after moving to GPU
 memory_consumed = torch.cuda.memory_allocated()
 
@@ -131,6 +127,9 @@ else:
     parameters = [p for n, p in model.named_parameters() if 'backup' in n]
     parameter_names = [n for n, p in model.named_parameters() if 'backup' in n]
 optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+
+pytorch_total_params = sum(p.numel() for p in parameters)
+print('Total number of trainable codec parameters: {}, decoder parameters: {}'.format(pytorch_total_params))
 # print('Optimizing:',parameter_names)
 # Adjust learning rate
 # adjust_learning_rate(optimizer, epoch)
@@ -188,7 +187,7 @@ def calc_metrics(out_dec,raw_frames):
         if none_zero_indices is not None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
-            print(x.size())
+            print(x_hat.size(), x.size())
             mseloss = torch.mean((x_hat - x[none_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
