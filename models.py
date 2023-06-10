@@ -2065,7 +2065,7 @@ class QReLULayer(nn.Module):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, resilience, num_views):
+def sample_mask_for_resilience(tensor, max_resilience, num_views):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
@@ -2088,7 +2088,7 @@ def sample_mask_for_resilience(tensor, resilience, num_views):
         if select > r: resilience += 1
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, num_views - resilience)
+    mask = random.sample(original_list, num_views - min(resilience,max_resiliencee))
 
     # Sort both lists
     mask.sort()
@@ -2267,7 +2267,7 @@ class MCVC(ScaleSpaceFlow):
         self.name = name
         self.cross_correlation = cross_correlation
 
-        if resilience > 0:
+        if imbalanced_correlation:
             self.backup_img_decoder = Decoder(3, use_attn = imbalanced_correlation)
             self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = imbalanced_correlation)
             self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = imbalanced_correlation)
@@ -2276,7 +2276,7 @@ class MCVC(ScaleSpaceFlow):
 
 
     def forward(self, frames):
-        if self.resilience>0:
+        if imbalanced_correlation:
             mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
         else:
             mask = None
@@ -2309,7 +2309,7 @@ class MCVC(ScaleSpaceFlow):
     def forward_keyframe(self, x, mask=None):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
-        if mask is None:
+        if imbalanced_correlation is None:
             x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
@@ -2331,7 +2331,7 @@ class MCVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # inject empty into latent features, simulating lost data
-        if mask is None:
+        if imbalanced_correlation is None:
             # combine
             x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
