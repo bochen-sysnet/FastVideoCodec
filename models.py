@@ -2273,10 +2273,11 @@ class MCVC(ScaleSpaceFlow):
             self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = imbalanced_correlation)
         self.resilience = resilience
         self.num_views = num_views
+        self.imbalanced_correlation = imbalanced_correlation
 
 
     def forward(self, frames):
-        if imbalanced_correlation:
+        if self.imbalanced_correlation:
             mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
         else:
             mask = None
@@ -2309,7 +2310,7 @@ class MCVC(ScaleSpaceFlow):
     def forward_keyframe(self, x, mask=None):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
-        if imbalanced_correlation is None:
+        if self.imbalanced_correlation is None:
             x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
@@ -2331,7 +2332,7 @@ class MCVC(ScaleSpaceFlow):
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
         # inject empty into latent features, simulating lost data
-        if imbalanced_correlation is None:
+        if self.imbalanced_correlation is None:
             # combine
             x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
