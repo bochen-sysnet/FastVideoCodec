@@ -2276,7 +2276,10 @@ class MCVC(ScaleSpaceFlow):
 
     def forward(self, frames):
         if self.resilience>0:
-            mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
+            for i in range(20):
+                mask = sample_mask_for_resilience(frames[0],self.resilience,self.num_views)
+                print(mask)
+            exit(0)
         else:
             mask = None
 
