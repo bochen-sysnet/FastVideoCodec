@@ -116,17 +116,29 @@ test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split
 # train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
 # test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
 
-
+# Enable CUDA memory tracking
+torch.cuda.reset_peak_memory_stats()
+torch.cuda.memory_allocated()
 # codec model .
 model = get_codec_model(CODEC_NAME, 
                         loss_type=loss_type, 
                         compression_level=compression_level,
                         use_split=False,
                         num_views=test_dataset.num_views)
+start_time = time.time()
 model = model.cuda(device)
+end_time = time.time()
+
+time_taken = end_time - start_time
+print("Time taken to move the model to GPU:", time_taken, "seconds")
+
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
+# Measure memory consumed after moving to GPU
+memory_consumed = torch.cuda.memory_allocated()
+
+print("Memory consumed by moving the model to GPU:", memory_consumed, "bytes")
 # initialize best score
 best_codec_score = 100
 
