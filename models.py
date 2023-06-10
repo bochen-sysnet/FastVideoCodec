@@ -2088,7 +2088,7 @@ def sample_mask_for_resilience(tensor, resilience, num_views):
         if select > r: resilience += 1
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, num_views - resilience)
+    mask = random.sample(original_list, num_views - 1)
 
     # Sort both lists
     mask.sort()
