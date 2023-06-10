@@ -176,7 +176,7 @@ def calc_metrics(out_dec,raw_frames):
     total_psnr = 0
     total_mse = 0
     pixels = 0
-    none_zero_indices = out_dec['none_zero_indices'] if 'none_zero_indices' in out_dec else None
+    non_zero_indices = out_dec['non_zero_indices'] if 'non_zero_indices' in out_dec else None
     for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
         x = raw_frames[frame_idx]
         for likelihood_name in ['keyframe', 'motion', 'residual']:
@@ -187,8 +187,8 @@ def calc_metrics(out_dec,raw_frames):
         if none_zero_indices is not None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
-            print(x_hat.size(), x.size())
-            mseloss = torch.mean((x_hat - x[none_zero_indices]).pow(2))
+            print(x_hat.size(), x.size(), non_zero_indices)
+            mseloss = torch.mean((x_hat - x[non_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
