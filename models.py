@@ -2065,12 +2065,10 @@ class QReLULayer(nn.Module):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, resilience):
-    # Get the batch size
-    batch_size = tensor.size(0)
-
+def sample_mask_for_resilience(tensor, resilience, batchsize):
     # Create the original list
-    original_list = list(range(batch_size))
+    num_views = tensor.size(0)
+    original_list = list(range(num_views))
     
     # Sample m elements from the original list
     mask = random.sample(original_list, batch_size - resilience)
@@ -2078,7 +2076,12 @@ def sample_mask_for_resilience(tensor, resilience):
     # Sort both lists
     mask.sort()
 
-    return mask
+    batched_mask = []
+    for i in range(batchsize):
+        for n in mask:
+            batched_mask += [n + i*num_views]
+
+    return batched_mask
 
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
