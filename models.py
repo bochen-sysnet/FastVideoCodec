@@ -2071,7 +2071,7 @@ def sample_mask_for_resilience(tensor, resilience, batchsize=2):
     original_list = list(range(num_views))
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, batch_size - resilience)
+    mask = random.sample(original_list, num_views - resilience)
 
     # Sort both lists
     mask.sort()
