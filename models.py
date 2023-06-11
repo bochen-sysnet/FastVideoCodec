@@ -2093,10 +2093,10 @@ def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probab
     if test_resilience < 0:
         resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience))
     else:
-        resilience = 3#test_resilience
+        resilience = test_resilience
     
     # Sample m elements from the original list
-    mask = random.sample(original_list, num_views - resilience)
+    mask = random.sample(original_list, num_views - 0)
 
     # Sort both lists
     mask.sort()
