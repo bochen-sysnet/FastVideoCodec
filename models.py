@@ -2079,8 +2079,6 @@ def sample_failed_machines(num_machines, failure_probability, max_failed):
     for num_failed in range(num_machines):
         probability = calculate_probability(num_machines, failure_probability, num_failed)
         probabilities.append(probability)
-    print(probabilities)
-    exit(0)
 
     num_failed = random.choices(range(max_failed), probabilities[:max_failed])[0]
     return num_failed
