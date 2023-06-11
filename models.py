@@ -2064,6 +2064,15 @@ class QReLULayer(nn.Module):
     def forward(self, x):
         return QReLU.apply(x, self.bit_depth, self.beta)
 
+def comb(n, k):
+    return math.factorial(n) // (math.factorial(k) * math.factorial(n - k))
+
+def calculate_probability(num_machines, failure_probability, num_failed):
+    p = failure_probability
+    q = 1 - failure_probability
+    probability = (comb(num_machines, num_failed)) * (p ** num_failed) * (q ** (num_machines - num_failed))
+    return probability
+
 def sample_failed_machines(num_machines, failure_probability, max_failed):
     if max_failed == 0: return 0
     probabilities = []
@@ -2073,12 +2082,6 @@ def sample_failed_machines(num_machines, failure_probability, max_failed):
 
     num_failed = random.choices(range(max_failed), probabilities[:max_failed])[0]
     return num_failed
-
-def calculate_probability(num_machines, failure_probability, num_failed):
-    p = failure_probability
-    q = 1 - failure_probability
-    probability = (math.comb(num_machines, num_failed)) * (p ** num_failed) * (q ** (num_machines - num_failed))
-    return probability
 
 # Function to randomly set a specified number of batches to zero
 def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.1, test_resilience = -1):
@@ -2097,6 +2100,7 @@ def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probab
 
     # Sort both lists
     mask.sort()
+    print(mask)
 
     # replicate with batch
     batched_mask = []
