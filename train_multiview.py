@@ -28,7 +28,7 @@ from dataset import SynVideoDataset, FrameDataset, MultiViewVideoDataset
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
 parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
                     help='evaluating dataset (default: UVG)')
-parser.add_argument('--batch_size', default=2, type=int,
+parser.add_argument('--batch-size', default=2, type=int,
                     help="batch size")
 parser.add_argument('--num_views', default=0, type=int,
                     help="number of views")
@@ -58,6 +58,8 @@ parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
 parser.add_argument('--resilience', default=0, type=int,
                     help="Number of losing views to tolerate")
+parser.add_argument('--test-resilience', default=-1, type=int,
+                    help="Number of losing views to tolerate in evaluation")
 
 args = parser.parse_args()
 
@@ -286,6 +288,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
 
 if args.evaluate:
+    if args.test_resilience >= 0:
+        model.test_resilience = args.test_resilience
     score, stats = test(0, model, test_dataset)
     exit(0)
 
