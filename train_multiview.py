@@ -236,14 +236,14 @@ def train(epoch, model, train_dataset, best_codec_score):
         optimizer.zero_grad()
 
         # add metrics
-        resi = train_dataset.num_views * (1 - data.size(0) // out_dec['x_hat'][0])
+        resi = int(train_dataset.num_views * (1 - out_dec['x_hat'][0].size(0) / data.size(1)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
-
+                
         # metrics string
         metrics_str = ""
-        for psnr,bpp in zip(psnr_vs_resilience,bpp_vs_resilience):
-            metrics_str += f"{psnr.avg:.2f},{bpp.avg:.2f}. "
+        for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
+            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.2f}. "
 
         # show result
         train_iter.set_description(
