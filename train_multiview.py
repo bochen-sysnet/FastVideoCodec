@@ -280,7 +280,7 @@ def test(epoch, model, test_dataset):
             img_loss_module.update(mse.cpu().data.item())
 
         # add metrics
-        resi = int(test_dataset.num_views * (1 - data.size(1) // out_dec['x_hat'][0].size(0)))
+        resi = int(test_dataset.num_views * (1 - data.size(1) / out_dec['x_hat'][0].size(0)))
         print(resi)
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
