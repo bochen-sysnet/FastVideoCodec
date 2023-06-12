@@ -170,7 +170,7 @@ print("===================================================================")
 # test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
 
 
-def metrics_per_gop(out_dec, raw_frames, num_views):
+def metrics_per_gop(out_dec, raw_frames):
     frame_idx = 0
     total_bpp = 0
     total_psnr = 0
