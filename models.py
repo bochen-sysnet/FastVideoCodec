@@ -2360,6 +2360,5 @@ class MCVC(ScaleSpaceFlow):
 
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
-            print(masked_x_rec.size())
 
             return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}

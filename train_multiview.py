@@ -32,6 +32,8 @@ parser.add_argument('--batch-size', default=2, type=int,
                     help="batch size")
 parser.add_argument('--num_views', default=0, type=int,
                     help="number of views")
+parser.add_argument('--debug', action='store_true',
+                    help='debug model on validation set')
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--codec', type=str, default='MCVC-IA-R',
@@ -268,6 +270,7 @@ def test(epoch, model, test_dataset):
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+        if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
