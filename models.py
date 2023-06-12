@@ -2084,7 +2084,7 @@ def sample_failed_machines(num_machines, failure_probability, max_failed):
     return num_failed
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.5, test_resilience = -1):
+def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.1, test_resilience = -1):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
