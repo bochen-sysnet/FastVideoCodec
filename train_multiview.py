@@ -251,8 +251,7 @@ def train(epoch, model, train_dataset, best_codec_score):
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
-            metrics_str)
+            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). " + metrics_str)
 
     return best_codec_score
     
@@ -295,8 +294,7 @@ def test(epoch, model, test_dataset):
             f"{epoch} {data_idx:6}. "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
-            metrics_str)
+            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). " + metrics_str)
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
