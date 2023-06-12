@@ -2089,7 +2089,7 @@ def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probab
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
-
+    print('???')
     # decide resilience
     if test_resilience < 0:
         resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience))
