@@ -281,14 +281,13 @@ def test(epoch, model, test_dataset):
 
         # add metrics
         resi = int(test_dataset.num_views * (1 - out_dec['x_hat'][0].size(0) / data.size(1)))
-        print(data.size(1), out_dec['x_hat'][0].size(0),resi)
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
         # metrics string
         metrics_str = ""
         for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
-            metrics_str += f"{i}:{psnr.avg:.2f},{bpp.avg:.2f}. "
+            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.2f}. "
 
         # show result
         test_iter.set_description(
