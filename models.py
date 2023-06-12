@@ -2291,7 +2291,7 @@ class MCVC(ScaleSpaceFlow):
             mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,test_resilience = self.test_resilience)
         else:
             mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience)
-
+        print(mask)
         reconstructions = []
         frames_likelihoods = []
 
