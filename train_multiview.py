@@ -281,6 +281,7 @@ def test(epoch, model, test_dataset):
 
         # add metrics
         resi = test_dataset.num_views * (1 - data.size(0) // out_dec['x_hat'][0].size(0))
+        print(out_dec['x_hat'][0].size(0),data.size(0),test_dataset.num_views,resi)
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
