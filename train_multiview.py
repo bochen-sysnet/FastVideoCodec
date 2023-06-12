@@ -237,6 +237,7 @@ def train(epoch, model, train_dataset, best_codec_score):
 
         # add metrics
         resi = int(train_dataset.num_views * (1 - out_dec['x_hat'][0].size(0) / data.size(1)))
+        print(resi,out_dec['x_hat'][0].size(0), data.size(1),data.size())
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
