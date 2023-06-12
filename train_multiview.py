@@ -170,7 +170,7 @@ print("===================================================================")
 # test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
 
 
-def calc_metrics(out_dec,raw_frames):
+def metrics_per_gop(out_dec, raw_frames, num_views):
     frame_idx = 0
     total_bpp = 0
     total_psnr = 0
@@ -195,13 +195,16 @@ def calc_metrics(out_dec,raw_frames):
         total_psnr += psnr
         total_mse += mseloss
         frame_idx += 1
+
     return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
         
-def train(epoch, model, train_dataset, best_codec_score, test_dataset):
+def train(epoch, model, train_dataset, best_codec_score):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     all_loss_module = AverageMeter()
+    psnr_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
+    bpp_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     ds_size = len(train_dataset)
     
@@ -218,7 +221,7 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         
         # run model
         out_dec = model(data)
-        mse, bpp, psnr = calc_metrics(out_dec, data)
+        mse, bpp, psnr = metrics_per_gop(out_dec, data)
         loss = model.r*mse + bpp
         
         ba_loss_module.update(bpp.cpu().data.item())
@@ -232,13 +235,24 @@ def train(epoch, model, train_dataset, best_codec_score, test_dataset):
         scaler.update()
         optimizer.zero_grad()
 
+        # add metrics
+        resi = train_dataset.num_views * (1 - data.size(0) // out_dec['x_hat'][0])
+        psnr_vs_resilience[resi].update(psnr.cpu().data.item())
+        bpp_vs_resilience[resi].update(bpp.cpu().data.item())
+
+        # metrics string
+        metrics_str = ""
+        for psnr,bpp in zip(psnr_vs_resilience,bpp_vs_resilience):
+            metrics_str += f"{psnr.avg:.2f},{bpp.avg:.2f}. "
+
         # show result
         train_iter.set_description(
             f"{epoch} {batch_idx:6}. "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). ")
+            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            metrics_str)
 
     return best_codec_score
     
@@ -247,6 +261,8 @@ def test(epoch, model, test_dataset):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
+    psnr_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
+    bpp_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
     ds_size = len(test_dataset)
     
     data = []
@@ -258,18 +274,29 @@ def test(epoch, model, test_dataset):
             
         with torch.no_grad():
             out_dec = model(data)
-            mse, bpp, psnr = calc_metrics(out_dec, data)
+            mse, bpp, psnr = metrics_per_gop(out_dec, data)
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
             img_loss_module.update(mse.cpu().data.item())
+
+        # add metrics
+        resi = test_dataset.num_views * (1 - data.size(0) // out_dec['x_hat'][0])
+        psnr_vs_resilience[resi].update(psnr.cpu().data.item())
+        bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
+        # metrics string
+        metrics_str = ""
+        for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
+            metrics_str += f"{i}:{psnr.avg:.2f},{bpp.avg:.2f}. "
+
         # show result
         test_iter.set_description(
             f"{epoch} {data_idx:6}. "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). ")
+            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
+            metrics_str)
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
@@ -298,7 +325,7 @@ if args.evaluate:
 
 cvg_cnt = 0
 for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-    best_codec_score = train(epoch, model, train_dataset, best_codec_score, test_dataset)
+    best_codec_score = train(epoch, model, train_dataset, best_codec_score)
     
     score, stats = test(epoch, model, test_dataset)
     
