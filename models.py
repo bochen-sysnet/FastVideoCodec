@@ -2299,12 +2299,8 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
 
         # separate fixed ref and dynamic recon
-        if not self.imbalanced_correlation:
-            x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
-        else:
-            x_hat, x_ref_masked, likelihoods = self.forward_keyframe(frames[0], mask)
-            x_ref_masked = x_ref_masked.detach()
-        reconstructions.append(x_ref_masked)
+        x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
+        reconstructions.append(x_hat)
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()
 
@@ -2314,8 +2310,8 @@ class MCVC(ScaleSpaceFlow):
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             else:
                 # separated decoder, decoder on edge use raw frames as input
-                x_ref, x_ref_masked, likelihoods = self.forward_inter(x, x_ref, mask, x_ref_masked)
-            reconstructions.append(x_ref_masked)
+                x_ref, likelihoods = self.forward_inter(x, frames[i-1], mask, x_ref)
+            reconstructions.append(x_ref)
             frames_likelihoods.append(likelihoods)
 
         return {
@@ -2327,12 +2323,12 @@ class MCVC(ScaleSpaceFlow):
     def forward_keyframe(self, x, mask=None):
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
-        x_hat = self.img_decoder(y_hat)
         if not self.imbalanced_correlation:
+            x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
             masked_x_hat = self.backup_img_decoder(y_hat[mask])
-            return x_hat, masked_x_hat, {"keyframe": likelihoods}
+            return masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask=None, x_ref_masked=None):
         # encode the motion information
@@ -2348,14 +2344,13 @@ class MCVC(ScaleSpaceFlow):
         y_res = self.res_encoder(x_res)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
-        # combine
-        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
-
-        # final reconstruction: prediction + residual
-        x_rec = x_pred + x_res_hat
-
         # inject empty into latent features, simulating lost data
         if not self.imbalanced_correlation:
+            # combine
+            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+
+            # final reconstruction: prediction + residual
+            x_rec = x_pred + x_res_hat
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
             # on decoder
@@ -2369,4 +2364,4 @@ class MCVC(ScaleSpaceFlow):
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
 
-            return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
