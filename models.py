@@ -2291,7 +2291,6 @@ class MCVC(ScaleSpaceFlow):
             mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,test_resilience = self.test_resilience)
         else:
             mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience)
-        mask = [0]
 
         reconstructions = []
         frames_likelihoods = []
@@ -2361,5 +2360,6 @@ class MCVC(ScaleSpaceFlow):
 
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
+            print(masked_x_rec.size())
 
             return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
