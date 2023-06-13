@@ -30,6 +30,8 @@ parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JC
                     help='evaluating dataset (default: UVG)')
 parser.add_argument('--batch-size', default=2, type=int,
                     help="batch size")
+parser.add_argument('--super-batch', default=16, type=int,
+                    help="super batch size")
 parser.add_argument('--num_views', default=0, type=int,
                     help="number of views")
 parser.add_argument('--debug', action='store_true',
@@ -231,9 +233,10 @@ def train(epoch, model, train_dataset, best_codec_score):
         
         # backward
         scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad()
+        if batch_idx % args.super_batch == args.super_batch-1:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
         # add metrics
         resi = int(train_dataset.num_views * (1 - out_dec['x_hat'][0].size(0) / data.size(1)))
