@@ -2084,16 +2084,16 @@ def sample_failed_machines(num_machines, failure_probability, max_failed):
     return num_failed
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.05, test_resilience = -1):
+def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.05, force_resilience = -1):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
 
     # decide resilience
-    if test_resilience < 0:
+    if force_resilience < 0:
         resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience))
     else:
-        resilience = test_resilience
+        resilience = force_resilience
     
     # Sample m elements from the original list
     mask = random.sample(original_list, num_views - resilience)
@@ -2283,14 +2283,14 @@ class MCVC(ScaleSpaceFlow):
         self.resilience = resilience
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
-        self.test_resilience = -1
+        self.force_resilience = -1
 
 
     def forward(self, frames):
         if not self.training:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,test_resilience = self.test_resilience)
+            mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,force_resilience = self.force_resilience)
         else:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,test_resilience = self.test_resilience)
+            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,force_resilience = self.force_resilience)
 
         reconstructions = []
         frames_likelihoods = []

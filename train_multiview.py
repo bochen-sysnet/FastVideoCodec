@@ -62,8 +62,8 @@ parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
 parser.add_argument('--resilience', default=0, type=int,
                     help="Number of losing views to tolerate")
-parser.add_argument('--test-resilience', default=-1, type=int,
-                    help="Number of losing views to tolerate in evaluation")
+parser.add_argument('--force-resilience', default=-1, type=int,
+                    help="Force the number of losing views in training/evaluation")
 
 args = parser.parse_args()
 
@@ -112,8 +112,8 @@ model = get_codec_model(CODEC_NAME,
                         use_split=False,
                         num_views=test_dataset.num_views,
                         resilience=args.resilience)
-if args.test_resilience >= 0:
-    model.test_resilience = args.test_resilience
+if args.force_resilience >= 0:
+    model.force_resilience = args.force_resilience
 start_time = time.time()
 model = model.cuda(device)
 end_time = time.time()
