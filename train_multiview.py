@@ -246,7 +246,7 @@ def train(epoch, model, train_dataset, best_codec_score):
         # metrics string
         metrics_str = ""
         for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
-            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.2f}. "
+            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.3f}. "
 
         # show result
         train_iter.set_description(
@@ -290,7 +290,7 @@ def test(epoch, model, test_dataset):
         # metrics string
         metrics_str = ""
         for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
-            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.2f}. "
+            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.3f}. "
 
         # show result
         test_iter.set_description(
