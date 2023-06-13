@@ -2081,6 +2081,7 @@ def sample_failed_machines(num_machines, failure_probability, max_failed):
         probabilities.append(probability)
 
     num_failed = random.choices(range(max_failed+1), probabilities)[0]
+    print(probabilities)
     return num_failed
 
 # Function to randomly set a specified number of batches to zero
