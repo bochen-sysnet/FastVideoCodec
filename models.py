@@ -2099,7 +2099,7 @@ def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probab
     mask = random.sample(original_list, num_views - resilience)
 
     # Sort both lists
-    # mask.sort()
+    mask.sort()
 
     # replicate with batch
     batched_mask = []
@@ -2352,6 +2352,8 @@ class MCVC(ScaleSpaceFlow):
         else:
             # on decoder
             # motion
+            y_motion_hat[0,:] *= 0
+            y_res_hat[0,:] *= 0
             masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
             masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
 
