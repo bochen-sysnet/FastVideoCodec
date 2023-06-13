@@ -2287,10 +2287,7 @@ class MCVC(ScaleSpaceFlow):
 
 
     def forward(self, frames):
-        if not self.training:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,test_resilience = self.test_resilience)
-        else:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience)
+        mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,test_resilience = self.test_resilience)
 
         reconstructions = []
         frames_likelihoods = []
