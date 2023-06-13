@@ -112,6 +112,8 @@ model = get_codec_model(CODEC_NAME,
                         use_split=False,
                         num_views=test_dataset.num_views,
                         resilience=args.resilience)
+if args.test_resilience >= 0:
+    model.test_resilience = args.test_resilience
 start_time = time.time()
 model = model.cuda(device)
 end_time = time.time()
@@ -319,8 +321,6 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
 
 if args.evaluate:
-    if args.test_resilience >= 0:
-        model.test_resilience = args.test_resilience
     score, stats = test(0, model, test_dataset)
     exit(0)
 
