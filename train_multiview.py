@@ -180,7 +180,10 @@ def metrics_per_gop(out_dec, raw_frames):
     total_psnr = 0
     total_mse = 0
     pixels = 0
+    completeness = 1
     non_zero_indices = out_dec['non_zero_indices'] if 'non_zero_indices' in out_dec else None
+    if non_zero_indices is not None:
+        completeness = 1.0 * len(non_zero_indices) / raw_frames[0].size(0)
     for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
         x = raw_frames[frame_idx]
         for likelihood_name in ['keyframe', 'motion', 'residual']:
@@ -225,7 +228,7 @@ def train(epoch, model, train_dataset, best_codec_score):
         
         # run model
         out_dec = model(data)
-        mse, bpp, psnr = metrics_per_gop(out_dec, data)
+        mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
         loss = model.r*mse + bpp
         
         ba_loss_module.update(bpp.cpu().data.item())
@@ -241,7 +244,7 @@ def train(epoch, model, train_dataset, best_codec_score):
             optimizer.zero_grad()
 
         # add metrics
-        resi = int(train_dataset.num_views * (1 - out_dec['x_hat'][0].size(0) / data.size(1)))
+        resi = int(train_dataset.num_views * (1 - completeness))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
@@ -278,14 +281,14 @@ def test(epoch, model, test_dataset):
             
         with torch.no_grad():
             out_dec = model(data)
-            mse, bpp, psnr = metrics_per_gop(out_dec, data)
+            mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
             img_loss_module.update(mse.cpu().data.item())
 
         # add metrics
-        resi = int(test_dataset.num_views * (1 - out_dec['x_hat'][0].size(0) / data.size(1)))
+        resi = int(test_dataset.num_views * (1 - completeness))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
