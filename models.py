@@ -2134,7 +2134,7 @@ class MCVC(ScaleSpaceFlow):
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         cross_correlation = True if '-A' in name else False
-        imbalanced_correlation = if '-IA' in name else False
+        imbalanced_correlation = True if '-IA' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, use_attn: bool = False
