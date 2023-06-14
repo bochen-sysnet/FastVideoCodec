@@ -2111,6 +2111,12 @@ def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probab
 
     return batched_mask
 
+# masking
+def mask_with_indices(inp,indices):
+    mask = torch.zeros_like(inp).to(inp.device)
+    mask[indices] = 1
+    return inp * mask
+
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
 # todo: add attention in hypercoder
@@ -2128,7 +2134,7 @@ class MCVC(ScaleSpaceFlow):
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         cross_correlation = True if '-A' in name else False
-        imbalanced_correlation = True #if '-IA' in name else False
+        imbalanced_correlation = if '-IA' in name else False
         class Encoder(nn.Sequential):
             def __init__(
                 self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, use_attn: bool = False
@@ -2268,13 +2274,13 @@ class MCVC(ScaleSpaceFlow):
         # add later
         self.img_encoder = Encoder(3, use_attn=cross_correlation)
         self.img_decoder = Decoder(3, use_attn=cross_correlation)
-        self.img_hyperprior = Hyperprior(use_attn=cross_correlation or imbalanced_correlation)
+        self.img_hyperprior = Hyperprior(use_attn=cross_correlation)
         self.motion_encoder = Encoder(2 * 3, use_attn=cross_correlation)
         self.motion_decoder = Decoder(2 + 1, in_planes=192, use_attn=cross_correlation)
         self.res_encoder = Encoder(3, use_attn=cross_correlation)
         self.res_decoder = Decoder(3, in_planes=384, use_attn=cross_correlation)
-        self.res_hyperprior = Hyperprior(use_attn=cross_correlation or imbalanced_correlation)
-        self.motion_hyperprior = Hyperprior(use_attn=cross_correlation or imbalanced_correlation)
+        self.res_hyperprior = Hyperprior(use_attn=cross_correlation)
+        self.motion_hyperprior = Hyperprior(use_attn=cross_correlation)
         self.name = name
         self.cross_correlation = cross_correlation
 
@@ -2308,7 +2314,6 @@ class MCVC(ScaleSpaceFlow):
             if not self.imbalanced_correlation:
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
             else:
-                # separated decoder, decoder on edge use raw frames as input
                 x_ref, likelihoods = self.forward_inter(x, frames[i-1], mask, x_ref)
             reconstructions.append(x_ref)
             frames_likelihoods.append(likelihoods)
@@ -2326,7 +2331,8 @@ class MCVC(ScaleSpaceFlow):
             x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
-            masked_x_hat = self.backup_img_decoder(y_hat[mask])
+            # masked_x_hat = self.backup_img_decoder(y_hat[mask])
+            masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
             return masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask=None, x_ref_masked=None):
@@ -2353,12 +2359,16 @@ class MCVC(ScaleSpaceFlow):
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
             # on decoder
-            # motion
-            masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
-            masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
+            # masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
+            # masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
+            # masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
 
-            # residual
-            masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
+            # preserve the locality of views
+            y_motion_hat_masked = mask_with_indices(y_motion_hat,mask)
+            y_res_hat_masked = mask_with_indices(y_res_hat,mask)
+            masked_motion_info = self.backup_motion_decoder(y_motion_hat_masked)
+            masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
+            masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat_masked, y_motion_hat_masked), dim=1))
 
             # final reconstruction: prediction + residual
             masked_x_rec = masked_x_pred + masked_x_res_hat
