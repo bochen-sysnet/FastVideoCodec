@@ -2075,11 +2075,11 @@ def calculate_probability(num_machines, failure_probability, num_failed):
 
 def sample_failed_machines(num_machines, failure_probability, max_failed):
     if max_failed == 0: return 0
-    # probabilities = []
-    # for num_failed in range(max_failed+1):
-    #     probability = calculate_probability(num_machines, failure_probability, num_failed)
-    #     probabilities.append(probability)
-    probabilities = [1 for _ in range(max_failed + 1)]
+    probabilities = []
+    for num_failed in range(max_failed+1):
+        probability = calculate_probability(num_machines, failure_probability, num_failed)
+        probabilities.append(probability)
+    # probabilities = [1 for _ in range(max_failed + 1)]
     num_failed = random.choices(range(max_failed+1), probabilities)[0]
     return num_failed
 
