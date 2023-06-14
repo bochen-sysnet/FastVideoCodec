@@ -2277,9 +2277,9 @@ class MCVC(ScaleSpaceFlow):
         self.cross_correlation = cross_correlation
 
         if imbalanced_correlation:
-            self.backup_img_decoder = Decoder(3, use_attn = True)
-            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = True)
-            self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = True)
+            self.backup_img_decoder = Decoder(3, use_attn = False)
+            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = False)
+            self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = False)
         self.resilience = resilience
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
