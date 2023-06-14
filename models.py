@@ -2075,18 +2075,18 @@ def calculate_probability(num_machines, failure_probability, num_failed):
 
 def sample_failed_machines(num_machines, failure_probability, max_failed, training=True):
     if max_failed == 0: return 0
-    # if False:
-    #     probabilities = []
-    #     for num_failed in range(max_failed+1):
-    #         probability = calculate_probability(num_machines, failure_probability, num_failed)
-    #         probabilities.append(probability)
-    # else:
-    probabilities = [1 for _ in range(max_failed + 1)]
+    if False:
+        probabilities = []
+        for num_failed in range(max_failed+1):
+            probability = calculate_probability(num_machines, failure_probability, num_failed)
+            probabilities.append(probability)
+    else:
+        probabilities = [1 for _ in range(max_failed + 1)]
     num_failed = random.choices(range(max_failed+1), probabilities)[0]
     return num_failed
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.05, force_resilience = -1, training=True):
+def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.1, force_resilience = -1, training=True):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
