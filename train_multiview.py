@@ -191,6 +191,7 @@ def metrics_per_gop(out_dec, raw_frames):
         if non_zero_indices is None:
             mseloss = torch.mean((x_hat - x).pow(2))
         else:
+            print(non_zero_indices,x.size(),x_hat.size())
             mseloss = torch.mean((x_hat - x[non_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         pixels = x.size(0) * x.size(2) * x.size(3)
