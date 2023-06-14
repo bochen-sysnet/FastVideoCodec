@@ -105,6 +105,8 @@ class Attention(nn.Module):
 
     def forward(self, x):
         b, c, h, w = x.shape
+        print(x.shape)
+        exit(0)
         num_views = b//2 if self.training else b
         qkv = self.to_qkv(x).chunk(3, dim = 1)
         if self.type == 0:
