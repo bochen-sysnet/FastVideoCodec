@@ -2073,25 +2073,27 @@ def calculate_probability(num_machines, failure_probability, num_failed):
     probability = (comb(num_machines, num_failed)) * (p ** num_failed) * (q ** (num_machines - num_failed))
     return probability
 
-def sample_failed_machines(num_machines, failure_probability, max_failed):
+def sample_failed_machines(num_machines, failure_probability, max_failed, training=True):
     if max_failed == 0: return 0
-    probabilities = []
-    for num_failed in range(max_failed+1):
-        probability = calculate_probability(num_machines, failure_probability, num_failed)
-        probabilities.append(probability)
-    # probabilities = [1 for _ in range(max_failed + 1)]
+    if False:
+        probabilities = []
+        for num_failed in range(max_failed+1):
+            probability = calculate_probability(num_machines, failure_probability, num_failed)
+            probabilities.append(probability)
+    else:
+        probabilities = [1 for _ in range(max_failed + 1)]
     num_failed = random.choices(range(max_failed+1), probabilities)[0]
     return num_failed
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.05, force_resilience = -1):
+def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.05, force_resilience = -1, training=True):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
 
     # decide resilience
     if force_resilience < 0:
-        resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience))
+        resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience), training=training)
     else:
         resilience = force_resilience
     
@@ -2266,13 +2268,13 @@ class MCVC(ScaleSpaceFlow):
         # add later
         self.img_encoder = Encoder(3, use_attn=cross_correlation)
         self.img_decoder = Decoder(3, use_attn=cross_correlation)
-        self.img_hyperprior = Hyperprior(use_attn=cross_correlation)
+        self.img_hyperprior = Hyperprior(use_attn=cross_correlation or imbalanced_correlation)
         self.motion_encoder = Encoder(2 * 3, use_attn=cross_correlation)
         self.motion_decoder = Decoder(2 + 1, in_planes=192, use_attn=cross_correlation)
         self.res_encoder = Encoder(3, use_attn=cross_correlation)
         self.res_decoder = Decoder(3, in_planes=384, use_attn=cross_correlation)
-        self.res_hyperprior = Hyperprior(use_attn=cross_correlation)
-        self.motion_hyperprior = Hyperprior(use_attn=cross_correlation)
+        self.res_hyperprior = Hyperprior(use_attn=cross_correlation or imbalanced_correlation)
+        self.motion_hyperprior = Hyperprior(use_attn=cross_correlation or imbalanced_correlation)
         self.name = name
         self.cross_correlation = cross_correlation
 
@@ -2288,9 +2290,9 @@ class MCVC(ScaleSpaceFlow):
 
     def forward(self, frames):
         if not self.training:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,force_resilience = self.force_resilience)
+            mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,force_resilience = self.force_resilience,training=self.training)
         else:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,force_resilience = self.force_resilience)
+            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,force_resilience = self.force_resilience,training=self.training)
 
         reconstructions = []
         frames_likelihoods = []
