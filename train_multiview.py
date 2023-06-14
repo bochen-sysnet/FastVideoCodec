@@ -203,7 +203,7 @@ def metrics_per_gop(out_dec, raw_frames):
         total_mse += mseloss
         frame_idx += 1
 
-    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx
+    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx,completeness
         
 def train(epoch, model, train_dataset, best_codec_score):
     img_loss_module = AverageMeter()
