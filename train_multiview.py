@@ -60,7 +60,7 @@ parser.add_argument('--resume', type=str, default='',
                     help='Resume path')
 parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
-parser.add_argument('--resilience', default=0, type=int,
+parser.add_argument('--resilience', default=10, type=int,
                     help="Number of losing views to tolerate")
 parser.add_argument('--force-resilience', default=-1, type=int,
                     help="Force the number of losing views in training/evaluation")
@@ -315,13 +315,13 @@ def adjust_learning_rate(optimizer, epoch):
         param_group['lr'] *= r
     return r
     
-def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level):
+def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level, category_id):
     import shutil
     epoch = state['epoch']
-    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth')
+    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth')
     if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth',
-                        f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_best.pth')
+        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth',
+                        f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth')
 
 if args.evaluate:
     score, stats = test(0, model, test_dataset)
@@ -341,6 +341,6 @@ for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
     else:
         cvg_cnt += 1
     state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-    save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level)
+    save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, args.category)
     print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
     # if cvg_cnt == 10:break
