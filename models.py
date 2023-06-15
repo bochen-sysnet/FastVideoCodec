@@ -2075,7 +2075,7 @@ def calculate_probability(num_machines, failure_probability, num_failed):
 
 def sample_failed_machines(num_machines, failure_probability, max_failed, training=True):
     if max_failed == 0: return 0
-    if training:
+    if False:
         probabilities = []
         for num_failed in range(max_failed+1):
             probability = calculate_probability(num_machines, failure_probability, num_failed)
