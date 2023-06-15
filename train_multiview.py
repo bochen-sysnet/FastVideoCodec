@@ -244,7 +244,7 @@ def train(epoch, model, train_dataset, best_codec_score):
             optimizer.zero_grad()
 
         # add metrics
-        resi = int(train_dataset.num_views * (1 - completeness))
+        resi = np.round(train_dataset.num_views * (1 - completeness))
         print(train_dataset.num_views, completeness,resi)
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
