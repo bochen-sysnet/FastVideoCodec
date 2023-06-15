@@ -152,8 +152,7 @@ if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     if isinstance(checkpoint['score'],float):
         best_codec_score = checkpoint['score']
         print("Loaded model codec score: ", checkpoint['score'])
-    if isinstance(checkpoint['stats'],float):
-        best_codec_score = checkpoint['score']
+    if 'stats' in checkpoint:
         print("Loaded model codec stat: ", checkpoint['stats'])
     del checkpoint
 print("===================================================================")
