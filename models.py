@@ -2102,7 +2102,6 @@ def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probab
 
     # Sort both lists
     mask.sort()
-    print(mask)
 
     # replicate with batch
     batched_mask = []
