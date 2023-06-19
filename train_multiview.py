@@ -82,7 +82,7 @@ BEGIN_EPOCH = args.epoch[0]
 END_EPOCH = args.epoch[1]
 device = args.device
 STEPS = []
-views_of_category = [4,6,5,4,4]
+views_of_category = [4,6,5,4,4,3]
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -99,8 +99,8 @@ if use_cuda:
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
 train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
-test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
+train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
+test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
 
 # Enable CUDA memory tracking
 torch.cuda.reset_peak_memory_stats()
@@ -147,6 +147,7 @@ best_codec_score = 100
 if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
     print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
     checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    BEGIN_EPOCH = checkpoint['epoch']
     # load_state_dict_all(model, checkpoint['state_dict'])
     load_state_dict_whatever(model, checkpoint['state_dict'])
     if isinstance(checkpoint['score'],float):
