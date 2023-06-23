@@ -307,7 +307,7 @@ class MultiViewVideoDataset(Dataset):
                 for fn in os.listdir(directory):
                     if self.category in fn:
                         fn = fn.strip("'")
-                        category_filenames += [fn]
+                        category_filenames += [os.path.join(directory,fn)]
             total_files = len(category_filenames)
             split = int(total_files * 0.8)
             if self.split == 'train':
@@ -315,9 +315,9 @@ class MultiViewVideoDataset(Dataset):
             else:
                 files_after_split = category_filenames[split:]
             for fn in files_after_split:
-                self.__file_names += [os.path.join(directory,fn)]
-                self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_views]
-                self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_views//self.gop_size]
+                self.__file_names += [fn]
+                self.__video_frames += [len(os.listdir(fn))//self.num_views]
+                self.__video_gops += [len(os.listdir(fn))//self.num_views//self.gop_size]
             print(self.__file_names)
             print("[log] Number of files found {}".format(len(self.__file_names)))
         else:
