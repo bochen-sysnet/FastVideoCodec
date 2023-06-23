@@ -97,7 +97,8 @@ if use_cuda:
 
 # load multi-view dataset
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256), transforms.ToTensor()])
+# train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
 test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
