@@ -349,6 +349,8 @@ class MultiViewVideoDataset(Dataset):
                 else:
                     img_dir = os.path.join(self._dirs[self.category_id - 5],f'cam{v}',f'RLCAFTCONF-C{v}_1{frame_idx:05d}.jpeg')
                 img = Image.open(img_dir).convert('RGB')
+                print(img.shape)
+                exit(0)
                 img = self.transform(img)
                 data.append(img)
         data = torch.stack(data, dim=0)
