@@ -302,15 +302,22 @@ class MultiViewVideoDataset(Dataset):
         self.__video_frames = []
         self.__video_gops = []
         if 0 <= self.category_id and self.category_id <= 4:
+            category_filenames = []
             for directory in self._dirs:
                 for fn in os.listdir(directory):
                     if self.category in fn:
                         fn = fn.strip("'")
-                        if '_0' in fn and self.split == 'train':continue
-                        if '_0' not in fn and self.split == 'test':continue
-                        self.__file_names += [os.path.join(directory,fn)]
-                        self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_views]
-                        self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_views//self.gop_size]
+                        category_filenames += [fn]
+            total_files = len(category_filenames)
+            split = int(total_files * 0.8)
+            if self.split == 'train':
+                files_after_split = total_files[:split]
+            else:
+                files_after_split = total_files[split:]
+            for fn in files_after_split:
+                self.__file_names += [os.path.join(directory,fn)]
+                self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_views]
+                self.__video_gops += [len(os.listdir(os.path.join(directory,fn)))//self.num_views//self.gop_size]
             print(self.__file_names)
             print("[log] Number of files found {}".format(len(self.__file_names)))
         else:
