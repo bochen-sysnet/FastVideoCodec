@@ -311,9 +311,9 @@ class MultiViewVideoDataset(Dataset):
             total_files = len(category_filenames)
             split = int(total_files * 0.8)
             if self.split == 'train':
-                files_after_split = total_files[:split]
+                files_after_split = category_filenames[:split]
             else:
-                files_after_split = total_files[split:]
+                files_after_split = category_filenames[split:]
             for fn in files_after_split:
                 self.__file_names += [os.path.join(directory,fn)]
                 self.__video_frames += [len(os.listdir(os.path.join(directory,fn)))//self.num_views]
