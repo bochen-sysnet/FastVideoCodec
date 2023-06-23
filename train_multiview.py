@@ -97,11 +97,11 @@ if use_cuda:
 
 # load multi-view dataset
 # train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256), transforms.ToTensor()])
 # train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
-test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
+# test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
+test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 
 # Enable CUDA memory tracking
 torch.cuda.reset_peak_memory_stats()
@@ -135,9 +135,6 @@ optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_
 
 pytorch_total_params = sum(p.numel() for p in parameters)
 print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-# print('Optimizing:',parameter_names)
-# Adjust learning rate
-# adjust_learning_rate(optimizer, epoch)
 
 
 # initialize best score
