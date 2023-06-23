@@ -101,7 +101,7 @@ train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transfo
 test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=train_transforms,category_id=args.category,num_views=args.num_views)
 test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=test_transforms,category_id=args.category,num_views=args.num_views)
-
+exit(0)
 # Enable CUDA memory tracking
 torch.cuda.reset_peak_memory_stats()
 torch.cuda.memory_allocated()
