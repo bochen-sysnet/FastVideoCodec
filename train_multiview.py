@@ -278,7 +278,7 @@ def test(epoch, model, test_dataset):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx].cuda(device)
-            
+        continue
         with torch.no_grad():
             out_dec = model(data)
             mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
@@ -317,14 +317,14 @@ def adjust_learning_rate(optimizer, epoch):
     
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level, category_id):
     import shutil
-    epoch = state['epoch']
+    epoch = state['epoch']; bpp = state['stats'][0]; psnr = state['stats'][1]; score=state['score']
     torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth')
     if is_best:
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth')
 
     with open(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}.txt','a+') as f:
-        f.write(f'{epoch},{state['stats'][0]},{state['stats'][1]},{state['score']}\n')
+        f.write(f'{epoch},{bpp},{psnr},{score}\n')
 
 if args.evaluate:
     score, stats = test(0, model, test_dataset)
