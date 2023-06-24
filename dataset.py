@@ -273,19 +273,16 @@ class SynVideoDataset(Dataset):
             cap.release()
         # print("[log] Total frames: ", self._total_frames)
 
-categories = ['lobby','retail','office','industry_safety','cafe_shop','EPFL-RLC']
-views_of_category = [4,6,5,4,4,3]
+categories = ['lobby','retail','office','industry_safety','cafe_shop']
+views_of_category = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
     def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         assert category_id < len(views_of_category)
-        if 0 <= category_id and category_id <= 4:
-            self._dirs += [os.path.join(root_dir,'MMPTracking','train','images','63am')]
-            self._dirs += [os.path.join(root_dir,'MMPTracking','train','images','64am')]
-            self._dirs += [os.path.join(root_dir,'MMPTracking','validation','images','64pm')]
-        else:
-            self._dirs += [os.path.join(root_dir,'EPFL-RLC_dataset','frames')]
+        self._dirs += [os.path.join(root_dir,'MMPTracking','train','images','63am')]
+        self._dirs += [os.path.join(root_dir,'MMPTracking','train','images','64am')]
+        self._dirs += [os.path.join(root_dir,'MMPTracking','validation','images','64pm')]
         self.category_id = category_id
         self.category = categories[category_id]
         self.num_views = views_of_category[category_id] if num_views == 0 or num_views > views_of_category[category_id] else num_views
@@ -299,30 +296,26 @@ class MultiViewVideoDataset(Dataset):
     def get_file_names(self):
         print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
-        self.__video_frames = []
         self.__video_gops = []
-        if 0 <= self.category_id and self.category_id <= 4:
-            category_filenames = []
-            for directory in self._dirs:
-                for fn in os.listdir(directory):
-                    if self.category in fn:
-                        fn = fn.strip("'")
-                        category_filenames += [os.path.join(directory,fn)]
-            total_files = len(category_filenames)
-            split = int(total_files * 0.2)
+        self.__video_gop_offset = []
+        category_filenames = []
+        for directory in self._dirs:
+            for fn in os.listdir(directory):
+                if self.category in fn:
+                    fn = fn.strip("'")
+                    category_filenames += [os.path.join(directory,fn)]
+
+        for fn in category_filenames:
+            self.__file_names += [fn]
+            gops_in_video = len(os.listdir(fn))//self.num_views//self.gop_size
             if self.split == 'train':
-                files_after_split = category_filenames[split:]
+                self.__video_gops += [int(gops_in_video * 0.8)]
+                self.__video_gop_offset += [0]
             else:
-                files_after_split = category_filenames[:split]
-            for fn in files_after_split:
-                self.__file_names += [fn]
-                self.__video_frames += [len(os.listdir(fn))//self.num_views]
-                self.__video_gops += [len(os.listdir(fn))//self.num_views//self.gop_size]
-            print(self.__file_names)
-            print("[log] Number of files found {}".format(len(self.__file_names)))
-        else:
-            cam0_dir = os.path.join(self._dirs[self.category_id - 5],'cam0')
-            self.__video_gops += [len(os.listdir(cam0_dir))//self.gop_size]
+                self.__video_gops += [gops_in_video - int(gops_in_video * 0.8)]
+                self.__video_gop_offset += [int(gops_in_video * 0.8)]
+        print(self.__file_names)
+        print("[log] Number of files found {}".format(len(self.__file_names)))
 
         self.__num_gops = sum(self.__video_gops)
         print("[log] Number of gops found {}".format(self.__num_gops))
@@ -333,7 +326,7 @@ class MultiViewVideoDataset(Dataset):
     def __getitem__(self, idx):
         file_idx = 0
         total_gops = 0
-        for gops in self.__video_gops:
+        for gops,gop_offset in zip(self.__video_gops, self.__video_gop_offset):
             gop_idx = idx - total_gops
             if gop_idx < gops:
                 break
@@ -343,11 +336,8 @@ class MultiViewVideoDataset(Dataset):
         data = []
         for g in range(self.gop_size):
             for v in range(self.num_views):
-                frame_idx = gop_idx * self.gop_size + g
-                if 0 <= self.category_id and self.category_id <= 4:
-                    img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
-                else:
-                    img_dir = os.path.join(self._dirs[self.category_id - 5],f'cam{v}',f'RLCAFTCONF-C{v}_1{frame_idx:05d}.jpeg')
+                frame_idx = (gop_idx + gop_offset) * self.gop_size + g
+                img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
                 img = self.transform(img)
                 data.append(img)
