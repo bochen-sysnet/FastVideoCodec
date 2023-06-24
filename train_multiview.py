@@ -323,6 +323,9 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth',
                         f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth')
 
+    with open(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}.txt','a+') as f:
+        f.write(f'{epoch},{state['stats'][0]},{state['stats'][1]},{state['score']}\n')
+
 if args.evaluate:
     score, stats = test(0, model, test_dataset)
     exit(0)
