@@ -278,7 +278,7 @@ def test(epoch, model, test_dataset):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx].cuda(device)
-        continue
+            
         with torch.no_grad():
             out_dec = model(data)
             mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)

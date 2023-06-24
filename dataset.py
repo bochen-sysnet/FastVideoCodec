@@ -292,6 +292,8 @@ class MultiViewVideoDataset(Dataset):
         assert transform is not None
         self.transform = transform
         self.get_file_names()
+        for idx in range(self.__num_gops):
+            self.__getitem__(idx)
         
     def get_file_names(self):
         print("[log] Looking for files in", self._dataset_dir)  
@@ -337,6 +339,7 @@ class MultiViewVideoDataset(Dataset):
         for g in range(self.gop_size):
             for v in range(self.num_views):
                 frame_idx = (gop_idx + gop_offset) * self.gop_size + g
+                print(frame_idx)
                 img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
                 img = self.transform(img)
