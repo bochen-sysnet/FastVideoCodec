@@ -296,27 +296,26 @@ class MultiViewVideoDataset(Dataset):
     def get_file_names(self):
         print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
+        self.__video_frames = []
         self.__video_gops = []
-        self.__video_gop_offset = []
         category_filenames = []
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 if self.category in fn:
                     fn = fn.strip("'")
                     category_filenames += [os.path.join(directory,fn)]
-
-        for fn in category_filenames:
+        total_files = len(category_filenames)
+        split = int(total_files * 0.2)
+        if self.split == 'train':
+            files_after_split = category_filenames[split:]
+        else:
+            files_after_split = category_filenames[:split]
+        for fn in files_after_split:
             self.__file_names += [fn]
-            gops_in_video = len(os.listdir(fn))//self.num_views//self.gop_size
-            if self.split == 'train':
-                self.__video_gops += [int(gops_in_video * 0.8)]
-                self.__video_gop_offset += [0]
-            else:
-                self.__video_gops += [gops_in_video - int(gops_in_video * 0.8)]
-                self.__video_gop_offset += [int(gops_in_video * 0.8)]
+            self.__video_frames += [len(os.listdir(fn))//self.num_views]
+            self.__video_gops += [len(os.listdir(fn))//self.num_views//self.gop_size]
         print(self.__file_names)
         print("[log] Number of files found {}".format(len(self.__file_names)))
-
         self.__num_gops = sum(self.__video_gops)
         print("[log] Number of gops found {}".format(self.__num_gops))
 
@@ -326,17 +325,16 @@ class MultiViewVideoDataset(Dataset):
     def __getitem__(self, idx):
         file_idx = 0
         total_gops = 0
-        for gops,gop_offset in zip(self.__video_gops, self.__video_gop_offset):
+        for gops in self.__video_gops:
             gop_idx = idx - total_gops
             if gop_idx < gops:
                 break
             total_gops += gops
             file_idx += 1
-
         data = []
         for g in range(self.gop_size):
             for v in range(self.num_views):
-                frame_idx = (gop_idx + gop_offset) * self.gop_size + g
+                frame_idx = gop_idx * self.gop_size + g
                 img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
                 img = self.transform(img)

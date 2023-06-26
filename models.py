@@ -2324,7 +2324,8 @@ class MCVC(ScaleSpaceFlow):
             "non_zero_indices": mask
         }
 
-    def forward_keyframe(self, x, mask=None):
+    def forward_keyframe(self, x, mask):
+        x = mask_with_indices(x,mask)
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
         if not self.imbalanced_correlation:
@@ -2335,7 +2336,10 @@ class MCVC(ScaleSpaceFlow):
             masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
             return masked_x_hat, {"keyframe": likelihoods}
 
-    def forward_inter(self, x_cur, x_ref, mask=None, x_ref_masked=None):
+    def forward_inter(self, x_cur, x_ref, mask, x_ref_masked=None):
+        # masking
+        x_cur = mask_with_indices(x_cur, mask)
+        x_ref = mask_with_indices(x_ref, mask)
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
