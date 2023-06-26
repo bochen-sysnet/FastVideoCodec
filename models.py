@@ -2286,7 +2286,6 @@ class MCVC(ScaleSpaceFlow):
 
         if imbalanced_correlation:
             self.backup_img_decoder = Decoder(3, use_attn = True)
-            self.backup_motion_decoder = Decoder(2 + 1, in_planes=192, use_attn = True)
             self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = True)
         self.resilience = resilience
         self.num_views = num_views
@@ -2304,8 +2303,12 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
 
         # separate fixed ref and dynamic recon
-        x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
-        reconstructions.append(x_hat)
+        if not self.imbalanced_correlation:
+            x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
+            reconstructions.append(x_hat)
+        else:
+            x_hat, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
+            reconstructions.append(x_enhanced)
         frames_likelihoods.append(likelihoods)
         x_ref = x_hat.detach()
 
@@ -2313,28 +2316,29 @@ class MCVC(ScaleSpaceFlow):
             x = frames[i]
             if not self.imbalanced_correlation:
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
+                reconstructions.append(x_ref)
             else:
-                x_ref, likelihoods = self.forward_inter(x, frames[i-1], mask, x_ref)
-            reconstructions.append(x_ref)
+                x_ref, x_enhanced, likelihoods = self.forward_inter(x, frames[i-1], mask, x_ref)
+                reconstructions.append(x_enhanced)
             frames_likelihoods.append(likelihoods)
 
         return {
             "x_hat": reconstructions,
             "likelihoods": frames_likelihoods,
-            "non_zero_indices": mask
+            "non_zero_indices": mask,
         }
 
     def forward_keyframe(self, x, mask):
         x = mask_with_indices(x,mask)
         y = self.img_encoder(x)
         y_hat, likelihoods = self.img_hyperprior(y)
+        x_hat = self.img_decoder(y_hat)
+
         if not self.imbalanced_correlation:
-            x_hat = self.img_decoder(y_hat)
             return x_hat, {"keyframe": likelihoods}
         else:
-            # masked_x_hat = self.backup_img_decoder(y_hat[mask])
             masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
-            return masked_x_hat, {"keyframe": likelihoods}
+            return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask, x_ref_masked=None):
         # masking
@@ -2353,28 +2357,20 @@ class MCVC(ScaleSpaceFlow):
         y_res = self.res_encoder(x_res)
         y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
-        # inject empty into latent features, simulating lost data
-        if not self.imbalanced_correlation:
-            # combine
-            x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+        # combine
+        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
-            # final reconstruction: prediction + residual
-            x_rec = x_pred + x_res_hat
+        # final reconstruction: prediction + residual
+        x_rec = x_pred + x_res_hat
+
+        if not self.imbalanced_correlation:
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
-            # on decoder
-            # masked_motion_info = self.backup_motion_decoder(y_motion_hat[mask])
-            # masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
-            # masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat[mask], y_motion_hat[mask]), dim=1))
-
-            # preserve the locality of views
             y_motion_hat_masked = mask_with_indices(y_motion_hat,mask)
             y_res_hat_masked = mask_with_indices(y_res_hat,mask)
-            masked_motion_info = self.backup_motion_decoder(y_motion_hat_masked)
-            masked_x_pred = self.forward_prediction(x_ref_masked, masked_motion_info)
             masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat_masked, y_motion_hat_masked), dim=1))
 
             # final reconstruction: prediction + residual
-            masked_x_rec = masked_x_pred + masked_x_res_hat
+            masked_x_rec = x_pred + masked_x_res_hat
 
-            return masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
