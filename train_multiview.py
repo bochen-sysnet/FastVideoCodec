@@ -102,7 +102,7 @@ if use_cuda:
 h,w = 360,640
 from compressai.ops import compute_padding
 pad, unpad = compute_padding(h, w, min_div=2**6)
-print(pad)
+pad = (pad[0],pad[2])
 # shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
 shared_transforms = transforms.Compose([transforms.ToTensor(), transforms.Pad(pad, fill=0, padding_mode='constant')])
 train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
