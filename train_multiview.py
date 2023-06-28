@@ -289,10 +289,12 @@ def adjust_learning_rate(optimizer, epoch):
 def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level, category_id):
     import shutil
     epoch = state['epoch']; bpp = state['stats'][0]; psnr = state['stats'][1]; score=state['score']
-    torch.save(state, f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth')
+    ckpt_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth'
+    best_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
+    torch.save(state, ckpt_filename)
+    print('Saved to:',ckpt_filename)
     if is_best:
-        shutil.copyfile(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth',
-                        f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth')
+        shutil.copyfile(ckpt_filename, best_filename)
 
     with open(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}.txt','a+') as f:
         f.write(f'{epoch},{bpp},{psnr},{score}\n')
