@@ -62,7 +62,7 @@ parser.add_argument('--alpha', type=float, default=100,
                     help='Controlling norm scale')
 parser.add_argument('--resilience', default=10, type=int,
                     help="Number of losing views to tolerate")
-parser.add_argument('--force-resilience', default=-1, type=int,
+parser.add_argument('--force-resilience', default=0, type=int,
                     help="Force the number of losing views in training/evaluation")
 
 args = parser.parse_args()
@@ -71,15 +71,8 @@ args = parser.parse_args()
 CODEC_NAME = args.codec
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-# compression_level = args.compression_level # 0-7
-if args.resume == '':
-    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{args.compression_level}{loss_type}_ckpt.pth'
-else:
-    RESUME_CODEC_PATH = args.resume
 LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
-BEGIN_EPOCH = args.epoch[0]
-END_EPOCH = args.epoch[1]
 device = args.device
 STEPS = []
 
@@ -94,7 +87,7 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
-def get_model_n_optimizer_n_score_from_level(compression_level):
+def get_model_n_optimizer_n_score_from_level(compression_level,category_id):
     # codec model
     model = get_codec_model(CODEC_NAME, 
                             loss_type=loss_type, 
@@ -102,17 +95,16 @@ def get_model_n_optimizer_n_score_from_level(compression_level):
                             use_split=False,
                             num_views=test_dataset.num_views,
                             resilience=args.resilience)
-    if args.force_resilience >= 0:
-        model.force_resilience = args.force_resilience
+    model.force_resilience = args.force_resilience
     model = model.cuda(device)
 
     # initialize best score
     best_codec_score = 100
-    # try to load codec model 
-    if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-        print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+
+    RESUME_CODEC_PATH = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
+    if os.path.isfile(RESUME_CODEC_PATH):
+        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
         checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-        BEGIN_EPOCH = checkpoint['epoch']
         # load_state_dict_all(model, checkpoint['state_dict'])
         load_state_dict_whatever(model, checkpoint['state_dict'])
         if isinstance(checkpoint['score'],float):
@@ -287,7 +279,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
 
 if args.evaluate:
-    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level)
+    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level,args.category_id)
     score, stats = test(0, model, test_dataset)
     exit(0)
 
@@ -297,9 +289,11 @@ for category_id in range(5):
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
 
     for compression_level in range(4):
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(compression_level)
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(compression_level, category_id)
 
         cvg_cnt = 0
+        BEGIN_EPOCH = args.epoch[0]
+        END_EPOCH = args.epoch[1]
         for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
             best_codec_score = train(epoch, model, train_dataset, best_codec_score, optimizer)
             
