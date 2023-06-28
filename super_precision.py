@@ -105,7 +105,7 @@ class Attention(nn.Module):
 
     def forward(self, x):
         b, c, h, w = x.shape
-        num_views = b//2 if self.training else b
+        num_views = b#//2 if self.training else b
         qkv = self.to_qkv(x).chunk(3, dim = 1)
         if self.type == 0:
             q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
