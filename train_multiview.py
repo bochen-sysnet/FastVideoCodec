@@ -296,8 +296,8 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     if is_best:
         shutil.copyfile(ckpt_filename, best_filename)
 
-    with open(f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}.txt','a+') as f:
-        f.write(f'{epoch},{bpp},{psnr},{score}\n')
+    with open(f'{directory}/log.txt','a+') as f:
+        f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
 
 if args.evaluate:
     model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level)
@@ -323,5 +323,4 @@ for compression_level in range(4):
             cvg_cnt += 1
         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
         save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, args.category)
-        print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
         if cvg_cnt == 10:break
