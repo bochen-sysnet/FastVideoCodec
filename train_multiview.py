@@ -71,9 +71,9 @@ args = parser.parse_args()
 CODEC_NAME = args.codec
 SAVE_DIR = f'backup/{CODEC_NAME}'
 loss_type = 'P'
-compression_level = args.compression_level # 0-7
+# compression_level = args.compression_level # 0-7
 if args.resume == '':
-    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{compression_level}{loss_type}_ckpt.pth'
+    RESUME_CODEC_PATH = f'backup/{CODEC_NAME}/{CODEC_NAME}-{args.compression_level}{loss_type}_ckpt.pth'
 else:
     RESUME_CODEC_PATH = args.resume
 LEARNING_RATE = args.lr
@@ -82,7 +82,6 @@ BEGIN_EPOCH = args.epoch[0]
 END_EPOCH = args.epoch[1]
 device = args.device
 STEPS = []
-views_of_category = [4,6,5,4,4,3]
 
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
@@ -108,75 +107,42 @@ shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transf
 train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 
-# Enable CUDA memory tracking
-torch.cuda.reset_peak_memory_stats()
-torch.cuda.memory_allocated()
-# codec model
-model = get_codec_model(CODEC_NAME, 
-                        loss_type=loss_type, 
-                        compression_level=compression_level,
-                        use_split=False,
-                        num_views=test_dataset.num_views,
-                        resilience=args.resilience)
-if args.force_resilience >= 0:
-    model.force_resilience = args.force_resilience
-start_time = time.time()
-model = model.cuda(device)
-end_time = time.time()
+def get_model_n_optimizer_n_score_from_level(compression_level):
+    # codec model
+    model = get_codec_model(CODEC_NAME, 
+                            loss_type=loss_type, 
+                            compression_level=compression_level,
+                            use_split=False,
+                            num_views=test_dataset.num_views,
+                            resilience=args.resilience)
+    if args.force_resilience >= 0:
+        model.force_resilience = args.force_resilience
+    model = model.cuda(device)
 
-time_taken = end_time - start_time
-print("Time taken to move the model to GPU:", time_taken, "seconds")
+    # initialize best score
+    best_codec_score = 100
+    # try to load codec model 
+    if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
+        print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
+        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+        BEGIN_EPOCH = checkpoint['epoch']
+        # load_state_dict_all(model, checkpoint['state_dict'])
+        load_state_dict_whatever(model, checkpoint['state_dict'])
+        if isinstance(checkpoint['score'],float):
+            best_codec_score = checkpoint['score']
+            print("Loaded model codec score: ", checkpoint['score'])
+        if 'stats' in checkpoint:
+            print("Loaded model codec stat: ", checkpoint['stats'])
+        del checkpoint
 
-# Measure memory consumed after moving to GPU
-memory_consumed = torch.cuda.memory_allocated()
+    # create optimizer
+    parameters = [p for n, p in model.named_parameters()]
+    parameter_names = [n for n, p in model.named_parameters()]
+    optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    pytorch_total_params = sum(p.numel() for p in parameters)
+    print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
 
-print("Memory consumed by moving the model to GPU:", memory_consumed, "bytes")
-
-
-# create optimizer
-parameters = [p for n, p in model.named_parameters()]
-parameter_names = [n for n, p in model.named_parameters()]
-optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-
-pytorch_total_params = sum(p.numel() for p in parameters)
-print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
-
-
-# initialize best score
-best_codec_score = 100
-
-# ---------------------------------------------------------------
-# try to load codec model 
-if RESUME_CODEC_PATH and os.path.isfile(RESUME_CODEC_PATH):
-    print("Loading ckpt for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-    checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
-    BEGIN_EPOCH = checkpoint['epoch']
-    # load_state_dict_all(model, checkpoint['state_dict'])
-    load_state_dict_whatever(model, checkpoint['state_dict'])
-    if isinstance(checkpoint['score'],float):
-        best_codec_score = checkpoint['score']
-        print("Loaded model codec score: ", checkpoint['score'])
-    if 'stats' in checkpoint:
-        print("Loaded model codec stat: ", checkpoint['stats'])
-    del checkpoint
-print("===================================================================")
-# view_transforms = [transforms.ToTensor()]
-
-# # Rotation
-# angle = 30  # Specify the angle of rotation in degrees
-
-# # Translation
-# translate_x = 0.1  # Specify the horizontal translation in pixels
-# translate_y = 0.2  # Specify the vertical translation in pixels
-
-# # Define the transformations
-# view_transforms += [transforms.Compose([
-#     transforms.RandomRotation(angle),
-#     transforms.RandomAffine(0, translate=(translate_x, translate_y)),
-#     transforms.ToTensor()
-# ])]
-# train_dataset = FrameDataset('../dataset/vimeo', frame_size=256, view_transforms=view_transforms) 
-# test_dataset = SynVideoDataset(f'../dataset/{args.dataset}', (args.height, args.width), args.max_files, view_transforms=view_transforms)
+    return model, optimizer, best_codec_score
 
 
 def metrics_per_gop(out_dec, raw_frames):
@@ -210,7 +176,7 @@ def metrics_per_gop(out_dec, raw_frames):
 
     return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx,completeness
         
-def train(epoch, model, train_dataset, best_codec_score):
+def train(epoch, model, train_dataset, best_codec_score, optimizer):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
@@ -332,23 +298,28 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         f.write(f'{epoch},{bpp},{psnr},{score}\n')
 
 if args.evaluate:
+    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level)
     score, stats = test(0, model, test_dataset)
     exit(0)
 
-cvg_cnt = 0
-for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-    best_codec_score = train(epoch, model, train_dataset, best_codec_score)
-    
-    score, stats = test(epoch, model, test_dataset)
-    
-    is_best = score <= best_codec_score
-    if is_best:
-        print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
-        best_codec_score = score
-        cvg_cnt = 0
-    else:
-        cvg_cnt += 1
-    state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-    save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, args.category)
-    print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
-    # if cvg_cnt == 10:break
+
+for compression_level in range(4):
+    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(compression_level)
+
+    cvg_cnt = 0
+    for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
+        best_codec_score = train(epoch, model, train_dataset, best_codec_score, optimizer)
+        
+        score, stats = test(epoch, model, test_dataset)
+        
+        is_best = score <= best_codec_score
+        if is_best:
+            print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
+            best_codec_score = score
+            cvg_cnt = 0
+        else:
+            cvg_cnt += 1
+        state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+        save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, args.category)
+        print('Weights are saved to backup directory: %s' % (SAVE_DIR), 'score:',score)
+        if cvg_cnt == 10:break
