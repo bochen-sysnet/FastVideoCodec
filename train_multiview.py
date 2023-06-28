@@ -101,7 +101,7 @@ def get_model_n_optimizer_n_score_from_level(compression_level,category_id):
     # initialize best score
     best_codec_score = 100
 
-    RESUME_CODEC_PATH = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
+    RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
     if os.path.isfile(RESUME_CODEC_PATH):
         print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
         checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
