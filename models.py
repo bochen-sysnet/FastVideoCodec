@@ -2304,7 +2304,6 @@ class MCVC(ScaleSpaceFlow):
 
         # separate fixed ref and dynamic recon
         if not self.imbalanced_correlation:
-            print(frames[0].size())
             x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_hat)
         else:
