@@ -38,7 +38,7 @@ parser.add_argument('--debug', action='store_true',
                     help='debug model on validation set')
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--codec', type=str, default='MCVC-IA-R',
+parser.add_argument('--codec', type=str, default='MCVC-IA0',
                     help='name of codec')
 parser.add_argument('--category', default=0, type=int,
                     help="Category ID")
@@ -93,19 +93,6 @@ use_cuda = True
 if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
-
-# load multi-view dataset
-# train_transforms = transforms.Compose([transforms.RandomResizedCrop(size=256),transforms.RandomHorizontalFlip(), transforms.ToTensor()])
-# train_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-# test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-# h,w = 360,640
-# from compressai.ops import compute_padding
-# pad, unpad = compute_padding(h, w, min_div=2**6)
-# pad = (pad[0],pad[2])
-# shared_transforms = transforms.Compose([transforms.ToTensor(), transforms.Pad(pad, fill=0, padding_mode='constant')])
-shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
-test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 
 def get_model_n_optimizer_n_score_from_level(compression_level):
     # codec model
@@ -304,23 +291,27 @@ if args.evaluate:
     score, stats = test(0, model, test_dataset)
     exit(0)
 
+for category_id in range(5):
+    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+    train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
 
-for compression_level in range(4):
-    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(compression_level)
+    for compression_level in range(4):
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(compression_level)
 
-    cvg_cnt = 0
-    for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-        best_codec_score = train(epoch, model, train_dataset, best_codec_score, optimizer)
-        
-        score, stats = test(epoch, model, test_dataset)
-        
-        is_best = score <= best_codec_score
-        if is_best:
-            print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
-            best_codec_score = score
-            cvg_cnt = 0
-        else:
-            cvg_cnt += 1
-        state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-        save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, args.category)
-        if cvg_cnt == 10:break
+        cvg_cnt = 0
+        for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
+            best_codec_score = train(epoch, model, train_dataset, best_codec_score, optimizer)
+            
+            score, stats = test(epoch, model, test_dataset)
+            
+            is_best = score <= best_codec_score
+            if is_best:
+                print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
+                best_codec_score = score
+                cvg_cnt = 0
+            else:
+                cvg_cnt += 1
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
+            if cvg_cnt == 10:break
