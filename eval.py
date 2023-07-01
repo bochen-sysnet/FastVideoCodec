@@ -170,7 +170,7 @@ def static_simulation_x26x_multicam(args,test_dataset):
 
             l = len(data)
                 
-            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
+            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1, frame_comb=args.frame_comb)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
@@ -502,6 +502,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default=0, type=int, help="GPU ID")
     parser.add_argument('--norm', default=2, type=int, help="Norm type")
     parser.add_argument('--category', default=0, type=int, help="Category ID")
+    parser.add_argument('--frame-comb', default=0, type=int, help="Frame combination method. 0: naive. 1: spatial. 2: temporal.")
     args = parser.parse_args()
     
     # check gpu

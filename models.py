@@ -75,7 +75,7 @@ def init_training_params(model):
                     'D-RES':AverageMeter(),'eDRES':AverageMeter(),'D-NET':AverageMeter()}
     model.bitscounter = {'M':AverageMeter(),'R':AverageMeter()}
         
-def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
+def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_comb=0):
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
@@ -104,10 +104,25 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16):
         for img in raw_clip:
             process.stdin.write(np.array(img).tobytes())
     else:
-        for v in range(raw_clip.size(1)):
-            for g in range(raw_clip.size(0)):
-                img = to_pil(raw_clip[g][v])
+        if frame_comb == 0:
+            for v in range(raw_clip.size(1)):
+                for g in range(raw_clip.size(0)):
+                    img = to_pil(raw_clip[g][v])
+                    process.stdin.write(np.array(img).tobytes())
+        elif frame_comb == 1:
+            g,v,c,h,w = raw_clip.size()
+            raw_clip = torch.cat(raw_clip.chunk(v,dim=1),dim=3).reshape(g,c,h,w*v)
+            for i in range(g):
+                img = to_pil(raw_clip[i])
                 process.stdin.write(np.array(img).tobytes())
+        elif frame_comb == 2:
+            for g in range(raw_clip.size(0)):
+                for v in range(raw_clip.size(1)):
+                    img = to_pil(raw_clip[g][v])
+                    process.stdin.write(np.array(img).tobytes())
+        else:
+            print('Undefined frame comb:',frame_comb)
+            exit(0)
     # Close and flush stdin
     process.stdin.close()
     # Wait for sub-process to finish
