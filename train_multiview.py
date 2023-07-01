@@ -350,7 +350,7 @@ def static_simulation_x26x_multicam(args,test_dataset,category_id):
 
 def static_simulation_model_multicam(args, test_dataset,category_id):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model, _, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,lvl,args.category_id)
+        model, _, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,lvl,category_id)
         model.eval()
         test(0, model, test_dataset, print_header=[category_id,lvl])
 
