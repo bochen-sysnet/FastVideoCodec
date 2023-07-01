@@ -123,7 +123,7 @@ def static_simulation_x26x(args,test_dataset):
                 continue
             l = len(data)
                 
-            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
+            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.codec,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
@@ -145,7 +145,7 @@ def static_simulation_x26x(args,test_dataset):
 
             # write result
             psnr_list = torch.stack(psnr_list,dim=0).tolist()
-            with open(f'{args.task}.log','a') as f:
+            with open(f'{args.codec}.log','a') as f:
                 f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
                 
@@ -170,7 +170,7 @@ def static_simulation_x26x_multicam(args,test_dataset):
 
             l = len(data)
                 
-            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.task,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1, frame_comb=args.frame_comb)
+            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.codec,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1, frame_comb=args.frame_comb)
             
             # aggregate loss
             ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
@@ -192,7 +192,7 @@ def static_simulation_x26x_multicam(args,test_dataset):
 
             # write result
             psnr_list = torch.stack(psnr_list,dim=0).tolist()
-            with open(f'{args.task}.log','a') as f:
+            with open(f'{args.codec}.log','a') as f:
                 f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
 
@@ -221,7 +221,7 @@ def calc_metrics(out_dec,raw_frames):
 
 def static_simulation_model_multicam(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
+        model = LoadModel(args.codec,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
@@ -253,7 +253,7 @@ def static_simulation_model_multicam(args, test_dataset):
     
 def static_simulation_model(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
-        model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
+        model = LoadModel(args.codec,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
@@ -278,7 +278,7 @@ def static_simulation_model(args, test_dataset):
         for data_idx,_ in enumerate(test_iter):
             if args.evolve and (data_idx == 0 or eof):
                 state_list,min_loss,print_str = evolve(args,model, test_dataset, data_idx, ds_size, lvl)
-                # with open(f'{args.task}.{args.dataset}.log','a') as f:
+                # with open(f'{args.codec}.{args.dataset}.log','a') as f:
                 #     f.write(str(state_list)+'\n')
             frame,eof = test_dataset[data_idx]
             data.append(transforms.ToTensor()(frame))
@@ -329,14 +329,14 @@ def static_simulation_model(args, test_dataset):
             if eof:
                 if not args.evolve or (args.evolve and video_bpp_module.avg + video_imgloss_module.avg < min_loss):
                     print(video_bpp_module.avg + video_imgloss_module.avg, min_loss)
-                    with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
+                    with open(f'{args.codec}.{args.dataset}.{int(args.evolve)}.log','a') as f:
                         # per video
                         f.write(f'{lvl},{video_bpp_module.avg:.4f},{compt_module.avg:.3f},{decompt_module.avg:.3f},'
                                 f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n')
                         # per frame
                         f.write(str(all_psnr_list)+'\n')
                 else:
-                    with open(f'{args.task}.{args.dataset}.{int(args.evolve)}.log','a') as f:
+                    with open(f'{args.codec}.{args.dataset}.{int(args.evolve)}.log','a') as f:
                         f.write(print_str)
                 all_psnr_list = []
                 compt_module.reset()
@@ -348,7 +348,7 @@ def static_simulation_model(args, test_dataset):
                 aux3_loss_module.reset()
                 aux4_loss_module.reset()
                 if args.evolve:
-                    model = LoadModel(args.task,compression_level=lvl,use_split=args.use_split,device=args.device)
+                    model = LoadModel(args.codec,compression_level=lvl,use_split=args.use_split,device=args.device)
             
         test_dataset.reset()
     return [ba_loss_module.avg,psnr_module.avg]
@@ -444,7 +444,7 @@ def evolve(args,model, test_dataset, start, end, level):
                     # super-precision result
                     min_loss = img_loss_module.avg + ba_loss_module.avg
                     print_str = f'{level},{ba_loss_module.avg:.4f},0,0,' + f'{aux_loss_module.avg:.4f},{aux2_loss_module.avg:.4f},{aux3_loss_module.avg:.4f},{aux4_loss_module.avg:.4f}\n' + str(all_psnr_list) + '\n'
-                    with open(f'{args.task}.{args.dataset}.0.log','a') as f:
+                    with open(f'{args.codec}.{args.dataset}.0.log','a') as f:
                         # per video
                         f.write(print_str)
                     first_test = False
@@ -486,7 +486,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parameters of simulations.')
     parser.add_argument('--role', type=str, default='standalone', help='server or client or standalone')
     parser.add_argument('--dataset', type=str, default='MMPT', help='UVG or MCL-JCV or MMPT')
-    parser.add_argument('--task', type=str, default='MCVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
+    parser.add_argument('--codec', type=str, default='MCVC', help='RLVC,DVC,SPVC,AE3D,x265,x264')
     parser.add_argument('--use_split', dest='use_split', action='store_true')
     parser.add_argument('--no-use_split', dest='use_split', action='store_false')
     parser.set_defaults(use_split=False)
@@ -516,12 +516,12 @@ if __name__ == '__main__':
         test_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
         test_dataset = MultiViewVideoDataset('../dataset/multicamera/MMPTracking/',split='test', transform=test_transforms, category_id=args.category)
     
-    if 'x26' in args.task:
+    if 'x26' in args.codec:
         if args.dataset != 'MMPT':
             static_simulation_x26x(args, test_dataset)
         else:
             static_simulation_x26x_multicam(args, test_dataset)
-    elif args.task in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP','MCVC']:
+    elif args.codec in ['RLVC2','DVC-pretrained','LSVC-L-128','SSF-Official','Base','ELFVC','ELFVC-SP','MCVC']:
         if args.dataset != 'MMPT':
             static_simulation_model(args, test_dataset)
         else:
