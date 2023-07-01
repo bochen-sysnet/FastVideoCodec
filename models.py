@@ -117,6 +117,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                 img = to_pil(raw_clip[i])
                 process.stdin.write(np.array(img).tobytes())
             clip_size = raw_clip.size(0)
+            print(clip_size,'...')
         elif frame_comb == 2:
             for g in range(raw_clip.size(0)):
                 for v in range(raw_clip.size(1)):
@@ -170,14 +171,32 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
         psnr_list = [];msssim_list = [];bpp_act_list = []
         bpp = video_size*1.0/len(clip)/(height*width)
         i = 0
-        for v in range(raw_clip.size(1)):
-            for g in range(raw_clip.size(0)):
-                Y1_raw = raw_clip[g][v].unsqueeze(0)
+        if frame_comb == 0:
+            for v in range(raw_clip.size(1)):
+                for g in range(raw_clip.size(0)):
+                    Y1_raw = raw_clip[g][v].unsqueeze(0)
+                    Y1_com = clip[i].unsqueeze(0)
+                    psnr_list += [PSNR(Y1_raw, Y1_com)]
+                    msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+                    bpp_act_list += torch.FloatTensor([bpp])
+                    i += 1
+        elif frame_comb == 1:
+            for i in range(g):
+                Y1_raw = raw_clip[g].unsqueeze(0)
                 Y1_com = clip[i].unsqueeze(0)
                 psnr_list += [PSNR(Y1_raw, Y1_com)]
                 msssim_list += [MSSSIM(Y1_raw, Y1_com)]
                 bpp_act_list += torch.FloatTensor([bpp])
                 i += 1
+        else:
+            for g in range(raw_clip.size(0)):
+                for v in range(raw_clip.size(1)):
+                    Y1_raw = raw_clip[g][v].unsqueeze(0)
+                    Y1_com = clip[i].unsqueeze(0)
+                    psnr_list += [PSNR(Y1_raw, Y1_com)]
+                    msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+                    bpp_act_list += torch.FloatTensor([bpp])
+                    i += 1
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
