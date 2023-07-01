@@ -82,6 +82,8 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
     output_filename = f'tmp/videostreams/{name}{frame_comb}.mp4'
     if frame_comb == 1:
         width *= raw_clip.size(1)
+    if frame_comb in [0,2]:
+        GOP *= raw_clip.size(1)
     if name == 'x265-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
     elif name == 'x265-medium':
@@ -107,6 +109,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
             process.stdin.write(np.array(img).tobytes())
     else:
         if frame_comb == 0:
+            # concate
             for v in range(raw_clip.size(1)):
                 for g in range(raw_clip.size(0)):
                     img = to_pil(raw_clip[g][v])
@@ -176,16 +179,13 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
         # create cache
         psnr_list = [];msssim_list = [];bpp_act_list = []
         bpp = video_size*1.0/len(clip)/(height*width)
-        i = 0
         if frame_comb == 0:
-            for v in range(raw_clip.size(1)):
-                for g in range(raw_clip.size(0)):
-                    Y1_raw = raw_clip[g][v].unsqueeze(0)
-                    Y1_com = clip[i].unsqueeze(0)
-                    psnr_list += [PSNR(Y1_raw, Y1_com)]
-                    msssim_list += [MSSSIM(Y1_raw, Y1_com)]
-                    bpp_act_list += torch.FloatTensor([bpp])
-                    i += 1
+            for g in range(raw_clip.size(0)):
+                Y1_raw = torch.cat([raw_clip[g][v].unsqueeze(0) for v in range(raw_clip.size(1))])
+                Y1_com = torch.cat([clip[g + v * raw_clip.size(0)].unsqueeze(0) for v in range(raw_clip.size(1))])
+                psnr_list += [PSNR(Y1_raw, Y1_com)]
+                msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+                bpp_act_list += torch.FloatTensor([bpp])
         elif frame_comb == 1:
             for i in range(g):
                 Y1_raw = raw_clip[i].unsqueeze(0)
@@ -195,13 +195,11 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                 bpp_act_list += torch.FloatTensor([bpp])
         elif frame_comb == 2:
             for g in range(raw_clip.size(0)):
-                for v in range(raw_clip.size(1)):
-                    Y1_raw = raw_clip[g][v].unsqueeze(0)
-                    Y1_com = clip[i].unsqueeze(0)
-                    psnr_list += [PSNR(Y1_raw, Y1_com)]
-                    msssim_list += [MSSSIM(Y1_raw, Y1_com)]
-                    bpp_act_list += torch.FloatTensor([bpp])
-                    i += 1
+                Y1_raw = torch.cat([raw_clip[g][v].unsqueeze(0) for v in range(raw_clip.size(1))])
+                Y1_com = torch.cat([clip[g + v * raw_clip.size(0)].unsqueeze(0) for v in range(raw_clip.size(1))])
+                psnr_list += [PSNR(Y1_raw, Y1_com)]
+                msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+                bpp_act_list += torch.FloatTensor([bpp])
         elif frame_comb == 3:
             for g in range(raw_clip.size(0)):
                 Y1_raw = raw_clip[g][0].unsqueeze(0)
