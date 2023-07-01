@@ -130,7 +130,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
             clip_size = raw_clip.size(0)*raw_clip.size(1)
         elif frame_comb == 3:
             for g in range(raw_clip.size(0)):
-                img = to_pil(raw_clip[g][0])
+                img = to_pil(raw_clip[g][3])
                 process.stdin.write(np.array(img).tobytes())
             clip_size = raw_clip.size(0)
         else:
@@ -202,7 +202,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                 bpp_act_list += torch.FloatTensor([bpp])
         elif frame_comb == 3:
             for g in range(raw_clip.size(0)):
-                Y1_raw = raw_clip[g][0].unsqueeze(0)
+                Y1_raw = raw_clip[g][3].unsqueeze(0)
                 Y1_com = clip[i].unsqueeze(0)
                 psnr_list += [PSNR(Y1_raw, Y1_com)]
                 msssim_list += [MSSSIM(Y1_raw, Y1_com)]
