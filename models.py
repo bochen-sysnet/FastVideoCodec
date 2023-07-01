@@ -79,7 +79,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
     imgByteArr = io.BytesIO()
     fps = 25
     #Q = 27#15,19,23,27
-    output_filename = f'tmp/videostreams/{name}.mp4'
+    output_filename = f'tmp/videostreams/{name}{frame_comb}.mp4'
     if name == 'x265-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
     elif name == 'x265-medium':
@@ -166,6 +166,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
             msssim_list += [MSSSIM(Y1_raw, Y1_com)]
             bpp_act_list += torch.FloatTensor([bpp])
     else:
+        print(len(clip),raw_clip.size())
         assert len(clip) == clip_size,f'Clip size mismatch {len(clip)} {str(raw_clip.size())}'
         # create cache
         psnr_list = [];msssim_list = [];bpp_act_list = []
