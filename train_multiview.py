@@ -280,9 +280,9 @@ def test(epoch, model, test_dataset, print_header=None):
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). " + metrics_str)
 
-        if print_header is not None:
-            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-                f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
+        # if print_header is not None:
+        #     with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
+        #         f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
