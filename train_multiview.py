@@ -327,13 +327,13 @@ def static_simulation_x26x_multicam(args,test_dataset):
 if args.benchmark:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,\
-        category_id=args.category_id,num_views=args.num_views)
+        category_id=args.category,num_views=args.num_views)
     if 'x26' in args.codec:
         static_simulation_x26x_multicam(args, test_dataset)
 
 if args.evaluate:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category_id,num_views=args.num_views)
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 
     model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level,args.category_id)
     score, stats = test(0, model, test_dataset)
