@@ -192,7 +192,7 @@ def static_simulation_x26x_multicam(args,test_dataset):
 
             # write result
             psnr_list = torch.stack(psnr_list,dim=0).tolist()
-            with open(f'{args.codec}.log','a') as f:
+            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
                 f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
                 f.write(str(psnr_list)+'\n')
 

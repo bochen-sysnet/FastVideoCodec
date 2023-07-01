@@ -20,16 +20,16 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 
-from models import get_codec_model,parallel_compression, AverageMeter
+from models import get_codec_model,parallel_compression, AverageMeter, compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 from dataset import SynVideoDataset, FrameDataset, MultiViewVideoDataset
 
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
-parser.add_argument('--dataset', type=str, default='UVG', choices=['UVG','MCL-JCV','UVG/2k','MCL-JCV/2k'],
-                    help='evaluating dataset (default: UVG)')
 parser.add_argument('--batch-size', default=2, type=int,
                     help="batch size")
+parser.add_argument('--benchmark', action='store_true',
+                    help='benchmark model on validation set')
 parser.add_argument('--super-batch', default=16, type=int,
                     help="super batch size")
 parser.add_argument('--num_views', default=0, type=int,
@@ -64,6 +64,10 @@ parser.add_argument('--resilience', default=10, type=int,
                     help="Number of losing views to tolerate")
 parser.add_argument('--force-resilience', default=0, type=int,
                     help="Force the number of losing views in training/evaluation")
+parser.add_argument("--fP", type=int, default=15, help="The number of forward P frames")
+parser.add_argument("--bP", type=int, default=0, help="The number of backward P frames")
+parser.add_argument('--level-range', type=int, nargs='+', default=[0,4])
+parser.add_argument('--frame-comb', default=0, type=int, help="Frame combination method. 0: naive. 1: spatial. 2: temporal.")
 
 args = parser.parse_args()
 
@@ -278,7 +282,59 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     with open(f'{directory}/log.txt','a+') as f:
         f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
 
+def static_simulation_x26x_multicam(args,test_dataset):
+    ds_size = len(test_dataset)
+    quality_levels = [7,11,15,19,23,27,31,35]
+    
+    Q_list = quality_levels[args.level_range[0]:args.level_range[1]]
+    for lvl,Q in enumerate(Q_list):
+        data = []
+        ba_loss_module = AverageMeter()
+        psnr_module = AverageMeter()
+        msssim_module = AverageMeter()
+        test_iter = tqdm(range(ds_size))
+        for data_idx,_ in enumerate(test_iter):
+            data = test_dataset[data_idx]
+
+            l = len(data)
+                
+            psnr_list,msssim_list,bpp_act_list,compt,decompt = compress_whole_video(args.codec,data,Q,*test_dataset._frame_size, GOP=args.fP + args.bP +1, frame_comb=args.frame_comb)
+            
+            # aggregate loss
+            ba_loss = torch.stack(bpp_act_list,dim=0).mean(dim=0)
+            psnr = torch.stack(psnr_list,dim=0).mean(dim=0)
+            msssim = torch.stack(msssim_list,dim=0).mean(dim=0)
+            
+            # record loss
+            ba_loss_module.update(ba_loss.cpu().data.item(), l)
+            psnr_module.update(psnr.cpu().data.item(),l)
+            msssim_module.update(msssim.cpu().data.item(), l)
+
+            # show result
+            test_iter.set_description(
+                f"Q:{Q}"
+                f"{data_idx:6}. "
+                f"BA: {ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
+                f"P: {psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+                f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
+
+            # write result
+            psnr_list = torch.stack(psnr_list,dim=0).tolist()
+            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
+                f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
+                f.write(str(psnr_list)+'\n')
+
+if args.benchmark:
+    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+
+    if 'x26' in args.codec:
+        static_simulation_x26x_multicam(args, test_dataset)
+
 if args.evaluate:
+    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+
     model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level,args.category_id)
     score, stats = test(0, model, test_dataset)
     exit(0)
