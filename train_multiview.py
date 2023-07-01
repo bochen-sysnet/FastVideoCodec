@@ -346,8 +346,8 @@ def static_simulation_x26x_multicam(args,test_dataset,category_id):
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
             # write result
-            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-                f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
+            # with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
+            #     f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
 
 def static_simulation_model_multicam(args, test_dataset,category_id):
     for lvl in range(args.level_range[0],args.level_range[1]):
