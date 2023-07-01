@@ -326,8 +326,8 @@ def static_simulation_x26x_multicam(args,test_dataset):
 
 if args.benchmark:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category_id,num_views=args.num_views)
-
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,\
+        category_id=args.category_id,num_views=args.num_views)
     if 'x26' in args.codec:
         static_simulation_x26x_multicam(args, test_dataset)
 
