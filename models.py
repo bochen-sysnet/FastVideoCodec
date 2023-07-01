@@ -454,6 +454,7 @@ def PSNR(Y1_raw, Y1_com, use_list=False):
 
 def MSSSIM(Y1_raw, Y1_com, use_list=False):
     Y1_com = Y1_com.to(Y1_raw.device)
+    log10 = torch.log(torch.FloatTensor([10])).squeeze(0).to(Y1_raw.device)
     if not use_list:
         quality = pytorch_msssim.ms_ssim(Y1_raw, Y1_com)
         quality = -10 * torch.log(1-quality)/log10
