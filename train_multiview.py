@@ -24,6 +24,7 @@ from models import get_codec_model,parallel_compression, AverageMeter, compress_
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
 from dataset import SynVideoDataset, FrameDataset, MultiViewVideoDataset
+import pytorch_msssim
 
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
 parser.add_argument('--batch-size', default=2, type=int,
@@ -48,6 +49,8 @@ parser.add_argument('--epoch', type=int, nargs='+', default=[0,1000],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
                     help='Learning rate')
+parser.add_argument('--loss-type', type=str, default='P',
+                    help='PSNR or MS-SSIM')
 parser.add_argument('--width', type=int, default=256,
                     help='Frame width') 
 parser.add_argument('--height', type=int, default=256,
@@ -74,7 +77,7 @@ args = parser.parse_args()
 # OPTION
 CODEC_NAME = args.codec
 SAVE_DIR = f'backup/{CODEC_NAME}'
-loss_type = 'P'
+loss_type = args.loss_type
 LEARNING_RATE = args.lr
 WEIGHT_DECAY = 5e-4
 device = args.device
@@ -91,9 +94,9 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
-def get_model_n_optimizer_n_score_from_level(compression_level,category_id):
+def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,category_id):
     # codec model
-    model = get_codec_model(CODEC_NAME, 
+    model = get_codec_model(codec_name, 
                             loss_type=loss_type, 
                             compression_level=compression_level,
                             use_split=False,
@@ -105,10 +108,9 @@ def get_model_n_optimizer_n_score_from_level(compression_level,category_id):
     # initialize best score
     best_codec_score = 100
 
-    RESUME_CODEC_PATH = f'{SAVE_DIR}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
-    if os.path.isfile(RESUME_CODEC_PATH):
-        print("Loading for ", CODEC_NAME, 'from',RESUME_CODEC_PATH)
-        checkpoint = torch.load(RESUME_CODEC_PATH,map_location=torch.device('cuda:'+str(device)))
+    def load_from_path(path):
+        print("Loading for ", codec_name, 'from',path)
+        checkpoint = torch.load(path,map_location=torch.device('cuda:'+str(device)))
         # load_state_dict_all(model, checkpoint['state_dict'])
         load_state_dict_whatever(model, checkpoint['state_dict'])
         if isinstance(checkpoint['score'],float):
@@ -117,6 +119,19 @@ def get_model_n_optimizer_n_score_from_level(compression_level,category_id):
         if 'stats' in checkpoint:
             print("Loaded model codec stat: ", checkpoint['stats'])
         del checkpoint
+
+    paths = []
+    paths += f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth'
+    paths += f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth'
+    if codec_name == 'MCVC-IA':
+        paths += f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth'
+    if loss_type == 'M':
+        paths += f'{SAVE_DIR}/{codec_name}-{compression_level}P_vid{category_id}_best.pth'
+    paths += f'{SAVE_DIR}/{codec_name}-0{loss_type}_vid{category_id}_ckpt.pth'
+    for pth in paths:
+        if os.path.isfile(pth):
+            load_from_path(pth)
+            break
 
     # create optimizer
     parameters = [p for n, p in model.named_parameters()]
@@ -145,11 +160,19 @@ def metrics_per_gop(out_dec, raw_frames):
                 var_like = likelihoods[likelihood_name]
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        if non_zero_indices is None:
-            mseloss = torch.mean((x_hat - x).pow(2))
+        if args.loss_type == 'P':
+            if non_zero_indices is None:
+                mseloss = torch.mean((x_hat - x).pow(2))
+            else:
+                mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
+            psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         else:
-            mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
-        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
+            if non_zero_indices is None:
+                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
+            else:
+                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
+            psnr = 1 - mseloss
+
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
         total_bpp += bpp
@@ -217,7 +240,7 @@ def train(epoch, model, train_dataset, best_codec_score, optimizer):
 
     return best_codec_score
     
-def test(epoch, model, test_dataset):
+def test(epoch, model, test_dataset, print_header=None):
     model.eval()
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
@@ -257,6 +280,10 @@ def test(epoch, model, test_dataset):
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). " + metrics_str)
+
+        if print_header is not None:
+            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
+                f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
@@ -282,9 +309,9 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     with open(f'{directory}/log.txt','a+') as f:
         f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
 
-def static_simulation_x26x_multicam(args,test_dataset):
+def static_simulation_x26x_multicam(args,test_dataset,category_id):
     ds_size = len(test_dataset)
-    quality_levels = [7,11,15,19,23,27,31,35]
+    quality_levels = [7,11,15,19,23,27,31,35]# 15,19,23,27
     
     Q_list = quality_levels[args.level_range[0]:args.level_range[1]]
     for lvl,Q in enumerate(Q_list):
@@ -319,23 +346,31 @@ def static_simulation_x26x_multicam(args,test_dataset):
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
             # write result
-            psnr_list = torch.stack(psnr_list,dim=0).tolist()
             with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-                f.write(f'{lvl},{ba_loss_module.val:.4f},{compt:.4f},{decompt:.4f}\n')
-                f.write(str(psnr_list)+'\n')
+                f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
+
+def static_simulation_model_multicam(args, test_dataset,category_id):
+    for lvl in range(args.level_range[0],args.level_range[1]):
+        model, _, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,lvl,args.category_id)
+        model.eval()
+        test(0, model, test_dataset, print_header=[category_id,lvl])
 
 if args.benchmark:
-    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,\
-        category_id=args.category,num_views=args.num_views)
-    if 'x26' in args.codec:
-        static_simulation_x26x_multicam(args, test_dataset)
+    for category_id in range(5):
+        shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,\
+            category_id=category_id,num_views=args.num_views)
+        if 'x26' in args.codec:
+            static_simulation_x26x_multicam(args, test_dataset, category_id)
+        else:
+            static_simulation_model_multicam(args, test_dataset, category_id)
+        break
 
 if args.evaluate:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 
-    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(args.compression_level,args.category_id)
+    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level,args.category_id)
     score, stats = test(0, model, test_dataset)
     exit(0)
 
@@ -346,7 +381,7 @@ for category_id in range(5):
 
     start = 0# if category_id>0 else 1
     for compression_level in range(start,4):
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(compression_level, category_id)
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id)
 
         cvg_cnt = 0
         BEGIN_EPOCH = args.epoch[0]

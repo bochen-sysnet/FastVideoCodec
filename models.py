@@ -59,7 +59,7 @@ def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
     model.stage = 'REC'
     
-    psnr_list = [256,512,1024,2048,4096,8192,16384,16384*2]
+    psnr_list = [256,512,1024,2048]#,4096,8192,16384,16384*2]
     msssim_list = [8,16,32,64]
     I_lvl_list = [37,32,27,22,17,12,7,2]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
@@ -125,6 +125,11 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                     img = to_pil(raw_clip[g][v])
                     process.stdin.write(np.array(img).tobytes())
             clip_size = raw_clip.size(0)*raw_clip.size(1)
+        elif frame_comb == 3:
+            for g in range(raw_clip.size(0)):
+                img = to_pil(raw_clip[g][0])
+                process.stdin.write(np.array(img).tobytes())
+            clip_size = raw_clip.size(0)*raw_clip.size(1)
         else:
             print('Undefined frame comb:',frame_comb)
             exit(0)
@@ -188,7 +193,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                 psnr_list += [PSNR(Y1_raw, Y1_com)]
                 msssim_list += [MSSSIM(Y1_raw, Y1_com)]
                 bpp_act_list += torch.FloatTensor([bpp])
-        else:
+        elif frame_comb == 2:
             for g in range(raw_clip.size(0)):
                 for v in range(raw_clip.size(1)):
                     Y1_raw = raw_clip[g][v].unsqueeze(0)
@@ -197,6 +202,13 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                     msssim_list += [MSSSIM(Y1_raw, Y1_com)]
                     bpp_act_list += torch.FloatTensor([bpp])
                     i += 1
+        elif frame_comb == 3:
+            for g in range(raw_clip.size(0)):
+                Y1_raw = raw_clip[g][0].unsqueeze(0)
+                Y1_com = clip[i].unsqueeze(0)
+                psnr_list += [PSNR(Y1_raw, Y1_com)]
+                msssim_list += [MSSSIM(Y1_raw, Y1_com)]
+                bpp_act_list += torch.FloatTensor([bpp])
         
     return psnr_list,msssim_list,bpp_act_list,compt/len(clip),decompt/len(clip)
 
