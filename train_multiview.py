@@ -264,7 +264,7 @@ def test(epoch, model, test_dataset, print_header=None):
             img_loss_module.update(mse.cpu().data.item())
 
         # add metrics
-        resi = int(np.round(train_dataset.num_views * (1 - completeness)))
+        resi = int(np.round(test_dataset.num_views * (1 - completeness)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
