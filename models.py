@@ -196,7 +196,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
         elif frame_comb == 2:
             for g in range(raw_clip.size(0)):
                 Y1_raw = torch.cat([raw_clip[g][v].unsqueeze(0) for v in range(raw_clip.size(1))])
-                Y1_com = torch.cat([clip[g + v * raw_clip.size(0)].unsqueeze(0) for v in range(raw_clip.size(1))])
+                Y1_com = torch.cat([clip[v + g * raw_clip.size(0)].unsqueeze(0) for v in range(raw_clip.size(1))])
                 psnr_list += [PSNR(Y1_raw, Y1_com)]
                 msssim_list += [MSSSIM(Y1_raw, Y1_com)]
                 bpp_act_list += torch.FloatTensor([bpp])
@@ -456,11 +456,13 @@ def MSSSIM(Y1_raw, Y1_com, use_list=False):
     Y1_com = Y1_com.to(Y1_raw.device)
     if not use_list:
         quality = pytorch_msssim.ms_ssim(Y1_raw, Y1_com)
+        quality = -10 * torch.log(1-quality)/log10
     else:
         bs = Y1_raw.size()[0]
         quality = []
         for i in range(bs):
-            quality.append(pytorch_msssim.ms_ssim(Y1_raw[i].unsqueeze(0), Y1_com[i].unsqueeze(0)))
+            q = pytorch_msssim.ms_ssim(Y1_raw[i].unsqueeze(0), Y1_com[i].unsqueeze(0))
+            quality.append(-10 * torch.log(1-q)/log10)
     return quality
 
 class ConvLSTM(nn.Module):

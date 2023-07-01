@@ -165,13 +165,12 @@ def metrics_per_gop(out_dec, raw_frames):
                 mseloss = torch.mean((x_hat - x).pow(2))
             else:
                 mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
-            psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
         else:
             if non_zero_indices is None:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
             else:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
-            psnr = 1 - mseloss
+        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
 
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
@@ -347,7 +346,7 @@ def static_simulation_x26x_multicam(args,test_dataset,category_id):
 
             # write result
             # with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-            #     f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
+            #     f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f},{msssim_module.val:.4f}\n')
 
 def static_simulation_model_multicam(args, test_dataset,category_id):
     for lvl in range(args.level_range[0],args.level_range[1]):
