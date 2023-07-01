@@ -129,7 +129,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
             for g in range(raw_clip.size(0)):
                 img = to_pil(raw_clip[g][0])
                 process.stdin.write(np.array(img).tobytes())
-            clip_size = raw_clip.size(0)*raw_clip.size(1)
+            clip_size = raw_clip.size(0)
         else:
             print('Undefined frame comb:',frame_comb)
             exit(0)
