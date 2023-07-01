@@ -109,17 +109,20 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
                 for g in range(raw_clip.size(0)):
                     img = to_pil(raw_clip[g][v])
                     process.stdin.write(np.array(img).tobytes())
+            clip_size = raw_clip.size(0)*raw_clip.size(1)
         elif frame_comb == 1:
             g,v,c,h,w = raw_clip.size()
             raw_clip = torch.cat(raw_clip.chunk(v,dim=1),dim=3).reshape(g,c,h,w*v)
             for i in range(g):
                 img = to_pil(raw_clip[i])
                 process.stdin.write(np.array(img).tobytes())
+            clip_size = raw_clip.size(0)
         elif frame_comb == 2:
             for g in range(raw_clip.size(0)):
                 for v in range(raw_clip.size(1)):
                     img = to_pil(raw_clip[g][v])
                     process.stdin.write(np.array(img).tobytes())
+            clip_size = raw_clip.size(0)*raw_clip.size(1)
         else:
             print('Undefined frame comb:',frame_comb)
             exit(0)
@@ -162,7 +165,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
             msssim_list += [MSSSIM(Y1_raw, Y1_com)]
             bpp_act_list += torch.FloatTensor([bpp])
     else:
-        assert len(clip) == raw_clip.size(0)*raw_clip.size(1),f'Clip size mismatch {len(clip)} {str(raw_clip.size())}'
+        assert len(clip) == clip_size,f'Clip size mismatch {len(clip)} {str(raw_clip.size())}'
         # create cache
         psnr_list = [];msssim_list = [];bpp_act_list = []
         bpp = video_size*1.0/len(clip)/(height*width)
