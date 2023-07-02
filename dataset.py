@@ -299,7 +299,7 @@ class MultiViewVideoDataset(Dataset):
         self.__video_frames = []
         self.__video_gops = []
         category_filenames = []
-        print(os.listdir('../'))
+        print(os.listdir(self._dirs[0]))
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 if self.category in fn:
