@@ -364,7 +364,7 @@ if args.benchmark:
             static_simulation_x26x_multicam(args, test_dataset, category_id)
         else:
             static_simulation_model_multicam(args, test_dataset, category_id)
-        break
+        exit(0)
 
 if args.evaluate:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
