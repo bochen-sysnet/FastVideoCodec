@@ -222,6 +222,7 @@ def calc_metrics(out_dec,raw_frames):
 def static_simulation_model_multicam(args, test_dataset):
     for lvl in range(args.level_range[0],args.level_range[1]):
         model = LoadModel(args.codec,compression_level=lvl,use_split=args.use_split,spstage=args.spstage,device=args.device)
+        model.num_views = 4
         if args.print_only: continue
         model.eval()
         img_loss_module = AverageMeter()
