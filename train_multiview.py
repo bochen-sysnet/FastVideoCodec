@@ -370,7 +370,7 @@ if args.evaluate:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=args.category,num_views=args.num_views)
 
-    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level,args.category_id)
+    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level,args.category)
     score, stats = test(0, model, test_dataset)
     exit(0)
 
