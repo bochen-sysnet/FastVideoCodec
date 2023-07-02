@@ -59,7 +59,7 @@ def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
     model.stage = 'REC'
     
-    psnr_list = [256,512,1024,2048]#,4096,8192,16384,16384*2]
+    psnr_list = [256,512,1024,2048,4096,8192,16384,16384*2]
     msssim_list = [8,16,32,64]
     I_lvl_list = [37,32,27,22,17,12,7,2]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
