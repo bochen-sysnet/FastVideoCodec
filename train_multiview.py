@@ -129,6 +129,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
         paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}P_vid{category_id}_best.pth']
     paths += [f'{SAVE_DIR}/{codec_name}-0{loss_type}_vid{category_id}_ckpt.pth']
     for pth in paths:
+        print(pth)
         if os.path.isfile(pth):
             load_from_path(pth)
             break
@@ -165,7 +166,6 @@ def metrics_per_gop(out_dec, raw_frames):
                 mseloss = torch.mean((x_hat - x).pow(2))
             else:
                 mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
-
         else:
             if non_zero_indices is None:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
