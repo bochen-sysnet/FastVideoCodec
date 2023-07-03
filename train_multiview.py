@@ -171,7 +171,7 @@ def metrics_per_gop(out_dec, raw_frames):
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
             else:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
-        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
+        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
 
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
@@ -276,7 +276,8 @@ def test(epoch, model, test_dataset, print_header=None):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx].cuda(device)
-            
+        if args.codec == 'SSF-Official':
+            data = [data[g] for g in range(data.size(0))]
         with torch.no_grad():
             out_dec = model(data)
             mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
