@@ -121,19 +121,17 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
         del checkpoint
 
     paths = []
-    paths += f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth'
-    paths += f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth'
+    paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
+    paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
     if codec_name == 'MCVC-IA':
-        paths += f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth'
+        paths += [f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
     if loss_type == 'M':
-        paths += f'{SAVE_DIR}/{codec_name}-{compression_level}P_vid{category_id}_best.pth'
-    paths += f'{SAVE_DIR}/{codec_name}-0{loss_type}_vid{category_id}_ckpt.pth'
+        paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}P_vid{category_id}_best.pth']
+    paths += [f'{SAVE_DIR}/{codec_name}-0{loss_type}_vid{category_id}_ckpt.pth']
     for pth in paths:
         if os.path.isfile(pth):
             load_from_path(pth)
             break
-        else:
-            print('Unsuccessful:',pth)
 
     # create optimizer
     parameters = [p for n, p in model.named_parameters()]
