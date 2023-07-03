@@ -235,13 +235,12 @@ def static_simulation_model_multicam(args, test_dataset):
             if args.codec == 'SSF-Official':
                 data = [data[:,v] for v in range(data.size(1))]
             with torch.no_grad():
-                l = data.size(0)
                 out_dec = model(data)
                 mse, bpp, psnr = calc_metrics(out_dec, data)
                 
-                ba_loss_module.update(bpp, l)
-                psnr_module.update(psnr,l)
-                img_loss_module.update(mse,l)
+                ba_loss_module.update(bpp)
+                psnr_module.update(psnr)
+                img_loss_module.update(mse)
                     
             # show result
             test_iter.set_description(
