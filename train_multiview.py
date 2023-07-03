@@ -276,6 +276,8 @@ def test(epoch, model, test_dataset, print_header=None):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx].cuda(device)
+        if args.codec == 'MCVC-Original':
+            data = [data[g] for g in range(data.size(0))]
         with torch.no_grad():
             out_dec = model(data)
             mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
