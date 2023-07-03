@@ -174,6 +174,7 @@ def metrics_per_gop(out_dec, raw_frames):
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
 
         pixels = x.size(0) * x.size(2) * x.size(3)
+        print(x.size(),bits)
         bpp = bits / pixels
         total_bpp += bpp
         total_psnr += psnr
