@@ -132,6 +132,8 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
         if os.path.isfile(pth):
             load_from_path(pth)
             break
+        else:
+            print('Unsuccessful:',pth)
 
     # create optimizer
     parameters = [p for n, p in model.named_parameters()]
