@@ -49,9 +49,6 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'MCVC' in name:
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
         ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse' if loss_type=='P' else 'ms-ssim', pretrained=True, progress=True)
-        print(ckpt.state_dict().keys())
-        print('-------------')
-        print(model_codec.state_dict().keys())
         model_codec.load_state_dict(ckpt.state_dict())
         # load_state_dict_whatever(model_codec,ckpt.state_dict())
     else:
@@ -1924,22 +1921,28 @@ class ELFVC(ScaleSpaceFlow):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                super().__init__()
                 from compressai.layers import QReLU
                 def qrelu(input, bit_depth=8, beta=100):
                     return QReLU.apply(input, bit_depth, beta)
-                self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu1 = qrelu
-                self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu2 = qrelu
-                self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
-                self.qrelu3 = qrelu
+                super().__init__(
+                    deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+                    qrelu,
+                    deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+                    qrelu,
+                    deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+                    qrelu)
+            #     self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
+            #     self.qrelu1 = qrelu
+            #     self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
+            #     self.qrelu2 = qrelu
+            #     self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
+            #     self.qrelu3 = qrelu
 
-            def forward(self, x):
-                x = self.qrelu1(self.deconv1(x))
-                x = self.qrelu2(self.deconv2(x))
-                x = self.qrelu3(self.deconv3(x))
-                return x
+            # def forward(self, x):
+            #     x = self.qrelu1(self.deconv1(x))
+            #     x = self.qrelu2(self.deconv2(x))
+            #     x = self.qrelu3(self.deconv3(x))
+            #     return x
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192, side_channel_nc: bool = False, super_prec: bool = False, 
                         sp: bool = False):
