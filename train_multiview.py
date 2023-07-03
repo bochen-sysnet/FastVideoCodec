@@ -147,10 +147,8 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
 def metrics_per_gop(out_dec, raw_frames, ssim=False):
     frame_idx = 0
     total_bpp = 0
-    total_psnr1 = 0
-    total_mse1 = 0
-    total_psnr2 = 0
-    total_mse2 = 0
+    total_psnr = 0
+    total_mse = 0
     pixels = 0
     completeness = 1
     non_zero_indices = out_dec['non_zero_indices'] if 'non_zero_indices' in out_dec else None
@@ -163,29 +161,26 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False):
                 var_like = likelihoods[likelihood_name]
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        if non_zero_indices is None:
-            mseloss1 = torch.mean((x_hat - x).pow(2))
-        else:
-            mseloss1 = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
-        psnr1 = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
-
         if ssim:
             if non_zero_indices is None:
-                mseloss2 = 1 - pytorch_msssim.ms_ssim(x_hat, x)
+                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
             else:
-                mseloss2 = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
-            psnr2 = 10.0*torch.log(1/mseloss2)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
+                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
+        else:
+            if non_zero_indices is None:
+                mseloss = torch.mean((x_hat - x).pow(2))
+            else:
+                mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
+        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
 
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
         total_bpp += bpp
-        total_psnr1 += psnr1
-        total_mse1 += mseloss1
-        total_psnr2 += psnr2
-        total_mse2 += mseloss2
+        total_psnr += psnr
+        total_mse += mseloss
         frame_idx += 1
 
-    return total_mse1/frame_idx,total_bpp/frame_idx,total_psnr1/frame_idx,completeness,total_psnr1/frame_idx
+    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx,completeness
         
 def train(epoch, model, train_dataset, best_codec_score, optimizer):
     img_loss_module = AverageMeter()
@@ -288,8 +283,10 @@ def test(epoch, model, test_dataset, print_header=None):
             out_dec = model(data)
             if args.codec == 'MCVC-Original':
                 mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False)
+                _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True)
+                ssim_module.update(ssim.cpu().data.item())
             else:
-                mse, bpp, psnr, completeness, ssim = metrics_per_gop(out_dec, data, ssim=True)
+                mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim == (args.loss_type=='M'))
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
