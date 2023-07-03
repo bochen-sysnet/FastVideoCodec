@@ -165,7 +165,7 @@ def metrics_per_gop(out_dec, raw_frames):
                 mseloss = torch.mean((x_hat - x).pow(2))
             else:
                 mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
-            print(mseloss)
+            print(mseloss,non_zero_indices,xha.size(),x.size())
         else:
             if non_zero_indices is None:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
