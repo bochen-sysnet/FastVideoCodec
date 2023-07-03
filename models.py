@@ -2379,49 +2379,49 @@ class MCVC(ScaleSpaceFlow):
             "non_zero_indices": mask,
         }
 
-    # def forward_keyframe(self, x, mask):
-    #     x = mask_with_indices(x,mask)
-    #     y = self.img_encoder(x)
-    #     y_hat, likelihoods = self.img_hyperprior(y)
-    #     x_hat = self.img_decoder(y_hat)
+    def forward_keyframe(self, x, mask):
+        x = mask_with_indices(x,mask)
+        y = self.img_encoder(x)
+        y_hat, likelihoods = self.img_hyperprior(y)
+        x_hat = self.img_decoder(y_hat)
 
-    #     if not self.imbalanced_correlation:
-    #         return x_hat, {"keyframe": likelihoods}
-    #     else:
-    #         masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
-    #         return x_hat, masked_x_hat, {"keyframe": likelihoods}
+        if not self.imbalanced_correlation:
+            return x_hat, {"keyframe": likelihoods}
+        else:
+            masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
+            return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
-    # def forward_inter(self, x_cur, x_ref, mask, x_ref_masked=None):
-    #     # masking
-    #     x_cur = mask_with_indices(x_cur, mask)
-    #     x_ref = mask_with_indices(x_ref, mask)
-    #     # encode the motion information
-    #     y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
-    #     y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
+    def forward_inter(self, x_cur, x_ref, mask, x_ref_masked=None):
+        # masking
+        x_cur = mask_with_indices(x_cur, mask)
+        x_ref = mask_with_indices(x_ref, mask)
+        # encode the motion information
+        y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
+        y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
 
-    #     # decode the space-scale flow information
-    #     motion_info = self.motion_decoder(y_motion_hat)
-    #     x_pred = self.forward_prediction(x_ref, motion_info)
+        # decode the space-scale flow information
+        motion_info = self.motion_decoder(y_motion_hat)
+        x_pred = self.forward_prediction(x_ref, motion_info)
 
-    #     # residual
-    #     x_res = x_cur - x_pred
-    #     y_res = self.res_encoder(x_res)
-    #     y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
+        # residual
+        x_res = x_cur - x_pred
+        y_res = self.res_encoder(x_res)
+        y_res_hat, res_likelihoods = self.res_hyperprior(y_res)
 
-    #     # combine
-    #     x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
+        # combine
+        x_res_hat = self.res_decoder(torch.cat((y_res_hat, y_motion_hat), dim=1))
 
-    #     # final reconstruction: prediction + residual
-    #     x_rec = x_pred + x_res_hat
+        # final reconstruction: prediction + residual
+        x_rec = x_pred + x_res_hat
 
-    #     if not self.imbalanced_correlation:
-    #         return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
-    #     else:
-    #         y_motion_hat_masked = mask_with_indices(y_motion_hat,mask)
-    #         y_res_hat_masked = mask_with_indices(y_res_hat,mask)
-    #         masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat_masked, y_motion_hat_masked), dim=1))
+        if not self.imbalanced_correlation:
+            return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+        else:
+            y_motion_hat_masked = mask_with_indices(y_motion_hat,mask)
+            y_res_hat_masked = mask_with_indices(y_res_hat,mask)
+            masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat_masked, y_motion_hat_masked), dim=1))
 
-    #         # final reconstruction: prediction + residual
-    #         masked_x_rec = x_pred + masked_x_res_hat
+            # final reconstruction: prediction + residual
+            masked_x_rec = x_pred + masked_x_res_hat
 
-    #         return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
+            return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
