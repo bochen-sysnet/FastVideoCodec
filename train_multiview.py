@@ -263,7 +263,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
 
 def test(epoch, model, test_dataset, print_header=None):
     model.eval()
-    ssim_loss_module = AverageMeter()
+    ssim_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     psnr_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
