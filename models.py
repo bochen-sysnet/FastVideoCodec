@@ -180,6 +180,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
         # create cache
         psnr_list = [];msssim_list = [];bpp_act_list = []
         bpp = video_size*1.0/len(clip)/(height*width)
+        print(len(clip),height,width,video_size)
         if frame_comb == 0:
             for g in range(raw_clip.size(0)):
                 Y1_raw = torch.cat([raw_clip[g][v].unsqueeze(0) for v in range(raw_clip.size(1))])
