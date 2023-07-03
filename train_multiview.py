@@ -303,9 +303,9 @@ def test(epoch, model, test_dataset, print_header=None):
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
             f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). " + metrics_str)
 
-        # if print_header is not None:
-        #     with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-        #         f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
+        if print_header is not None:
+            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
+                f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
@@ -348,8 +348,8 @@ def static_simulation_x26x_multicam(args,test_dataset,category_id):
                 f"M: {msssim_module.val:.4f} ({msssim_module.avg:.4f}). ")
 
             # write result
-            # with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-            #     f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f},{msssim_module.val:.4f}\n')
+            with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
+                f.write(f'{category_id},{lvl},{ba_loss_module.val:.4f},{psnr_module.val:.4f},{msssim_module.val:.4f}\n')
 
 def static_simulation_model_multicam(args, test_dataset,category_id):
     for lvl in range(args.level_range[0],args.level_range[1]):
@@ -366,7 +366,7 @@ if args.benchmark:
             static_simulation_x26x_multicam(args, test_dataset, category_id)
         else:
             static_simulation_model_multicam(args, test_dataset, category_id)
-        exit(0)
+        # exit(0)
 
 if args.evaluate:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
