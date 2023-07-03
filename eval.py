@@ -210,7 +210,7 @@ def calc_metrics(out_dec,raw_frames):
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
         mseloss = torch.mean((x_hat - x).pow(2))
-        psnr = 10.0*torch.log(1/torch.mean((x_hat - x).pow(2),dim=[1,2,3])).mean()/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames.device)
+        psnr = 10.0*torch.log(1/torch.mean((x_hat - x).pow(2),dim=[1,2,3])).mean()/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
         total_bpp += bpp
@@ -232,7 +232,8 @@ def static_simulation_model_multicam(args, test_dataset):
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             data = test_dataset[data_idx].cuda(args.device)
-            
+            if args.codec == 'SSF-Official':
+                data = [data[:,v] for v in range(data.size(1))]
             with torch.no_grad():
                 l = data.size(0)
                 out_dec = model(data)
