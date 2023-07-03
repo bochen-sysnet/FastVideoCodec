@@ -82,7 +82,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
     output_filename = f'tmp/videostreams/{name}{frame_comb}.mp4'
     if frame_comb == 1:
         width *= raw_clip.size(1)
-    if frame_comb in [0]:
+    if frame_comb in [3]:
         GOP *= raw_clip.size(1)
     if name == 'x265-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryfast -tune zerolatency -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
@@ -2349,7 +2349,7 @@ class MCVC(ScaleSpaceFlow):
             mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,force_resilience = self.force_resilience,training=self.training)
         else:
             mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,force_resilience = self.force_resilience,training=self.training)
-
+        print(mask)
         reconstructions = []
         frames_likelihoods = []
 

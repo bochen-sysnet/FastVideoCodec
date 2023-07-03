@@ -353,7 +353,7 @@ def static_simulation_model_multicam(args, test_dataset,category_id):
     for lvl in range(args.level_range[0],args.level_range[1]):
         model, _, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,lvl,category_id)
         test(0, model, test_dataset, print_header=[category_id,lvl])
-
+# test per video
 if args.benchmark:
     for category_id in range(5):
         shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
