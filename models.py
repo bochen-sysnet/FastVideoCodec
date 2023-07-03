@@ -2343,6 +2343,7 @@ class MCVC(ScaleSpaceFlow):
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
         self.force_resilience = -1
+        print(self.state_dict().keys())
 
 
     def forward(self, frames):
