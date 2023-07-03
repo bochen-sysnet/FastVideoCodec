@@ -165,7 +165,7 @@ def metrics_per_gop(out_dec, raw_frames):
                 mseloss = torch.mean((x_hat - x).pow(2))
             else:
                 mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
-                
+
         else:
             if non_zero_indices is None:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
@@ -255,7 +255,7 @@ def test(epoch, model, test_dataset, print_header=None):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx].cuda(device)
-        data = data[:,:1]
+        data = data[:,1:2]
             
         with torch.no_grad():
             out_dec = model(data)
