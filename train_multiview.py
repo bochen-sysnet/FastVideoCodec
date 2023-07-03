@@ -323,7 +323,7 @@ def static_simulation_x26x_multicam(args,test_dataset,category_id):
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             data = test_dataset[data_idx]
-            data = data[:,:1]
+            data = data[:,3:]
 
             l = len(data)
                 
