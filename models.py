@@ -49,6 +49,9 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'MCVC' in name:
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
         ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse' if loss_type=='P' else 'ms-ssim', pretrained=True, progress=True)
+        print(ckpt.state_dict().keys())
+        print('-------------')
+        print(model_codec.state_dict().keys())
         model_codec.load_state_dict(ckpt.state_dict())
         # load_state_dict_whatever(model_codec,ckpt.state_dict())
     else:
