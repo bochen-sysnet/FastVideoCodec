@@ -378,7 +378,12 @@ for category_id in range(5):
     train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
 
-    start = 0# if category_id>0 else 1
+    start = 0
+    if category_id == 0:
+        if args.codec == 'MCVC':
+            start = 2
+        elif args.codec == 'MCVC-IA0':
+            start = 3
     for compression_level in range(start,4):
         model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id)
 
