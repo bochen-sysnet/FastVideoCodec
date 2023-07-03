@@ -240,6 +240,27 @@ def train(epoch, model, train_dataset, best_codec_score, optimizer):
 
     return best_codec_score
     
+def adjust_learning_rate(optimizer, epoch):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    LR_DECAY_RATE = 0.1
+    r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] *= r
+    return r
+    
+def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level, category_id):
+    import shutil
+    epoch = state['epoch']; bpp = state['stats'][0]; psnr = state['stats'][1]; score=state['score']
+    ckpt_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth'
+    best_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
+    torch.save(state, ckpt_filename)
+    print('Saved to:',ckpt_filename)
+    if is_best:
+        shutil.copyfile(ckpt_filename, best_filename)
+
+    with open(f'{directory}/log.txt','a+') as f:
+        f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
+
 def test(epoch, model, test_dataset, print_header=None):
     model.eval()
     img_loss_module = AverageMeter()
@@ -288,30 +309,9 @@ def test(epoch, model, test_dataset, print_header=None):
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
-def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    LR_DECAY_RATE = 0.1
-    r = (LR_DECAY_RATE ** (sum(epoch >= np.array(STEPS))))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] *= r
-    return r
-    
-def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compression_level, category_id):
-    import shutil
-    epoch = state['epoch']; bpp = state['stats'][0]; psnr = state['stats'][1]; score=state['score']
-    ckpt_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth'
-    best_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
-    torch.save(state, ckpt_filename)
-    print('Saved to:',ckpt_filename)
-    if is_best:
-        shutil.copyfile(ckpt_filename, best_filename)
-
-    with open(f'{directory}/log.txt','a+') as f:
-        f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
-
 def static_simulation_x26x_multicam(args,test_dataset,category_id):
     ds_size = len(test_dataset)
-    quality_levels = [7,11,15,19,23,27,31,35]# 
+    quality_levels = [7,11,15,19,23,27,31,35]
     # quality_levels = [15,19,23,27]
     
     Q_list = quality_levels[args.level_range[0]:args.level_range[1]]
@@ -323,6 +323,7 @@ def static_simulation_x26x_multicam(args,test_dataset,category_id):
         test_iter = tqdm(range(ds_size))
         for data_idx,_ in enumerate(test_iter):
             data = test_dataset[data_idx]
+            data = data[:,:1]
 
             l = len(data)
                 
@@ -354,6 +355,7 @@ def static_simulation_model_multicam(args, test_dataset,category_id):
     for lvl in range(args.level_range[0],args.level_range[1]):
         model, _, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,lvl,category_id)
         test(0, model, test_dataset, print_header=[category_id,lvl])
+
 # test per video
 if args.benchmark:
     for category_id in range(5):
