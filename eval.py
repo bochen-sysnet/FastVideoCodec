@@ -233,7 +233,7 @@ def static_simulation_model_multicam(args, test_dataset):
         for data_idx,_ in enumerate(test_iter):
             data = test_dataset[data_idx].cuda(args.device)
             if args.codec == 'SSF-Official':
-                data = [data[:,v] for v in range(data.size(1))]
+                data = [data[g] for g in range(data.size(0))]
             with torch.no_grad():
                 out_dec = model(data)
                 mse, bpp, psnr = calc_metrics(out_dec, data)
