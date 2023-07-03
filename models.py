@@ -47,10 +47,10 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'ELFVC' in name:
         model_codec = ELFVC(name, loss_type='P', compression_level=compression_level)
     elif 'MCVC' in name:
-        model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
         ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse' if loss_type=='P' else 'ms-ssim', pretrained=True, progress=True)
-        # model_codec.load_state_dict(ckpt.state_dict())
-        load_state_dict_all(model_codec,ckpt.state_dict())
+        if name == 'MCVC-Original': return ckpt
+        model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
+        load_state_dict_whatever(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -2327,7 +2327,6 @@ class MCVC(ScaleSpaceFlow):
         self.img_encoder = Encoder(3, use_attn=cross_correlation)
         self.img_decoder = Decoder(3, use_attn=cross_correlation)
         self.img_hyperprior = Hyperprior(use_attn=cross_correlation)
-        print(self.img_hyperprior.state_dict().keys())
         self.motion_encoder = Encoder(2 * 3, use_attn=cross_correlation)
         self.motion_decoder = Decoder(2 + 1, in_planes=192, use_attn=cross_correlation)
         self.res_encoder = Encoder(3, use_attn=cross_correlation)
