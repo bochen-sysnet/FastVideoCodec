@@ -144,11 +144,13 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     return model, optimizer, best_codec_score
 
 
-def metrics_per_gop(out_dec, raw_frames):
+def metrics_per_gop(out_dec, raw_frames, ssim=False):
     frame_idx = 0
     total_bpp = 0
-    total_psnr = 0
-    total_mse = 0
+    total_psnr1 = 0
+    total_mse1 = 0
+    total_psnr2 = 0
+    total_mse2 = 0
     pixels = 0
     completeness = 1
     non_zero_indices = out_dec['non_zero_indices'] if 'non_zero_indices' in out_dec else None
@@ -161,26 +163,29 @@ def metrics_per_gop(out_dec, raw_frames):
                 var_like = likelihoods[likelihood_name]
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
-        if args.loss_type == 'P':
-            if non_zero_indices is None:
-                mseloss = torch.mean((x_hat - x).pow(2))
-            else:
-                mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
+        if non_zero_indices is None:
+            mseloss1 = torch.mean((x_hat - x).pow(2))
         else:
+            mseloss1 = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
+        psnr1 = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
+
+        if ssim:
             if non_zero_indices is None:
-                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
+                mseloss2 = 1 - pytorch_msssim.ms_ssim(x_hat, x)
             else:
-                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
-        psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
+                mseloss2 = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
+            psnr2 = 10.0*torch.log(1/mseloss2)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
 
         pixels = x.size(0) * x.size(2) * x.size(3)
         bpp = bits / pixels
         total_bpp += bpp
-        total_psnr += psnr
-        total_mse += mseloss
+        total_psnr1 += psnr1
+        total_mse1 += mseloss1
+        total_psnr2 += psnr2
+        total_mse2 += mseloss2
         frame_idx += 1
 
-    return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx,completeness
+    return total_mse1/frame_idx,total_bpp/frame_idx,total_psnr1/frame_idx,completeness,total_psnr1/frame_idx
         
 def train(epoch, model, train_dataset, best_codec_score, optimizer):
     img_loss_module = AverageMeter()
@@ -263,10 +268,11 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
 
 def test(epoch, model, test_dataset, print_header=None):
     model.eval()
-    img_loss_module = AverageMeter()
+    ssim_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     psnr_module = AverageMeter()
     psnr_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
+    ssim_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
     bpp_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
     ds_size = len(test_dataset)
     
@@ -280,15 +286,19 @@ def test(epoch, model, test_dataset, print_header=None):
             data = [data[g] for g in range(data.size(0))]
         with torch.no_grad():
             out_dec = model(data)
-            mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
+            if args.codec == 'MCVC-Original':
+                mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False)
+            else:
+                mse, bpp, psnr, completeness, ssim = metrics_per_gop(out_dec, data, ssim=True)
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
-            img_loss_module.update(mse.cpu().data.item())
 
         # add metrics
         resi = int(np.round(test_dataset.num_views * (1 - completeness)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
+        if args.codec == 'MCVC-Original':
+            ssim_vs_resilience[resi].update(ssim.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
         # metrics string
@@ -301,11 +311,11 @@ def test(epoch, model, test_dataset, print_header=None):
             f"{epoch} {data_idx:6}. "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.4f} ({psnr_module.avg:.4f}). "
-            f"IL:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). " + metrics_str)
+            f"S:{ssim_module.val:.4f} ({ssim_module.avg:.4f}). " + metrics_str)
 
         if print_header is not None:
             with open(f'{args.codec}-{args.frame_comb}.log','a') as f:
-                f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f}\n')
+                f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f},{ssim_module.val:.4f}\n')
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
     return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
