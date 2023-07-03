@@ -153,7 +153,6 @@ def metrics_per_gop(out_dec, raw_frames):
     non_zero_indices = out_dec['non_zero_indices'] if 'non_zero_indices' in out_dec else None
     if non_zero_indices is not None:
         completeness = 1.0 * len(non_zero_indices) / raw_frames[0].size(0)
-        print(completeness,len(non_zero_indices), raw_frames[0].size(0))
     for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
         x = raw_frames[frame_idx]
         for likelihood_name in ['keyframe', 'motion', 'residual']:
@@ -266,7 +265,7 @@ def test(epoch, model, test_dataset, print_header=None):
             img_loss_module.update(mse.cpu().data.item())
 
         # add metrics
-        resi = int(np.round(test_dataset.num_views * (1 - completeness)))
+        resi = 0#int(np.round(test_dataset.num_views * (1 - completeness)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
