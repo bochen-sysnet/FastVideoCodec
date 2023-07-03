@@ -165,6 +165,7 @@ def metrics_per_gop(out_dec, raw_frames):
                 mseloss = torch.mean((x_hat - x).pow(2))
             else:
                 mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
+            print(mseloss)
         else:
             if non_zero_indices is None:
                 mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
@@ -265,7 +266,7 @@ def test(epoch, model, test_dataset, print_header=None):
             img_loss_module.update(mse.cpu().data.item())
 
         # add metrics
-        resi = 0#int(np.round(test_dataset.num_views * (1 - completeness)))
+        resi = int(np.round(test_dataset.num_views * (1 - completeness)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
