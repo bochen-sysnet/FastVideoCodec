@@ -254,6 +254,7 @@ def test(epoch, model, test_dataset, print_header=None):
     eof = False
     for data_idx,_ in enumerate(test_iter):
         data = test_dataset[data_idx].cuda(device)
+        data = data[:,:1]
             
         with torch.no_grad():
             out_dec = model(data)
