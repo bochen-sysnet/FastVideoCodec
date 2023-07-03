@@ -259,6 +259,7 @@ def test(epoch, model, test_dataset, print_header=None):
         with torch.no_grad():
             out_dec = model(data)
             mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
+            print(data.size(),mse, bpp, psnr, completeness)
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
