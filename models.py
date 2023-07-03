@@ -2327,6 +2327,7 @@ class MCVC(ScaleSpaceFlow):
         self.img_encoder = Encoder(3, use_attn=cross_correlation)
         self.img_decoder = Decoder(3, use_attn=cross_correlation)
         self.img_hyperprior = Hyperprior(use_attn=cross_correlation)
+        print(self.img_hyperprior.state_dict().keys())
         self.motion_encoder = Encoder(2 * 3, use_attn=cross_correlation)
         self.motion_decoder = Decoder(2 + 1, in_planes=192, use_attn=cross_correlation)
         self.res_encoder = Encoder(3, use_attn=cross_correlation)
@@ -2343,7 +2344,6 @@ class MCVC(ScaleSpaceFlow):
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
         self.force_resilience = -1
-        print(self.state_dict().keys())
 
 
     def forward(self, frames):
