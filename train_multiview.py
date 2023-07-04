@@ -128,7 +128,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     if loss_type == 'M':
         paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}P_vid{category_id}_best.pth']
     if compression_level > 0:
-        paths += [f'{SAVE_DIR}/{codec_name}-0{loss_type}_vid{category_id}_ckpt.pth']
+        paths += [f'{SAVE_DIR}/{codec_name}-{compression_level-1}{loss_type}_vid{category_id}_ckpt.pth']
     for pth in paths:
         if os.path.isfile(pth):
             load_from_path(pth)
@@ -373,7 +373,7 @@ if args.benchmark:
             static_simulation_x26x_multicam(args, test_dataset, category_id)
         else:
             static_simulation_model_multicam(args, test_dataset, category_id)
-        # exit(0)
+    exit(0)
 
 if args.evaluate:
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
@@ -391,7 +391,7 @@ for category_id in range(5):
     start = 0
     if category_id == 0:
         if args.codec == 'MCVC':
-            start = 2
+            start = 3
         elif args.codec == 'MCVC-IA0':
             start = 3
     for compression_level in range(start,4):
