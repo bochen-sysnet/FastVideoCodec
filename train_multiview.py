@@ -315,7 +315,7 @@ def test(epoch, model, test_dataset, print_header=None):
                 f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f},{ssim_module.val:.4f}\n')
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
-    return ba_loss_module.avg+model.r*img_loss_module.avg, [ba_loss_module.avg,psnr_module.avg]
+    return ba_loss_module.avg+model.r*psnr_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
 def static_simulation_x26x_multicam(args,test_dataset,category_id):
     ds_size = len(test_dataset)
