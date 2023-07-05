@@ -111,13 +111,11 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     def load_from_path(path):
         print("Loading for ", codec_name, 'from',path)
         checkpoint = torch.load(path,map_location=torch.device('cuda:'+str(device)))
-        # load_state_dict_all(model, checkpoint['state_dict'])
-        load_state_dict_whatever(model, checkpoint['state_dict'])
-        if isinstance(checkpoint['score'],float):
-            # best_codec_score = checkpoint['score']
-            print("Loaded model codec score: ", checkpoint['score'])
+        load_state_dict_all(model, checkpoint['state_dict'])
+        # load_state_dict_whatever(model, checkpoint['state_dict'])
         if 'stats' in checkpoint:
-            print("Loaded model codec stat: ", checkpoint['stats'])
+            best_codec_score = sum(checkpoint['stats'])
+            print("Loaded model codec stat: ", checkpoint['stats'],', score:', best_codec_score)
         del checkpoint
 
     paths = []
@@ -389,11 +387,11 @@ for category_id in range(5):
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
 
     start = 0
-    if category_id == 0:
-        if args.codec == 'MCVC':
-            start = 3
-        elif args.codec == 'MCVC-IA0':
-            start = 3
+    # if category_id == 0:
+    #     if args.codec == 'MCVC':
+    #         start = 3
+    #     elif args.codec == 'MCVC-IA0':
+    #         start = 3
     for compression_level in range(start,4):
         model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id)
 
