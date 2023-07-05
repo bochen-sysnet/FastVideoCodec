@@ -286,7 +286,7 @@ def test(epoch, model, test_dataset, print_header=None):
                 _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True)
                 ssim_module.update(ssim.cpu().data.item())
             else:
-                mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim == (args.loss_type=='M'))
+                mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=(args.loss_type=='M'))
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
