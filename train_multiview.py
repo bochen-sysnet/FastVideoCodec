@@ -114,7 +114,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
         load_state_dict_all(model, checkpoint['state_dict'])
         # load_state_dict_whatever(model, checkpoint['state_dict'])
         if 'stats' in checkpoint:
-            best_codec_score = sum(checkpoint['stats'])
+            best_codec_score = checkpoint['stats'][0] - checkpoint['stats'][1]
             print("Loaded model codec stat: ", checkpoint['stats'],', score:', best_codec_score)
         del checkpoint
 
@@ -313,7 +313,7 @@ def test(epoch, model, test_dataset, print_header=None):
                 f.write(f'{print_header[0]},{print_header[1]},{ba_loss_module.val:.4f},{psnr_module.val:.4f},{ssim_module.val:.4f}\n')
         if args.debug and data_idx == 9:exit(0)
     # test_dataset.reset()        
-    return ba_loss_module.avg+psnr_module.avg, [ba_loss_module.avg,psnr_module.avg]
+    return ba_loss_module.avg-psnr_module.avg, [ba_loss_module.avg,psnr_module.avg]
 
 def static_simulation_x26x_multicam(args,test_dataset,category_id):
     ds_size = len(test_dataset)
