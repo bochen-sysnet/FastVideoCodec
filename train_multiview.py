@@ -123,10 +123,6 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
     if codec_name == 'MCVC-IA':
         paths += [f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
-    if loss_type == 'M':
-        paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}P_vid{category_id}_best.pth']
-    # if compression_level > 0:
-    #     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level-1}{loss_type}_vid{category_id}_ckpt.pth']
     for pth in paths:
         if os.path.isfile(pth):
             load_from_path(pth)
@@ -183,9 +179,11 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False):
 def train(epoch, model, train_dataset, best_codec_score, optimizer):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
+    ssim_module = AverageMeter()
     psnr_module = AverageMeter()
     all_loss_module = AverageMeter()
     psnr_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
+    ssim_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
     bpp_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     ds_size = len(train_dataset)
@@ -203,11 +201,13 @@ def train(epoch, model, train_dataset, best_codec_score, optimizer):
         
         # run model
         out_dec = model(data)
-        mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data)
+        mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False)
+        _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True)
         loss = model.r*mse + bpp
         
         ba_loss_module.update(bpp.cpu().data.item())
         psnr_module.update(psnr.cpu().data.item())
+        ssim_module.update(ssim.cpu().data.item())
         img_loss_module.update(mse.cpu().data.item())
         all_loss_module.update(loss.cpu().data.item())
         
@@ -221,6 +221,7 @@ def train(epoch, model, train_dataset, best_codec_score, optimizer):
         # add metrics
         resi = int(np.round(train_dataset.num_views * (1 - completeness)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
+        ssim_vs_resilience[resi].update(ssim.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
         # metrics string
@@ -230,11 +231,12 @@ def train(epoch, model, train_dataset, best_codec_score, optimizer):
 
         # show result
         train_iter.set_description(
-            f"{epoch} {batch_idx:6}. "
+            f"{epoch},{model.r}. "
             f"L:{all_loss_module.val:.4f} ({all_loss_module.avg:.4f}). "
             f"I:{img_loss_module.val:.4f} ({img_loss_module.avg:.4f}). "
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
-            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). " + metrics_str)
+            f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
+            f"S:{ssim_module.val:.2f} ({ssim_module.avg:.2f}). " + metrics_str)
 
     return best_codec_score
     
@@ -279,21 +281,17 @@ def test(epoch, model, test_dataset, print_header=None):
             data = [data[g] for g in range(data.size(0))]
         with torch.no_grad():
             out_dec = model(data)
-            if args.codec == 'MCVC-Original':
-                mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False)
-                _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True)
-                ssim_module.update(ssim.cpu().data.item())
-            else:
-                mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=(args.loss_type=='M'))
+            mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False)
+            _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True)
             
             ba_loss_module.update(bpp.cpu().data.item())
             psnr_module.update(psnr.cpu().data.item())
+            ssim_module.update(ssim.cpu().data.item())
 
         # add metrics
         resi = int(np.round(test_dataset.num_views * (1 - completeness)))
         psnr_vs_resilience[resi].update(psnr.cpu().data.item())
-        if args.codec == 'MCVC-Original':
-            ssim_vs_resilience[resi].update(ssim.cpu().data.item())
+        ssim_vs_resilience[resi].update(ssim.cpu().data.item())
         bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
         # metrics string

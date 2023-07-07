@@ -47,15 +47,15 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
     elif 'ELFVC' in name:
         model_codec = ELFVC(name, loss_type='P', compression_level=compression_level)
     elif 'MCVC' in name:
-        ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse' if loss_type=='P' else 'ms-ssim', pretrained=True, progress=True)
         if name == 'MCVC-Original':
+            ckpt = compressai.zoo.ssf2020(compression_level+1, metric='mse' if loss_type=='P' else 'ms-ssim', pretrained=True, progress=True)
             ckpt.name = name
             ckpt.compression_level = compression_level
             ckpt.loss_type = loss_type
             init_training_params(ckpt)
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
-        load_state_dict_whatever(model_codec,ckpt.state_dict())
+        # load_state_dict_whatever(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)

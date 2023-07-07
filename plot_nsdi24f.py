@@ -671,25 +671,39 @@ def plot_RD_tradeoff(methods = ['x264-veryslow','x265-veryslow','ScaleSpaceFlow'
 	ncol = 1
 	bbox_to_anchor = (.27,.53)
 
-	SPSNRs = [[28.15,30.44,32.62,34.47,35.91,36.97,37.78,38.39],
-				[27.3895,28.7402,30.2928,32.4380,34.0819,36.0767,37.3006,40.3110],
+	PSNRs = [[28.15,30.44,32.62,34.47,35.91,36.97,37.78,38.39],
 				[29.48,31.74,33.79,35.46,36.73,37.57,38.10,38.62],
-				[34.80],
-				[39.28],]
-	Sbpps = [[0.0467,0.0691,0.1012,0.1467,0.2157,0.3417,0.6052,1.1411],
-				[0.0377,0.0439,0.0710,0.1069,0.1628,0.2226,0.2820,0.4685],
+				[27.3895,28.7402,30.2928,32.4380,34.0819,36.0767,37.3006,40.3110],
+				[34.90,37.94,37.80],
+				[39.31,39.78,39.54,41.08],]
+	bpps = [[0.0467,0.0691,0.1012,0.1467,0.2157,0.3417,0.6052,1.1411],
 				[0.0524,0.0767,0.1112,0.1608,0.2435,0.3968,0.6952,1.2901],
-				[0.0219],
-				[0.0110],]
-	# SPSNRs = np.array(SPSNRs)
-	# Sbpps = np.array(Sbpps)
+				[0.0377,0.0439,0.0710,0.1069,0.1628,0.2226,0.2820,0.4685],
+				[0.0219,0.0240,0.0904],
+				[0.0110,0.0112,0.0232,0.0364],]
 
 	colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"]
 
-	line_plot(Sbpps,SPSNRs,methods,colors,
-			f'/home/bo/Dropbox/Research/NSDI24MCVC/images/rdtradeoff{num_methods}.eps',
+	line_plot(bpps,PSNRs,methods,colors,
+			f'/home/bo/Dropbox/Research/NSDI24MCVC/images/psnr{num_methods}.eps',
 			'BPP','PSNR (dB)',lbsize=24,lfsize=18,linewidth=4,
 			ncol=ncol,markersize=8,bbox_to_anchor=bbox_to_anchor,use_arrow=False)
+
+	bpps = [[0.0467,0.0691,0.1012,0.1467,0.2157,0.3417,0.6052,1.1411],
+				[0.0524,0.0767,0.1112,0.1608,0.2435,0.3968,0.6952,1.2901],
+				[0.0377,0.0439,0.0710,0.1069,0.1628,0.2226,0.2820,0.4685],
+				[],
+				[],]
+	SSIMs = [[50.845,53.00,54.78,56.08,56.97,57.59,58.03,58.36],
+			[51.79,53.81,55.47,56.68,57.49,57.98,58.17,58.40],
+			[50.93,52.49,54.59,57.06,59.01,61.25,62.72,68.84],
+			[],
+			[]]
+
+	line_plot(bpps,SSIMs,methods,colors,
+			f'/home/bo/Dropbox/Research/NSDI24MCVC/images/ssim{num_methods}.eps',
+			'BPP','SSIM (dB)',lbsize=24,lfsize=18,linewidth=4,
+			ncol=ncol,markersize=8,)
 
 def plot_QoE_cdf_breakdown(methods = ['Vesper','ELFVC','SSF','x264f','x264m','x264s','x265f','x265m','x265s'],
 							folder = 'data'):
