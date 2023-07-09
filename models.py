@@ -55,7 +55,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             init_training_params(ckpt)
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
-        load_state_dict_all(model_codec,ckpt.state_dict())
+        model_codec.load_state_dict(ckpt.state_dict())
+        # load_state_dict_all(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
