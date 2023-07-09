@@ -55,7 +55,7 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             init_training_params(ckpt)
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
-        # load_state_dict_whatever(model_codec,ckpt.state_dict())
+        load_state_dict_all(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -2284,29 +2284,49 @@ class MCVC(ScaleSpaceFlow):
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                     )
-        class HyperDecoderWithQReLU(nn.Sequential):
+        # class HyperDecoderWithQReLU(nn.Sequential):
+        #     def __init__(
+        #         self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
+        #     ):
+        #         if not use_attn:
+        #             super().__init__(
+        #                 deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+        #                 QReLULayer(),
+        #                 deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+        #                 QReLULayer(),
+        #                 deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+        #                 QReLULayer()
+        #             )
+        #         else:
+        #             super().__init__(
+        #                 Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
+        #                 deconv(in_planes, mid_planes, kernel_size=5, stride=2),
+        #                 QReLULayer(),
+        #                 deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
+        #                 QReLULayer(),
+        #                 deconv(mid_planes, out_planes, kernel_size=5, stride=2),
+        #                 QReLULayer()
+        #             )
+        class HyperDecoderWithQReLU(nn.Module):
             def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
+                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
             ):
-                if not use_attn:
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        QReLULayer()
-                    )
-                else:
-                    super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        QReLULayer(),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        QReLULayer()
-                    )
+                super().__init__()
+                from compressai.layers import QReLU
+                def qrelu(input, bit_depth=8, beta=100):
+                    return QReLU.apply(input, bit_depth, beta)
+                self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
+                self.qrelu1 = qrelu
+                self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
+                self.qrelu2 = qrelu
+                self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
+                self.qrelu3 = qrelu
+
+            def forward(self, x):
+                x = self.qrelu1(self.deconv1(x))
+                x = self.qrelu2(self.deconv2(x))
+                x = self.qrelu3(self.deconv3(x))
+                return x
         class Hyperprior(CompressionModel):
             def __init__(self, planes: int = 192, mid_planes: int = 192, use_attn: bool = False):
                 super().__init__()
@@ -2314,7 +2334,7 @@ class MCVC(ScaleSpaceFlow):
                 self.hyper_encoder = HyperEncoder(planes, mid_planes, planes, use_attn=use_attn)
                 self.gaussian_conditional = GaussianConditional(None)
                 self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes, use_attn=use_attn)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes, use_attn=use_attn)
+                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
 
             def forward(self, y):
                 z = self.hyper_encoder(y)
