@@ -118,6 +118,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
         del checkpoint
         return best_codec_score
 
+    best_codec_score = 100
     paths = []
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
