@@ -395,7 +395,7 @@ for category_id in range(5):
         BEGIN_EPOCH = args.epoch[0]
         END_EPOCH = args.epoch[1]
         for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-            train(epoch, model, train_dataset, best_codec_score, optimizer)
+            train(epoch, model, train_dataset, optimizer)
             
             score, stats = test(epoch, model, test_dataset)
             
