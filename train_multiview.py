@@ -105,10 +105,9 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     model.force_resilience = args.force_resilience
     model = model.cuda(device)
 
-    # initialize best score
-    best_codec_score = 100
-
     def load_from_path(path):
+        # initialize best score
+        best_codec_score = 100
         print("Loading for ", codec_name, 'from',path)
         checkpoint = torch.load(path,map_location=torch.device('cuda:'+str(device)))
         load_state_dict_all(model, checkpoint['state_dict'])
@@ -117,6 +116,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
             best_codec_score = checkpoint['stats'][0] - checkpoint['stats'][1]
             print("Loaded model codec stat: ", checkpoint['stats'],', score:', best_codec_score)
         del checkpoint
+        return best_codec_score
 
     paths = []
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
@@ -125,7 +125,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
         paths += [f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
     for pth in paths:
         if os.path.isfile(pth):
-            load_from_path(pth)
+            best_codec_score = load_from_path(pth)
             break
 
     # create optimizer
@@ -176,7 +176,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False):
 
     return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx,completeness
         
-def train(epoch, model, train_dataset, best_codec_score, optimizer):
+def train(epoch, model, train_dataset, optimizer):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     ssim_module = AverageMeter()
@@ -237,8 +237,6 @@ def train(epoch, model, train_dataset, best_codec_score, optimizer):
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"S:{ssim_module.val:.2f} ({ssim_module.avg:.2f}). " + metrics_str)
-
-    return best_codec_score
     
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -397,7 +395,7 @@ for category_id in range(5):
         BEGIN_EPOCH = args.epoch[0]
         END_EPOCH = args.epoch[1]
         for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-            best_codec_score = train(epoch, model, train_dataset, best_codec_score, optimizer)
+            train(epoch, model, train_dataset, best_codec_score, optimizer)
             
             score, stats = test(epoch, model, test_dataset)
             
