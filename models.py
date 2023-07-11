@@ -55,8 +55,10 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             init_training_params(ckpt)
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
-        # model_codec.load_state_dict(ckpt.state_dict())
-        load_state_dict_all(model_codec,ckpt.state_dict())
+        if name == 'MCVC-FT':
+            model_codec.load_state_dict(ckpt.state_dict())
+        else:
+            load_state_dict_all(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -2285,29 +2287,6 @@ class MCVC(ScaleSpaceFlow):
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                     )
-        # class HyperDecoderWithQReLU(nn.Sequential):
-        #     def __init__(
-        #         self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
-        #     ):
-        #         if not use_attn:
-        #             super().__init__(
-        #                 deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-        #                 QReLULayer(),
-        #                 deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-        #                 QReLULayer(),
-        #                 deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-        #                 QReLULayer()
-        #             )
-        #         else:
-        #             super().__init__(
-        #                 Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
-        #                 deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-        #                 QReLULayer(),
-        #                 deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-        #                 QReLULayer(),
-        #                 deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-        #                 QReLULayer()
-        #             )
         class HyperDecoderWithQReLU(nn.Module):
             def __init__(
                 self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192

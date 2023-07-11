@@ -23,7 +23,7 @@ from PIL import Image
 from models import get_codec_model,parallel_compression, AverageMeter, compress_whole_video
 from models import load_state_dict_whatever, load_state_dict_all, load_state_dict_only
 
-from dataset import SynVideoDataset, FrameDataset, MultiViewVideoDataset
+from dataset import FrameDataset, MultiViewVideoDataset
 import pytorch_msssim
 
 parser = argparse.ArgumentParser(description='PyTorch EAVC Training')
@@ -71,6 +71,8 @@ parser.add_argument("--fP", type=int, default=15, help="The number of forward P 
 parser.add_argument("--bP", type=int, default=0, help="The number of backward P frames")
 parser.add_argument('--level-range', type=int, nargs='+', default=[0,4])
 parser.add_argument('--frame-comb', default=0, type=int, help="Frame combination method. 0: naive. 1: spatial. 2: temporal.")
+parser.add_argument('--pretrain', action='store_true',
+                    help='pretrain model on single view')
 
 args = parser.parse_args()
 
@@ -94,13 +96,13 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
-def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,category_id):
+def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,category_id,pretrain=False):
     # codec model
     model = get_codec_model(codec_name, 
                             loss_type=loss_type, 
                             compression_level=compression_level,
                             use_split=False,
-                            num_views=test_dataset.num_views,
+                            num_views=test_dataset.num_views if not pretrain else 1,
                             resilience=args.resilience)
     model.force_resilience = args.force_resilience
     model = model.cuda(device)
@@ -120,6 +122,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
 
     best_codec_score = 100
     paths = []
+    # if pretrain
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
     if codec_name == 'MCVC-IA':
@@ -177,15 +180,16 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False):
 
     return total_mse/frame_idx,total_bpp/frame_idx,total_psnr/frame_idx,completeness
         
-def train(epoch, model, train_dataset, optimizer):
+def train(epoch, model, train_dataset, optimizer, pretrain=False):
     img_loss_module = AverageMeter()
     ba_loss_module = AverageMeter()
     ssim_module = AverageMeter()
     psnr_module = AverageMeter()
     all_loss_module = AverageMeter()
-    psnr_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
-    ssim_vs_resilience = [AverageMeter() for _ in range(test_dataset.num_views)]
-    bpp_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
+    if not pretrain:
+        psnr_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
+        ssim_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
+        bpp_vs_resilience = [AverageMeter() for _ in range(train_dataset.num_views)]
     scaler = torch.cuda.amp.GradScaler(enabled=True)
     ds_size = len(train_dataset)
     
@@ -197,8 +201,11 @@ def train(epoch, model, train_dataset, optimizer):
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):
-        b,g,v,c,h,w = data.size()
-        data = data.permute(1,0,2,3,4,5).reshape(g,b*v,c,h,w).cuda(device)
+        if not pretrain:
+            b,g,v,c,h,w = data.size()
+            data = data.permute(1,0,2,3,4,5).reshape(g,b*v,c,h,w).cuda(device)
+        else:
+            data = data.cuda(device)
         
         # run model
         out_dec = model(data)
@@ -220,15 +227,17 @@ def train(epoch, model, train_dataset, optimizer):
             optimizer.zero_grad()
 
         # add metrics
-        resi = int(np.round(train_dataset.num_views * (1 - completeness)))
-        psnr_vs_resilience[resi].update(psnr.cpu().data.item())
-        ssim_vs_resilience[resi].update(ssim.cpu().data.item())
-        bpp_vs_resilience[resi].update(bpp.cpu().data.item())
+        if not pretrain:
+            resi = int(np.round(train_dataset.num_views * (1 - completeness)))
+            psnr_vs_resilience[resi].update(psnr.cpu().data.item())
+            ssim_vs_resilience[resi].update(ssim.cpu().data.item())
+            bpp_vs_resilience[resi].update(bpp.cpu().data.item())
                 
         # metrics string
         metrics_str = ""
-        for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
-            metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.3f}. "
+        if not pretrain:
+            for i,(psnr,bpp) in enumerate(zip(psnr_vs_resilience,bpp_vs_resilience)):
+                metrics_str += f"{psnr.count}:{psnr.avg:.2f},{bpp.avg:.3f}. "
 
         # show result
         train_iter.set_description(
@@ -238,6 +247,8 @@ def train(epoch, model, train_dataset, optimizer):
             f"B:{ba_loss_module.val:.4f} ({ba_loss_module.avg:.4f}). "
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"S:{ssim_module.val:.2f} ({ssim_module.avg:.2f}). " + metrics_str)
+
+    return ba_loss_module.avg-psnr_module.avg
     
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -377,6 +388,32 @@ if args.evaluate:
     model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level,args.category)
     score, stats = test(0, model, test_dataset)
     exit(0)
+
+# pretraining?
+if args.pretrain:
+    best_pretrain_score = 100
+    train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
+    for compression_level in range(start,4):
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, 0, pretrain=True)
+
+        cvg_cnt = 0
+        BEGIN_EPOCH = args.epoch[0]
+        END_EPOCH = args.epoch[1]
+        for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
+            score = train(epoch, model, train_dataset, optimizer, pretrain=True)
+            
+            is_best = score <= best_pretrain_score
+            if is_best:
+                print("New best", stats, "Score:", score, ". Previous: ", best_pretrain_score)
+                best_codec_score = score
+                cvg_cnt = 0
+            else:
+                cvg_cnt += 1
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
+            if cvg_cnt == 5:break
+    exit(0)
+
 
 for category_id in range(5):
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
