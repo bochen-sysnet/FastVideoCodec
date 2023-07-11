@@ -196,7 +196,8 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
     model.train()
     # multi-view dataset must be single batch in loader 
     # single view dataset set batch size to view numbers in loader in test
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, 
+    batch_size = args.batch_size if not pretrain else 8
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
@@ -206,7 +207,6 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
             data = data.permute(1,0,2,3,4,5).reshape(g,b*v,c,h,w).cuda(device)
         else:
             data = data.cuda(device)
-            print(data.size())
         
         # run model
         out_dec = model(data)
