@@ -393,7 +393,7 @@ if args.evaluate:
 if args.pretrain:
     best_pretrain_score = 100
     train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-    for compression_level in range(start,4):
+    for compression_level in range(4):
         model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, 0, pretrain=True)
 
         cvg_cnt = 0
