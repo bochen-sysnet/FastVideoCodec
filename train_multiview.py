@@ -206,6 +206,7 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
             data = data.permute(1,0,2,3,4,5).reshape(g,b*v,c,h,w).cuda(device)
         else:
             data = data.cuda(device)
+            print(data.size())
         
         # run model
         out_dec = model(data)
