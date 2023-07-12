@@ -122,11 +122,14 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
 
     best_codec_score = 100
     paths = []
-    # if pretrain
-    paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
-    paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
+    # training order
+    # IA-PT, IA0 (no fault-tolerance), IA (with fault-tolerance)
+    if codec_name == 'MCVC-IA0':
+        paths += [f'{SAVE_DIR}/MCVC-IA-PT-{compression_level}{loss_type}_vid0_best.pth']
     if codec_name == 'MCVC-IA':
         paths += [f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
+    paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
+    paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
     for pth in paths:
         if os.path.isfile(pth):
             best_codec_score = load_from_path(pth)
@@ -249,7 +252,7 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
             f"P:{psnr_module.val:.2f} ({psnr_module.avg:.2f}). "
             f"S:{ssim_module.val:.2f} ({ssim_module.avg:.2f}). " + metrics_str)
 
-    return ba_loss_module.avg-psnr_module.avg
+    return ba_loss_module.avg-psnr_module.avg, [ba_loss_module.avg,psnr_module.avg]
     
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -395,7 +398,7 @@ if args.pretrain:
     best_pretrain_score = 100
     train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
     for compression_level in range(4):
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, 0, pretrain=True)
+        model, optimizer, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, 0, pretrain=True)
 
         cvg_cnt = 0
         BEGIN_EPOCH = args.epoch[0]
@@ -412,7 +415,7 @@ if args.pretrain:
                 cvg_cnt += 1
             state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
             save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
-            if cvg_cnt == 5:break
+            if cvg_cnt == 3:break
     exit(0)
 
 
