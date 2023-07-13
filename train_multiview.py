@@ -426,7 +426,7 @@ for category_id in range(5):
 
     start = 0
     if category_id == 0:
-        if args.codec == 'MCVC':
+        if args.codec == 'MCVC-FT':
             start = 1
         elif args.codec == 'MCVC-IA0':
             start = 2
