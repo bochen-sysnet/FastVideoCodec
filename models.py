@@ -2146,12 +2146,13 @@ def sample_failed_machines(num_machines, failure_probability, max_failed, traini
     return num_failed
 
 # Function to randomly set a specified number of batches to zero
-def sample_mask_for_resilience(tensor, num_views, max_resilience, failure_probability = 0.1, force_resilience = -1, training=True):
+def sample_mask_for_resilience(tensor, num_views, train_resilience, failure_probability = 0.1, force_resilience = -1, training=True):
     # Create the original list
     original_list = list(range(num_views))
     batchsize = tensor.size(0)//num_views
 
     # decide resilience
+    max_resilience = num_views if not training else train_resilience
     if force_resilience < 0:
         resilience = sample_failed_machines(num_views, failure_probability, min(num_views - 1, max_resilience), training=training)
     else:
@@ -2193,33 +2194,7 @@ class MCVC(ScaleSpaceFlow):
         resilience: int = 0,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
-        cross_correlation = True if '-A' in name else False
         imbalanced_correlation = True if '-IA' in name else False
-        class Encoder(nn.Sequential):
-            def __init__(
-                self, in_planes: int, mid_planes: int = 128, out_planes: int = 192, use_attn: bool = False
-            ):
-                if not use_attn:
-                    super().__init__(
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-                else:
-                    super().__init__(
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
-                    )
         class Decoder(nn.Sequential):
             def __init__(
                 self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, use_attn: bool = False
@@ -2245,101 +2220,10 @@ class MCVC(ScaleSpaceFlow):
                         nn.ReLU(inplace=True),
                         deconv(mid_planes, out_planes, kernel_size=5, stride=2),
                     )
-        class HyperEncoder(nn.Sequential):
-            def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
-            ):
-                if not use_attn:
-                    super().__init__(
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-                else:
-                    super().__init__(
-                        conv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        conv(mid_planes, out_planes, kernel_size=5, stride=2),
-                        Residual(Attention(out_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
-                    )
-        class HyperDecoder(nn.Sequential):
-            def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192, use_attn: bool = False
-            ):
-                if not use_attn:
-                    super().__init__(
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-                else:
-                    super().__init__(
-                        Residual(Attention(in_planes, heads = 8, dim_head = 64, atype=2, num_views=num_views)),
-                        deconv(in_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        deconv(mid_planes, mid_planes, kernel_size=5, stride=2),
-                        nn.ReLU(inplace=True),
-                        deconv(mid_planes, out_planes, kernel_size=5, stride=2),
-                    )
-        class HyperDecoderWithQReLU(nn.Module):
-            def __init__(
-                self, in_planes: int = 192, mid_planes: int = 192, out_planes: int = 192
-            ):
-                super().__init__()
-                from compressai.layers import QReLU
-                def qrelu(input, bit_depth=8, beta=100):
-                    return QReLU.apply(input, bit_depth, beta)
-                self.deconv1 = deconv(in_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu1 = qrelu
-                self.deconv2 = deconv(mid_planes, mid_planes, kernel_size=5, stride=2)
-                self.qrelu2 = qrelu
-                self.deconv3 = deconv(mid_planes, out_planes, kernel_size=5, stride=2)
-                self.qrelu3 = qrelu
-
-            def forward(self, x):
-                x = self.qrelu1(self.deconv1(x))
-                x = self.qrelu2(self.deconv2(x))
-                x = self.qrelu3(self.deconv3(x))
-                return x
-        class Hyperprior(CompressionModel):
-            def __init__(self, planes: int = 192, mid_planes: int = 192, use_attn: bool = False):
-                super().__init__()
-                self.entropy_bottleneck = EntropyBottleneck(planes)
-                self.hyper_encoder = HyperEncoder(planes, mid_planes, planes, use_attn=use_attn)
-                self.gaussian_conditional = GaussianConditional(None)
-                self.hyper_decoder_mean = HyperDecoder(planes, mid_planes, planes, use_attn=use_attn)
-                self.hyper_decoder_scale = HyperDecoderWithQReLU(planes, mid_planes, planes)
-
-            def forward(self, y):
-                z = self.hyper_encoder(y)
-                z_hat, z_likelihoods = self.entropy_bottleneck(z)
-                scales = self.hyper_decoder_scale(z_hat)
-                means = self.hyper_decoder_mean(z_hat)
-                _, y_likelihoods = self.gaussian_conditional(y, scales, means)
-                y_hat = quantize_ste(y - means) + means
-                return y_hat, {"y": y_likelihoods, "z": z_likelihoods}
-
         self.compression_level = compression_level
         self.loss_type = loss_type
         init_training_params(self)
-        # add later
-        self.img_encoder = Encoder(3, use_attn=cross_correlation)
-        self.img_decoder = Decoder(3, use_attn=cross_correlation)
-        self.img_hyperprior = Hyperprior(use_attn=cross_correlation)
-        self.motion_encoder = Encoder(2 * 3, use_attn=cross_correlation)
-        self.motion_decoder = Decoder(2 + 1, in_planes=192, use_attn=cross_correlation)
-        self.res_encoder = Encoder(3, use_attn=cross_correlation)
-        self.res_decoder = Decoder(3, in_planes=384, use_attn=cross_correlation)
-        self.res_hyperprior = Hyperprior(use_attn=cross_correlation)
-        self.motion_hyperprior = Hyperprior(use_attn=cross_correlation)
         self.name = name
-        self.cross_correlation = cross_correlation
 
         if imbalanced_correlation:
             self.backup_img_decoder = Decoder(3, use_attn = True)
@@ -2351,10 +2235,9 @@ class MCVC(ScaleSpaceFlow):
 
 
     def forward(self, frames):
-        if not self.training:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.num_views,force_resilience = self.force_resilience,training=self.training)
-        else:
-            mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,force_resilience = self.force_resilience,training=self.training)
+        # if not forced, mask 0,1,...,resilience frames
+        # if forced, remove specific frames
+        mask = sample_mask_for_resilience(frames[0],self.num_views,self.resilience,force_resilience = self.force_resilience,training=self.training)
 
         reconstructions = []
         frames_likelihoods = []

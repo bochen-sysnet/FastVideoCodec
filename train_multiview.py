@@ -199,7 +199,7 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
     model.train()
     # multi-view dataset must be single batch in loader 
     # single view dataset set batch size to view numbers in loader in test
-    batch_size = args.batch_size if not pretrain else 8
+    batch_size = args.batch_size if not pretrain else 16
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
@@ -268,9 +268,9 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
     ckpt_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth'
     best_filename = f'{directory}/{CODEC_NAME}-{compression_level}{loss_type}_vid{category_id}_best.pth'
     torch.save(state, ckpt_filename)
-    print('Saved to:',ckpt_filename)
     if is_best:
         shutil.copyfile(ckpt_filename, best_filename)
+        print('Saved to:',best_filename)
 
     with open(f'{directory}/log.txt','a+') as f:
         f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
@@ -395,14 +395,11 @@ if args.evaluate:
 
 # pretraining?
 if args.pretrain:
-    best_pretrain_score = 100
     train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
                         transform=shared_transforms,category_id=args.category_id,num_views=args.num_views)
-    # for compression_level in range(4):
-
-    model, optimizer, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level, 0, pretrain=True)
+    model, optimizer, best_pretrain_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level, 0, pretrain=True)
 
     cvg_cnt = 0
     BEGIN_EPOCH = args.epoch[0]
@@ -451,13 +448,9 @@ for category_id in range(5):
             if is_best:
                 print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
                 best_codec_score = score
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
-            
-            if abs(score - prev_score) > 0.01:
                 cvg_cnt = 0
             else:
                 cvg_cnt += 1
-            prev_score = score
-
-            if cvg_cnt == 5:break
+                if cvg_cnt == 10:break
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
