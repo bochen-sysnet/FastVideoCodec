@@ -409,7 +409,7 @@ if args.pretrain:
             is_best = score <= best_pretrain_score
             if is_best:
                 print("New best", stats, "Score:", score, ". Previous: ", best_pretrain_score)
-                best_codec_score = score
+                best_pretrain_score = score
                 cvg_cnt = 0
             else:
                 cvg_cnt += 1
