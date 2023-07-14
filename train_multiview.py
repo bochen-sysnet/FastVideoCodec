@@ -397,25 +397,29 @@ if args.evaluate:
 if args.pretrain:
     best_pretrain_score = 100
     train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-    for compression_level in range(4):
-        model, optimizer, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, 0, pretrain=True)
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+    # for compression_level in range(4):
 
-        cvg_cnt = 0
-        BEGIN_EPOCH = args.epoch[0]
-        END_EPOCH = args.epoch[1]
-        for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-            score, stats = train(epoch, model, train_dataset, optimizer, pretrain=True)
-            
-            is_best = score <= best_pretrain_score
-            if is_best:
-                print("New best", stats, "Score:", score, ". Previous: ", best_pretrain_score)
-                best_pretrain_score = score
-                cvg_cnt = 0
-            else:
-                cvg_cnt += 1
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, 0)
-            if cvg_cnt == 3:break
+    model, optimizer, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level, 0, pretrain=True)
+
+    cvg_cnt = 0
+    BEGIN_EPOCH = args.epoch[0]
+    END_EPOCH = args.epoch[1]
+    for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
+        # score, stats = 
+        train(epoch, model, train_dataset, optimizer, pretrain=True)
+        score, stats = test(epoch, model, test_dataset)
+
+        is_best = score <= best_pretrain_score
+        if is_best:
+            print("New best", stats, "Score:", score, ". Previous: ", best_pretrain_score)
+            best_pretrain_score = score
+            cvg_cnt = 0
+        else:
+            cvg_cnt += 1
+        state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+        save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, args.compression_level, 0)
+        if cvg_cnt == 3:break
     exit(0)
 
 
