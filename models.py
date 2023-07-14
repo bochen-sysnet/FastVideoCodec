@@ -2258,7 +2258,7 @@ class MCVC(ScaleSpaceFlow):
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_ref)
             else:
-                x_ref, x_enhanced, likelihoods = self.forward_inter(x, frames[i-1], mask, x_ref)
+                x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_enhanced)
             frames_likelihoods.append(likelihoods)
 
@@ -2280,7 +2280,7 @@ class MCVC(ScaleSpaceFlow):
             masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
             return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
-    def forward_inter(self, x_cur, x_ref, mask, x_ref_masked=None):
+    def forward_inter(self, x_cur, x_ref, mask):
         # masking
         x_cur = mask_with_indices(x_cur, mask)
         x_ref = mask_with_indices(x_ref, mask)
