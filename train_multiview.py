@@ -33,7 +33,7 @@ parser.add_argument('--benchmark', action='store_true',
                     help='benchmark model on validation set')
 parser.add_argument('--super-batch', default=16, type=int,
                     help="super batch size")
-parser.add_argument('--num_views', default=0, type=int,
+parser.add_argument('--num-views', default=0, type=int,
                     help="number of views")
 parser.add_argument('--debug', action='store_true',
                     help='debug model on validation set')
@@ -41,7 +41,7 @@ parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--codec', type=str, default='MCVC-IA0',
                     help='name of codec')
-parser.add_argument('--category', default=0, type=int,
+parser.add_argument('--category-id', default=0, type=int,
                     help="Category ID")
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
@@ -55,7 +55,7 @@ parser.add_argument('--width', type=int, default=256,
                     help='Frame width') 
 parser.add_argument('--height', type=int, default=256,
                     help='Frame height') 
-parser.add_argument('--compression_level', default=0, type=int,
+parser.add_argument('--compression-level', default=0, type=int,
                     help="Compression level")
 parser.add_argument('--max_files', default=0, type=int,
                     help="Maximum loaded files")
@@ -397,7 +397,9 @@ if args.evaluate:
 if args.pretrain:
     best_pretrain_score = 100
     train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
-    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
+                        transform=shared_transforms,category_id=args.category_id,num_views=args.num_views)
     # for compression_level in range(4):
 
     model, optimizer, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level, 0, pretrain=True)
