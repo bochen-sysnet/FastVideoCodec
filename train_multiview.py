@@ -433,7 +433,7 @@ for category_id in range(5):
     for compression_level in range(start,4):
         model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id)
 
-        cvg_cnt = 0
+        cvg_cnt = 0; prev_score = 100
         BEGIN_EPOCH = args.epoch[0]
         END_EPOCH = args.epoch[1]
         for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
@@ -445,9 +445,13 @@ for category_id in range(5):
             if is_best:
                 print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
                 best_codec_score = score
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
+            
+            if abs(score - prev_score) > 0.01:
                 cvg_cnt = 0
             else:
                 cvg_cnt += 1
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
-            save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
-            if cvg_cnt == 10:break
+            prev_score = score
+
+            if cvg_cnt == 5:break
