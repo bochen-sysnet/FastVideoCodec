@@ -423,7 +423,7 @@ if args.pretrain:
             cvg_cnt += 1
         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
         save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, args.compression_level, 0)
-        if cvg_cnt == 3:break
+        if cvg_cnt == 10:break
     exit(0)
 
 
