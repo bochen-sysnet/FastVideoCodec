@@ -2359,11 +2359,11 @@ class MCVC(ScaleSpaceFlow):
         if not self.imbalanced_correlation:
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
-            y_motion_hat_masked = mask_with_indices(y_motion_hat,mask)
-            y_res_hat_masked = mask_with_indices(y_res_hat,mask)
+            y_motion_hat_masked = mask_with_indices(y_motion_hat,mask).detach()
+            y_res_hat_masked = mask_with_indices(y_res_hat,mask).detach()
             masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat_masked, y_motion_hat_masked), dim=1))
 
             # final reconstruction: prediction + residual
-            masked_x_rec = x_pred + masked_x_res_hat
+            masked_x_rec = x_pred.detach() + masked_x_res_hat
 
             return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}

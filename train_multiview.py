@@ -166,17 +166,24 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
                 bits = torch.sum(torch.clamp(-1.0 * torch.log(var_like["y"] + 1e-5) / math.log(2.0), 0, 50)) + \
                         torch.sum(torch.clamp(-1.0 * torch.log(var_like["z"] + 1e-5) / math.log(2.0), 0, 50))
     
-        if non_zero_indices is None:
-            mseloss = torch.mean((x_hat - x).pow(2))
+        if ssim:
+            if non_zero_indices is None:
+                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat, x)
+            else:
+                mseloss = 1 - pytorch_msssim.ms_ssim(x_hat[non_zero_indices], x[non_zero_indices])
         else:
-            mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
+            if non_zero_indices is None:
+                # mseloss = torch.mean((x_hat - x).pow(2))
+                mseloss = torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
+            else:
+                mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
 
         # supervise the ref frame
         if 'x_ref' in out_dec:
             mseloss += torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
-            mseloss /= 2
 
+        # if use touch-ups training
         if training and args.codec == 'MCVC-IA':
             total_bpp += out_dec['x_touch_bits'][frame_idx] / bits
         else:
