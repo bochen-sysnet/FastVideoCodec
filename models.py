@@ -2329,7 +2329,7 @@ class MCVC(ScaleSpaceFlow):
         if not self.imbalanced_correlation:
             return x_hat, {"keyframe": likelihoods}
         else:
-            masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
+            masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask).detach())
             return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask):
