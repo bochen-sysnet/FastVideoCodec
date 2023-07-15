@@ -411,7 +411,7 @@ if args.pretrain:
     END_EPOCH = args.epoch[1]
     for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
         # score, stats = 
-        # train(epoch, model, train_dataset, optimizer, pretrain=True)
+        train(epoch, model, train_dataset, optimizer, pretrain=True)
         score, stats = test(epoch, model, test_dataset)
 
         is_best = score <= best_pretrain_score
