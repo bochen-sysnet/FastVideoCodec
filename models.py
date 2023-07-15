@@ -2285,7 +2285,7 @@ class MCVC(ScaleSpaceFlow):
         else:
             x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_enhanced)
-            if self.training:
+            if self.training and self.name == 'MCVC-IA':
                 touchup, bits = replace_elements(x_ref, frames[0])
                 touchups += [touchup.detach()]
                 touchup_bits += [bits]
@@ -2302,7 +2302,7 @@ class MCVC(ScaleSpaceFlow):
                 # touch up only for loss not for reference
                 x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_enhanced)
-                if self.training:
+                if self.training and self.name == 'MCVC-IA':
                     touchup, bits = replace_elements(x_ref, frames[i])
                     touchups += [touchup.detach()]
                     touchup_bits += [bits]
