@@ -2193,7 +2193,7 @@ def replace_elements(image1, image2, r=0.2):
     image1_flatten = image1.flatten()
     image2_flatten = image2.flatten()
     image1_flatten_clone = image1_flatten.clone()
-    image1_flatten = image1_flatten * (1 - mask) + image2_flatten * mask
+    image1_flatten = image1_flatten * torch.logical_not(mask) + image2_flatten * mask
 
     # Calculate the difference between the modified elements
     diff_elements = image1_flatten - image1_flatten_clone
@@ -2300,7 +2300,8 @@ class MCVC(ScaleSpaceFlow):
                 reconstructions.append(x_ref)
             else:
                 # touch up only for loss not for reference
-                x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
+                # x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
+                x_ref, x_enhanced, likelihoods = self.forward_inter(x, frames[i-1], mask)
                 reconstructions.append(x_enhanced)
                 if self.training and self.name == 'MCVC-IA':
                     touchup, bits = replace_elements(x_ref, frames[i])
