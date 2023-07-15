@@ -152,7 +152,6 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
     total_mse = 0
     pixels = 0
     completeness = 1
-    pixels = raw_frames[0].size(0) * x.size(2) * x.size(3)
     non_zero_indices = out_dec['non_zero_indices'] if 'non_zero_indices' in out_dec else None
     if non_zero_indices is not None:
         completeness = 1.0 * len(non_zero_indices) / raw_frames[0].size(0)
@@ -181,6 +180,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
         if training and args.codec == 'MCVC-IA':
             total_bpp += out_dec['x_touch_bits'][frame_idx] / bits
         else:
+            pixels = x.size(0) * x.size(2) * x.size(3)
             total_bpp += bits / pixels
         total_psnr += psnr
         total_mse += mseloss
