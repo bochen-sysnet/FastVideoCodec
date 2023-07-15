@@ -2277,6 +2277,7 @@ class MCVC(ScaleSpaceFlow):
         frames_likelihoods = []
         touchups = []
         touchup_bits = []
+        references = []
 
         # separate fixed ref and dynamic recon
         if not self.imbalanced_correlation:
@@ -2285,6 +2286,7 @@ class MCVC(ScaleSpaceFlow):
         else:
             x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_enhanced)
+            references.append(x_ref)
             if self.training and self.name == 'MCVC-IA':
                 touchup, bits = replace_elements(x_ref, frames[0])
                 touchups += [touchup.detach()]
@@ -2300,9 +2302,9 @@ class MCVC(ScaleSpaceFlow):
                 reconstructions.append(x_ref)
             else:
                 # touch up only for loss not for reference
-                # x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
-                x_ref, x_enhanced, likelihoods = self.forward_inter(x, frames[i-1], mask)
+                x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_enhanced)
+                references.append(x_ref)
                 if self.training and self.name == 'MCVC-IA':
                     touchup, bits = replace_elements(x_ref, frames[i])
                     touchups += [touchup.detach()]
@@ -2314,7 +2316,8 @@ class MCVC(ScaleSpaceFlow):
             "likelihoods": frames_likelihoods,
             "non_zero_indices": mask,
             "x_touch":  touchups,
-            "x_touch_bits": touchup_bits
+            "x_touch_bits": touchup_bits,
+            "x_ref": references
         }
 
     def forward_keyframe(self, x, mask):
