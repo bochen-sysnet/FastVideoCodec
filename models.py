@@ -2178,9 +2178,43 @@ def mask_with_indices(inp,indices):
     mask[indices] = 1
     return inp * mask
 
+def replace_elements(image1, image2, r=0.2):
+    # Calculate the absolute difference between image1 and image2
+    diff = torch.abs(image1 - image2)
+    
+    # Flatten the difference tensor and get the indices of elements with largest differences
+    max_indices = torch.topk(diff.flatten(), int(r * diff.numel())).indices
+    
+    # Create a mask tensor to identify the elements to be replaced
+    mask = torch.zeros_like(image1.flatten(), dtype=torch.bool)
+    mask[max_indices] = True
+
+    # Replace the corresponding elements in image1 with elements from image2
+    image1_flatten = image1.flatten()
+    image2_flatten = image2.flatten()
+    image1_flatten_clone = image1_flatten.clone()
+    image1_flatten = image1_flatten * (1 - mask) + image2_flatten * mask
+
+    # Calculate the difference between the modified elements
+    diff_elements = image1_flatten - image1_flatten_clone
+    
+    # Convert the difference to bytes
+    diff_bytes = diff_elements.numpy().astype(np.float32).tobytes()
+    
+    # Compress the difference using zlib compression
+    compressed_diff = zlib.compress(diff_bytes)
+    
+    # Calculate the number of bits required to encode the compressed difference
+    num_bits = len(compressed_diff) * 8
+    
+    # Reshape the modified tensor back to its original shape
+    modified_image1 = image1_flatten.reshape(image1.shape)
+    
+    return modified_image1, num_bits
+
+
 # insert in mid of decoder
 # attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
-# todo: add attention in hypercoder
 class MCVC(ScaleSpaceFlow):
     def __init__(
         self,
@@ -2241,16 +2275,23 @@ class MCVC(ScaleSpaceFlow):
 
         reconstructions = []
         frames_likelihoods = []
+        touchups = []
+        touchup_bits = []
 
         # separate fixed ref and dynamic recon
         if not self.imbalanced_correlation:
-            x_hat, likelihoods = self.forward_keyframe(frames[0], mask)
-            reconstructions.append(x_hat)
+            x_ref, likelihoods = self.forward_keyframe(frames[0], mask)
+            reconstructions.append(x_ref)
         else:
-            x_hat, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
+            x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_enhanced)
+            if self.training:
+                x_ref, bits = replace_elements(x_ref, frames[0])
+                touchups += [x_ref.detach()]
+                touchup_bits += [bits]
+
         frames_likelihoods.append(likelihoods)
-        x_ref = x_hat.detach()
+        x_ref = x_ref.detach()
 
         for i in range(1, len(frames)):
             x = frames[i]
@@ -2258,14 +2299,21 @@ class MCVC(ScaleSpaceFlow):
                 x_ref, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_ref)
             else:
+                # training and ref depend on ref + touch-ups
                 x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_enhanced)
+                if self.training:
+                    x_ref, bits = replace_elements(x_ref, frames[i])
+                    touchups += [x_ref.detach()]
+                    touchup_bits += [bits]
             frames_likelihoods.append(likelihoods)
 
         return {
             "x_hat": reconstructions,
             "likelihoods": frames_likelihoods,
             "non_zero_indices": mask,
+            "x_touch":  touchups,
+            "x_touch_bits": touchup_bits
         }
 
     def forward_keyframe(self, x, mask):
@@ -2284,6 +2332,7 @@ class MCVC(ScaleSpaceFlow):
         # masking
         x_cur = mask_with_indices(x_cur, mask)
         x_ref = mask_with_indices(x_ref, mask)
+
         # encode the motion information
         y_motion = self.motion_encoder(torch.cat((x_cur, x_ref), dim=1))
         y_motion_hat, motion_likelihoods = self.motion_hyperprior(y_motion)
