@@ -179,7 +179,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
 
         # supervise the ref frame
-        if 'x_ref' in out_dec:
+        if 'x_ref' in out_dec and out_dec['x_ref']:
             mseloss += torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
 
         # if use touch-ups training
