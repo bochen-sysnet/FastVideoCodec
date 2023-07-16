@@ -210,7 +210,7 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
     model.train()
     # multi-view dataset must be single batch in loader 
     # single view dataset set batch size to view numbers in loader in test
-    batch_size = args.batch_size if not pretrain else 16
+    batch_size = args.batch_size if not pretrain else 8
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
                                                num_workers=8, drop_last=True, pin_memory=True)
     
