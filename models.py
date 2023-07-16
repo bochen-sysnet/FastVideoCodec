@@ -55,11 +55,8 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             init_training_params(ckpt)
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
-        if name == 'MCVC-FT':
-            model_codec.load_state_dict(ckpt.state_dict())
-        else:
-            load_state_dict_all(model_codec,ckpt.state_dict())
-            print('Pretrained loaded.')
+        load_state_dict_all(model_codec,ckpt.state_dict())
+        print('Pretrained loaded.')
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -2288,7 +2285,7 @@ class MCVC(ScaleSpaceFlow):
             x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_enhanced)
             references.append(x_ref)
-            if self.training and self.name == 'MCVC-IA':
+            if self.training and self.name == 'MCVC-IA-OLFT':
                 touchup, bits = replace_elements(x_ref, frames[0])
                 touchups += [touchup.detach()]
                 touchup_bits += [bits]
@@ -2306,7 +2303,7 @@ class MCVC(ScaleSpaceFlow):
                 x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_enhanced)
                 references.append(x_ref)
-                if self.training and self.name == 'MCVC-IA':
+                if self.training and self.name == 'MCVC-IA-OLFT':
                     touchup, bits = replace_elements(x_ref, frames[i])
                     touchups += [touchup.detach()]
                     touchup_bits += [bits]

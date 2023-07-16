@@ -156,7 +156,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
     if non_zero_indices is not None:
         completeness = 1.0 * len(non_zero_indices) / raw_frames[0].size(0)
     for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
-        if training and args.codec == 'MCVC-IA':
+        if training and args.codec == 'MCVC-IA-OLFT':
             x = out_dec['x_touch'][frame_idx]
         else:
             x = raw_frames[frame_idx]
@@ -183,7 +183,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
             mseloss += torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
 
         # if use touch-ups training
-        if training and args.codec == 'MCVC-IA':
+        if training and args.codec == 'MCVC-IA-OLFT':
             total_bpp += out_dec['x_touch_bits'][frame_idx] / bits
         else:
             pixels = x.size(0) * x.size(2) * x.size(3)
