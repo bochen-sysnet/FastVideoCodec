@@ -404,7 +404,7 @@ if args.evaluate:
     score, stats = test(0, model, test_dataset)
     exit(0)
 
-# pretraining?
+# pretraining uses data from generic scenes
 if args.pretrain:
     train_dataset = FrameDataset('../dataset/vimeo', frame_size=256) 
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
@@ -434,7 +434,8 @@ if args.pretrain:
 
 # MCVC-FT
 # MCVC-IA-FT
-# offline finetune
+# offline finetune uses data from the same scene
+print('Training...')
 for category_id in range(5):
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)

@@ -2285,9 +2285,10 @@ class MCVC(ScaleSpaceFlow):
             x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_enhanced)
             references.append(x_ref)
+            # using touchups as label to finetune online
             if self.training and self.name == 'MCVC-IA-OLFT':
-                touchup, bits = replace_elements(x_ref, frames[0])
-                touchups += [touchup.detach()]
+                x_touchup, bits = replace_elements(x_ref, frames[0])
+                touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
         frames_likelihoods.append(likelihoods)
@@ -2304,8 +2305,8 @@ class MCVC(ScaleSpaceFlow):
                 reconstructions.append(x_enhanced)
                 references.append(x_ref)
                 if self.training and self.name == 'MCVC-IA-OLFT':
-                    touchup, bits = replace_elements(x_ref, frames[i])
-                    touchups += [touchup.detach()]
+                    x_touchup, bits = replace_elements(x_ref, frames[i])
+                    touchups += [x_touchup.detach()]
                     touchup_bits += [bits]
             frames_likelihoods.append(likelihoods)
 
@@ -2327,7 +2328,7 @@ class MCVC(ScaleSpaceFlow):
         if not self.imbalanced_correlation:
             return x_hat, {"keyframe": likelihoods}
         else:
-            masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask).detach())
+            masked_x_hat = self.backup_img_decoder(mask_with_indices(y_hat,mask))
             return x_hat, masked_x_hat, {"keyframe": likelihoods}
 
     def forward_inter(self, x_cur, x_ref, mask):
@@ -2357,11 +2358,11 @@ class MCVC(ScaleSpaceFlow):
         if not self.imbalanced_correlation:
             return x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
         else:
-            y_motion_hat_masked = mask_with_indices(y_motion_hat,mask).detach()
-            y_res_hat_masked = mask_with_indices(y_res_hat,mask).detach()
+            y_motion_hat_masked = mask_with_indices(y_motion_hat,mask)
+            y_res_hat_masked = mask_with_indices(y_res_hat,mask)
             masked_x_res_hat = self.backup_res_decoder(torch.cat((y_res_hat_masked, y_motion_hat_masked), dim=1))
 
             # final reconstruction: prediction + residual
-            masked_x_rec = x_pred.detach() + masked_x_res_hat
+            masked_x_rec = x_pred + masked_x_res_hat
 
             return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
