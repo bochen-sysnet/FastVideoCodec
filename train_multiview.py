@@ -432,7 +432,9 @@ if args.pretrain:
         if cvg_cnt == 10:break
     exit(0)
 
-
+# MCVC-FT
+# MCVC-IA-FT
+# offline finetune
 for category_id in range(5):
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
