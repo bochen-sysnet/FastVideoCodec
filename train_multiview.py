@@ -181,6 +181,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
         # supervise the ref frame
         if 'x_ref' in out_dec and out_dec['x_ref']:
             mseloss += torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
+            mseloss /= 2
 
         # if use touch-ups training
         if training and args.codec == 'MCVC-IA-OLFT':
@@ -435,7 +436,6 @@ if args.pretrain:
 # MCVC-FT
 # MCVC-IA-FT
 # offline finetune uses data from the same scene
-print('Training...')
 for category_id in range(5):
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
