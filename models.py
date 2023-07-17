@@ -2194,11 +2194,11 @@ def replace_elements(image1, image2, r=0.05):
     image1_flatten = image1_flatten * torch.logical_not(mask) + image2_flatten * mask
 
     # Calculate the difference between the modified elements
-    # diff_elements = image1_flatten - image1_flatten_clone
+    diff_elements = image1_flatten - image1_flatten_clone
     
     # Convert the difference to bytes
-    # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
-    diff_bytes = image2_flatten.cpu().detach().numpy().astype(np.float32).tobytes()
+    diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
+    # diff_bytes = image2_flatten.cpu().detach().numpy().astype(np.float32).tobytes()
     
     # Compress the difference using zlib compression
     compressed_diff = zlib.compress(diff_bytes)
