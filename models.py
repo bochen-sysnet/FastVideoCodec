@@ -2208,7 +2208,7 @@ def replace_elements(image1, image2, r=0.00001):
     
     # Reshape the modified tensor back to its original shape
     modified_image1 = image1_flatten.reshape(image1.shape)
-    
+    print(max_indices,num_bits);exit(0)
     return modified_image1, num_bits
 
 
@@ -2289,8 +2289,6 @@ class MCVC(ScaleSpaceFlow):
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
                 x_touchup, bits = replace_elements(x_ref, frames[0])
-                print(bits)
-                exit(0)
                 touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
