@@ -2177,7 +2177,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,0.0001
-def replace_elements(image1, image2, r=0.00001):
+def replace_elements(image1, image2, r=0.05):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2215,8 +2215,8 @@ def replace_elements(image1, image2, r=0.00001):
     # Convert the difference to bytes
     diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.float32).tobytes()
     
-    # Compress the difference using zlib compression
-    compressed_diff = zlib.compress(diff_bytes)
+    # Compress the difference using zlib compression + number of locations
+    compressed_diff = zlib.compress(diff_bytes) + 4 * len(max_indices)
     
     # Calculate the number of bits required to encode the compressed difference
     num_bits = len(compressed_diff) * 8
