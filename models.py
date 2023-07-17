@@ -2202,7 +2202,7 @@ def replace_elements(image1, image2, r=0.00001):
     diff_elements = image1_flatten - image1_flatten_clone
 
     # Create a sparse tensor
-    sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0), diff_elements[max_indices].cpu().detach(), diff.flatten().size())
+    sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0).cpu().detach(), diff_elements[max_indices].cpu().detach(), diff.flatten().size())
     
     # Compress the sparse tensor
     buffer = io.BytesIO()
