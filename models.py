@@ -2289,6 +2289,8 @@ class MCVC(ScaleSpaceFlow):
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
                 x_touchup, bits = replace_elements(x_ref, frames[0])
+                print(bits)
+                exit(0)
                 touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
