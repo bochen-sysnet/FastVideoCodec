@@ -2202,7 +2202,6 @@ def replace_elements(image1, image2, r=0.05):
     diff_elements = image1_flatten - image1_flatten_clone
 
     # Create a sparse tensor
-    print(diff.flatten().size())
     sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0), diff_elements[max_indices], diff.flatten().size())
     
     # Compress the sparse tensor
@@ -2221,7 +2220,7 @@ def replace_elements(image1, image2, r=0.05):
     # # Calculate the number of bits required to encode the compressed difference
     # num_bits = len(compressed_diff) * 8
     # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
-    return modified_image1, num_bits
+    return modified_image1, compressed_size
 
 
 # insert in mid of decoder
