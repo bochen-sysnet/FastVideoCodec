@@ -73,6 +73,8 @@ parser.add_argument('--level-range', type=int, nargs='+', default=[0,4])
 parser.add_argument('--frame-comb', default=0, type=int, help="Frame combination method. 0: naive. 1: spatial. 2: temporal.")
 parser.add_argument('--pretrain', action='store_true',
                     help='pretrain model on single view')
+parser.add_argument('--onlydecoder', action='store_true',
+                    help='only train decoder enhancement part')
 
 args = parser.parse_args()
 
@@ -96,7 +98,7 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = '0,1' # TODO: add to config e.g. 0,1,2,3
     torch.cuda.manual_seed(seed)
 
-def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,category_id,pretrain=False):
+def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,category_id,pretrain=False,onlydecoder=False):
     # codec model
     model = get_codec_model(codec_name, 
                             loss_type=loss_type, 
@@ -124,7 +126,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     paths = []
     # training order
     # IA-PT, IA0 (no fault-tolerance), IA (with fault-tolerance)
-    if codec_name == 'MCVC-IA0':
+    if codec_name == 'MCVC-IA-OLFT':
         paths += [f'{SAVE_DIR}/MCVC-IA-PT-{compression_level}{loss_type}_vid0_best.pth']
     if codec_name == 'MCVC-IA':
         paths += [f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
@@ -136,8 +138,10 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
             break
 
     # create optimizer
-    parameters = [p for n, p in model.named_parameters()]
-    parameter_names = [n for n, p in model.named_parameters()]
+    if not onlydecoder:
+        parameters = [p for n, p in model.named_parameters()]
+    else:
+        parameters = [p for n, p in model.named_parameters() if 'backup' in n]
     optimizer = torch.optim.Adam([{'params': parameters}], lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     pytorch_total_params = sum(p.numel() for p in parameters)
     print('Total number of trainable codec parameters: {}'.format(pytorch_total_params))
@@ -436,6 +440,7 @@ if args.pretrain:
 # MCVC-FT
 # MCVC-IA-FT
 # offline finetune uses data from the same scene
+# for every scene
 for category_id in range(5):
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
     train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
@@ -447,8 +452,9 @@ for category_id in range(5):
     #         start = 1
     #     elif args.codec == 'MCVC-IA0':
     #         start = 2
+    # for every compression level
     for compression_level in range(start,4):
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id)
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id, onlydecoder=args.onlydecoder)
 
         cvg_cnt = 0; prev_score = 100
         BEGIN_EPOCH = args.epoch[0]
