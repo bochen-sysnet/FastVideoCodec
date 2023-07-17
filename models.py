@@ -2177,7 +2177,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,0.0001
-def replace_elements(image1, image2, r=0.001):
+def replace_elements(image1, image2, r=0.00001):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2210,6 +2210,7 @@ def replace_elements(image1, image2, r=0.001):
 
     # Get the size of the compressed tensor in bytes
     compressed_size = buffer.getbuffer().nbytes * 8
+    print(max_indices,compressed_size);exit(0)
 
     # # Convert the difference to bytes
     # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
