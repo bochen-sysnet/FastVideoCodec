@@ -126,7 +126,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     paths = []
     # training order
     # IA-PT, IA0 (no fault-tolerance), IA (with fault-tolerance)
-    if codec_name in 'MCVC-IA-OLFT':
+    if 'MCVC-IA-OLFT' in codec_name:
         paths += [f'backup/MCVC-IA-PT/MCVC-IA-PT-{compression_level}{loss_type}_vid0_best.pth']
     if codec_name == 'MCVC-IA':
         paths += [f'backup/MCVC-IA0/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
@@ -160,7 +160,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
     if non_zero_indices is not None:
         completeness = 1.0 * len(non_zero_indices) / raw_frames[0].size(0)
     for x_hat,likelihoods in zip(out_dec['x_hat'],out_dec['likelihoods']):
-        if training and args.codec in 'MCVC-IA-OLFT':
+        if training and 'MCVC-IA-OLFT' in args.codec:
             x = out_dec['x_touch'][frame_idx]
         else:
             x = raw_frames[frame_idx]
@@ -184,7 +184,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
 
 
         # if use touch-ups training
-        if training and args.codec in 'MCVC-IA-OLFT':
+        if training and 'MCVC-IA-OLFT' in args.codec:
             total_bpp += out_dec['x_touch_bits'][frame_idx] / bits
         else:
             # supervise the ref frame
