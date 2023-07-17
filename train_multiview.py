@@ -232,7 +232,7 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
         out_dec = model(data)
         mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False, training=True)
         _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True, training=True)
-        if training and args.codec == 'MCVC-IA-OLFT':
+        if model.training and args.codec == 'MCVC-IA-OLFT':
             loss = model.r*mse
         else:
             loss = model.r*mse + bpp
