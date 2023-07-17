@@ -2215,11 +2215,11 @@ def replace_elements(image1, image2, r=0.05):
     # Convert the difference to bytes
     diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.float32).tobytes()
     
-    # Compress the difference using zlib compression + number of locations
-    compressed_diff = zlib.compress(diff_bytes) + 4 * len(max_indices)
+    # Compress the difference using zlib compression
+    compressed_diff = zlib.compress(diff_bytes)
     
-    # Calculate the number of bits required to encode the compressed difference
-    num_bits = len(compressed_diff) * 8
+    # Calculate the number of bits required to encode the compressed difference + number of locations
+    num_bits = len(compressed_diff) * 8 + 32 * len(max_indices)
     # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
     return modified_image1, num_bits
 
