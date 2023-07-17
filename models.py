@@ -2208,7 +2208,7 @@ def replace_elements(image1, image2, r=0.00001):
     
     # Reshape the modified tensor back to its original shape
     modified_image1 = image1_flatten.reshape(image1.shape)
-    print(max_indices,num_bits);exit(0)
+    print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
     return modified_image1, num_bits
 
 
