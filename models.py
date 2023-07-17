@@ -2177,7 +2177,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,0.0001
-def replace_elements(image1, image2, r=0.0):
+def replace_elements(image1, image2, r=0.0001):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2288,7 +2288,9 @@ class MCVC(ScaleSpaceFlow):
             references.append(x_ref)
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
-                x_touchup, bits = replace_elements(x_ref, frames[0])
+                x_touchup, bits = replace_elements(x_ref, frames[0], 0)
+                print(bits)
+                exit(0)
                 touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
