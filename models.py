@@ -2177,12 +2177,13 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,0.0001
-def replace_elements(image1, image2, r=0.00001):
+def replace_elements(image1, image2, r=0.05):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
     # Flatten the difference tensor and get the indices of elements with largest differences
-    max_indices = torch.topk(diff.flatten(), int(r * diff.numel())).indices
+    maxes = torch.topk(diff.flatten(), int(r * diff.numel()))
+    max_indices = maxes.indices
     
     # Create a mask tensor to identify the elements to be replaced
     mask = torch.zeros_like(image1.flatten(), dtype=torch.bool)
@@ -2193,22 +2194,32 @@ def replace_elements(image1, image2, r=0.00001):
     image2_flatten = image2.flatten()
     image1_flatten_clone = image1_flatten.clone()
     image1_flatten = image1_flatten * torch.logical_not(mask) + image2_flatten * mask
-
-    # Calculate the difference between the modified elements
-    diff_elements = image1_flatten - image1_flatten_clone
-    
-    # Convert the difference to bytes
-    diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
-    
-    # Compress the difference using zlib compression
-    compressed_diff = zlib.compress(diff_bytes)
-    
-    # Calculate the number of bits required to encode the compressed difference
-    num_bits = len(compressed_diff) * 8
     
     # Reshape the modified tensor back to its original shape
     modified_image1 = image1_flatten.reshape(image1.shape)
-    print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
+
+    # Calculate the difference between the modified elements
+    diff_elements = image1_flatten - image1_flatten_clone
+
+    # Create a sparse tensor
+    sparse_tensor = torch.sparse.FloatTensor(max_indices, diff_elements[max_indices], diff.flatten().size())
+    
+    # Compress the sparse tensor
+    buffer = io.BytesIO()
+    torch.save(sparse_tensor, buffer)
+
+    # Get the size of the compressed tensor in bytes
+    compressed_size = buffer.getbuffer().nbytes * 8
+
+    # # Convert the difference to bytes
+    # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
+    
+    # # Compress the difference using zlib compression
+    # compressed_diff = zlib.compress(diff_bytes)
+    
+    # # Calculate the number of bits required to encode the compressed difference
+    # num_bits = len(compressed_diff) * 8
+    # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
     return modified_image1, num_bits
 
 
