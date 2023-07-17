@@ -2177,13 +2177,15 @@ def mask_with_indices(inp,indices):
     return inp * mask
 # 0.05, 0.001,0.0001
 def replace_elements(image1, image2, r=0.0001):
-    if r == 1: return image2, 0
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
     # Flatten the difference tensor and get the indices of elements with largest differences
     max_indices = torch.topk(diff.flatten(), int(r * diff.numel())).indices
-    print(max_indices)
+    print(max_indices,len(max_indices),int(r * diff.numel()))
+    r=0.001
+    max_indices = torch.topk(diff.flatten(), int(r * diff.numel())).indices
+    print(max_indices,len(max_indices),int(r * diff.numel()))
     exit(0)
     
     # Create a mask tensor to identify the elements to be replaced
