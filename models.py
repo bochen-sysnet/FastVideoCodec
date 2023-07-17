@@ -26,7 +26,7 @@ from compressai.models.waseda import Cheng2020Attention
 import pytorch_msssim
 from PIL import Image
 import torchac
-import compressai
+import compressai,zlib
 from torchvision.transforms import ToPILImage
 
 def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True, num_views=0, resilience=0):

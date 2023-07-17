@@ -127,17 +127,15 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
     # training order
     # IA-PT, IA0 (no fault-tolerance), IA (with fault-tolerance)
     if codec_name == 'MCVC-IA-OLFT':
-        paths += [f'{SAVE_DIR}/MCVC-IA-PT-{compression_level}{loss_type}_vid0_best.pth']
+        paths += [f'backup/MCVC-IA-PT/MCVC-IA-PT-{compression_level}{loss_type}_vid0_best.pth']
     if codec_name == 'MCVC-IA':
-        paths += [f'{SAVE_DIR}/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
+        paths += [f'backup/MCVC-IA0/MCVC-IA0-{compression_level}{loss_type}_vid{category_id}_best.pth']
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_best.pth']
     paths += [f'{SAVE_DIR}/{codec_name}-{compression_level}{loss_type}_vid{category_id}_ckpt.pth']
     for pth in paths:
         if os.path.isfile(pth):
             best_codec_score = load_from_path(pth)
             break
-        else:
-            print(pth)
 
     # create optimizer
     if not onlydecoder:
