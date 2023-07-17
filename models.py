@@ -2176,7 +2176,7 @@ def mask_with_indices(inp,indices):
     mask[indices] = 1
     return inp * mask
 
-def replace_elements(image1, image2, r=1):
+def replace_elements(image1, image2, r=0.05):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2194,7 +2194,7 @@ def replace_elements(image1, image2, r=1):
     image1_flatten = image1_flatten * torch.logical_not(mask) + image2_flatten * mask
 
     # Calculate the difference between the modified elements
-    diff_elements = image1_flatten - image1_flatten_clone
+    # diff_elements = image1_flatten - image1_flatten_clone
     
     # Convert the difference to bytes
     # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
