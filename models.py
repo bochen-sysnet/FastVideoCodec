@@ -2210,7 +2210,7 @@ def replace_elements(image1, image2, r=0.00001):
 
     # Get the size of the compressed tensor in bytes
     compressed_size = buffer.getbuffer().nbytes * 8
-    print(max_indices,compressed_size);exit(0)
+    print(max_indices,compressed_size,sparse_tensor);exit(0)
 
     # # Convert the difference to bytes
     # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
