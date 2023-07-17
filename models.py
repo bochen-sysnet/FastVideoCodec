@@ -2197,7 +2197,7 @@ def replace_elements(image1, image2, r=0.2):
     diff_elements = image1_flatten - image1_flatten_clone
     
     # Convert the difference to bytes
-    diff_bytes = diff_elements.cpu().numpy().astype(np.float32).tobytes()
+    diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
     
     # Compress the difference using zlib compression
     compressed_diff = zlib.compress(diff_bytes)
