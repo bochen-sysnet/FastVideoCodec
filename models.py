@@ -2201,24 +2201,24 @@ def replace_elements(image1, image2, r=0.05):
     # Calculate the difference between the modified elements
     diff_elements = image1_flatten - image1_flatten_clone
 
-    # Create a sparse tensor
-    sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0), diff_elements[max_indices], diff.flatten().size())
+    # # Create a sparse tensor
+    # sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0), diff_elements[max_indices], diff.flatten().size())
     
-    # Compress the sparse tensor
-    buffer = io.BytesIO()
-    torch.save(sparse_tensor, buffer)
+    # # Compress the sparse tensor
+    # buffer = io.BytesIO()
+    # torch.save(sparse_tensor, buffer)
 
-    # Get the size of the compressed tensor in bytes
-    compressed_size = buffer.getbuffer().nbytes * 8
+    # # Get the size of the compressed tensor in bytes
+    # compressed_size = buffer.getbuffer().nbytes * 8
 
-    # # Convert the difference to bytes
-    # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
+    # Convert the difference to bytes
+    diff_bytes = diff_elements.cpu().detach().numpy().astype(np.float32).tobytes()
     
-    # # Compress the difference using zlib compression
-    # compressed_diff = zlib.compress(diff_bytes)
+    # Compress the difference using zlib compression
+    compressed_diff = zlib.compress(diff_bytes)
     
-    # # Calculate the number of bits required to encode the compressed difference
-    # num_bits = len(compressed_diff) * 8
+    # Calculate the number of bits required to encode the compressed difference
+    num_bits = len(compressed_diff) * 8
     # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
     return modified_image1, compressed_size
 
