@@ -182,15 +182,16 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
                 mseloss = torch.mean((x_hat[non_zero_indices] - x[non_zero_indices]).pow(2))
         psnr = 10.0*torch.log(1/mseloss)/torch.log(torch.FloatTensor([10])).squeeze(0).to(raw_frames[0].device)
 
-        # supervise the ref frame
-        if 'x_ref' in out_dec and out_dec['x_ref']:
-            mseloss += torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
-            mseloss /= 2
 
         # if use touch-ups training
         if training and args.codec == 'MCVC-IA-OLFT':
             total_bpp += out_dec['x_touch_bits'][frame_idx] / bits
         else:
+            # supervise the ref frame
+            if 'x_ref' in out_dec and out_dec['x_ref']:
+                mseloss += torch.mean((out_dec['x_ref'][frame_idx] - x).pow(2))
+                mseloss /= 2
+            # calc bpp
             pixels = x.size(0) * x.size(2) * x.size(3)
             total_bpp += bits / pixels
         total_psnr += psnr
@@ -231,7 +232,10 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
         out_dec = model(data)
         mse, bpp, psnr, completeness = metrics_per_gop(out_dec, data, ssim=False, training=True)
         _, _, ssim, _ = metrics_per_gop(out_dec, data, ssim=True, training=True)
-        loss = model.r*mse + bpp
+        if training and args.codec == 'MCVC-IA-OLFT':
+            loss = model.r*mse
+        else:
+            loss = model.r*mse + bpp
         
         ba_loss_module.update(bpp.cpu().data.item())
         psnr_module.update(psnr.cpu().data.item())
