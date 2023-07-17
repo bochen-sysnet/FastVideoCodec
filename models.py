@@ -2177,7 +2177,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,0.0001
-def replace_elements(image1, image2, r=0.0001):
+def replace_elements(image1, image2, r=0.001):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2213,7 +2213,7 @@ def replace_elements(image1, image2, r=0.0001):
     # print(max_indices,compressed_size,sparse_tensor);exit(0)
 
     # Convert the difference to bytes + number of locations
-    diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.float32).tobytes()
+    diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.float16).tobytes()
     diff_bytes += max_indices.cpu().detach().numpy().tobytes()
     
     # Compress the difference using zlib compression
@@ -2298,7 +2298,8 @@ class MCVC(ScaleSpaceFlow):
         else:
             x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_enhanced)
-            references.append(x_ref)
+            if self.training:
+                references.append(x_ref)
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
                 x_touchup, bits = replace_elements(x_ref, frames[0])
@@ -2317,7 +2318,8 @@ class MCVC(ScaleSpaceFlow):
                 # touch up only for loss not for reference
                 x_ref, x_enhanced, likelihoods = self.forward_inter(x, x_ref, mask)
                 reconstructions.append(x_enhanced)
-                references.append(x_ref)
+                if self.training:
+                    references.append(x_ref)
                 if self.training and 'MCVC-IA-OLFT' in self.name:
                     x_touchup, bits = replace_elements(x_ref, frames[i])
                     touchups += [x_touchup.detach()]
