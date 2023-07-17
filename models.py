@@ -2183,6 +2183,8 @@ def replace_elements(image1, image2, r=0.0001):
     
     # Flatten the difference tensor and get the indices of elements with largest differences
     max_indices = torch.topk(diff.flatten(), int(r * diff.numel())).indices
+    print(max_indices)
+    exit(0)
     
     # Create a mask tensor to identify the elements to be replaced
     mask = torch.zeros_like(image1.flatten(), dtype=torch.bool)
