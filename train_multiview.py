@@ -185,7 +185,7 @@ def metrics_per_gop(out_dec, raw_frames, ssim=False, training=False):
 
         # if use touch-ups training
         if training and 'MCVC-IA-OLFT' in args.codec:
-            total_bpp += out_dec['x_touch_bits'][frame_idx] / bits
+            total_bpp += out_dec['x_touch_bits'][frame_idx] / pixels
         else:
             # supervise the ref frame
             if 'x_ref' in out_dec and out_dec['x_ref']:

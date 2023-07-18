@@ -56,7 +56,6 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
         load_state_dict_all(model_codec,ckpt.state_dict())
-        print('Pretrained loaded.')
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -2177,7 +2176,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,
-def replace_elements(image1, image2, r=0.001):
+def replace_elements(image1, image2, r=0.05):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
