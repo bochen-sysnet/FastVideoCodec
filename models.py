@@ -2177,7 +2177,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,
-def replace_elements(image1, image2, r=0.01):
+def replace_elements(image1, image2, r=0.005):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
