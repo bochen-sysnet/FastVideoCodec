@@ -2214,7 +2214,7 @@ def replace_elements(image1, image2, r=0.005):
 
     # Convert the difference to bytes + number of locations
     diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
-    diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
+    # diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
     
     # Compress the difference using zlib compression
     compressed_diff = zlib.compress(diff_bytes)
