@@ -2177,7 +2177,7 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,
-def replace_elements(image1, image2, r=0.01):
+def replace_elements(image1, image2, r=0.001):
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2200,17 +2200,6 @@ def replace_elements(image1, image2, r=0.01):
 
     # Calculate the difference between the modified elements
     diff_elements = (image1_flatten - image1_flatten_clone)*255
-
-    # # Create a sparse tensor
-    # sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0).cpu().detach(), diff_elements[max_indices].cpu().detach(), diff.flatten().size())
-    
-    # # Compress the sparse tensor
-    # buffer = io.BytesIO()
-    # torch.save(sparse_tensor, buffer)
-
-    # # Get the size of the compressed tensor in bytes
-    # compressed_size = buffer.getbuffer().nbytes * 8
-    # print(max_indices,compressed_size,sparse_tensor);exit(0)
 
     # Convert the difference to bytes + number of locations
     diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
