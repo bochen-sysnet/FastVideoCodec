@@ -2208,7 +2208,7 @@ def replace_elements(image1, image2, r=0.05):
     compressed_diff = zlib.compress(diff_bytes)
     
     # Calculate the number of bits required to encode the compressed difference
-    num_bits = len(compressed_diff)
+    num_bits = torch.Tensor(len(compressed_diff))
 
     return modified_image1, num_bits
 
