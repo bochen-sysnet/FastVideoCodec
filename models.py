@@ -2197,19 +2197,18 @@ def replace_elements(image1, image2, r=0.05):
     # Reshape the modified tensor back to its original shape
     modified_image1 = image1_flatten.reshape(image1.shape)
 
-    num_bits = 0
-    # # Calculate the difference between the modified elements
-    # diff_elements = (image1_flatten - image1_flatten_clone)*255
+    # Calculate the difference between the modified elements
+    diff_elements = (image1_flatten - image1_flatten_clone)*255
 
-    # # Convert the difference to bytes + number of locations
-    # diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
-    # diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
+    # Convert the difference to bytes + number of locations
+    diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
+    diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
     
-    # # Compress the difference using zlib compression
-    # compressed_diff = zlib.compress(diff_bytes)
+    # Compress the difference using zlib compression
+    compressed_diff = zlib.compress(diff_bytes)
     
-    # # Calculate the number of bits required to encode the compressed difference
-    # num_bits = len(compressed_diff)
+    # Calculate the number of bits required to encode the compressed difference
+    num_bits = len(compressed_diff)
 
     return modified_image1, num_bits
 
