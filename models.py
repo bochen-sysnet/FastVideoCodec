@@ -2213,7 +2213,6 @@ def replace_elements(image1, image2, r=0.005):
     # print(max_indices,compressed_size,sparse_tensor);exit(0)
 
     # Convert the difference to bytes + number of locations
-    # diff_bytes = diff_elements.cpu().detach().numpy().astype(np.uint8).tobytes()
     diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
     diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
     
@@ -2221,7 +2220,7 @@ def replace_elements(image1, image2, r=0.005):
     compressed_diff = zlib.compress(diff_bytes)
     
     # Calculate the number of bits required to encode the compressed difference
-    num_bits = len(compressed_diff)
+    num_bits = len(compressed_diff) + len(max_indices) * (8 + 8 + 2)
     # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
     return modified_image1, num_bits
 
