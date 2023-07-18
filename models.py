@@ -2200,7 +2200,6 @@ def replace_elements(image1, image2, r=0.01):
 
     # Calculate the difference between the modified elements
     diff_elements = (image1_flatten - image1_flatten_clone)*255
-    print(diff_elements.max(), diff_elements.min())
 
     # # Create a sparse tensor
     # sparse_tensor = torch.sparse.FloatTensor(max_indices.unsqueeze(0).cpu().detach(), diff_elements[max_indices].cpu().detach(), diff.flatten().size())
@@ -2214,16 +2213,15 @@ def replace_elements(image1, image2, r=0.01):
     # print(max_indices,compressed_size,sparse_tensor);exit(0)
 
     # Convert the difference to bytes + number of locations
-    diff_bytes = diff_elements.cpu().detach().numpy().astype(np.uint8).tobytes()
-    # diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
-    # diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
+    diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
+    diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
     
     # Compress the difference using zlib compression
     compressed_diff = zlib.compress(diff_bytes)
     
     # Calculate the number of bits required to encode the compressed difference
     num_bits = len(compressed_diff)
-    # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
+
     return modified_image1, num_bits
 
 
