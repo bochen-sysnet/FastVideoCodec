@@ -2220,7 +2220,7 @@ def replace_elements(image1, image2, r=0.005):
     compressed_diff = zlib.compress(diff_bytes)
     
     # Calculate the number of bits required to encode the compressed difference
-    num_bits = len(compressed_diff) + len(max_indices) * (8 + 8 + 2)
+    num_bits = len(compressed_diff)
     # print(max_indices,len(diff_elements),len(diff_bytes),num_bits);exit(0)
     return modified_image1, num_bits
 
