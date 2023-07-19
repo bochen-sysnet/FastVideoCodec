@@ -2226,6 +2226,7 @@ class MCVC(ScaleSpaceFlow):
         scale_field_shift: float = 1.0,
         num_views: int = 0,
         resilience: int = 0,
+        sample_ratio: float = 0.1,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         imbalanced_correlation = True if '-IA' in name else False
@@ -2266,6 +2267,7 @@ class MCVC(ScaleSpaceFlow):
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
         self.force_resilience = -1
+        self.sample_ratio = sample_ratio
 
 
     def forward(self, frames):
@@ -2284,13 +2286,13 @@ class MCVC(ScaleSpaceFlow):
             x_ref, likelihoods = self.forward_keyframe(frames[0], mask)
             reconstructions.append(x_ref)
         else:
-            x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask)
+            x_ref, x_enhanced, likelihoods = self.forward_keyframe(frames[0], mask, )
             reconstructions.append(x_enhanced)
             if self.training:
                 references.append(x_ref)
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
-                x_touchup, bits = replace_elements(x_ref, frames[0])
+                x_touchup, bits = replace_elements(x_ref, frames[0], r=self.sample_ratio)
                 touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
@@ -2309,7 +2311,7 @@ class MCVC(ScaleSpaceFlow):
                 if self.training:
                     references.append(x_ref)
                 if self.training and 'MCVC-IA-OLFT' in self.name:
-                    x_touchup, bits = replace_elements(x_ref, frames[i])
+                    x_touchup, bits = replace_elements(x_ref, frames[i], r=self.sample_ratio)
                     touchups += [x_touchup.detach()]
                     touchup_bits += [bits]
             frames_likelihoods.append(likelihoods)

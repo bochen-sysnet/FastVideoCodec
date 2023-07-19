@@ -173,7 +173,7 @@ class FrameDataset(Dataset):
 categories = ['lobby','retail','office','industry_safety','cafe_shop']
 views_of_category = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0):
+    def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0, data_ratio=1):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         assert category_id < len(views_of_category)
@@ -189,14 +189,15 @@ class MultiViewVideoDataset(Dataset):
         assert transform is not None
         self.transform = transform
         self.get_file_names()
+        self.data_ratio = data_ratio
         
     def get_file_names(self):
-        print("[log] Looking for files in", self._dataset_dir)  
+        # print("[log] Looking for files in", self._dataset_dir)  
         self.__file_names = []
         self.__video_frames = []
         self.__video_gops = []
         category_filenames = []
-        print(os.listdir(self._dirs[0]))
+        # print(os.listdir(self._dirs[0]))
         for directory in self._dirs:
             for fn in os.listdir(directory):
                 if self.category in fn:
@@ -212,10 +213,9 @@ class MultiViewVideoDataset(Dataset):
             self.__file_names += [fn]
             self.__video_frames += [len(os.listdir(fn))//self.num_views]
             self.__video_gops += [len(os.listdir(fn))//self.num_views//self.gop_size]
-        print(self.__file_names)
-        print("[log] Number of files found {}".format(len(self.__file_names)))
-        self.__num_gops = sum(self.__video_gops)
-        print("[log] Number of gops found {}".format(self.__num_gops))
+        # print(self.__file_names)
+        self.__num_gops = int(sum(self.__video_gops) * self.data_ratio)
+        print("[log] Number of files found {}, gops found {}/{}".format(len(self.__file_names),self.__num_gops,sum(self.__video_gops)))
 
     def __len__(self):
         return self.__num_gops

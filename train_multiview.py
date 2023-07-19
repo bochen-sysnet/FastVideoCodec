@@ -45,6 +45,10 @@ parser.add_argument('--category-id', default=0, type=int,
                     help="Category ID")
 parser.add_argument('--device', default=0, type=int,
                     help="GPU ID")
+parser.add_argument('--data-ratio', type=float, default=1,
+                    help='The ratio of dataset in training')
+parser.add_argument('--sample-ratio', type=float, default=0.01,
+                    help='The ratio of sampled pixels in streaming in streaming')
 parser.add_argument('--epoch', type=int, nargs='+', default=[0,1000],
                     help='Begin and end epoch')
 parser.add_argument('--lr', type=float, default=0.0001,
@@ -107,6 +111,7 @@ def get_model_n_optimizer_n_score_from_level(codec_name,compression_level,catego
                             num_views=test_dataset.num_views if not pretrain else 1,
                             resilience=args.resilience)
     model.force_resilience = args.force_resilience
+    model.sample_ratio = args.sample_ratio
     model = model.cuda(device)
 
     def load_from_path(path):
@@ -293,7 +298,7 @@ def save_checkpoint(state, is_best, directory, CODEC_NAME, loss_type, compressio
         print('Saved to:',best_filename)
 
     with open(f'{directory}/log.txt','a+') as f:
-        f.write(f'{category_id},{compression_level},{epoch},{bpp},{psnr},{score}\n')
+        f.write(f'{category_id},{compression_level},{args.data_ratio},{args.sample_ratio},{epoch},{bpp},{psnr},{score}\n')
 
 def test(epoch, model, test_dataset, print_header=None):
     model.eval()
@@ -447,8 +452,10 @@ if args.pretrain:
 # for every scene
 for category_id in range(5):
     shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-    train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
-    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+    train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',
+        transform=shared_transforms,category_id=category_id,num_views=args.num_views,data_ratio=args.data_ratio)
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
+        transform=shared_transforms,category_id=category_id,num_views=args.num_views)
 
     start = 0
     # if category_id == 0:

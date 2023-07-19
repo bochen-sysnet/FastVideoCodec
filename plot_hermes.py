@@ -219,7 +219,7 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,lfsize=lab
 		ax.annotate(text="$\downarrow74\%$ for Mc(1080)", xy=(16,YY[2][15]), xytext=((4,5)), arrowprops=dict(arrowstyle='->',lw=2),size=lfsize,fontweight='bold')
 		ax.annotate(text="$\downarrow77\%$ for Rc(1080)", xy=(6,YY[7][5]), xytext=((9,0)), arrowprops=dict(arrowstyle='->',lw=2),size=lfsize,fontweight='bold')
 	if motrd_annot:
-		ax.text(1.,36.5, "Learned codecs:\nhigh coding efficiency", ha="center", va="center", size=lfsize+4,fontweight='bold',)
+		ax.text(1.,36.5, "Learned codecs:\nHigh coding efficiency", ha="center", va="center", size=lfsize+4,fontweight='bold',color='#00AA88')
 	if refcost_annot:
 		ax.text(30,900, "One-hop's ref cost increases\nfaster than others", ha="center", va="center", size=lfsize,fontweight='bold',)
 	if refdepth_annot:
@@ -398,9 +398,9 @@ def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],colors=
 
 	if use_realtime_line:
 		plt.axhline(y = 30, color = '#DB1F48', linestyle = '--')
-		ax.text(1.5, 120, "Learned codecs:\nlow frame rates", ha="center", va="center", size=lfsize+4,fontweight='bold', rotation='vertical',)
+		ax.text(1.5, 120, "Learned codecs:\nLow frame rates", ha="center", va="center", size=lfsize+4,fontweight='bold', rotation='vertical',color='#D62728')
 	if motrebuffer_annot:
-		ax.text(1.2,0.5, "Learned codecs:\nhigh rebuffer\nand stall rates", ha="center", va="center", rotation='vertical', size=lfsize+6,fontweight='bold',)
+		ax.text(1.2,0.5, "Learned codecs:\nHigh rebuffer\nand stall rates", ha="center", va="center", rotation='vertical', size=lfsize+6,fontweight='bold',color='#D62728')
 		# ax.text(2,.5, "Learned codecs:\nhigh stall rates", ha="center", va="center", size=lfsize,fontweight='bold',color='#e3342f')
 
 	if ratio is not None:
@@ -543,22 +543,6 @@ groupedbar(y,None,'Frame Rate (fps)',
 
 exit(0)
 
-d = np.arange(1,6)
-chain_cost = 2**(d+1)-2
-oh_cost = (1+chain_cost)/2*chain_cost
-bt_cost = np.array([3,11,31,79,191]) #prev*2+1+2^d
-allcost = np.stack((chain_cost,oh_cost,bt_cost))
-alldepth = [chain_cost,[1 for _ in range(5)],d]
-x = [2**(d+1)-2 for _ in range(3)]
-line_plot(x,allcost,['Chain','One-hop','Binary'],colors,
-		'/home/bo/Dropbox/Research/NSDI24Hermes/images/graph_analysis_cost.eps',
-		'#Frame','Reference Cost',ncol=1,legloc='upper left',lbsize=32,
-		lfsize=20,bbox_to_anchor=None,linewidth=4,markersize=8,refcost_annot=True)
-line_plot(x,alldepth,['Chain','One-hop','Binary'],colors,
-		'/home/bo/Dropbox/Research/NSDI24Hermes/images/graph_analysis_depth.eps',
-		'#Frame','Reference Depth',ncol=1,legloc='upper left',lbsize=32,lfsize=20,
-		bbox_to_anchor=None,linewidth=4,markersize=8,refdepth_annot=True)
-exit(0)
 
 y = [[0.014343031600003543, 0.01041380439999955, 0.010020919000000579, 0.0099386924749993, 0.009637096180000526, 0.009600869550000841, 0.01225261787142894, 0.010805716924999587, 0.013351780355555497, 0.01012761901000033, 0.009969255518181667, 0.007719925508333367, 0.007699777169230733, 0.007648280071428612, 0.010007865553333205, 0.008840933706250099],
 [0.006625925800000232, 0.006346201299999165, 0.006341402133332015, 0.006342856949999032, 0.006327184579999994, 0.006357724933333013, 0.006347319628571313, 0.006374761762499759, 0.006373157866666664, 0.0062588391100001665, 0.006265954209090875, 0.006284894324999849, 0.006266073861538556, 0.006278202685714161, 0.006285975300000171, 0.006274069393749926],
@@ -580,8 +564,68 @@ x = [range(1,y.shape[1]+1) for _ in range(y.shape[0])]
 colors_tmp = ['#e3342f','#f6993f','#ffed4a','#38c172','#4dc0b5','#3490dc','#6574cd','#9561e2','#f66d9b']
 line_plot(x,y,['ME(1080)','MC(1080)','Mc(1080)','Rc(1080)','ME(2080)','MC(2080)','Mc(2080)','Rc(2080)'],colors_tmp,
 		'/home/bo/Dropbox/Research/NSDI24Hermes/images/mot_parallel.eps',
-		'Batch Size','Proc. Time (ms)',ncol=1,legloc='best',lbsize=24,lfsize=18,bbox_to_anchor=(0.64,1),xticks=range(0,26,5),
-		motparallel_annot=True,)
+		'Batch Size','Proc. Time (ms)',ncol=1,legloc='best',lbsize=20,lfsize=14,bbox_to_anchor=(0.68,1),xticks=range(0,26,5),
+		motparallel_annot=True,ratio=0.45)
+exit(0)
+SPSNRs = [
+[30.91,32.62,33.89,34.57],
+[30.94,32.58,33.87,34.60],
+[30.63,32.17,33.52,34.39],
+[30.17,31.72,33.12,34.07],
+[29.72,31.29,32.74,33.76],
+]
+Sbpps = [
+[0.23,0.36,0.54,0.74],
+[0.21,0.30,0.44,0.61],
+[0.12,0.18,0.266,0.37],
+[0.11,0.16,0.22,0.31],
+[0.10,0.15,0.21,0.30],
+]
+sc_labels = ['subGOP=1','subGOP=2','subGOP=6','subGOP=14','subGOP=30']
+line_plot(Sbpps,SPSNRs,sc_labels,colors,
+		'/home/bo/Dropbox/Research/NSDI24Hermes/images/scalability_rdtradeoff.eps',
+		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,34),lbsize=24,lfsize=18,
+		xticks=[0.1,0.2,.3,.4,.5,.6,.7],yticks=range(30,35))
+exit(0)
+########################ABLATION####################################
+# UVG
+ab_labels = ['Default','w/o ST','Chain','One-hop']
+bpps = [[0.12,0.18,0.266,0.37],
+		[0.12,0.20,0.30,0.41],
+        [0.10,0.15,0.23,0.33],
+		[0.11,0.17,0.27,0.41],
+		]
+PSNRs = [[30.63,32.17,33.52,34.39],
+		[29.83,31.25,32.74,34.05],
+        [29.33,31.15,32.76,33.74],
+		[29.77,31.62,32.99,33.92],
+		]
+line_plot(bpps,PSNRs,ab_labels,colors,
+		'/home/bo/Dropbox/Research/NSDI24Hermes/images/ablation_rdtradeoff.eps',
+		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.13,33.5),lbsize=28,lfsize=24,
+		xticks=[.1,.2,.3,.4],yticks=range(30,35))
+
+ab_labels = ['Default','w/o ST','Chain','One-hop']
+fps_avg_list = [32.21, 32.63, 16.17, 32.98]
+bar_plot(fps_avg_list,None,ab_labels,
+		'/home/bo/Dropbox/Research/NSDI24Hermes/images/ablation_speed.eps',
+		'#4f646f','Frame Rate (fps)',yticks=range(0,45,5),labelsize=28)
+exit(0)
+d = np.arange(1,6)
+chain_cost = 2**(d+1)-2
+oh_cost = (1+chain_cost)/2*chain_cost
+bt_cost = np.array([3,11,31,79,191]) #prev*2+1+2^d
+allcost = np.stack((chain_cost,oh_cost,bt_cost))
+alldepth = [chain_cost,[1 for _ in range(5)],d]
+x = [2**(d+1)-2 for _ in range(3)]
+line_plot(x,allcost,['Chain','One-hop','Binary'],colors,
+		'/home/bo/Dropbox/Research/NSDI24Hermes/images/graph_analysis_cost.eps',
+		'#Frame','Reference Cost',ncol=1,legloc='upper left',lbsize=32,
+		lfsize=20,bbox_to_anchor=None,linewidth=4,markersize=8,refcost_annot=True)
+line_plot(x,alldepth,['Chain','One-hop','Binary'],colors,
+		'/home/bo/Dropbox/Research/NSDI24Hermes/images/graph_analysis_depth.eps',
+		'#Frame','Reference Depth',ncol=1,legloc='upper left',lbsize=32,lfsize=20,
+		bbox_to_anchor=None,linewidth=4,markersize=8,refdepth_annot=True)
 exit(0)
 ##############################Overall#############################
 # 16543747 bps=15.8Mbps
@@ -686,26 +730,6 @@ df3 = pd.DataFrame(bit_dist[8:],
                    columns=["Motion", "Residual"])
 
 plot_clustered_stacked([df1, df2, df3],'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/bits_dist.eps',labels=['Ours','DVC','RLVC'],xlabel='$\lambda$',ylabel='Bit per pixel')
-
-SPSNRs = [
-[30.91,32.62,33.89,34.57],
-[30.94,32.58,33.87,34.60],
-[30.63,32.17,33.52,34.39],
-[30.17,31.72,33.12,34.07],
-[29.72,31.29,32.74,33.76],
-]
-Sbpps = [
-[0.23,0.36,0.54,0.74],
-[0.21,0.30,0.44,0.61],
-[0.12,0.18,0.266,0.37],
-[0.11,0.16,0.22,0.31],
-[0.10,0.15,0.21,0.30],
-]
-sc_labels = ['Capacity=1','Capacity=2','Capacity=6','Capacity=14','Capacity=30']
-line_plot(Sbpps,SPSNRs,sc_labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/scalability_rdtradeoff.eps',
-		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.15,34),lbsize=24,lfsize=18,
-		xticks=[0.1,0.2,.3,.4,.5,.6,.7],yticks=range(30,35))
 exit(0)
 
 y = [[0.0310,0.0382,0.0581,],
@@ -819,30 +843,6 @@ for i in range(4):
             f'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/error_prop_{i}.eps',
             'Frame Location',ylabel,xticks=range(7),xticklabel=['I']+[f'P{i}' for i in range(1,7)],yticks=ytick_list[i],lbsize=28,lfsize=22,ncol=ncol,linewidth=4,
            	legloc=legloc,bbox_to_anchor=bboxes[i])
-exit(0)
-########################ABLATION####################################
-# UVG
-ab_labels = ['Default','w/o VCL','Chain','One-hop']
-bpps = [[0.12,0.18,0.266,0.37],
-		[0.12,0.20,0.30,0.41],
-        [0.10,0.15,0.23,0.33],
-		[0.11,0.17,0.27,0.41],
-		]
-PSNRs = [[30.63,32.17,33.52,34.39],
-		[29.83,31.25,32.74,34.05],
-        [29.33,31.15,32.76,33.74],
-		[29.77,31.62,32.99,33.92],
-		]
-line_plot(bpps,PSNRs,ab_labels,colors,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/ablation_rdtradeoff.eps',
-		'Bit Per Pixel','PSNR (dB)',use_arrow=True,arrow_coord=(0.13,33.5),lbsize=28,lfsize=24,
-		xticks=[.1,.2,.3,.4],yticks=range(30,35))
-
-ab_labels = ['Default','w/o VCL','Chain','One-hop']
-fps_avg_list = [32.21, 32.63, 16.17, 32.98]
-bar_plot(fps_avg_list,None,ab_labels,
-		'/home/bo/Dropbox/Research/SIGCOMM23-VC/images/ablation_speed.eps',
-		'#4f646f','Frame Rate (fps)',yticks=range(0,45,5),labelsize=28)
 exit(0)
 
 ######################SCALABILITY##########################
