@@ -188,8 +188,8 @@ class MultiViewVideoDataset(Dataset):
         self._frame_size = (256,256)
         assert transform is not None
         self.transform = transform
-        self.get_file_names()
         self.data_ratio = data_ratio
+        self.get_file_names()
         
     def get_file_names(self):
         # print("[log] Looking for files in", self._dataset_dir)  
