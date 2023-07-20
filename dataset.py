@@ -210,6 +210,8 @@ class MultiViewVideoDataset(Dataset):
             files_after_split = category_filenames[split:]
         elif self.split == 'test':
             files_after_split = category_filenames[:split]
+        else:
+            files_after_split = category_filenames
         for fn in files_after_split:
             self.__file_names += [fn]
             self.__video_frames += [len(os.listdir(fn))//self.num_views]
