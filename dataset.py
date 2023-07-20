@@ -227,7 +227,7 @@ class MultiViewVideoDataset(Dataset):
         # the maximum number is the total video length
         if self._idx == self.__num_gops:return None
         # we can reject old ones
-        chosen_idx = random.randint(0, self._pool_size-1)
+        chosen_idx = random.randint(0, self._pool_size)
         self._idx += 1
         if self._idx%int(6*self.dilation_ratio) == 0:
             self._pool_size += 1
