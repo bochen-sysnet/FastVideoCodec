@@ -231,6 +231,7 @@ class MultiViewVideoDataset(Dataset):
         self._idx += 1
         if self._idx%int(6*self.dilation_ratio) == 0:
             self._pool_size += 1
+        print(chosen_idx)
         return self.idx2data(chosen_idx)
 
     def __len__(self):
@@ -257,8 +258,6 @@ class MultiViewVideoDataset(Dataset):
                 frame_idx = gop_idx * self.gop_size + g
                 img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
-                print(img.size)
-                exit(0)
                 img = self.transform(img)
                 data.append(img)
         data = torch.stack(data, dim=0)
