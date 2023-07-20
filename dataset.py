@@ -231,7 +231,7 @@ class MultiViewVideoDataset(Dataset):
         self._idx += 1
         if self._idx%int(6*self.dilation_ratio) == 0:
             self._pool_size += 1
-        print(chosen_idx,self._pool_size,self._idx,self._idx%int(6*self.dilation_ratio))
+        # print(chosen_idx,self._pool_size,self._idx,self._idx%int(6*self.dilation_ratio))
         return self.idx2data(chosen_idx)
 
     def __len__(self):

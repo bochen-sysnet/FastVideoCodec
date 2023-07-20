@@ -454,32 +454,25 @@ if args.pretrain:
 # for every scene
 for category_id in range(5):
     for compression_level in range(4):
-        shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-        # train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',
-        #     transform=shared_transforms,category_id=category_id,num_views=args.num_views,data_ratio=args.data_ratio)
-        train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=category_id,num_views=args.num_views,
-            data_ratio=args.data_ratio, dilation_ratio=args.dilation_ratio)
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',
-            transform=shared_transforms,category_id=category_id,num_views=args.num_views)
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id, onlydecoder=args.onlydecoder)
+        for dilation_ratio in range(10,110,10):
+            args.dilation_ratio = dilation_ratio
 
-        cvg_cnt = 0; prev_score = 100
-        BEGIN_EPOCH = args.epoch[0]
-        END_EPOCH = args.epoch[1]
-        for epoch in range(BEGIN_EPOCH, END_EPOCH + 1):
-            train(epoch, model, train_dataset, optimizer)
+            shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+            train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+                transform=shared_transforms,category_id=category_id,num_views=args.num_views,
+                data_ratio=args.data_ratio, dilation_ratio=args.dilation_ratio)
+            test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
+                transform=shared_transforms,category_id=category_id,num_views=args.num_views)
+            model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,compression_level, category_id, onlydecoder=args.onlydecoder)
+
+            train(0, model, train_dataset, optimizer)
             
-            score, stats = test(epoch, model, test_dataset)
+            score, stats = test(0, model, test_dataset)
             
             is_best = score <= best_codec_score
             if is_best:
                 print("New best", stats, "Score:", score, ". Previous: ", best_codec_score)
                 best_codec_score = score
-                cvg_cnt = 0
-            else:
-                cvg_cnt += 1
-                if cvg_cnt == 10:break
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
+            state = {'epoch': 0, 'state_dict': model.state_dict(), 'score': score, 'stats': stats}
             save_checkpoint(state, is_best, SAVE_DIR, CODEC_NAME, loss_type, compression_level, category_id)
-            exit(0)
+        exit(0)
