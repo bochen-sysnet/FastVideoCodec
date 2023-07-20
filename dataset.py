@@ -173,7 +173,7 @@ class FrameDataset(Dataset):
 categories = ['lobby','retail','office','industry_safety','cafe_shop']
 views_of_category = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
-    def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0, data_ratio=1):
+    def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0, data_ratio=1, dilation_ratio=0):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         assert category_id < len(views_of_category)
@@ -189,6 +189,7 @@ class MultiViewVideoDataset(Dataset):
         assert transform is not None
         self.transform = transform
         self.data_ratio = data_ratio
+        self._idx = 0; self._pool_size = 1; self.dilation_ratio = dilation_ratio
         self.get_file_names()
         
     def get_file_names(self):
@@ -207,7 +208,7 @@ class MultiViewVideoDataset(Dataset):
         split = int(total_files * 0.2)
         if self.split == 'train':
             files_after_split = category_filenames[split:]
-        else:
+        elif self.split == 'test':
             files_after_split = category_filenames[:split]
         for fn in files_after_split:
             self.__file_names += [fn]
@@ -217,10 +218,29 @@ class MultiViewVideoDataset(Dataset):
         self.__num_gops = int(sum(self.__video_gops) * self.data_ratio)
         print("[log] Number of files found {}, gops found {}/{}".format(len(self.__file_names),self.__num_gops,sum(self.__video_gops)))
 
+    def sample(self):
+        # the length is fixed to be the video size
+        # rolling based training
+        # the throughput of processing is 6 times of streaming. after sampling 6 gops, there will be a new one
+        # the maximum number is the total video length
+        if self._idx == self.__num_gops:return None
+        # we can reject old ones
+        chosen_idx = random.randint(0, self._pool_size-1)
+        self._idx += 1
+        if self._idx%int(6*self.dilation_ratio) == 0:
+            self._pool_size += 1
+        return self.idx2data(chosen_idx)
+
     def __len__(self):
         return self.__num_gops
         
     def __getitem__(self, idx):
+        if self.dilation_ratio == 0:
+            return self.idx2data(idx)
+        else:
+            return self.sample()
+
+    def idx2data(self, idx):
         file_idx = 0
         total_gops = 0
         for gops in self.__video_gops:
@@ -235,6 +255,8 @@ class MultiViewVideoDataset(Dataset):
                 frame_idx = gop_idx * self.gop_size + g
                 img_dir = os.path.join(self.__file_names[file_idx],f'rgb_{frame_idx:05d}_{v+1}.jpg')
                 img = Image.open(img_dir).convert('RGB')
+                print(img.size)
+                exit(0)
                 img = self.transform(img)
                 data.append(img)
         data = torch.stack(data, dim=0)
