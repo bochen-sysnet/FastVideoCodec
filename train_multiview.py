@@ -225,7 +225,7 @@ def train(epoch, model, train_dataset, optimizer, pretrain=False):
     # single view dataset set batch size to view numbers in loader in test
     batch_size = args.batch_size if not pretrain else 8
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
-                                               num_workers=25, drop_last=True, pin_memory=True)
+                                               num_workers=6, drop_last=True, pin_memory=True)
     
     train_iter = tqdm(train_loader)
     for batch_idx,data in enumerate(train_iter):

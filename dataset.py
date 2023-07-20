@@ -229,7 +229,7 @@ class MultiViewVideoDataset(Dataset):
         # we can reject old ones
         chosen_idx = random.randint(0, self._pool_size-1)
         self._idx += 1
-        if self._idx%int(6*self.dilation_ratio) == 0:
+        if self._idx%int(self.dilation_ratio) == 0:
             self._pool_size += 1
         # print(chosen_idx,self._pool_size,self._idx,self._idx%int(6*self.dilation_ratio))
         return self.idx2data(chosen_idx)
