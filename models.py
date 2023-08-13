@@ -29,7 +29,7 @@ import torchac
 import compressai,zlib
 from torchvision.transforms import ToPILImage
 
-def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True, num_views=0, resilience=0):
+def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True, num_views=0, resilience=0, use_attn=True):
     if name in ['RLVC','DVC','RLVC2']:
         model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif name in ['DVC-pretrained']:
@@ -54,8 +54,9 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             ckpt.loss_type = loss_type
             init_training_params(ckpt)
             return ckpt
-        model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, num_views=num_views, resilience=resilience)
-        load_state_dict_all(model_codec,ckpt.state_dict())
+        model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, 
+                           num_views=num_views, resilience=resilience, use_attn=use_attn)
+        load_state_dict_whatever(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -65,9 +66,9 @@ def init_training_params(model):
     model.r_img, model.r_bpp, model.r_aux = 1,1,1
     model.stage = 'REC'
     
-    psnr_list = [256,512,1024,2048,4096,8192,16384,16384*2]
+    psnr_list = [256,512,1024,2048,4096,8192,16384,16384*2,16384*4]
     msssim_list = [8,16,32,64]
-    I_lvl_list = [37,32,27,22,17,12,7,2]
+    I_lvl_list = [37,32,27,22,17,12,7,2,1]
     model.r = psnr_list[model.compression_level] if model.loss_type == 'P' else msssim_list[model.compression_level]
     model.I_level = I_lvl_list[model.compression_level] # [37,32,27,22] poor->good quality
     # print(f'MSE/MSSSIM multiplier:{model.r}, BPG level:{model.I_level}, channels:{model.channels}')
@@ -95,13 +96,15 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
     elif name == 'x265-medium':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset medium -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
     elif name == 'x265-veryslow':
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryslow -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
+        # cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryslow -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryslow -x265-params "crf={Q}:verbose=1" {output_filename}'
     elif name == 'x264-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
     elif name == 'x264-medium':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset medium -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
     elif name == 'x264-veryslow':
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryslow -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
+        # cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryslow -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryslow -crf {Q} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
     else:
         print('Codec not supported')
         exit(1)
@@ -432,8 +435,6 @@ def load_state_dict_only(model, state_dict, keyword):
 def load_state_dict_whatever(model, state_dict):
     own_state = model.state_dict()
     for name, param in state_dict.items():
-        if name.endswith("._offset") or name.endswith("._quantized_cdf") or name.endswith("._cdf_length") or name.endswith(".scale_table"):
-             continue
         if name in own_state and own_state[name].size() == param.size():
             own_state[name].copy_(param)
             
@@ -2176,7 +2177,9 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,
-def replace_elements(image1, image2, r=0.1):
+def replace_elements(image1, image2, r=0.1, real_replace=False, use_compression=True):
+    if not real_replace:
+        return image2, 1
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2200,15 +2203,21 @@ def replace_elements(image1, image2, r=0.1):
     # Calculate the difference between the modified elements
     diff_elements = (image1_flatten - image1_flatten_clone)*255
 
-    # Convert the difference to bytes + number of locations
-    diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
-    diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
+    if use_compression:
+        # Convert the difference to bytes + number of locations
+        diff_bytes = diff_elements[max_indices].cpu().detach().numpy().astype(np.uint8).tobytes()
+        diff_bytes += mask.cpu().detach().numpy().astype(np.bool).tobytes()
     
-    # Compress the difference using zlib compression
-    compressed_diff = zlib.compress(diff_bytes)
-    
-    # Calculate the number of bits required to encode the compressed difference
-    num_bits = len(compressed_diff)
+        # Compress the difference using zlib compression
+        compressed_diff = zlib.compress(diff_bytes)
+        
+        # Calculate the number of bits required to encode the compressed difference
+        num_bits = len(compressed_diff)
+    else:
+        raw_bytes = (image2_flatten*255).cpu().detach().numpy().astype(np.uint8).tobytes()
+
+        num_bits = len(raw_bytes)
+
 
     return modified_image1, num_bits
 
@@ -2227,14 +2236,15 @@ class MCVC(ScaleSpaceFlow):
         num_views: int = 0,
         resilience: int = 0,
         sample_ratio: float = 0.1,
+        use_attn: bool = True,
     ):
         super().__init__(num_levels,sigma0,scale_field_shift)
         imbalanced_correlation = True if '-IA' in name else False
         class Decoder(nn.Sequential):
             def __init__(
-                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, use_attn: bool = False
+                self, out_planes: int, in_planes: int = 192, mid_planes: int = 128, attn: bool = False
             ):
-                if not use_attn:
+                if not attn:
                     super().__init__(
                         deconv(in_planes, mid_planes, kernel_size=5, stride=2),
                         nn.ReLU(inplace=True),
@@ -2261,13 +2271,15 @@ class MCVC(ScaleSpaceFlow):
         self.name = name
 
         if imbalanced_correlation:
-            self.backup_img_decoder = Decoder(3, use_attn = True)
-            self.backup_res_decoder = Decoder(3, in_planes=384, use_attn = True)
+            self.backup_img_decoder = Decoder(3, attn = use_attn)
+            self.backup_res_decoder = Decoder(3, in_planes=384, attn = use_attn)
         self.resilience = resilience
         self.num_views = num_views
         self.imbalanced_correlation = imbalanced_correlation
         self.force_resilience = -1
         self.sample_ratio = sample_ratio
+        self.real_replace=False
+        self.use_compression=True
 
 
     def forward(self, frames):
@@ -2292,7 +2304,8 @@ class MCVC(ScaleSpaceFlow):
                 references.append(x_ref)
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
-                x_touchup, bits = replace_elements(x_ref, frames[0], r=self.sample_ratio)
+                x_touchup, bits = replace_elements(x_ref, frames[0], r=self.sample_ratio, 
+                                                   real_replace=self.real_replace, use_compression=self.use_compression)
                 touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
@@ -2311,7 +2324,8 @@ class MCVC(ScaleSpaceFlow):
                 if self.training:
                     references.append(x_ref)
                 if self.training and 'MCVC-IA-OLFT' in self.name:
-                    x_touchup, bits = replace_elements(x_ref, frames[i], r=self.sample_ratio)
+                    x_touchup, bits = replace_elements(x_ref, frames[i], r=self.sample_ratio, 
+                                                       real_replace=self.real_replace, use_compression=self.use_compression)
                     touchups += [x_touchup.detach()]
                     touchup_bits += [bits]
             frames_likelihoods.append(likelihoods)
