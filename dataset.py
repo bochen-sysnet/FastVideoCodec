@@ -174,7 +174,7 @@ categories = ['lobby','retail','office','industry_safety','cafe_shop']
 views_of_category = [4,6,5,4,4]
 class MultiViewVideoDataset(Dataset):
     def __init__(self, root_dir, category_id=0, split='test', gop_size=16, transform=None, num_views=0, data_ratio=1, 
-                 sample_interval=0,c2s_ratio=1):
+                 sample_interval=0,c2s_ratio=1,max_pool_size=10000):
         self._dataset_dir = os.path.join(root_dir)
         self._dirs = []
         assert category_id < len(views_of_category)
@@ -190,12 +190,11 @@ class MultiViewVideoDataset(Dataset):
         assert transform is not None
         self.transform = transform
         self.data_ratio = data_ratio
-        self._idx = 0; self._pool_size = 1; self.sample_interval = sample_interval; self.c2s_ratio=c2s_ratio
+        self._idx = 0; self._pool_size = 1; self.sample_interval = sample_interval; self.c2s_ratio=c2s_ratio; self.max_pool_size = max_pool_size
         self.get_file_names()
 
     def reset(self):
         self._idx = 0
-        self._pool_size = 1
         
     def get_file_names(self):
         # print("[log] Looking for files in", self._dataset_dir)  
@@ -219,26 +218,21 @@ class MultiViewVideoDataset(Dataset):
             files_after_split = category_filenames
         for fn in files_after_split:
             self.__file_names += [fn]
-            self.__video_frames += [len(os.listdir(fn))//self.num_views]
-            self.__video_gops += [len(os.listdir(fn))//self.num_views//self.gop_size]
-        # print(self.__file_names)
+            self.__video_frames += [len(os.listdir(fn))//views_of_category[self.category_id]]
+            self.__video_gops += [len(os.listdir(fn))//views_of_category[self.category_id]//self.gop_size]
+        print("Total frames:",sum(self.__video_frames))
         if self.sample_interval == 0:
             self.__num_gops = int(sum(self.__video_gops) * self.data_ratio)
         else:
             self.__num_gops = int(sum(self.__video_gops) * self.data_ratio * self.c2s_ratio)
+        self.max_pool_size = self.max_pool_size
         print("[log] Number of files found {}, gops found {}/{}".format(len(self.__file_names),self.__num_gops,sum(self.__video_gops)))
 
     def sample(self):
-        # the length is fixed to be the video size
-        # rolling based training
-        # the throughput of processing is 6 times of streaming. after sampling 6 gops, there will be a new one
-        # the maximum number is the total video length
         if self._idx == self.__num_gops:return None
-        # we can reject old ones
-        chosen_idx = random.randint(0, self._pool_size-1)
+        chosen_idx = int(random.randint(max(0, self._pool_size - self.max_pool_size + 1), self._pool_size) * self.sample_interval)
         self._idx += 1
-        if self._idx%int(self.c2s_ratio*self.sample_interval) == 0:
-            self._pool_size += 1
+        self._pool_size = int(self._idx/(self.c2s_ratio*self.sample_interval))
         return self.idx2data(chosen_idx)
 
     def __len__(self):

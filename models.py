@@ -29,7 +29,7 @@ import torchac
 import compressai,zlib
 from torchvision.transforms import ToPILImage
 
-def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True, num_views=0, resilience=0, use_attn=True):
+def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, use_split=True, num_views=0, resilience=0, use_attn=True, load_with_copy=False):
     if name in ['RLVC','DVC','RLVC2']:
         model_codec = IterPredVideoCodecs(name,loss_type=loss_type,compression_level=compression_level,noMeasure=noMeasure,use_split=use_split)
     elif name in ['DVC-pretrained']:
@@ -56,7 +56,10 @@ def get_codec_model(name, loss_type='P', compression_level=2, noMeasure=True, us
             return ckpt
         model_codec = MCVC(name, loss_type=loss_type, compression_level=compression_level, 
                            num_views=num_views, resilience=resilience, use_attn=use_attn)
-        load_state_dict_whatever(model_codec,ckpt.state_dict())
+        if not load_with_copy:
+            load_state_dict_whatever(model_codec,ckpt.state_dict())
+        else:
+            load_state_dict_with_copy(model_codec,ckpt.state_dict())
     else:
         print('Cannot recognize codec:', name)
         exit(1)
@@ -445,6 +448,15 @@ def load_state_dict_all(model, state_dict):
              continue
         own_state[name].copy_(param)
     
+def load_state_dict_with_copy(model, state_dict):
+    own_state = model.state_dict()
+    for name, param in state_dict.items():
+        if name in own_state and own_state[name].size() == param.size():
+            own_state[name].copy_(param)
+        backup_name = 'backup_' + name
+        if backup_name in own_state and own_state[backup_name].size() == param.size():
+            own_state[backup_name].copy_(param)
+
 def PSNR(Y1_raw, Y1_com, use_list=False):
     Y1_com = Y1_com.to(Y1_raw.device)
     log10 = torch.log(torch.FloatTensor([10])).squeeze(0).to(Y1_raw.device)
@@ -2177,9 +2189,9 @@ def mask_with_indices(inp,indices):
     return inp * mask
 
 # 0.05, 0.001,
-def replace_elements(image1, image2, r=0.1, real_replace=False, use_compression=True):
-    if not real_replace:
-        return image2, 1
+def replace_elements(image1, image2, r=0.1, real_compression=False, use_compression=True):
+    if r==0:
+        return image1, 1e-6
     # Calculate the absolute difference between image1 and image2
     diff = torch.abs(image1 - image2)
     
@@ -2199,6 +2211,8 @@ def replace_elements(image1, image2, r=0.1, real_replace=False, use_compression=
     
     # Reshape the modified tensor back to its original shape
     modified_image1 = image1_flatten.reshape(image1.shape)
+    if not real_compression:
+        return modified_image1, 1
 
     # Calculate the difference between the modified elements
     diff_elements = (image1_flatten - image1_flatten_clone)*255
@@ -2217,7 +2231,6 @@ def replace_elements(image1, image2, r=0.1, real_replace=False, use_compression=
         raw_bytes = (image2_flatten*255).cpu().detach().numpy().astype(np.uint8).tobytes()
 
         num_bits = len(raw_bytes)
-
 
     return modified_image1, num_bits
 
@@ -2278,7 +2291,7 @@ class MCVC(ScaleSpaceFlow):
         self.imbalanced_correlation = imbalanced_correlation
         self.force_resilience = -1
         self.sample_ratio = sample_ratio
-        self.real_replace=False
+        self.real_compression=False
         self.use_compression=True
 
 
@@ -2305,7 +2318,7 @@ class MCVC(ScaleSpaceFlow):
             # using touchups as label to finetune online
             if self.training and 'MCVC-IA-OLFT' in self.name:
                 x_touchup, bits = replace_elements(x_ref, frames[0], r=self.sample_ratio, 
-                                                   real_replace=self.real_replace, use_compression=self.use_compression)
+                                                   real_compression=self.real_compression, use_compression=self.use_compression)
                 touchups += [x_touchup.detach()]
                 touchup_bits += [bits]
 
@@ -2325,7 +2338,7 @@ class MCVC(ScaleSpaceFlow):
                     references.append(x_ref)
                 if self.training and 'MCVC-IA-OLFT' in self.name:
                     x_touchup, bits = replace_elements(x_ref, frames[i], r=self.sample_ratio, 
-                                                       real_replace=self.real_replace, use_compression=self.use_compression)
+                                                       real_compression=self.real_compression, use_compression=self.use_compression)
                     touchups += [x_touchup.detach()]
                     touchup_bits += [bits]
             frames_likelihoods.append(likelihoods)
