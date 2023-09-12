@@ -51,10 +51,12 @@ from matplotlib.patches import Ellipse
 
 def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,legloc='best',linestyles=linestyles,
 				xticks=None,yticks=None,ncol=None, yerr=None, xticklabel=None,yticklabel=None,xlim=None,ylim=None,ratio=None,
-				use_arrow=False,arrow_coord=(60,0.6),markersize=8,bbox_to_anchor=None,get_ax=0,linewidth=2,logx=False,use_probarrow=False,
+				use_arrow=False,arrow_coord=(60,0.6),markersize=16,bbox_to_anchor=None,get_ax=0,linewidth=2,logx=False,use_probarrow=False,
 				rotation=None,use_resnet56_2arrow=False,use_resnet56_3arrow=False,use_resnet56_4arrow=False,use_resnet50arrow=False,use_re_label=False,
 				use_throughput_annot=False,use_connarrow=False,lgsize=None,oval=False,scatter_soft_annot=False,markevery=1,annot_aw=None,
-				fill_uu=False,failure_annot=False,failure_repl_annot=False,use_dcnbw_annot=False,latency_infl_annot=False,ur_annot=False):
+				fill_uu=False,failure_annot=False,failure_repl_annot=False,use_dcnbw_annot=False,latency_infl_annot=False,ur_annot=False,
+				markersize_list=[],markers=markers,markerfacecolor='none',display_annot=[],si_annot=False,sr_annot=False,
+				saving_annot=None,mps_annot=False,ablation_annot=False,sisr_annot=False,bw_annot=False,si_annot2=False):
 	if lgsize is None:
 		lgsize = lbsize
 	if get_ax==1:
@@ -69,34 +71,27 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,legloc='be
 		xx,yy = XX[i],YY[i]
 		if logx:
 			xx = np.log10(np.array(xx))
-		if oval:
-			width = np.std(xx); height = np.std(yy)
-			xi = np.mean(xx); yi = np.mean(yy)
-			if width>0 and height>0:
-				ellipse = Ellipse((xi, yi), width, height, edgecolor=None, facecolor=color[i],label = label[i], )
-				ax.add_patch(ellipse)
-				handles.append(ellipse)
-				# plt.errorbar(xi, yi, yerr=height, color = color[i], label = label[i], linewidth=0, capsize=0, capthick=0)
-			else:
-				error_bar = plt.errorbar(xi, yi, yerr=height, color = color[i], label = label[i], linewidth=4, capsize=8, capthick=3)
-				handles.append(error_bar)
-		else:
-			if yerr is None:
+		if yerr is None:
+			if not markersize_list:
 				plt.plot(xx, yy, color = color[i], marker = markers[i], 
 					label = label[i], linestyle = linestyles[i], 
 					linewidth=linewidth, markersize=markersize, markerfacecolor='none', markevery=markevery)
 			else:
-				if markersize > 0:
-					plt.errorbar(xx, yy, yerr=yerr[i], color = color[i],
-						marker = markers[i], label = label[i], 
-						linestyle = linestyles[i], 
-						linewidth=linewidth, markersize=markersize, markerfacecolor='none', markevery=markevery,
-						capsize=4)
-				else:
-					plt.errorbar(xx, yy, yerr=yerr[i], color = color[i],
-						label = label[i], 
-						linewidth=linewidth,
-						capsize=4)
+				plt.plot(xx, yy, color = color[i], marker = markers[i], 
+					label = label[i], linestyle = linestyles[i], 
+					linewidth=linewidth, markersize=markersize_list[i], markevery=markevery)
+		else:
+			if markersize > 0:
+				plt.errorbar(xx, yy, yerr=yerr[i], color = color[i],
+					marker = markers[i], label = label[i], 
+					linestyle = linestyles[i], 
+					linewidth=linewidth, markersize=markersize, markerfacecolor='none', markevery=markevery,
+					capsize=4)
+			else:
+				plt.errorbar(xx, yy, yerr=yerr[i], color = color[i],
+					label = label[i], 
+					linewidth=linewidth,
+					capsize=4)
 	plt.xlabel(xlabel, fontsize = lbsize)
 	plt.ylabel(ylabel, fontsize = lbsize)
 	plt.xticks(fontsize=lbsize)
@@ -117,97 +112,43 @@ def line_plot(XX,YY,label,color,path,xlabel,ylabel,lbsize=labelsize_b,legloc='be
 		ax.text(
 		    arrow_coord[0], arrow_coord[1], "Better", ha="center", va="center", rotation=45, size=lbsize,
 		    bbox=dict(boxstyle="larrow,pad=0.3", fc="white", ec="black", lw=2))
-	if fill_uu:
-		ax.text(0.14, 85, "Futile\nReplica", ha="center", va="center", size=lgsize,fontweight='bold')
-		plt.fill_between(XX[0], YY[0], YY[1], where=(YY[0] >= YY[1]), interpolate=True, color='grey', alpha=0.9)
-	if use_connarrow:
-		ax.annotate(text='', xy=(XX[0][5],YY[0][5]), xytext=(XX[0][5],0), arrowprops=dict(arrowstyle='|-|',lw=4))
-		ax.text(XX[0][5]+7, YY[0][5]/2, "50% loss", ha="center", va="center", rotation='vertical', size=lbsize,fontweight='bold')
-	if use_probarrow:
-		ax.annotate(text='', xy=(XX[0][1],YY[0][1]), xytext=(XX[1][1],YY[1][1]), arrowprops=dict(arrowstyle='<->',lw=4))
-		if YY[0][1]/YY[1][1]>10:
-			ax.text(
-			    XX[0][1]+0.1, (YY[0][1]+YY[1][1])/2, f"{YY[0][1]/YY[1][1]:.1f}"+r"$\times$", ha="center", va="center", rotation='vertical', size=44,fontweight='bold')
-		else:
-			ax.text(
-			    XX[0][1]-0.07, (YY[0][1]+YY[1][1])/2, f"{YY[0][1]/YY[1][1]:.1f}"+r"$\times$", ha="center", va="center", rotation='vertical', size=44,fontweight='bold')
-	if use_re_label:
-		baselocs = [];parlocs = []
-		for i in [1,2,3]:
-			baselocs += [np.argmax(y[i]-y[0])]
-			# parlocs += [np.argmax(y[i]-y[4])]
-		for k,locs in enumerate([baselocs]):
-			for i,loc in enumerate(locs):
-				ind_color = '#4f646f'
-				ax.annotate(text='', xy=(XX[0][loc],YY[0 if k==0 else 4,loc]), xytext=(XX[0][loc],YY[i+1,loc]), arrowprops=dict(arrowstyle='|-|',lw=5-k*2,color=ind_color))
-				h = YY[k,loc]-5 if k==0 else YY[i+1,loc]+4
-				w = XX[0][loc]-3 if k==0 else XX[0][loc]
-				if k==0 and i==1:
-					h-=1;w+=3
-				if i==0:
-					ax.text(w, h, '2nd', ha="center", va="center", rotation='horizontal', size=20,fontweight='bold',color=ind_color)
-					ax.annotate(text='Consistency', xy=(45,67), xytext=(-5,65), size=22,fontweight='bold', arrowprops=dict(arrowstyle='->',lw=2,color='k'))
-				elif i==1:
-					ax.text(w, h-3, '3rd', ha="center", va="center", rotation='horizontal', size=20,fontweight='bold',color=ind_color)
-				elif i==2:
-					ax.text(w, h, '4th', ha="center", va="center", rotation='horizontal', size=20,fontweight='bold',color=ind_color)
-	if scatter_soft_annot:
+	if ablation_annot:
+		ax.text(0.3,29,"1.8dB-4dB\nreduction", ha="center", va="center", size=lgsize,color=color[3],fontweight='bold')
+		ax.text(1,32,"3.75X bitrates", ha="center", va="center", size=lgsize,fontweight='bold')
+		ax.annotate(text="",xy=(0.4,31.66),xytext=(1.4,31.66), arrowprops=dict(arrowstyle='<-',lw=2),size=lbsize)
+	if bw_annot:
+		ax.text(0.55,85.5,"Higher rec. quality,\nbetter BW saving", ha="center", va="center", size=lgsize,fontweight='bold')
+	if si_annot2:
+		ax.text(0.27,230,"Higher rec. quality,\nless sampled frames", ha="center", va="center", size=lgsize,fontweight='bold')
+	if sisr_annot:
+		ax.text(-0.75,28,"Gain"+r'$\leq$'+"1dB\nif ratio"+r'$\leq 0.01$', ha="center", va="center", size=lgsize,fontweight='bold')
+	if mps_annot:
+		ax.text(22*16,29.5,"Full", ha="center", va="center", size=lgsize,fontweight='bold')
+		ax.text(12*16,29.5,"Half", ha="center", va="center", size=lgsize,fontweight='bold')
+		ax.text(5*16,33,"0.47dB-0.75dB\nloss with\nhalf cache", ha="center", va="center", size=lgsize,fontweight='bold')
+		ax.annotate(text="",xy=(160,28),xytext=(160,34), arrowprops=dict(arrowstyle='-',lw=2),size=lbsize)
+		ax.annotate(text="",xy=(320,28),xytext=(320,34), arrowprops=dict(arrowstyle='-',lw=2),size=lbsize)
+	if saving_annot is not None:
+		c = color[4] if saving_annot[1]>1 else color[2]
+		h = 0.7 if saving_annot[1]>1 else 0.9e-6
+		ax.text((saving_annot[2]+saving_annot[3])/2-0.1,saving_annot[1]-h,u'\u2193'+f"{saving_annot[0]}%", ha="center", va="center", size=lbsize,fontweight='bold')
+		ax.annotate(text="",xy=(saving_annot[2],saving_annot[1]),xytext=(saving_annot[3],saving_annot[1]), arrowprops=dict(arrowstyle='->',lw=2,color=c),size=lbsize,fontweight='bold')
+	if display_annot:
 		for i in range(len(XX)):
 			xx,yy = XX[i],YY[i]
-			if i==0:
-				ax.annotate('Most Reliable\nMost Computation', xy=(xx[i],yy[i]), xytext=(xx[i]-50,yy[i]+2),color = color[i], fontsize=lbsize-4,arrowprops=dict(arrowstyle='->',lw=2))
-			elif i==1:
-				ax.annotate('Least Computation\nMost Unreliable', xy=(xx[i],yy[i]), xytext=(xx[i]-5,yy[i]-4),color = color[i], fontsize=lbsize-4,arrowprops=dict(arrowstyle='->',lw=2))
+			ax.annotate(label[i], xy=(xx[0],yy[0]), xytext=(xx[0]+display_annot[i][0],yy[0]+display_annot[i][1]), fontsize=lbsize-4,)
+	if si_annot:
+		for i in range(len(XX)):
+			xx,yy = XX[i],YY[i]
+			ax.text(xx[3],yy[3]+0.2, u'\u2713', ha="center", va="center", size=lbsize,fontweight='bold')
+		ax.text(-1.5,33.3, u'\u2713'+" AcID's Config", ha="center", va="center", size=lbsize,fontweight='bold')
+	if sr_annot:
+		for i in range(len(XX)):
+			xx,yy = XX[i],YY[i]
+			ax.text(xx[-1],yy[-1]-0.3, u'\u2713', ha="center", va="center", size=lbsize,fontweight='bold')
+		ax.text(-0.6,27.4, u'\u2713'+" AcID's Config", ha="center", va="center", size=lbsize,fontweight='bold')
 	if use_throughput_annot:
 		ax.annotate(text=f"$\u2191$"+'41%', xy=(XX[1][1],YY[1][1]), xytext=(0,0.8), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize+2,fontweight='bold')
-	if ur_annot:
-		ax.annotate(text=f"98.1% FR\nat 99% SR", xy=(99,98.1), xytext=((55,80)), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',color = color[0])
-		
-		ax.text(30,42, "More Success,\nmore futile\nreplicas", ha="center", va="center", size=lgsize,fontweight='bold')
-		ax.annotate(text="",xy=(50,30),xytext=(70,50), arrowprops=dict(arrowstyle='<-',lw=2),size=lgsize,fontweight='bold',)
-		ax.text(70,5, "More replicas,\nhigher futile rate", ha="center", va="center", size=lgsize,fontweight='bold')
-		ax.annotate(text="",xy=(100,10),xytext=(100,35), arrowprops=dict(arrowstyle='<-',lw=2),size=lgsize,fontweight='bold',)
-	if use_dcnbw_annot:
-		ax.annotate(text="0.6 Gbps", xy=(XX[2][0], YY[2][0]), xytext=(XX[2][0]-30, YY[2][0]+0.01), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',)
-		ax.annotate(text="0.1 Gbps", xy=(XX[2][4], YY[2][4]), xytext=(XX[2][4], YY[2][4]+0.01), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',)
-	if latency_infl_annot:
-		ax.text(76,9.6, "DCN latency\ndominates inflation", ha="center", va="center", size=lgsize,fontweight='bold',color=colors[1])
-		ax.text(60,3.3, "Negligible DCN latency", ha="center", va="center", size=lgsize,fontweight='bold',color=colors[0])
-	if failure_annot:
-		ax.text(6, 74.5, "REACTIQ better", ha="center", va="center", size=lgsize,fontweight='bold')
-		ax.text(0.0, 74.5, "Original\nbetter", ha="center", va="center", size=lgsize,fontweight='bold')
-		plt.fill_between(XX[0], YY[0], YY[3], where=(YY[0] > YY[3]), interpolate=True, color="#307c9d", alpha=0.1)
-		plt.fill_between(XX[0], YY[0], YY[3], where=(YY[0] <= YY[3]), interpolate=True, color="#f7546a", alpha=0.1)
-		plt.fill_between(XX[2], YY[0], YY[2], where=(YY[0] <= YY[2]), interpolate=True, color="#ffffff", alpha=0.1)
-		ax.annotate(text=f"4.1%", xy=(4.1,73.08), xytext=((6,70)), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',color = color[2])
-		ax.annotate(text=f"1.2%", xy=(1.2,75.29), xytext=((1,73.5)), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',color = color[3])
-	if failure_repl_annot:
-		plt.fill_between(XX[0], YY[0], YY[1], where=(YY[0] <= YY[1]), interpolate=True, color="#ffab02", alpha=0.1)
-		plt.fill_between(XX[0], YY[0], YY[2], where=(YY[0] <= YY[2]), interpolate=True, color= "#9dc51d", alpha=0.1)
-		ax.annotate(text=f"11.8%", xy=(11.8,73.82), xytext=((11,75)), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',color = color[1])
-		ax.annotate(text=f"15.1%", xy=(15.1,73.09), xytext=((15,74.5)), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold',color = color[2])
-	if annot_aw is not None:
-		if annot_aw == 0:
-			ax.annotate(text='0.37% to max', xy=(0.4,97.28), xytext=(0.45,90), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold')
-		elif annot_aw == 1:
-			ax.annotate(text='0.08% to max', xy=(0.4,75.21), xytext=(0.45,73.5), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold')
-		else:
-			ax.annotate(text='0.7% inflation', xy=(0.4,0.7), xytext=(0.05,1.4), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold')
-	
-	if use_resnet50arrow:
-		ax.annotate(text='', xy=(0,64), xytext=(40,64), arrowprops=dict(arrowstyle='<->',lw=2))
-		ax.text(
-		    20, 65, "Stage#0", ha="center", va="center", rotation='horizontal', size=lgsize,fontweight='bold')
-		ax.annotate(text='', xy=(40,70), xytext=(160,70), arrowprops=dict(arrowstyle='<->',lw=2))
-		ax.text(
-		    100, 69, "Stage#1", ha="center", va="center", rotation='horizontal', size=lgsize,fontweight='bold')
-		ax.annotate(text='LR = 0.1', xy=(0,68), xytext=(-8,75), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold')
-		ax.annotate(text='LR = 0.01', xy=(80,72.2), xytext=(40,74), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold')
-		ax.annotate(text='LR = 0.001', xy=(120,75), xytext=(100,73), arrowprops=dict(arrowstyle='->',lw=2),size=lgsize,fontweight='bold')
-		# for l,r,lr in [(0,40,0.1),(40,80,0.1),(80,120,0.01),(120,160,0.001)]:
-		# 	ax.annotate(text='', xy=(l,64), xytext=(r,64), arrowprops=dict(arrowstyle='<->',lw=linewidth))
-		# 	ax.text(
-		# 	    (l+r)/2, 64.5, f"lr={lr}", ha="center", va="center", rotation='horizontal', size=lbsize,fontweight='bold')
 	if ncol!=0:
 		if ncol is None:
 			plt.legend(loc=legloc,fontsize = lgsize)
@@ -234,7 +175,7 @@ def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],
 				methods=['Ours','Standalone','Optimal','Ours*','Standalone*','Optimal*'],use_barlabel_x=False,use_barlabe_y=False,
 				ncol=3,bbox_to_anchor=(0.46, 1.28),sep=1.25,width=0.15,xlabel=None,legloc=None,labelsize=labelsize_b,ylim=None,
 				use_downarrow=False,rotation=None,lgsize=None,yticklabel=None,latency_annot=False,bandwidth_annot=False,latency_met_annot=False,
-				showaccbelow=False,showcompbelow=False,bw_annot=False,showrepaccbelow=False,breakdown_annot=False,frameon=True):
+				showaccbelow=False,showcompbelow=False,bw_annot=False,showrepaccbelow=False,breakdown_annot=False,frameon=True,c2s_annot=False):
 	if lgsize is None:
 		lgsize = labelsize
 	fig = plt.figure()
@@ -340,6 +281,9 @@ def groupedbar(data_mean,data_std,ylabel,path,yticks=None,envs = [2,3,4],
 				for k,xdx in enumerate(x_index):
 					mult = -data_mean[k,i]
 					ax.text(xdx-0.06,data_mean[k,i]-8,'$\downarrow$'+f'{mult:.1f}%',fontsize = labelsize-2,rotation='vertical')
+	
+	if c2s_annot:
+		ax.text(2.8,33.2,"0.23dB-0.44dB loss\nby switching from\n3090 to 1080", ha="center", va="center", size=lgsize,fontweight='bold')
 	if ncol>0:
 		if legloc is None:
 			plt.legend(bbox_to_anchor=bbox_to_anchor, fancybox=True,
@@ -390,6 +334,23 @@ def BD_PSNR(R1, PSNR1, R2, PSNR2, piecewise=0):
     return avg_diff
 
 
+def save_rate(R1, PSNR1, R2, PSNR2):
+	lR1 = np.log(R1)
+	lR2 = np.log(R2)
+
+	# rate method
+	p1 = np.polyfit(PSNR1, lR1, 3)
+	p2 = np.polyfit(PSNR2, lR2, 3)
+
+	# integration interval
+	min_int = max(min(PSNR1), min(PSNR2))
+	max_int = min(max(PSNR1), max(PSNR2))
+	avg_int = (max_int + min_int)/2
+
+	bw1,bw2 = np.exp(np.polyval(p1, avg_int)),np.exp(np.polyval(p2, avg_int))
+	saving = (bw2-bw1)/bw2*100
+	return int(saving),bw1,bw2
+
 def BD_RATE(R1, PSNR1, R2, PSNR2, piecewise=0):
     lR1 = np.log(R1)
     lR2 = np.log(R2)
@@ -401,6 +362,8 @@ def BD_RATE(R1, PSNR1, R2, PSNR2, piecewise=0):
     # integration interval
     min_int = max(min(PSNR1), min(PSNR2))
     max_int = min(max(PSNR1), max(PSNR2))
+    avg_int = (max_int + min_int)/2
+    print(np.exp(np.polyval(p1, avg_int)));print(np.exp(np.polyval(p2, avg_int)))
 
     # find integral
     if piecewise == 0:
@@ -422,19 +385,21 @@ def BD_RATE(R1, PSNR1, R2, PSNR2, piecewise=0):
     # find avg diff
     avg_exp_diff = (int2-int1)/(max_int-min_int)
     avg_diff = (np.exp(avg_exp_diff)-1)*100
+	
     return avg_diff
 
 
 def plot_RD_tradeoff():
 	ncol = 1
-	bbox_to_anchor = (.27,.53)
-	num_methods = 4
+	num_methods = 5
 	bpps = [[[] for _ in range(num_methods)] for _ in range(5)]
 	PSNRs = [[[] for _ in range(num_methods)] for _ in range(5)]
 	SSIMs = [[[] for _ in range(num_methods)] for _ in range(5)]
-	bw_saves = [[[] for _ in range(num_methods)] for _ in range(5)]
-	filenames = ['MCVC-IA-OLFT.cat.log','MCVC-Original.avg.log','x264-veryslow.avg.log']
-	pos_list = [0,2,3]
+	lSSIMs = [[[] for _ in range(num_methods)] for _ in range(5)]
+	filenames = ['MCVC-IA-OLFT.cat.log','MCVC-Original.avg.log',
+			  'x264-veryslow.avg.16.log','x265-veryslow.avg.16.log',]
+			#   'x264-veryslow.avg.250.log','x265-veryslow.avg.250.log']
+	pos_list = [0,2,3,4,5,6]
 	for i,filename in enumerate(filenames):
 		with open(filename, mode='r') as f:
 			for l in f.readlines():
@@ -444,7 +409,9 @@ def plot_RD_tradeoff():
 					r0,r_start,r_end = float(l[7]),float(l[8]),float(l[9])
 					bpps[cat][1] += [bpp*1080*1920*views_of_category[cat]/1024/1024]
 					PSNRs[cat][1] += [psnr0]
-					SSIMs[cat][1] += [ssim0]
+					SSIMs[cat][1] += [1-10**(-ssim0/10)]
+					lSSIMs[cat][1] += [ssim0]
+					bpp*=1.01
 				else:
 					cat,lvl,bpp,psnr,ssim = int(l[0]),int(l[1]),float(l[2]),float(l[3]),float(l[4])
 				if bpp > 0.2:
@@ -452,21 +419,33 @@ def plot_RD_tradeoff():
 				bpp *= 1080*1920*views_of_category[cat]/1024/1024
 				bpps[cat][pos_list[i]] += [bpp]
 				PSNRs[cat][pos_list[i]] += [psnr]
-				SSIMs[cat][pos_list[i]] += [ssim]
-	methods = ['Ours','Ours (w/ OL)','SSF','x264']
-	bd_all = [[] for _ in range(5)]
+				SSIMs[cat][pos_list[i]] += [1-10**(-ssim/10)]
+				lSSIMs[cat][pos_list[i]] += [ssim]
+	methods = ['Ours','Ours-OFF','SSF','x264','x265']#,'x264-UG','x265-UG']
+	markersize = 16
+	colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 	for cat in range(5):
-		for i in range(3):
-			bd = BD_RATE(bpps[cat][i], PSNRs[cat][i], bpps[cat][-1], PSNRs[cat][-1])
-			bd_all[cat] += [bd]
+		psnr_saving,psnr_r1,psnr_r2 = save_rate(bpps[cat][0], PSNRs[cat][0], bpps[cat][4], PSNRs[cat][4])
+		ssim_saving,ssim_r1,ssim_r2 = save_rate(bpps[cat][0], lSSIMs[cat][0], bpps[cat][2], lSSIMs[cat][2])
+		psnr_mean = sum(PSNRs[cat][0])/4
+		ssim_mean = sum(SSIMs[cat][0])/4
+
+		psnr1,psnr2 = sum(PSNRs[cat][0])/4, sum(PSNRs[cat][1])/4
+		psnr_gain = psnr1 - psnr2
+		ssim1,ssim2 = sum(SSIMs[cat][0])/4, sum(SSIMs[cat][1])/4
+		ssim_gain = ssim1 - ssim2
+		rate_mean = sum(bpps[cat][0])/4
 		line_plot(bpps[cat],PSNRs[cat],methods,colors,
 				f'images/psnr_{cat}.pdf',
 				'Bandwidth Usage (Mbps)','PSNR (dB)',lbsize=24,lgsize=20,linewidth=2,
-				ncol=ncol,markersize=8,bbox_to_anchor=None,xticks=[0,0.5,1,1.5,2])
+				ncol=ncol,markersize=markersize,bbox_to_anchor=None,xticks=[0,0.5,1,1.5,2],
+				saving_annot=(psnr_saving,psnr_mean,psnr_r1,psnr_r2,rate_mean,psnr1,psnr2))
+		
 		line_plot(bpps[cat],SSIMs[cat],methods,colors,
 				f'images/ssim_{cat}.pdf',
-				'Bandwidth Usage (Mbps)','SSIM (dB)',lbsize=24,lgsize=20,linewidth=2,
-				ncol=ncol,markersize=8,bbox_to_anchor=None,xticks=[0,0.5,1,1.5,2])
+				'Bandwidth Usage (Mbps)','SSIM',lbsize=24,lgsize=20,linewidth=2,
+				ncol=ncol,markersize=markersize,bbox_to_anchor=None,xticks=[0,0.5,1,1.5,2],
+				saving_annot=[ssim_saving,ssim_mean,ssim_r1,ssim_r2,rate_mean,ssim1,ssim2])
 		
 def plot_bw():
 	bpps = [[] for _ in range(5)]
@@ -488,14 +467,14 @@ def plot_bw():
 	line_plot(bpps,bw_save_list,methods,colors,
 			f'images/bw_save.pdf',
 			'Bandwidth Usage (Mbps)','Bandwidth Saving (%)',lbsize=24,lgsize=15,linewidth=2,
-			ncol=1,markersize=8,bbox_to_anchor=(0.38,1.03),legloc=None,xlim=(0,.8))
+			ncol=1,markersize=16,bbox_to_anchor=(0.38,1.03),legloc=None,xlim=(0,.8),bw_annot=True)
 	line_plot(bpps,si_list,methods,colors,
 			f'images/si.pdf',
 			'Bandwidth Usage (Mbps)','Sampling Interval',lbsize=24,lgsize=16,linewidth=2,
-			ncol=1,markersize=8,bbox_to_anchor=None,legloc='best')
-	envs = [0,1,2,3]
+			ncol=1,markersize=16,bbox_to_anchor=None,legloc='best',si_annot2=True)
+	envs = [256,512,1024,2048]
 	groupedbar(np.array(bw_real_list).T,None,'Actual BW Impact (%)', 
-		'images/bw_impact.pdf',methods=methods,labelsize=24,xlabel='Compression Levels',
+		'images/bw_impact.pdf',methods=methods,labelsize=24,xlabel='$\lambda$',
 		envs=envs,ncol=3,width=1./7,sep=1,legloc='best',lgsize=16,bbox_to_anchor=(0.14,1),ylim=(0.995,1.008))
 	
 def plot_vary_compute():
@@ -508,12 +487,11 @@ def plot_vary_compute():
 			bpp *= 1080*1920*6/1024/1024
 			bpp_list[lvl] += [bpp]
 			psnr_list[lvl] += [psnr]
-	methods = ['GTX 1080', 'RTX 2080', 'RTX 3090']
-	envs = np.array(bpp_list).mean(axis=1)
-	envs = [f'{b:.2f}' for b in envs]
+	methods = ['Base','1080', '2080', '3090']
+	envs = [256,512,1024,2048]
 	groupedbar(np.array(psnr_list),None,'PSNR (dB)', 
-		'images/psnr_vs_c2s.pdf',methods=methods,labelsize=24,xlabel='Bandwidth Usage (Mbps)',
-		envs=envs,ncol=1,width=1./5,sep=1,legloc='best',lgsize=22,ylim=(30,34))
+		'images/psnr_vs_c2s.pdf',methods=methods,labelsize=24,xlabel='$\lambda$',
+		envs=envs,ncol=1,width=1./6,sep=1,legloc='best',lgsize=17,ylim=(27,34),c2s_annot=True)
 	
 def plot_nv():
 	psnr_list = [[] for _ in range(4)]
@@ -524,11 +502,11 @@ def plot_nv():
 			nv,lvl,bpp,psnr = int(l[0]),int(l[1]),float(l[2]),float(l[3]),
 			psnr_list[lvl] += [psnr]
 			nv_list[lvl] += [nv]
-	methods = ['Level=0', 1,2,3]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
 	line_plot(nv_list,psnr_list,methods,colors,
 			f'images/psnr_vs_nv.pdf',
 			'# of Views','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
-			ncol=1,markersize=8,bbox_to_anchor=None,legloc='best',)
+			ncol=1,markersize=16,bbox_to_anchor=None,legloc='best',)
 	
 def plot_sr():
 	psnr_list = [[] for _ in range(4)]
@@ -543,13 +521,13 @@ def plot_sr():
 	bw_list = np.array(bw_list)
 	bw_list /= bw_list[:,-1:]
 	bw_list = np.log10(bw_list)
-	methods = ['Level=0', 1,2,3]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
 	line_plot(bw_list,psnr_list,methods,colors,
 			f'images/psnr_vs_sr.pdf',
 			'Bandwidth Usage (%)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
-			ncol=1,markersize=8,bbox_to_anchor=None,legloc='best',
+			ncol=1,markersize=16,bbox_to_anchor=None,legloc='best',
 			xticks=[-2,-1,0],
-			xticklabel=[1,10,100])
+			xticklabel=[1,10,100],sr_annot=True)
 	
 def plot_si():
 	psnr_list = [[] for _ in range(4)]
@@ -559,18 +537,15 @@ def plot_si():
 			l = l.split(',')
 			si,lvl,psnr = float(l[0]),int(l[1]),float(l[3])
 			psnr_list[lvl] += [psnr]
-			if si == 0:
-				si = 10
-			else:
-				si = 1/si
+			si = 1/si
 			bw_list[lvl] += [np.log10(si)]
-	methods = ['Level=0', 1,2,3]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
 	line_plot(bw_list,psnr_list,methods,colors,
 			f'images/psnr_vs_si.pdf',
-			'Bandwidth Usage (%)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
-			ncol=2,markersize=8,bbox_to_anchor=None,legloc='best',
-			xticks = [-3,-2,-1,0,1],
-			xticklabel= [0.1,1,10,100,'Base'])
+			'Bandwidth Usage (%)','PSNR (dB)',lbsize=24,lgsize=16,linewidth=2,
+			ncol=2,markersize=16,bbox_to_anchor=None,legloc='best',
+			xticks = [-3,-2,-1,0],
+			xticklabel= [0.1,1,10,100],si_annot=True)
 
 	
 def plot_mps():
@@ -580,15 +555,16 @@ def plot_mps():
 		for l in f.readlines():
 			l = l.split(',')
 			mps,lvl,bpp,psnr,ssim = float(l[0]),int(l[1]),float(l[2]),float(l[3]),float(l[4])
-			x_list[lvl] += [mps*5]
+			x_list[lvl] += [mps*16]
 			psnr_list[lvl] += [psnr]
-	methods = ['Level=0', 1,2,3]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
 	line_plot(x_list,psnr_list,methods,colors,
 			f'images/psnr_vs_mps.pdf',
-			'Relative Cache Size (%)','PSNR (dB)',lbsize=21,lgsize=18,linewidth=2,
-			ncol=2,markersize=8,bbox_to_anchor=None,legloc='best',
-			xticks=[5,25,50,75,100],
-			xticklabel=['#GOP=1',25,50,75,100])
+			'Cache Size (#Frames)','PSNR (dB)',lbsize=21,lgsize=16,linewidth=2,
+			ncol=2,markersize=16,bbox_to_anchor=None,legloc='best',
+			xticks=[0,100,200,300,400],
+			xticklabel=[0,100,200,300,'Every'],
+			mps_annot=True)
 
 def plot_dr():
 	psnr_list = [[] for _ in range(4)]
@@ -597,13 +573,15 @@ def plot_dr():
 		for l in f.readlines():
 			l = l.split(',')
 			dr,lvl,bpp,psnr,ssim = float(l[0]),int(l[1]),float(l[2]),float(l[3]),float(l[4])
-			x_list[lvl] += [dr*100]
+			x_list[lvl] += [dr*113.456]
 			psnr_list[lvl] += [psnr]
-	methods = ['Level=0', 1,2,3]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
 	line_plot(x_list,psnr_list,methods,colors,
 			f'images/psnr_vs_dr.pdf',
-			'Streaming Duration (%)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
-			ncol=2,markersize=8,bbox_to_anchor=(0.73,.73),legloc='best',)
+			'#Streamed Frames (K)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
+			ncol=2,markersize=4,bbox_to_anchor=None,legloc='best',
+			# ratio=0.46
+			)
 	
 def plot_sisr():
 	psnr_list = [[] for _ in range(4)]
@@ -618,28 +596,172 @@ def plot_sisr():
 				sr = np.log10(sr)
 			x_list[lvl] += [sr]
 			psnr_list[lvl] += [psnr]
-	methods = ['Level=0', 1,2,3]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
 	line_plot(x_list,psnr_list,methods,colors,
 			f'images/psnr_vs_sisr.pdf',
 			'Spatial Sampling Ratio','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
-			ncol=1,markersize=8,bbox_to_anchor=None,legloc='best',
+			ncol=1,markersize=16,bbox_to_anchor=None,legloc='best',
 			xticks = [-4,-3,-2,-1,0],
-			xticklabel= [0,0.001,0.01,0.1,1])
+			xticklabel= [0,0.001,0.01,0.1,'1 (Ours)'],
+			sisr_annot=True)
 	
-def plot_nv_vs_year():
-	# dataset:
-	# assembly 101, 8+4 views, 2022
+def plot_ablation():
+	bpps = [[] for _ in range(4)]
+	PSNRs = [[] for _ in range(4)]
+	with open('MCVC-IA-OLFT.ablation.log', mode='r') as f:
+		idx = 0
+		for l in f.readlines():
+			l = l.split(',')
+			lvl,bpp,psnr = int(l[2]),float(l[3]),float(l[4])
+			bpp *= 1080*1920*views_of_category[1]/1024/1024
+			if idx%4 == 0:
+				bpps[1] += [bpp]
+				PSNRs[1] += [psnr]
+			elif idx%4 == 2:
+				bpps[2] += [bpp]
+				PSNRs[2] += [psnr]
+			idx += 1
+			
+	with open('MCVC-IA-OLFT.cat.log', mode='r') as f:
+		for l in f.readlines():
+			l = l.split(',')
+			cat,lvl,bpp,psnr0,psnr = int(l[0]),int(l[1]),float(l[2]),float(l[3]),float(l[5])
+			bpp *= 1080*1920*views_of_category[1]/1024/1024
+			if cat != 1:
+				continue
+			bpps[3] += [bpp]
+			PSNRs[3] += [psnr0]
+			bpps[0] += [bpp]
+			PSNRs[0] += [psnr]
+			
+	methods = ['Default','w/o ACA','w/o SAR','w/o OL',]
+	line_plot(bpps,PSNRs,methods,colors,
+			f'images/ablation.pdf',
+			'Bandwidth Usage (Mbps)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
+			ncol=1,markersize=16,bbox_to_anchor=None,legloc='lower right',ablation_annot=True)
+	
+def plot_longterm():
+	# 1h per epoch/93759 frames, 5852 epochs
+	psnr_list = [[] for _ in range(4)]
+	x_list = [[] for _ in range(4)] 
+	# with open('MCVC-IA-OLFT.cat.log', mode='r') as f:
+	# 	for l in f.readlines():
+	# 		l = l.split(',')
+	# 		cat,lvl,bpp,psnr0,psnr = int(l[0]),int(l[1]),float(l[2]),float(l[3]),float(l[5])
+	# 		if cat != 1:
+	# 			continue
+	# 		x_list[lvl] += [0]
+	# 		psnr_list[lvl] += [psnr]
+	with open('MCVC-IA-OLFT.longterm.log', mode='r') as f:
+		for l in f.readlines():
+			l = l.split(',')
+			lvl,epoch,bpp,psnr,ssim = int(l[0]),int(l[1]),float(l[2]),float(l[3]),float(l[4])
+			x_list[lvl] += [(1+epoch)*5.852]
+			psnr_list[lvl] += [psnr]
+	methods = ['$\lambda=256$', '$\lambda=512$','$\lambda=1024$','$\lambda=2048$']
+	line_plot(x_list,psnr_list,methods,colors,
+			f'images/psnr_vs_longterm.pdf',
+			'#Trained Frames (K)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
+			ncol=1,markersize=16,bbox_to_anchor=None,legloc='best',xticks=[0,20,40,60],
+			xticklabel=['0 (SAP)',20,40,60])
 
-	# codec
-	pass
+def plot_display():
+	names = ['Apple Vision Pro', 'Meta\nQuest 3', 'Meta Quest Pro','Oculus\nQuest 2','Pico 4','Pimax Crystal QLED']
+	pixels = [23,2064*2208*2/1e6,1800*1920*2/1e6,1832*1920*2/1e6,2160*2160*2/1e6,2880*2880*2/1e6]
+	refresh = [90,120,90,120,90,160]
+	release = ['June 4, 2023', 'May 31, 2023','October 27, 2021','September 15, 2020','September 21, 2022','May 30, 2022']
+	xcoord = [3.5,3.4,1.8,0.7,2.8,2.4]
+	markers = ['o' for _ in names] 
+	markersize_list = [r**0.5*5 for r in refresh]
 
-plot_dr()
-plot_mps()
-plot_si()
+	x = [[xc] for xc in xcoord]
+	y = [[pix] for pix in pixels]
+	line_plot(x,y,names,colors,
+			f'images/display_vs_year.pdf',
+			'Release Year','#Pixels (M)',lbsize=24,lgsize=18,linewidth=2,
+			ncol=0,markersize=16,bbox_to_anchor=None,legloc='best',
+			xticks=[0,1,2,3,4],xticklabel=[2020,2021,2022,2023,2024],
+			yticks=[5,10,15,20,23],
+			markersize_list=markersize_list,markers=markers,
+			display_annot=[(-2.2,-0.5),(-0.4,1.5),(0.2,-1),(-0.4,1.5),(-1,0),(-1,2),],
+			)
+	
+def plot_camera():
+	names = ['Wildtrack','SALSA','DukeMTMC','Assembly101',"Meta's 21-cam Rig","Google's 46-cam Rig","Meta's 16-cam Rig"]
+	views  =[7,4,8,12,21,46,16]
+	resolution = [1920*1080,1024*768,1920*1080,1920*1080,2028*2704,3840*2160,7680*4320]
+	date = [2017,2016,2016,2022,2022,2020,2019]
+	duration = [2,60,60,85,513]
+
+	markers = ['o' for _ in names] 
+	markersize_list = [r**0.5*0.01 for r in resolution]
+
+	x = [[xc] for xc in date]
+	y = [[v] for v in views]
+	colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+
+	line_plot(x,y,names,colors,
+			f'images/capture_vs_year.pdf',
+			'Release Year','#Views',lbsize=24,lgsize=18,linewidth=2,
+			ncol=0,markersize=16,bbox_to_anchor=None,legloc='best',
+			markersize_list=markersize_list,markers=markers,
+			display_annot=[(0.3,-1),(0.2,-3),(-0.2,3.5),(-2.5,-4.5),(-3,3),(-2.5,-2),(-2.5,2),],
+			yticks=range(0,55,10),xticks=range(2016,2023,2)
+			)
+
+def plot_speed():
+	y_list = []
+	y_list += [[50]*6]
+	dec_speed = [0.003514678156313797, 0.005066935391165316,
+	0.003838256916031241, 0.005380996245269974,
+	0.0041302489172667265, 0.005700193654124936,
+	0.004484572874847799, 0.006108296576421708,
+	0.004801990651059896, 0.006426506982650608,
+	0.005413683934137225, 0.007108943206723779,]
+	dec_speed = 1/np.array(dec_speed).reshape((6,2)).T
+	y_list += [dec_speed[0]]
+	y_list += [dec_speed[1]]
+	x_list = [range(1,7) for _ in range(3)]
+	methods = ['Capture', 'Server','Server (w/o ACE)']
+	line_plot(x_list,y_list,methods,colors,
+			f'images/speed_vs_views.pdf',
+			'#Views','Processing Speed (fps)',lbsize=24,lgsize=18,linewidth=2,
+			ncol=1,markersize=16,bbox_to_anchor=(0.73,0.08),legloc='best',
+			# ratio=0.46
+			)
+	
+def plot_longterm_nv():
+	# 1h per epoch/93759 frames, 5852 epochs
+	psnr_list = [[] for _ in range(6)]
+	x_list = [[] for _ in range(6)]
+	with open('MCVC-IA-OLFT.nv.1.log', mode='r') as f:
+		for l in f.readlines():
+			l = l.split(',')
+			nv,epoch,psnr = int(l[1]),int(l[2]),float(l[4]),
+			x_list[nv-1] += [(1+epoch)*5.852]
+			psnr_list[nv-1] += [psnr]
+	methods = [1, 2,3,4,5,6,]
+	line_plot(x_list,psnr_list,methods,colors,
+			f'images/psnr_vs_longterm_nv.pdf',
+			'#Trained Frames (K)','PSNR (dB)',lbsize=24,lgsize=18,linewidth=2,
+			ncol=2,markersize=16,bbox_to_anchor=None,legloc='best',yticks=range(29,33),
+			)
+
+# larger marker, change naming, "selected" in SI, SR, annot compute
+plot_speed()
 exit(0)
-plot_sr()
+plot_bw()
+plot_mps()
 plot_sisr()
 plot_vary_compute()
-plot_bw()
+plot_si()
+plot_sr()
+plot_camera()
+plot_display()
+plot_ablation()
 plot_RD_tradeoff()
+plot_dr()
 plot_nv()
+plot_longterm()
+exit(0)
+plot_longterm_nv()

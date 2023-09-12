@@ -61,6 +61,8 @@ parser.add_argument('--level-range', type=int, nargs='+', default=[0,4])
 parser.add_argument('--frame-comb', default=0, type=int, help="Frame combination method. 0: naive. 1: spatial. 2: temporal.")
 parser.add_argument('--pretrain', action='store_true',
                     help='Pretrain model offline.')
+parser.add_argument('--speed-test', action='store_true',
+                    help='Test model speed.')
 parser.add_argument('--onlydecoder', action='store_true',
                     help='only train decoder enhancement part')
 parser.add_argument('--data-ratio', type=float, default=1,
@@ -342,8 +344,8 @@ def test(epoch, model, test_dataset, print_header=None, codec=''):
 
 def static_simulation_x26x_multicam(args,test_dataset,category_id):
     ds_size = len(test_dataset)
-    quality_levels = [7,11,15,19,23,27,31,35]
-    # quality_levels = [15,19,23,27]
+    # quality_levels = [7,11,15,19,23,27,31,35]
+    quality_levels = [23,27,31,35]
     Q_list = quality_levels
     for lvl,Q in enumerate(Q_list):
         # if category_id == 3 and lvl<=5:
@@ -530,8 +532,26 @@ if args.pretrain:
         if cvg_cnt == 10:break
     exit(0)
 
-assert args.onlydecoder, "Only support decoder update now to accelerate!"
+if args.speed_test:
+    # speed of more views, olft vs. original
 
+    nv = 6 #1...6
+    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
+        transform=shared_transforms,category_id=args.category_id,num_views=nv,)
+    model, _, _ = get_model_n_optimizer_n_score_from_level(CODEC_NAME,0,args.category_id,num_views=test_dataset.num_views)
+    _, stats = test(0, model, test_dataset)
+# encoder
+# original: [5.94,4.30,3.27,2.50,2.05,1.78]
+# decoder is a bit complex as there are two
+# 0.003514678156313797 0.005066935391165316
+# 0.0038382569160312413 0.005380996245269974
+# 0.0041302489172667265 0.005700193654124936
+# 0.004484572874847799 0.006108296576421708
+# 0.004801990651059896 0.006426506982650608
+# 0.005413683934137225 0.007108943206723779
+
+assert args.onlydecoder, "Only support decoder update now to accelerate!"
 # use category 1, 6 views for example
 # test schedule:
 # 0. Check it works on different category (done)
@@ -546,32 +566,102 @@ assert args.onlydecoder, "Only support decoder update now to accelerate!"
 # 9. vary data ratio
 # 10. train each level until no improvement in three consecutive iterations, record perf each epoch
 
+
 for cl in range(4):
-    converge_cnt = 0
-    best_psnr = 0
-    for epoch in range(100):
+    args.compression_level = cl
+    for cat in range(5):
+        args.category_id = cat
+
         si_no_compression = probe_sample_interval(False)
-        si = probe_sample_interval(True)
+        args.sample_interval = probe_sample_interval(True)
+        print("SI:",si_no_compression,args.sample_interval,"cat:",cat)
+
+        shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+        train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+            transform=shared_transforms,category_id=cat,num_views=args.num_views,
+            data_ratio=args.data_ratio, sample_interval=args.sample_interval,c2s_ratio=args.c2s_ratio)
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+            transform=shared_transforms,category_id=cat,num_views=args.num_views,
+            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
+
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level, 
+                                                                    cat, onlydecoder=args.onlydecoder,
+                                                                num_views=train_dataset.num_views)
+
+        _, stats0 = test(0, model, test_dataset)
+
+        train(0, model, train_dataset, optimizer)
+
+
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+            transform=shared_transforms,category_id=cat,num_views=args.num_views,
+            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
+        _, stats = test(0, model, test_dataset)
+        
+        # record stat
+        si_after_training = probe_sample_interval(probe_dataset=train_dataset,probe_model=model,optimizer=optimizer)
+        with open(f'MCVC-IA-OLFT.cat.log','a') as f:
+            f.write(f'{args.category_id},{args.compression_level},{stats0[0]:.4f},{stats0[1]:.4f},{stats0[2]:.4f},{stats[1]:.4f},{stats[2]:.4f},{si_no_compression},{args.sample_interval},{si_after_training}\n')
+exit(0)
+for cl in [3]:
+    for nv in range(1,7):
+        converge_cnt = 0
+        best_psnr = 0
 
         shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
         train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',
-            transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
-            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s)
-
+            transform=shared_transforms,category_id=args.category_id,num_views=nv,
+            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
         test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
-            transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
-            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s)
-        
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,cl, 
-                                                                    args.category_id, onlydecoder=args.onlydecoder,
-                                                                num_views=train_dataset.num_views)
+            transform=shared_transforms,category_id=args.category_id,num_views=nv,
+            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
+        print("LONG cat:",args.category_id, "c2s",args.c2s_ratio,"sr",args.sample_ratio,'NV:',nv,train_dataset.num_views)
 
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,cl, 
+                                                                    args.category_id, onlydecoder=False,
+                                                                num_views=nv)
+
+        for epoch in range(100):
+            train(0, model, train_dataset, optimizer)
+            _, stats = test(0, model, test_dataset)
+        
+            with open(f'MCVC-IA-OLFT.longterm.nv.log','a') as f:
+                f.write(f'{cl},{nv},{epoch},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f}\n')
+
+            if stats[1] > best_psnr:
+                converge_cnt = 0
+                best_psnr = stats[1]
+            else:
+                converge_cnt += 1
+                if converge_cnt == 3:
+                    break
+
+exit(0)
+
+
+for cl in range(4):
+    converge_cnt = 0
+    best_psnr = 0
+    shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+    train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='train',
+        transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
+        data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
+
+    test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='test',
+        transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
+        data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
+    
+    model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,cl, 
+                                                                args.category_id, onlydecoder=args.onlydecoder,
+                                                            num_views=train_dataset.num_views)
+
+    for epoch in range(100):
         train(0, model, train_dataset, optimizer)
         _, stats = test(0, model, test_dataset)
 
-        if stats[3] > best_psnr:
+        if stats[2] > best_psnr:
             converge_cnt = 0
-            best_psnr = stats[3]
+            best_psnr = stats[2]
         else:
             converge_cnt += 1
             if converge_cnt == 3:
@@ -579,23 +669,20 @@ for cl in range(4):
             
         with open(f'MCVC-IA-OLFT.longterm.log','a') as f:
             f.write(f'{cl},{epoch},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f}\n')
-exit(0)
-            
-# should train more epochs til converge
+
+
 for cl in range(4):
     for nv in range(1,7):
-        si_no_compression = probe_sample_interval(False)
         si = probe_sample_interval(True)
-        print("Sampling interval:",si_no_compression,"cat:",args.category_id,
-              "c2s",args.c2s_ratio,"si",si,"sr",args.sample_ratio,'NV:',nv)
+        print("SHORT cat:",args.category_id, "c2s",args.c2s_ratio,"si",si,"sr",args.sample_ratio,'NV:',nv)
 
         shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=args.category_id,num_views=nv,
-            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
         train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
             transform=shared_transforms,category_id=args.category_id,num_views=nv,
             data_ratio=args.data_ratio, sample_interval=si,c2s_ratio=args.c2s_ratio)
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+            transform=shared_transforms,category_id=args.category_id,num_views=nv,
+            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
 
         model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,cl, 
                                                                     args.category_id, onlydecoder=args.onlydecoder,
@@ -603,14 +690,38 @@ for cl in range(4):
 
         train(0, model, train_dataset, optimizer)
         _, stats = test(0, model, test_dataset)
-        
-        si_after_training = probe_sample_interval(probe_dataset=train_dataset,probe_model=model,optimizer=optimizer)
-        with open(f'MCVC-IA-OLFT.nv.log','a') as f:
-            f.write(f'{nv},{cl},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f},{si_no_compression},{si},{si_after_training}\n')
+    
+        with open(f'MCVC-IA-OLFT.shortterm.nv.log','a') as f:
+            f.write(f'{cl},{nv},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f}\n')
 
+exit(0)
+for cl in range(4):
+    # for dr in [0.2,0.4,0.6,0.8,1]:
+    # for dr in [0.01,0.02,0.03,0.04,0.05,0.1]:
+    for dr in [0.06,0.07,0.08,0.09,0.11,0.12,.13,.14,.15,.16,.17,.18,.19]:
+        si = probe_sample_interval(True)
+        print("SI:",si,"cat:",args.category_id,"dr",dr)
+
+        shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
+        train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+            transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
+            data_ratio=dr, sample_interval=si,c2s_ratio=args.c2s_ratio,)
+
+        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
+            transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
+            data_ratio=dr, sample_interval=0,c2s_ratio=args.c2s_ratio)
+        
+        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,cl, 
+                                                                    args.category_id, onlydecoder=args.onlydecoder,
+                                                                num_views=train_dataset.num_views)
+
+        train(0, model, train_dataset, optimizer)
+        _, stats = test(0, model, test_dataset)
+        with open(f'MCVC-IA-OLFT.dr.log','a') as f:
+            f.write(f'{dr},{cl},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f},{si}\n')
 
 for cl in range(4):
-    for c2s in [0.7,0.87]:
+    for c2s in [0.7,0.87,1.33]:
         si_no_compression = probe_sample_interval(False)
         args.sample_interval = probe_sample_interval(True)
         print("SI:",si_no_compression,args.sample_interval,"cat:",args.category_id,"c2s",c2s)
@@ -637,7 +748,7 @@ for cl in range(4):
             f.write(f'{c2s},{cl},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f},{si_no_compression},{args.sample_interval},{si_after_training}\n')
 
 for cl in range(4):
-    for mps in [1,5,10,15]:
+    for mps in [1,5,10,15,20]:
         si_no_compression = probe_sample_interval(False)
         si = probe_sample_interval(True)
         print("SI:",si_no_compression,si,"cat:",args.category_id,"mps",mps)
@@ -727,70 +838,6 @@ for cl in range(4):
                                                             num_views=train_dataset.num_views)
     model.real_compression = True
     train(0, model, train_dataset, optimizer, test_dataset=test_dataset,codec=args.codec,print_header=[cl,])
-
-
-for cl in range(4):
-    for dr in [0.2,0.4,0.6,0.8,1]:
-        si_no_compression = probe_sample_interval(False)
-        si = probe_sample_interval(True)
-        print("SI:",si_no_compression,si,"cat:",args.category_id,"dr",dr)
-
-        shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-        train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
-            data_ratio=dr, sample_interval=si,c2s_ratio=args.c2s_ratio,max_pool_size=args.max_pool_size)
-
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=args.category_id,num_views=args.num_views,
-            data_ratio=dr, sample_interval=0,c2s_ratio=args.c2s_ratio)
-        
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,cl, 
-                                                                    args.category_id, onlydecoder=args.onlydecoder,
-                                                                num_views=train_dataset.num_views)
-
-        train(0, model, train_dataset, optimizer)
-        _, stats = test(0, model, test_dataset)
-
-        # record stat
-        si_after_training = probe_sample_interval(probe_dataset=train_dataset,probe_model=model,optimizer=optimizer)
-        with open(f'MCVC-IA-OLFT.dr.log','a') as f:
-            f.write(f'{dr},{cl},{stats[0]:.4f},{stats[1]:.4f},{stats[2]:.4f},{si_no_compression},{si},{si_after_training}\n')
-
-for cl in range(4):
-    args.compression_level = cl
-    for cat in range(5):
-        args.category_id = cat
-
-        si_no_compression = probe_sample_interval(False)
-        args.sample_interval = probe_sample_interval(True)
-        print("SI:",si_no_compression,args.sample_interval,"cat:",cat)
-
-        shared_transforms = transforms.Compose([transforms.Resize(size=(256,256)),transforms.ToTensor()])
-        train_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=cat,num_views=args.num_views,
-            data_ratio=args.data_ratio, sample_interval=args.sample_interval,c2s_ratio=args.c2s_ratio)
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=cat,num_views=args.num_views,
-            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
-
-        model, optimizer, best_codec_score = get_model_n_optimizer_n_score_from_level(CODEC_NAME,args.compression_level, 
-                                                                    cat, onlydecoder=args.onlydecoder,
-                                                                num_views=train_dataset.num_views)
-
-        _, stats0 = test(0, model, test_dataset)
-
-        train(0, model, train_dataset, optimizer)
-
-
-        test_dataset = MultiViewVideoDataset('../dataset/multicamera/',split='all',
-            transform=shared_transforms,category_id=cat,num_views=args.num_views,
-            data_ratio=args.data_ratio, sample_interval=0,c2s_ratio=args.c2s_ratio)
-        _, stats = test(0, model, test_dataset)
-        
-        # record stat
-        si_after_training = probe_sample_interval(probe_dataset=train_dataset,probe_model=model,optimizer=optimizer)
-        with open(f'MCVC-IA-OLFT.cat.log','a') as f:
-            f.write(f'{args.category_id},{args.compression_level},{stats0[0]:.4f},{stats0[1]:.4f},{stats0[2]:.4f},{stats[1]:.4f},{stats[2]:.4f},{si_no_compression},{args.sample_interval},{si_after_training}\n')
 
 for cl in range(4):
     sr_list = [0,0.001,0.01,0.1,1]

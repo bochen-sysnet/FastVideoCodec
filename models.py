@@ -100,7 +100,7 @@ def compress_whole_video(name, raw_clip, Q, width=256,height=256, GOP=16, frame_
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset medium -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
     elif name == 'x265-veryslow':
         # cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryslow -x265-params "crf={Q}:keyint={GOP}:verbose=1" {output_filename}'
-        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryslow -x265-params "crf={Q}:verbose=1" {output_filename}'
+        cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx265 -pix_fmt yuv420p -preset veryslow -x265-params "crf={Q}:bframes=0:verbose=1" {output_filename}'
     elif name == 'x264-veryfast':
         cmd = f'/usr/bin/ffmpeg -y -s {width}x{height} -pixel_format bgr24 -f rawvideo -r {fps} -i pipe: -vcodec libx264 -pix_fmt yuv420p -preset veryfast -tune zerolatency -crf {Q} -g {GOP} -bf 2 -b_strategy 0 -sc_threshold 0 -loglevel debug {output_filename}'
     elif name == 'x264-medium':
@@ -2294,7 +2294,6 @@ class MCVC(ScaleSpaceFlow):
         self.real_compression=False
         self.use_compression=True
 
-
     def forward(self, frames):
         # if not forced, mask 0,1,...,resilience frames
         # if forced, remove specific frames
@@ -2397,5 +2396,5 @@ class MCVC(ScaleSpaceFlow):
 
             # final reconstruction: prediction + residual
             masked_x_rec = x_pred + masked_x_res_hat
-
+            
             return x_rec, masked_x_rec, {"motion": motion_likelihoods, "residual": res_likelihoods}
